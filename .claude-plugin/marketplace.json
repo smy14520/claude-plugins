@@ -1,6 +1,6 @@
 {
   "$schema": "https://anthropic.com/claude-code/marketplace.schema.json",
-  "name": "claude-plugins",
+  "name": "camellia-plugins",
   "version": "1.0.0",
   "description": "Personal plugin marketplace for Claude Code",
   "owner": {
