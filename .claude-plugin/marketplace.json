@@ -1,0 +1,23 @@
+{
+  "$schema": "https://anthropic.com/claude-code/marketplace.schema.json",
+  "name": "claude-plugins",
+  "version": "1.0.0",
+  "description": "Personal plugin marketplace for Claude Code",
+  "owner": {
+    "name": "camellia",
+    "email": "camellia@gmail.com"
+  },
+  "plugins": [
+    {
+      "name": "autolearn-sdd-kit",
+      "description": "Compounding Auto-Learning + Spec-Driven Development workflow (commands + agents + skills)",
+      "version": "0.1.0",
+      "source": "./plugins/autolearn-sdd-kit",
+      "category": "development",
+      "author": {
+        "name": "camellia",
+        "email": "camellia@gmail.com"
+      }
+    }
+  ]
+}
