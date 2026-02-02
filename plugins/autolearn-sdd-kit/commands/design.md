@@ -19,9 +19,9 @@ agent: Architect
 
 1. 调用 **Architect** Agent
 2. Architect 设计 Spec & Plan
-3. 产出 `~/.claude/context/plans/<需求名>-plan.md`
+3. 产出 `.claude/context/plans/<需求名>-plan.md`
    - 文件头包含 `review_status: pending`
-4. ⏸️ **暂停等待确认**
+4. ⏸️ **必须暂停等待确认**（禁止自动继续）
 
 ## 确认流程
 

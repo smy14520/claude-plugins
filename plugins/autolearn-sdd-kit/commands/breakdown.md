@@ -17,21 +17,21 @@ agent: TaskPlanner
 
 ## 前置条件
 
-- `plans/<需求名>-plan.md` 的 `review_status` 必须为 `approved`
+- `.claude/context/plans/<需求名>-plan.md` 的 `review_status` 必须为 `approved`
 
 ## 执行
 
 1. 检查设计方案是否已确认
-2. 读取 `~/.claude/context/plans/<需求名>-plan.md`
+2. 读取 `.claude/context/plans/<需求名>-plan.md`
 3. 调用 **TaskPlanner** Agent
 4. TaskPlanner 分解任务，每个 Task：
    - 标注 `role`（frontend / backend / mobile / devops）
    - 标注 `stack`（技术栈）
    - 拆分 3-5 个可执行小点
-5. 产出 `~/.claude/context/tasks/<需求名>.tasks.md`
+5. 产出 `.claude/context/tasks/<需求名>.tasks.md`
    - 文件头包含 `review_status: pending`
    - 文件头包含 `confirm_each: false`
-6. ⏸️ **暂停等待确认**
+6. ⏸️ **必须暂停等待确认**（禁止自动继续）
 
 ## 确认流程
 

@@ -17,12 +17,12 @@ agent: Developer
 
 ## 前置条件
 
-- `tasks/<需求名>.tasks.md` 的 `review_status` 必须为 `approved`
+- `.claude/context/tasks/<需求名>.tasks.md` 的 `review_status` 必须为 `approved`
 
 ## 执行
 
 1. 检查任务清单是否已确认
-2. 读取 `~/.claude/context/tasks/<需求名>.tasks.md`
+2. 读取 `.claude/context/tasks/<需求名>.tasks.md`
 3. 调用 **Developer** Agent（开发统筹）
 4. Developer 根据 Task 的 `role` 调度专业开发者：
    - `frontend` → FrontendDeveloper

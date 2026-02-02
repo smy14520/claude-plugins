@@ -16,9 +16,8 @@ description: 生成模块索引
 
 ## 执行
 
-1. 识别项目: `project = basename(pwd)`
-2. 分析模块结构
-3. 产出 `~/.claude/context/modules/<project>/<模块名>-index.md`
+1. 分析模块结构
+2. 产出 `.claude/context/modules/<模块名>-index.md`
 
 ## 索引内容
 
