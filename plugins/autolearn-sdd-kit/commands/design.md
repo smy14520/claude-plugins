@@ -1,6 +1,6 @@
 ---
 command: /design
-description: 方案设计（含代码分析和访谈模式）
+description: 在需求已基本明确后，用于设计完整方案，包括代码分析和引导式澄清问题。
 agent: Architect
 ---
 

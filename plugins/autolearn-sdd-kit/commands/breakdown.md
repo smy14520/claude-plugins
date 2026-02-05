@@ -1,6 +1,6 @@
 ---
 command: /breakdown
-description: 任务分解
+description: 在需求不清晰或任务复杂时，将其拆解为可执行的步骤。
 agent: TaskPlanner
 ---
 
@@ -31,7 +31,27 @@ agent: TaskPlanner
 5. 产出 `.claude/context/tasks/<需求名>.tasks.md`
    - 文件头包含 `review_status: pending`
    - 文件头包含 `confirm_each: false`
-6. ⏸️ **必须暂停等待确认**（禁止自动继续）
+6. **可选：同步到 Beads**（如果系统安装了 bd）
+   - 检测命令：`which bd` 或 `where bd`（Windows）
+   - 如果有输出，将 Markdown 任务同步到 Beads：
+     ```bash
+     # 为每个 Task 创建 Beads issue
+     # 优先级规则：P0=阻塞其他任务，P1=正常，P2=可延后
+     bd create "<Task标题>" --label <role> -p <优先级>
+     # 设置依赖关系（如果有）
+     bd dep add <子任务ID> <父任务ID>
+     ```
+   - **将 Beads ID 记录到 Markdown**：在每个 Task 中添加 `**beads_id**` 字段
+     ```markdown
+     ## Task 1: 实现登录页面 ⏳
+     **role**: frontend
+     **stack**: React, TypeScript
+     **beads_id**: bd-abc123  ← 新增此行（与 role/stack 格式一致）
+
+     - [ ] 1.1 创建 Login 组件
+     - [ ] 1.2 实现表单验证
+     ```
+7. ⏸️ **必须暂停等待确认**（禁止自动继续）
 
 ## 确认流程
 
