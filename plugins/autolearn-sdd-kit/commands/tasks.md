@@ -1,17 +1,17 @@
 ---
-command: /plan
+command: /tasks
 description: 任务规划
 agent: TaskPlanner
 ---
 
-# /plan
+# /tasks
 
 调用 **TaskPlanner**（任务规划师）进行任务分解。
 
 ## 用法
 
 ```bash
-/plan <需求名>
+/tasks <需求名>
 ```
 
 ## 执行
