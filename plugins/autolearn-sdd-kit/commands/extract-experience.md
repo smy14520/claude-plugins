@@ -1,6 +1,6 @@
 ---
 command: /extract-experience
-description: 在完成任务后，总结并沉淀可复用的规则或流程。
+description: 沉淀经验
 agent: KnowledgeEngineer
 ---
 
