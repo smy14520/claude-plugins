@@ -81,7 +81,7 @@ Grep "TODO|FIXME|any|@ts-ignore"
 
 ## 产出模板
 
-**文件**: `.claude/context/plans/<需求名>-plan.md`
+**文件**: `./.claude/plans/<需求名>-plan.md`
 
 ```markdown
 ---
@@ -89,7 +89,6 @@ name: <需求名>
 project: <项目名>
 created: <日期>
 architect: Architect
-review_status: pending
 ---
 
 # <需求名> 设计方案
@@ -136,19 +135,15 @@ review_status: pending
 ### 9.2 后续优化建议
 ```
 
-## 完成后行为
+## 完成后
 
-⚠️ **【强制规则】** 设计完成后**必须立即暂停**，等待人工确认。
+设计完成后输出提示：
 
 ```
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-🔍 设计方案已完成，请审阅
-文件: .claude/context/plans/<需求名>-plan.md
+✅ 设计方案已完成
+文件: ./.claude/plans/<需求名>-plan.md
 
-- "确认" / "ok" → 继续 /breakdown
-- "修改: <意见>" → 修改后重新审阅
-- "重做" → 从头重新设计
+下一步: /plan <需求名>
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 ```
-
-确认后：`review_status: pending → approved`

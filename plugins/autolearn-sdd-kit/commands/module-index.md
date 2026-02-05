@@ -17,7 +17,7 @@ description: 生成模块索引
 ## 执行
 
 1. 分析模块结构
-2. 产出 `.claude/context/modules/<模块名>-index.md`
+2. 产出 `./.claude/modules/<模块名>-index.md`
 
 ## 索引内容
 

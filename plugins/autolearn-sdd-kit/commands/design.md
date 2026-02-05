@@ -13,8 +13,7 @@ agent: Architect
 ## 用法
 
 ```bash
-/design <需求描述>    # 直接开始设计
-/design               # /req-dev 流程中自动获取需求
+/design <需求描述>    # 开始设计
 ```
 
 ## 执行流程
@@ -32,8 +31,7 @@ Phase 2: Architecture Design
 Phase 3: ADR Documentation
   └─ 记录每个技术决策的 Context/Decision/Consequences/Alternatives
 
-产出: .claude/context/plans/<需求名>-plan.md
-  ⏸️ 【检查点】等待确认
+产出: ./.claude/plans/<需求名>-plan.md
 ```
 
 ## 架构分析能力
@@ -62,17 +60,13 @@ Phase 3: ADR Documentation
 ## 9. 风险与建议
 ```
 
-## 确认流程
+## 完成后
 
 ```
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-🔍 设计方案已完成，请审阅
-文件: .claude/context/plans/<需求名>-plan.md
+✅ 设计方案已完成
+文件: ./.claude/plans/<需求名>-plan.md
 
-- "确认" / "ok" → 继续 /breakdown
-- "修改: <意见>" → 修改后重新审阅
-- "重做" → 从头重新设计
+下一步: /plan <需求名>
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 ```
-
-确认后：`review_status: approved` → `/breakdown`

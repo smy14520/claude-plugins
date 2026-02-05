@@ -19,6 +19,6 @@ agent: KnowledgeEngineer
 
 1. 调用 **KnowledgeEngineer** Agent
 2. KnowledgeEngineer 提取关键信息
-3. 产出 `.claude/context/experience/<名称>.md`
-4. 更新 `.claude/context/experience/INDEX.md`
+3. 产出 `./.claude/experience/<名称>.md`
+4. 更新 `./.claude/experience/INDEX.md`
 5. 询问："发现规律？使用 /optimize-flow 沉淀为规则"

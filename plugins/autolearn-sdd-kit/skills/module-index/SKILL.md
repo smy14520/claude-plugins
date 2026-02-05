@@ -10,14 +10,14 @@ triggers: [/module-index]
 
 ## 路径说明
 
-**索引存储在项目目录**：`.claude/context/modules/`
+**索引存储在项目目录**：`./.claude/modules/`
 
 ```bash
 # 在项目目录执行
 /module-index app/Module/User
 
 # 保存到
-→ .claude/context/modules/User-index.md
+→ ./.claude/modules/User-index.md
 ```
 
 ## 命令
@@ -31,7 +31,7 @@ triggers: [/module-index]
 ## 输出目录结构
 
 ```
-.claude/context/modules/
+./.claude/modules/
 ├── User-index.md
 ├── Order-index.md
 └── AiCreationCenter-index.md
@@ -47,13 +47,13 @@ triggers: [/module-index]
 
 ## 自动更新
 
-完成后自动更新 `.claude/context/modules/INDEX.md`
+完成后自动更新 `./.claude/modules/INDEX.md`
 
 ## 如何被使用
 
 当执行 `/req-dev` 或 `/detect-context` 时：
 1. `detect-context` 识别当前项目
-2. 查看 `.claude/context/modules/` 下有哪些索引
+2. 查看 `./.claude/modules/` 下有哪些索引
 3. 根据需求关键词匹配模块名
 4. 自动加载匹配的模块索引
 
@@ -61,7 +61,7 @@ triggers: [/module-index]
 ```
 需求: "修改 User 模块的登录逻辑"
         ↓
-匹配: .claude/context/modules/User-index.md
+匹配: ./.claude/modules/User-index.md
         ↓
 AI 获得 User 模块结构，直接定位关键代码
 ```

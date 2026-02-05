@@ -6,11 +6,11 @@ triggers: [/index-rebuild, /index-update]
 
 # index-manager
 
-维护 `.claude/context/experience/INDEX.md` 反向索引。
+维护 `./.claude/experience/INDEX.md` 反向索引。
 
 ## 路径说明
 
-**索引文件位于项目目录**：`.claude/context/experience/INDEX.md`
+**索引文件位于项目目录**：`./.claude/experience/INDEX.md`
 
 ## 命令
 

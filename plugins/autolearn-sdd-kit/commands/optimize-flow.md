@@ -30,7 +30,7 @@ agent: KnowledgeEngineer
    - message: 提示信息
    - solution: 解决方案
 3. 生成规则预览
-4. 确认后追加到 `.claude/context/rules/risk-rules.md`
+4. 确认后追加到 `./.claude/rules/risk-rules.md`
 
 ## 规则格式
 

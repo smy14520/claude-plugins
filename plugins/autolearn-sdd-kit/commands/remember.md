@@ -22,7 +22,7 @@ description: 即时记录坑点
 
 ## 执行
 
-追加到 `.claude/context/experience/坑点记录.md`
+追加到 `./.claude/experience/坑点记录.md`
 
 ```markdown
 ## 2026-01-31
