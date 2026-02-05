@@ -1,7 +1,7 @@
 {
   "name": "autolearn-sdd-kit",
   "version": "0.1.0",
-  "description": "AutoLearn-SDD-Kit: Compounding learning + SDD workflow with /req-dev orchestration",
+  "description": "AutoLearn-SDD-Kit: Compounding learning + SDD workflow",
   "author": {
     "name": "camellia",
     "email": "camellia@gmail.com"

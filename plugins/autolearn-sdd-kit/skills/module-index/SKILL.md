@@ -51,7 +51,7 @@ triggers: [/module-index]
 
 ## 如何被使用
 
-当执行 `/req-dev` 或 `/detect-context` 时：
+当执行  `/detect-context` 时：
 1. `detect-context` 识别当前项目
 2. 查看 `./.claude/modules/` 下有哪些索引
 3. 根据需求关键词匹配模块名
