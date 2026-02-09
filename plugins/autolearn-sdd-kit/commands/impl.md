@@ -28,21 +28,23 @@ agent: Developer
 ## 执行示例
 
 ```
-【Developer 执行中】
-━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+✅ 开发任务已完成
 
 需求: GitHub-SSO登录
 
+完成清单:
 ✅ Task 1: 实现登录页面 (frontend)
-   Stack: React, TypeScript
-   ✓ 1.1 创建 Login 组件
-   ✓ 1.2 实现表单验证
-
 ✅ Task 2: 实现 OAuth 后端 (backend)
-   Stack: Node.js, Express
-   ✓ 2.1 创建 /auth/github 路由
-   ✓ 2.2 实现 token 交换
 
-━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-全部完成！建议执行 /extract-experience
+修改文件:
+- src/components/Login.tsx
+- src/pages/login.tsx
+- server/routes/auth.ts
+- server/services/oauth.ts
+
+下一步: /extract-experience GitHub-SSO登录
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 ```
+
+**完成后必须立即返回，不要挂起等待。**
