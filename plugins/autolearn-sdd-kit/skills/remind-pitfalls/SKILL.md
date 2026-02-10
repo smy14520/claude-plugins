@@ -12,7 +12,7 @@ output: [pitfalls: array]
 
 ## 执行流程
 
-1. **规则匹配** → `rules/risk-rules.md`（优先，0 token）
+1. **规则匹配** → `./.claude/rules/risk-rules.md`（优先，0 token）
 2. **经验提取** → 已加载的经验文档（兜底）
 3. **去重合并** → 按严重程度排序
 
