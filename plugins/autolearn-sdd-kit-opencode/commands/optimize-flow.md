@@ -1,0 +1,42 @@
+---
+description: 沉淀规则
+agent: knowledge-engineer
+subtask: true
+---
+
+调用 **knowledge-engineer** 将经验沉淀为风险规则。
+
+## 用法
+
+```
+/optimize-flow "<规则描述>"
+```
+
+等价于：`$ARGUMENTS` 为规则描述。
+
+## 示例
+
+```
+/optimize-flow "SSE 长连接禁止持有数据库连接"
+/optimize-flow "OAuth 回调必须验证 state 参数防止 CSRF"
+```
+
+## 执行
+
+1. 调用 **knowledge-engineer** subagent
+2. 分析 `$ARGUMENTS` 描述，提取：
+   - trigger: 触发关键词
+   - level: 风险等级
+   - message: 提示信息
+   - solution: 解决方案
+3. 生成规则预览
+4. 确认后追加到 `./.claude/rules/risk-rules.md`（与 Claude Code 共享）
+
+## 规则格式
+
+```yaml
+- trigger: ["SSE", "长连接", "流式"]
+  level: high
+  message: "SSE 长连接禁止持有数据库连接"
+  solution: "使用 Redis 缓存"
+```
