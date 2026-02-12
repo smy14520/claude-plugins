@@ -1,12 +1,12 @@
 ---
 command: /index-rebuild
 description: 重建经验索引
-aliases: [/index-update]
+aliases: ["/index-update"]
 ---
 
 # /index-rebuild
 
-维护 `.claude/context/experience/INDEX.md` 反向索引。
+维护 `.claude/experience/INDEX.md` 反向索引。
 
 ## 用法
 
@@ -17,13 +17,13 @@ aliases: [/index-update]
 
 ## 路径说明
 
-**索引文件位于项目目录**：`.claude/context/experience/INDEX.md`
+**索引文件位于项目目录**：`.claude/experience/INDEX.md`
 
 ## 如何重建索引
 
 执行完整重建：
 
-1. **扫描所有经验文档**：遍历 `.claude/context/experience/` 目录
+1. **扫描所有经验文档**：遍历 `.claude/experience/` 目录
 2. **解析元数据**：从每个文档的 frontmatter 中提取元数据
 3. **构建反向索引**：按 Tag、模块、日期等维度建立索引
 4. **生成 INDEX.md**：输出结构化的索引文件

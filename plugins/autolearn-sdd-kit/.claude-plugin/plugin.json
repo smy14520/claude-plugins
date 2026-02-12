@@ -1,12 +1,12 @@
 {
   "name": "autolearn-sdd-kit",
-  "version": "0.1.0",
-  "description": "AutoLearn-SDD-Kit: Compounding learning + SDD workflow",
+  "version": "0.2.0",
+  "description": "AutoLearn-SDD-Kit: 知识复利 + SDD 工作流",
   "author": {
     "name": "camellia",
     "email": "camellia@gmail.com"
   },
-  "skills": ["./skills/", "./commands/"],
+  "commands": ["./commands/"],
   "agents": [
     "./agents/Architect.md",
     "./agents/TaskPlanner.md",

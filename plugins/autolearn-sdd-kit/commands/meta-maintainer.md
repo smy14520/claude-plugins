@@ -1,7 +1,7 @@
 ---
 command: /meta-maintain
 description: 检查并更新经验文档的元数据
-aliases: [/meta-check]
+aliases: ["/meta-check"]
 ---
 
 # /meta-maintain
