@@ -1,7 +1,7 @@
 ---
 name: ui-vision
 description: "UI 截图/原型/设计稿视觉结构化解析。ONLY use when explicitly invoked by the user via @ui-vision"
-model: claude-sonnet-4-5  # 可改为任意支持 vision 的模型
+model: kimi-k2.5  # 可改为任意支持 vision 的模型
 tools: []
 ---
 

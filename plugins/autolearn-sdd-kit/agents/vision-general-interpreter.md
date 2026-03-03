@@ -1,7 +1,7 @@
 ---
 name: img-vision
 description: "通用图片视觉理解（照片/文档/图表/流程图/代码截图/表格/海报等）。ONLY use when explicitly invoked by the user via @img-vision"
-model: claude-sonnet-4-5  # 可改为任意支持 vision 的模型
+model: kimi-k2.5  # 可改为任意支持 vision 的模型
 tools: []
 ---
 # img-vision（通用图片解析器）
