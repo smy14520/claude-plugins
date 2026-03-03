@@ -12,6 +12,8 @@
     "./agents/TaskPlanner.md",
     "./agents/Developer.md",
     "./agents/KnowledgeEngineer.md",
-    "./agents/ContextDetective.md"
+    "./agents/ContextDetective.md",
+    "./agents/vision-ui-interpreter.md",
+    "./agents/vision-general-interpreter.md"
   ]
 }
