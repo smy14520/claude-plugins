@@ -1,18 +1,18 @@
 ---
 command: /remember
-description: 即时记录坑点（支持标签分类）
+description: 即时记录 Gotcha（易错点），支持标签分类
 ---
 
 # /remember
 
-即时记录坑点，不中断当前工作流。支持标签分类。
+即时记录 Gotcha（易错点），不中断当前工作流。按标签自动分文件存储。
 
 ## 用法
 
 ```bash
-/remember "<坑点描述>"
-/remember --tag=auth "<坑点描述>"
-/remember --tag=database,performance "<坑点描述>"
+/remember "<描述>"
+/remember --tag=auth "<描述>"
+/remember --tag=database,performance "<描述>"
 ```
 
 ## 示例
@@ -25,42 +25,41 @@ description: 即时记录坑点（支持标签分类）
 
 ## 执行
 
-追加到 `./.claude/experience/坑点记录.md`
+### 动作 1：写入对应标签文件
 
-### 存储格式
+存储目录：`./.claude/experience/gotchas/`
 
-**有标签时**，按标签分组追加：
+**按标签分文件**：
+- `--tag=oauth` → 写入 `gotchas/oauth.md`
+- `--tag=database` → 写入 `gotchas/database.md`
+- 无标签 → 写入 `gotchas/general.md`
+- 多标签 → 每个标签文件各写一份
+
+**单个文件格式**：
 
 ```markdown
-#### #oauth
-- [2026-02-11] OAuth 回调必须验证 state 参数
+# Gotchas: oauth
 
-#### #database
-- [2026-02-11] 连接池默认值太小，需要调到 20
+- [2026-02-11] OAuth 回调必须验证 state 参数
+- [2026-03-05] refresh_token 过期后必须重新走授权流程
 ```
 
-**无标签时**，追加到 `#### #未分类` 分组：
+**文件不存在时**自动创建，**已存在时**在末尾追加一行。
+
+### 动作 2：更新 INDEX.md
+
+更新 `./.claude/experience/gotchas/INDEX.md`：
+
+- **文件不存在** → 创建
+- **该标签行已存在** → 更新条目数和日期
+- **该标签行不存在** → 追加一行
 
 ```markdown
-#### #未分类
-- [2026-02-11] 雅典娜配置有 20 种商品类型，要逐一处理
-```
+# Gotchas 索引
 
-**多标签时**，在每个标签分组下都追加一份。
-
-### 完整文件结构
-
-```markdown
-# 坑点记录
-
-## 2026-02
-
-#### #oauth
-- [2026-02-11] OAuth 回调必须验证 state 参数
-
-#### #database
-- [2026-02-11] 连接池默认值太小，需要调到 20
-
-#### #未分类
-- [2026-02-09] 配置格式有特殊要求
+| 标签 | 文件 | 条目数 | 最后更新 |
+|------|------|--------|----------|
+| oauth | [oauth.md](./oauth.md) | 2 | 2026-03-05 |
+| database | [database.md](./database.md) | 3 | 2026-02-15 |
+| general | [general.md](./general.md) | 1 | 2026-02-09 |
 ```
