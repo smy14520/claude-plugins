@@ -18,33 +18,19 @@ agent: Developer
 
 1. 读取 `./.claude/tasks/<需求名>.tasks.md`
 2. 调用 **Developer** Agent
-3. 按 Task 顺序执行：
-   - 读取 `role` 和 `stack` 标签
-   - 根据技术栈调整实现策略
-   - 执行该 Task 的所有小点
-   - 更新 checkbox 状态
-4. 全部完成后提醒 `/extract-experience`
+3. 使用 TaskCreate 注册所有 Task 到系统
+4. 按 Task 顺序执行，TaskUpdate 追踪进度
+5. 如果 Task 标注了 `depends_on: []` 且用户要求并行，可用 Agent 工具派发 subagent
+6. 执行时以 tasks 文件为准，不要自行补充未被任务或验收标准要求的功能性复杂度
+7. 全部完成后提醒 `/extract-experience`
 
-## 执行示例
+## 用户指令优先
 
-```
-━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-✅ 开发任务已完成
-
-需求: GitHub-SSO登录
-
-完成清单:
-✅ Task 1: 实现登录页面 (frontend)
-✅ Task 2: 实现 OAuth 后端 (backend)
-
-修改文件:
-- src/components/Login.tsx
-- src/pages/login.tsx
-- server/routes/auth.ts
-- server/services/oauth.ts
-
-下一步: /extract-experience GitHub-SSO登录
-━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-```
+用户可以在任何时候用自然语言控制行为：
+- "不写测试" → 跳过测试
+- "要写测试" → 强制写测试
+- "并行实现" → 无依赖 Task 并行执行
+- "这个 Task 跳过" → 跳过指定 Task
+- CLAUDE.md 中的配置优先级最高
 
 **完成后必须立即返回，不要挂起等待。**
