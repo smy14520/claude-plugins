@@ -23,6 +23,9 @@ aliases: ["/meta-check"]
 | files_exist | 引用文件是否存在 | 检查相关文件路径 | ❌ |
 | updated | 日期是否准确 | 对比文件修改时间 | ✅ |
 | related | 引用文档是否存在 | 验证 related 文档存在 | ✅ |
+| summary_kind | `summary/kind` 是否缺失或无效 | 检查 frontmatter | ✅ |
+| tags_quality | tags 是否为空、过多或信号过弱 | 检查 frontmatter | ❌ |
+| index_drift | INDEX 与文档元数据是否不一致 | 对比索引行与 frontmatter | ✅ |
 | content_stale | 内容是否过时 | 语义分析需人工判断 | ❌ |
 
 ## 每个检查项如何执行
@@ -76,7 +79,34 @@ aliases: ["/meta-check"]
 
 **自动修复**：使用 `--auto-fix` 时自动删除无效引用
 
-### 4. content_stale（内容过时检查）
+### 4. summary_kind（最小检索元数据检查）
+
+**执行流程**：
+1. 检查文档是否包含 `summary` 与 `kind`
+2. 验证 `summary` 是否为一句话短摘要
+3. 验证 `kind` 是否属于 `pattern | gotcha | decision | checklist`
+
+**自动修复**：使用 `--auto-fix` 时可补齐空缺字段占位值；不自动扩写正文。
+
+### 5. tags_quality（标签质量检查）
+
+**执行流程**：
+1. 检查 `tags` 是否为空
+2. 检查标签数量是否明显过多（如超过 5 个）
+3. 检查是否存在过于泛化、无法支持检索的标签
+
+**修复方式**：人工收敛为 2–5 个高信号标签。
+
+### 6. index_drift（索引漂移检查）
+
+**执行流程**：
+1. 读取 `INDEX.md` 中对应文档条目
+2. 对比名称、标签、关键文件、类型、更新日期、摘要是否与 frontmatter 一致
+3. 报告不一致项
+
+**自动修复**：使用 `--auto-fix` 时同步索引字段。
+
+### 7. content_stale（内容过时检查）
 
 **执行流程**：
 1. 分析文档内容中的代码示例
@@ -92,6 +122,11 @@ aliases: ["/meta-check"]
 ```
 
 **修复方式**：需要人工审查和更新
+
+## 维护边界
+
+- 只检查高价值元数据与索引一致性问题，不做重型内容审查
+- 目标是提升检索质量和控制知识膨胀，而不是把每篇经验文档都重写一遍
 
 ## 建议执行频率
 

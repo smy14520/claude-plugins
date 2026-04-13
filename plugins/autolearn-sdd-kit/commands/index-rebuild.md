@@ -25,8 +25,8 @@ aliases: ["/index-update"]
 
 1. **扫描所有经验文档**：遍历 `.claude/experience/` 目录
 2. **解析元数据**：从每个文档的 frontmatter 中提取元数据
-3. **构建反向索引**：按 Tag、模块、日期等维度建立索引
-4. **生成 INDEX.md**：输出结构化的索引文件
+3. **构建反向索引**：按 Tag、模块、日期等维度建立索引，并保留紧凑的检索摘要
+4. **生成 INDEX.md**：输出结构化的索引文件，优先服务定位与候选过滤
 
 ## 如何增量更新
 
@@ -39,37 +39,26 @@ aliases: ["/index-update"]
 
 ## 索引结构
 
+> ⚠️ `INDEX.md` 是纯索引文件，目标是“查找 → 定位 → 候选过滤”，不要重复正文内容。
+
 ```markdown
 # 经验文档索引
 
-## 按标签索引
-- #oauth: [OAuth最佳实践.md, GitHub SSO集成.md]
-- #database: [数据库连接池优化.md, 查询性能优化.md]
-
-## 按模块索引
-- Auth: [OAuth最佳实践.md, 用户认证模块.md]
-- User: [用户注册流程.md, 个人信息管理.md]
-
-## 按日期索引
-- 2024-01: [OAuth最佳实践.md, 数据库连接池优化.md]
-- 2024-02: [GitHub SSO集成.md]
-
-## 文档列表
-1. OAuth最佳实践.md
-   - Tags: #oauth, #security
-   - Module: Auth
-   - Updated: 2024-01-15
-   - Related: [GitHub SSO集成.md]
-2. 数据库连接池优化.md
-   - Tags: #database, #performance
-   - Module: Common
-   - Updated: 2024-01-20
-   - Related: []
+| 名称 | 标签 | 关键文件 | 类型 | 更新日期 | 摘要 |
+|------|------|---------|------|----------|------|
+| [OAuth最佳实践.md](./OAuth最佳实践.md) | `oauth`, `security` | `src/auth/**` | `pattern` | 2024-01-15 | 处理 OAuth 接入时优先检查 state、token 生命周期与回调链路一致性 |
+| [数据库连接池优化.md](./数据库连接池优化.md) | `database`, `performance` | `src/db/**` | `checklist` | 2024-01-20 | 调整连接池或长连接逻辑时先检查池大小、释放时机和超时配置 |
 ```
+
+**INDEX.md 规则**：
+- ✅ 保留紧凑表格，优先服务检索和候选过滤
+- ✅ 摘要只写一句话，用于快速判断是否值得继续读取正文
+- ❌ 不要把通用流程、坑点展开、代码示例塞进 INDEX
+- 📌 更详细的场景判断放在文档 frontmatter 和正文中
 
 ## 自动触发
 
-自动在 `/extract-experience` 完成后触发更新。
+通常在 `/extract-experience` 完成后自动更新；手动执行主要用于批量编辑、索引修复或文档迁移后重建一致性。
 
 ## 使用场景
 
