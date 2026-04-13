@@ -10,7 +10,7 @@
 
 | Agent | 功能 | 触发方式 |
 |-------|------|----------|
-| `context-detective` | 从知识库精准检索相关经验和风险提示 | `@context-detective` 或自动触发 |
+| `context-detective` | 从知识库按需精准检索相关经验和风险提示 | 用户显式调用 `@context-detective` |
 | `knowledge-engineer` | 从开发实践中提炼经验和规则 | 通过命令触发 |
 
 ### Commands（6 个命令）

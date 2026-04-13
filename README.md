@@ -51,9 +51,9 @@ Claude Code / OpenCode 知识管理插件集合。
 | `/index-rebuild` | 重建经验索引 |
 | `/meta-maintain` | 检查元数据健康度 |
 
-## Agent 自动触发
+## Agent 使用方式
 
-- **ContextDetective**: 开始开发前自动检索相关经验和风险提示
+- **ContextDetective**: 在用户明确要求检索上下文，或任务确实需要知识库/风险规则辅助时使用
 - **KnowledgeEngineer**: 通过命令触发，提炼经验
 
 ## 安装
