@@ -1,32 +1,40 @@
 ---
-command: /optimize-flow
+name: optimize-flow
 description: 沉淀规则
-agent: KnowledgeEngineer
+argument-hint: "[规则描述]"
+allowed-tools: "Read, Write, Edit, Task"
+model: sonnet
 ---
 
-# /optimize-flow
+# /autolearn-sdd-kit:optimize-flow
 
 调用 **KnowledgeEngineer**（知识工程师）将经验沉淀为风险规则。
 
 ## 用法
 
 ```bash
-/optimize-flow "<规则描述>"
+/autolearn-sdd-kit:optimize-flow "<规则描述>"
 ```
 
 ## 示例
 
 ```bash
-/optimize-flow "SSE 长连接禁止持有数据库连接"
-/optimize-flow "OAuth 回调必须验证 state 参数防止 CSRF"
+/autolearn-sdd-kit:optimize-flow "SSE 长连接禁止持有数据库连接"
+/autolearn-sdd-kit:optimize-flow "OAuth 回调必须验证 state 参数防止 CSRF"
 ```
 
 ## 执行
 
+这是一个薄 orchestrator 命令：
+- 输入明确时直接处理，不做闲聊式反问
+- 只委派一次给 `KnowledgeEngineer`
+- 结果可落盘时立即写入 `./.claude/rules/risk-rules.md`
+- 不输出“如果你愿意我下一步可以……”这类聊天式尾句
+
 1. 调用 **KnowledgeEngineer** Agent
 2. 分析描述，提取关键信息
-3. 生成规则预览
-4. 确认后追加到 `./.claude/rules/risk-rules.md`
+3. 生成规则内容
+4. 结果可落盘时立即追加到 `./.claude/rules/risk-rules.md`
 
 ## 规则格式
 

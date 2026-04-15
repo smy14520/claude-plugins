@@ -33,23 +33,25 @@ Claude Code / OpenCode 知识管理插件集合。
 
 ## 工作流
 
-```
-/design <需求>      # 架构师访谈 → 设计方案
-/tasks <需求>       # 任务规划 → 任务清单
-/impl <需求>        # 开发者执行 → 代码实现
-/extract-experience # 沉淀经验 → 知识库
+> 经过真实交互会话验证，**推荐使用 namespaced 命令**。
+
+```bash
+/autolearn-sdd-kit:design <需求>      # 架构师访谈 → 设计方案
+/autolearn-sdd-kit:tasks <需求>       # 任务规划 → 任务清单
+/autolearn-sdd-kit:impl <需求>        # 开发者执行 → 代码实现
+/autolearn-sdd-kit:extract-experience # 沉淀经验 → 知识库
 ```
 
 ## 知识管理命令
 
 | 命令 | 功能 |
 |------|------|
-| `/remember` | 即时记录坑点 |
-| `/extract-experience` | 沉淀经验文档 |
-| `/module-index` | 生成模块索引 |
-| `/optimize-flow` | 沉淀风险规则 |
-| `/index-rebuild` | 重建经验索引 |
-| `/meta-maintain` | 检查元数据健康度 |
+| `/autolearn-sdd-kit:remember` | 即时记录坑点 |
+| `/autolearn-sdd-kit:extract-experience` | 沉淀经验文档 |
+| `/autolearn-sdd-kit:module-index` | 生成模块索引 |
+| `/autolearn-sdd-kit:optimize-flow` | 沉淀风险规则 |
+| `/autolearn-sdd-kit:index-rebuild` | 重建经验索引 |
+| `/autolearn-sdd-kit:meta-maintainer` | 检查元数据健康度 |
 
 ## Agent 使用方式
 
@@ -60,12 +62,48 @@ Claude Code / OpenCode 知识管理插件集合。
 
 ### Claude Code
 
+有两种可用方式：
+
+#### 方式 A：本地开发 / 验证（推荐）
+
+直接通过 `--plugin-dir` 加载插件根目录：
+
+```bash
+ccm --plugin-dir /path/to/claude-plugins/plugins/autolearn-sdd-kit
+# 或
+claude --plugin-dir /path/to/claude-plugins/plugins/autolearn-sdd-kit
+```
+
+> 注意：这里要指向 **插件根目录**（即包含 `.claude-plugin/plugin.json` 的目录），
+> 不是只指向 `.claude-plugin/` 子目录。
+
+#### 方式 B：项目级安装
+
 将插件目录软链接到项目：
 
 ```bash
-# 项目级安装
 ln -s /path/to/claude-plugins/plugins/autolearn-sdd-kit/.claude-plugin ~/.claude/projects/<project-path>/
 ```
+
+### 实际调用方式
+
+在真实会话里，推荐使用 **namespaced 命令**：
+
+```bash
+/autolearn-sdd-kit:design <需求>
+/autolearn-sdd-kit:tasks <需求>
+/autolearn-sdd-kit:impl <需求>
+/autolearn-sdd-kit:module-index <模块路径>
+```
+
+不要默认假设裸 `/design`、`/tasks`、`/impl`、`/module-index` 一定可用。
+
+### 已知限制
+
+- 非交互 `-p/--print` 模式下，写入项目 `.claude/**` 往往会被当作 sensitive path 拦截，不适合拿来验证完整落盘链路。
+- 要验证真实工作流（plan/tasks/experience/modules/rules 落盘），优先使用**真实交互会话**。
+- 轻量知识命令（如 `/autolearn-sdd-kit:remember`、`/autolearn-sdd-kit:index-rebuild`、`/autolearn-sdd-kit:meta-maintainer`）在某些 provider / 会话环境下仍可能主要受运行时响应与上游限流影响，而不是插件逻辑本身。
+- 当前插件已经通过真实会话验证的主链路见：`REAL_SESSION_VALIDATION.md`
 
 ### OpenCode
 

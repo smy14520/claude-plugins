@@ -1,19 +1,20 @@
 ---
-command: /meta-maintain
+name: meta-maintainer
 description: 检查并更新经验文档的元数据
-aliases: ["/meta-check"]
+argument-hint: "[--auto-fix]"
+allowed-tools: "Read, Write, Edit, Glob, Grep"
+model: haiku
 ---
 
-# /meta-maintain
+# /autolearn-sdd-kit:meta-maintainer
 
 检查并更新经验文档的元数据，确保经验库的完整性和准确性。
 
 ## 用法
 
 ```bash
-/meta-maintain              # 检查所有
-/meta-maintain --auto-fix   # 自动修复可修复的问题
-/meta-check                 # 仅检查不修复
+/autolearn-sdd-kit:meta-maintainer              # 检查所有
+/autolearn-sdd-kit:meta-maintainer --auto-fix   # 自动修复可修复的问题
 ```
 
 ## 检查项详情
@@ -125,12 +126,15 @@ aliases: ["/meta-check"]
 
 ## 维护边界
 
+这是一个纯 checker / maintainer 命令：
 - 只检查高价值元数据与索引一致性问题，不做重型内容审查
+- 不做闲聊式澄清，不输出与检查无关的后续建议
+- 如果命令已经被明确触发，直接进入检查流程，不要停在命令说明或菜单式输出上
 - 目标是提升检索质量和控制知识膨胀，而不是把每篇经验文档都重写一遍
 
 ## 建议执行频率
 
-**每周执行一次** `/meta-maintain` 检查，保持经验库的健康状态。
+**每周执行一次** `/autolearn-sdd-kit:meta-maintainer` 检查，保持经验库的健康状态。
 
 ## 完整报告示例
 

@@ -134,6 +134,6 @@ architect: Architect
 ✅ 设计方案已完成
 文件: ./.claude/plans/<需求名>-plan.md
 
-下一步: /tasks <需求名>
+下一步: /autolearn-sdd-kit:tasks <需求名>
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 ```

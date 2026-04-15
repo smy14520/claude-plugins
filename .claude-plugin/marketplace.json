@@ -11,7 +11,7 @@
     {
       "name": "autolearn-sdd-kit",
       "description": "Compounding Auto-Learning + Spec-Driven Development workflow (commands + agents + skills)",
-      "version": "0.1.0",
+      "version": "0.3.0",
       "source": "./plugins/autolearn-sdd-kit",
       "category": "development",
       "author": {

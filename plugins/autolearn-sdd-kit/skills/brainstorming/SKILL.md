@@ -39,10 +39,10 @@ description: "显式设计流程：适用于需求不清、需要方案对比或
 4. **逐一提问澄清** — 每次只问一个问题，理解目的/约束/成功标准
 5. **提出 2-3 个方案** — 对比优劣，给出推荐
 6. **分段呈现设计** — 按复杂度缩放每段长度，逐段确认
-7. **写入设计文档** — 保存到 `.claude/plans/<需求名>-plan.md` 并 git commit
+7. **写入设计文档** — 保存到 `.claude/plans/<需求名>-plan.md`
 8. **Spec 自检** — 4 项内检（占位符/一致性/范围/歧义）
 9. **用户审阅门禁** — 请用户审阅文件，确认后才可进入下一步
-10. **过渡到任务规划** — 衔接 `/tasks` 命令
+10. **过渡到任务规划** — 衔接 `/autolearn-sdd-kit:tasks` 命令
 
 ## 流程图
 
@@ -59,13 +59,13 @@ description: "显式设计流程：适用于需求不清、需要方案对比或
             ↓
      分段呈现设计 ←→ 用户确认/修改
             ↓
-     写入设计文档 + git commit
+     写入设计文档
             ↓
      Spec 自检（4项）→ 有问题就修
             ↓
      用户审阅门禁 ←→ 修改请求
             ↓
-     过渡到 /tasks
+     过渡到 /autolearn-sdd-kit:tasks
 ```
 
 ---
@@ -97,7 +97,7 @@ description: "显式设计流程：适用于需求不清、需要方案对比或
 - 不要花时间细化一个需要先分解的大项目
 - 帮助用户分解为子项目：有哪些独立部分？它们如何关联？按什么顺序构建？
 - 然后对**第一个子项目**走正常的设计流程
-- 每个子项目独立走 design → tasks → impl → extract-experience 循环
+- 每个子项目独立走 `/autolearn-sdd-kit:design` → `/autolearn-sdd-kit:tasks` → `/autolearn-sdd-kit:impl` → `/autolearn-sdd-kit:extract-experience` 循环
 
 ### Step 3: Visual Companion（可选）
 
@@ -212,11 +212,6 @@ risk_warnings: [<匹配到的风险规则列表>]
 ### 6.2 后续优化建议
 ```
 
-**写完后执行 git commit**：
-```bash
-git add .claude/plans/<需求名>-plan.md
-git commit -m "design: <需求名> 设计方案"
-```
 
 ### Step 8: Spec 自检
 
@@ -233,7 +228,7 @@ git commit -m "design: <需求名> 设计方案"
 
 ### Step 9: 用户审阅门禁
 
-> "设计方案已写入并提交到 `.claude/plans/<需求名>-plan.md`。请审阅后告诉我是否需要修改，确认后我们开始任务规划。"
+> "设计方案已写入 `.claude/plans/<需求名>-plan.md`。请审阅后告诉我是否需要修改，确认后我们开始任务规划。"
 
 **等待用户回复。** 如果用户要求修改，修改后重新自检。只有用户确认后才可进入下一步。
 
@@ -247,7 +242,7 @@ git commit -m "design: <需求名> 设计方案"
 相关经验: <列出匹配的经验文档>
 风险提示: <列出匹配的风险规则>
 
-下一步: /tasks <需求名>
+下一步: /autolearn-sdd-kit:tasks <需求名>
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 ```
 

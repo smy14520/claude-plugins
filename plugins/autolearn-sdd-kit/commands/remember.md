@@ -1,29 +1,44 @@
 ---
-command: /remember
+name: remember
 description: 即时记录 Gotcha（易错点），支持标签分类
+argument-hint: "[描述] [--tag=标签]"
+allowed-tools: "Read, Write, Edit"
+model: haiku
 ---
 
-# /remember
+# /autolearn-sdd-kit:remember
 
 即时记录 Gotcha（易错点），不中断当前工作流。按标签自动分文件存储，保持短小、可检索、可复用。
 
 ## 用法
 
 ```bash
-/remember "<描述>"
-/remember --tag=auth "<描述>"
-/remember --tag=database,performance "<描述>"
+/autolearn-sdd-kit:remember "<描述>"
+/autolearn-sdd-kit:remember --tag=auth "<描述>"
+/autolearn-sdd-kit:remember --tag=database,performance "<描述>"
 ```
 
 ## 示例
 
 ```bash
-/remember "雅典娜配置有 20 种商品类型，要逐一处理"
-/remember --tag=oauth "OAuth 回调必须验证 state 参数"
-/remember --tag=database,connection "连接池默认值太小，需要调到 20"
+/autolearn-sdd-kit:remember "雅典娜配置有 20 种商品类型，要逐一处理"
+/autolearn-sdd-kit:remember --tag=oauth "OAuth 回调必须验证 state 参数"
+/autolearn-sdd-kit:remember --tag=database,connection "连接池默认值太小，需要调到 20"
 ```
 
 ## 执行
+
+这是一个超轻量记录命令：
+- 不做闲聊式澄清
+- 不做额外委派
+- 不做多轮分析
+- 输入已明确时直接写入 gotcha 与索引
+
+外层命令的职责只有两件事：
+1. 解析输入中的 tag 与 gotcha 文本
+2. 直接落盘到对应 gotcha 文件和 INDEX.md
+
+如果输入足够明确，禁止输出任何澄清、闲聊、建议下一步或备选菜单；直接执行写入并仅输出写入结果。
 
 ### 记录规则（保持轻量）
 
@@ -31,6 +46,7 @@ description: 即时记录 Gotcha（易错点），支持标签分类
 - 优先写成“问题/触发条件/必须动作”这样的短句
 - 避免写成过程日志、情绪描述或模糊提醒
 - tag 使用稳定关键词；无把握时宁可少打，不要发散
+- 如果输入已经足够明确，直接落盘，不要反问
 
 ### 动作 1：写入对应标签文件
 

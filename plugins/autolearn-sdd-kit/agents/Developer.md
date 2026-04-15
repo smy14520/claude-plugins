@@ -173,8 +173,8 @@ Modified files:
   - <文件路径1>
   - <文件路径2>
 
-Next: /extract-experience <需求名>
-      /review-impl <需求名>   (optional)
+Next: /autolearn-sdd-kit:extract-experience <需求名>
+      /autolearn-sdd-kit:review-impl <需求名>   (optional)
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 ```
 

@@ -1,18 +1,20 @@
 ---
-command: /index-rebuild
+name: index-rebuild
 description: 重建经验索引
-aliases: ["/index-update"]
+argument-hint: "[--update]"
+allowed-tools: "Read, Write, Edit, Glob"
+model: haiku
 ---
 
-# /index-rebuild
+# /autolearn-sdd-kit:index-rebuild
 
 维护 `.claude/experience/INDEX.md` 反向索引。
 
 ## 用法
 
 ```bash
-/index-rebuild    # 重建完整索引
-/index-update     # 增量更新
+/autolearn-sdd-kit:index-rebuild             # 重建完整索引
+/autolearn-sdd-kit:index-rebuild --update    # 增量更新
 ```
 
 ## 路径说明
@@ -20,6 +22,9 @@ aliases: ["/index-update"]
 **索引文件位于项目目录**：`.claude/experience/INDEX.md`
 
 ## 如何重建索引
+
+这是一个纯维护命令，不做闲聊式澄清，不做额外委派。
+如果命令已经被明确触发，直接执行索引维护，不要停在命令说明或菜单式输出上。
 
 执行完整重建：
 
@@ -58,10 +63,10 @@ aliases: ["/index-update"]
 
 ## 自动触发
 
-通常在 `/extract-experience` 完成后自动更新；手动执行主要用于批量编辑、索引修复或文档迁移后重建一致性。
+通常在 `/autolearn-sdd-kit:extract-experience` 完成后自动更新；手动执行主要用于批量编辑、索引修复或文档迁移后重建一致性。
 
 ## 使用场景
 
-- **新建经验文档后**：自动或手动执行 `/index-update`
-- **定期维护**：每周执行一次 `/index-rebuild` 确保索引完整
+- **新建经验文档后**：自动或手动执行 `/autolearn-sdd-kit:index-rebuild --update`
+- **定期维护**：每周执行一次 `/autolearn-sdd-kit:index-rebuild` 确保索引完整
 - **文档重组后**：移动或删除文档后重建索引
