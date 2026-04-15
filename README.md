@@ -21,6 +21,10 @@ Claude Code / OpenCode 知识管理插件集合。
 
 所有知识数据存储在项目的 `.claude/` 目录下：
 
+其中 `.claude/tasks/<需求名>.tasks.md` 现在承担两层信息：
+- **Task spec**：原始任务定义、依赖、步骤、验收标准，供 `/review-plan` / `/review-impl` 读取
+- **generated execution snapshot**：由 `/autolearn-sdd-kit:impl` 维护的固定状态区块，用于跨会话查看执行进度
+
 ```
 <your-project>/
 ├── .claude/
@@ -39,6 +43,7 @@ Claude Code / OpenCode 知识管理插件集合。
 /autolearn-sdd-kit:design <需求>      # 架构师访谈 → 设计方案
 /autolearn-sdd-kit:tasks <需求>       # 任务规划 → 任务清单
 /autolearn-sdd-kit:impl <需求>        # 开发者执行 → 代码实现
+/autolearn-sdd-kit:impl <需求> --parallel  # 请求安全的 best-effort 并行执行
 /autolearn-sdd-kit:extract-experience # 沉淀经验 → 知识库
 ```
 
@@ -97,6 +102,16 @@ ln -s /path/to/claude-plugins/plugins/autolearn-sdd-kit/.claude-plugin ~/.claude
 ```
 
 不要默认假设裸 `/design`、`/tasks`、`/impl`、`/module-index` 一定可用。
+
+### `/autolearn-sdd-kit:impl` 的状态与并行语义
+
+- `/autolearn-sdd-kit:impl <需求名>` 会继续使用 Claude Code 内置任务系统追踪本次会话内进度，同时把跨会话可见的执行快照写回 `.claude/tasks/<需求名>.tasks.md` 的固定 generated section（例如 `## Implementation Record`）。最终摘要推荐固定包含：`Requested mode`、`Parallel strategy`（`none` / `subagents`）、`Actual mode`、`Fallback reason`（如有）、`Status sync`、`Status file`。
+- 该 generated section 只记录执行状态摘要；原始 Task 正文、`depends_on`、`files`、`steps`、`acceptance` 仍然视为 spec，不应被执行阶段改写。
+- `/autolearn-sdd-kit:impl <需求名> --parallel` 的语义是：**请求使用多个 subagent 做安全的 best-effort 并行**，不是 Team 模式。
+  - 只有当 top-level Task 的 `depends_on` 已满足，且 `files` 无重叠/无明显冲突时，才应该真正 fan-out 给多个 subagent。
+  - 如果依赖关系或文件冲突使并行不安全，流程应自动降级为顺序执行，并明确报告 fallback 原因。
+  - 默认不应创建长期协作 team；这里的并行更接近一次性 dispatch 多个 fresh subagent。
+- 因此，`--parallel` 不是“保证提速”的开关；当任务本身串行依赖很强、或多个 Task 需要改同一批文件时，看起来就会像顺序执行。
 
 ### 已知限制
 
