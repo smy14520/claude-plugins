@@ -72,6 +72,7 @@ Procedure (see [references/state-machine.md](references/state-machine.md) for de
 1. Classify into: DONE / DONE_WITH_CONCERNS / NEEDS_CONTEXT / BLOCKED
 2. Append status line to task file's `## Status log` section
 3. Emit structured summary to user with next-task suggestion (no auto-advance)
+4. **If state is `DONE_WITH_CONCERNS` or `BLOCKED`**: emit a wiki-ingest **suggestion** (never auto-ingest) — see [references/workflow.md#report-wiki-ingest-suggestion](references/workflow.md). The suggestion includes a proposed page name, type, and a content draft derived from the concern/blocker. User must explicitly run `/sdd-kit:wiki` to ingest.
 
 ## Four states
 

@@ -311,7 +311,55 @@ If user is running multiple tasks in one session, maintain `.claude/impl-logs/<n
 
 Single-task runs don't need impl-log; summary suffices.
 
-**Step 4 — Do NOT auto-advance**
+**Step 4 — Wiki-ingest suggestion (conditional)**
+
+**Trigger**: state is `DONE_WITH_CONCERNS` or `BLOCKED`. **Never** trigger on `DONE` (nothing to ingest) or `NEEDS_CONTEXT` (task not complete — premature to extract knowledge).
+
+**Decide suggested page type**:
+
+| State | Suggested type | Page-name pattern |
+|-------|----------------|-------------------|
+| `DONE_WITH_CONCERNS` with concrete compromise | `gotcha` | `<domain>-<scenario>` (e.g. `xhs-signature-clock-skew`) |
+| `DONE_WITH_CONCERNS` due to a design trade-off | `decision` | `<choice>-for-<domain>` (e.g. `fixed-retry-vs-backoff-for-xhs`) |
+| `BLOCKED` by env mismatch | `gotcha` | `<tool>-<version-issue>` (e.g. `postgres-14-vs-15-migration`) |
+| `BLOCKED` by upstream unresolved dep | (no suggestion — this isn't knowledge, it's process) | — |
+
+**Emit format** (append to the Report summary block):
+
+```
+💡 Knowledge worth ingesting (you decide; nothing saved until you run /sdd-kit:wiki):
+
+   Suggested page: [[xhs-signature-clock-skew]]
+   Type: gotcha
+   Draft:
+     ## Trigger
+     Local-to-server clock drift > 5 min causes HMAC timestamp mismatch.
+     ## Symptoms
+     XHS webhook returns 401 "signature expired".
+     ## Root cause
+     Server validates ts within 300s window; our NTP sync was stale.
+     ## Fix
+     Added chrony to dev env; task T-003 status line file:line.
+
+   Command to ingest:
+     /sdd-kit:wiki ingest gotcha xhs-signature-clock-skew
+```
+
+**Rules**:
+
+1. **Never auto-ingest.** The command line is for the user to copy-paste, not for impl to execute.
+2. **Draft must be specific.** No generic placeholders like "[describe the issue]". Fill from the actual concern/blocker text.
+3. **Reference the task.** Include `task: T-00X` and relevant `file:line` pointers in the draft so the wiki page is traceable back.
+4. **Skip if BLOCKED is process-only.** E.g. "waiting on T-001 NEEDS_CONTEXT" is not knowledge, so do not suggest a page.
+5. **Suggest once per task run.** If impl is re-run on the same task and state is still DWC/BLOCKED, still include the suggestion each time (user may have ingested already — that's fine, wiki ingest will detect collision).
+
+**Rationale** (short version):
+
+- DONE_WITH_CONCERNS captures the most valuable tacit knowledge — "it works but here's what we compromised on". Not capturing this wastes it.
+- BLOCKED by env mismatch is a repeat-pain pattern that wiki's gotcha page type is designed for.
+- Keeping this as a suggestion (not auto-ingest) preserves the "可控优先" principle — user stays in the loop on what becomes persistent knowledge.
+
+**Step 5 — Do NOT auto-advance**
 
 Always stop after one task's Report. User says "continue" to proceed.
 
@@ -324,3 +372,7 @@ Allowed, but:
 - Still report per-task status
 - Stop on first NEEDS_CONTEXT or BLOCKED (do not skip)
 - Summary at end: "Ran N tasks, M DONE, K with concerns, stopped at T-00X (state)"
+
+**Case: repeated ingest suggestions for the same concern**
+
+If the task cycles DONE_WITH_CONCERNS → rework → DONE_WITH_CONCERNS (same concern), still emit the suggestion each time. Wiki ingest itself handles dedup (page-exists prompt per `references/operations.md#ingest` Step 3).
