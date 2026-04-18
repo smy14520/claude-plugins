@@ -1,6 +1,6 @@
-# Maintenance Rules R1–R4
+# Maintenance Rules R1–R5
 
-Four rules that keep the wiki from rotting. All are either automatic (R1, R4) or user-suggested (R2, R3).
+Five rules that keep the wiki from rotting. R1 and R4 are automatic; R2, R3, R5 are advisory (user decides).
 
 ---
 
@@ -124,11 +124,88 @@ If orphan_count / total_non_root_pages > 0.3:
 
 ---
 
+## R5 — Freshness signaling (stale-by-age)
+
+**Trigger**: during `Query` (inline, per-page) and during `Lint` (batch report).
+
+**Rationale**: GitHub Copilot's 2026-01 engineering post on memory quality states:
+
+> "Memory quality is mostly a freshness and invalidation problem — **stale, branch-specific memories are often more dangerous than having no memory at all**."
+
+A page that says "we decided X in Q2 last year" is actionable **only if the reader knows its age**. Hidden age = silent corruption risk.
+
+**Decision: surface age, do not auto-invalidate.**
+
+- We do NOT tie wiki pages to source-code mtimes (false-positive risk, maintenance burden).
+- We do NOT auto-delete or auto-demote old pages (user judgment required).
+- We DO surface per-page age as a neutral signal, and flag > 180 days as "review candidate".
+
+**Thresholds** (applied against the page's last-modified time, or `date:` frontmatter if present):
+
+| Age bucket | Query output | Lint classification |
+|-----------|-------------|---------------------|
+| < 90 days | no annotation | not flagged |
+| 90–180 days | subtle hint (optional, e.g. `(3 months ago)`) | not flagged |
+| 180–365 days | `(X months ago ⚠️)` | ⚠️ review candidate |
+| > 365 days | `(X months ago ⚠️ stale)` | ⚠️ review candidate (strong) |
+
+**Action** (Lint only, during the batch report):
+
+```
+⚠️ Review candidates (age-based, not broken — review and decide):
+- [[decision-hmac-algo]]   8 months ago
+- [[entity-old-crm]]       1 year ago (strong)
+```
+
+The user decides case-by-case whether to:
+1. Leave untouched (still valid, just old)
+2. Re-verify the claim and update `date:` frontmatter (refresh)
+3. Mark as superseded with `deprecated: true` frontmatter (soft-delete)
+4. Delete (hard)
+
+**Excluded from R5**:
+- `source-*.md` pages (external docs are intrinsically timestamped, no point flagging)
+- Pages with `tags: [evergreen]` (explicit opt-out, for stable patterns that don't age)
+
+**Forbidden**:
+- Silently dropping aged pages from Query output (user must see them to decide)
+- Auto-updating `date:` frontmatter without re-reading the page (defeats the whole signal)
+- Using R5 flags as blocking errors (they are signals, not failures)
+
+### Example: Query output with R5
+
+```
+📚 Wiki Query: "xhs webhook 签名"
+
+### 已读取
+- [[xhs-api]]                          (2 weeks ago)
+- [[xhs-signature-clock-skew]]         (3 months ago)
+- [[decision-hmac-algo]]               (8 months ago ⚠️)
+- [[idempotent-webhook]]               (1 year ago ⚠️ stale)
+```
+
+### Example: Lint output with R5
+
+```
+❌ Real issues:
+  - [[foo]] broken link to [[missing-page]]
+  - [[bar]] orphan (no incoming links)
+
+⚠️ Review candidates (age-based):
+  - [[decision-hmac-algo]]   8 months ago
+  - [[idempotent-webhook]]   1 year ago (strong)
+```
+
+Severity is visually distinct: ❌ = "broken, fix it"; ⚠️ = "check if still accurate".
+
+---
+
 ## Interaction between rules
 
 - **R1 and R4 are complementary**: R1 ensures new pages get linked from roots, which prevents them from becoming orphans. If R1 fails (no matching root found), R4 catches the page as orphan.
 - **R2 and R4 are tightly coupled**: R4 updates index.md's orphan section, which R2 explicitly permits (the only case index.md lists non-root/non-cross-domain pages).
 - **R3 is independent**: it's a user prompt that can happen alongside any operation.
+- **R5 is orthogonal to R1-R4**: freshness is separate from linkage. A well-linked page can still be stale; an orphan can still be fresh. Lint reports them in separate sections.
 
 ---
 
@@ -161,3 +238,7 @@ When implementing automation around these rules, the following behaviors should 
 4. **R2 violation**: manually add `[[xhs-api]]` to index.md → lint flags
 5. **R3 suggest**: create 5 pages all linking to `[[foo]]` → lint suggests promoting `foo`
 6. **R4 orphan cycle**: create orphan → link from another page → orphan section cleared
+7. **R5 query age**: Query touches a page > 180 days old → output contains `⚠️` age annotation
+8. **R5 lint candidates**: Lint on wiki with mix of fresh/stale pages → stale pages in `Review candidates` section, NOT in `Real issues` section
+9. **R5 evergreen opt-out**: a page with `tags: [evergreen]` aged > 1 year → NOT flagged by Lint
+10. **R5 source exclusion**: `source-*.md` aged > 1 year → NOT flagged

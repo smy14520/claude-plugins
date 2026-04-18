@@ -57,8 +57,9 @@ Procedure:
 2. Scan broken wikilinks (links to nonexistent pages)
 3. Scan stale roots (root page last update < some child page creation)
 4. Scan duplicate candidates (filename Levenshtein distance < threshold)
-5. Update `index.md`'s orphans section per [references/maintenance-rules.md](references/maintenance-rules.md#r4)
-6. Output a markdown report
+5. Scan **review candidates by age** (pages older than 180 days, per [R5-freshness](references/maintenance-rules.md#r5))
+6. Update `index.md`'s orphans section per [references/maintenance-rules.md](references/maintenance-rules.md#r4)
+7. Output a markdown report with **two severity levels**: ⚠️ review candidates (signal, not error) vs ❌ real issues (broken / orphan / duplicate)
 
 ## Directory structure
 

@@ -164,14 +164,22 @@ If the query involves an abstract pattern, read the cross-domain concept/decisio
 
 **Step 5 — Output structured summary**
 
+Annotate each `已读取` entry with a freshness hint per [R5-freshness](maintenance-rules.md#r5). Compute age from page's `date:` frontmatter if present, else filesystem mtime.
+
+- `< 90 days`: no annotation
+- `90–180 days`: `(X months ago)` — neutral
+- `180–365 days`: `(X months ago ⚠️)` — yellow warning
+- `> 365 days`: `(X months ago ⚠️ stale)` — strong warning
+- `source-*.md` or `tags: [evergreen]`: never annotate
+
 ```
 📚 Wiki Query: "<original query>"
 
 ### 已读取
-- [[ai-customer-service]] — 系统导航
-- [[wechat-api]] — 类比渠道（与 xhs 有相似的签名机制）
-- [[wechat-signature-clock-skew]] — 签名类坑（可能适用于 xhs）
-- [[idempotent-webhook]] — webhook 幂等模式
+- [[ai-customer-service]]                系统导航                    (2 weeks ago)
+- [[wechat-api]]                          类比渠道                    (3 months ago)
+- [[wechat-signature-clock-skew]]        签名类坑                    (8 months ago ⚠️)
+- [[idempotent-webhook]]                  webhook 幂等模式             (1 year ago ⚠️ stale)
 
 ### 关键发现
 - 点1（含引用）
@@ -180,6 +188,9 @@ If the query involves an abstract pattern, read the cross-domain concept/decisio
 ### 未读取但可能相关
 - [[douyin-concurrent-reply-risk]] — 如需并发控制再读
 - [[source-wechat-customer-api-doc]] — 如需 API 细节
+
+### 新鲜度提示
+有 2 页标注 ⚠️（> 180 天未更新）。建议阅读时核对与当前代码/决策是否仍一致。
 ```
 
 ### Edge cases
@@ -194,11 +205,7 @@ Output: "Wiki 中未找到与 `<query>` 相关的页面。建议：在 research 
 
 **Case: relevant pages exist but are stale**
 
-If the most recent update to relevant pages is > 90 days old, flag in output:
-
-```
-⚠️ 注意: [[xxx]] 最后更新于 YYYY-MM-DD，可能与当前代码有偏离。
-```
+Handled by R5-freshness inline annotation (see Step 5 above). No separate edge-case treatment needed — age hints are now part of every Query output.
 
 ---
 
@@ -267,20 +274,41 @@ for each page:
         suggest promotion
 ```
 
-**Step 6 — Update orphans section**
+**Step 6 — Review candidates by age (R5)**
+
+Scan all non-excluded pages for age > 180 days:
+
+```bash
+for each page in wiki/ (excluding source-*.md, pages tagged 'evergreen'):
+    age = now - (page.date frontmatter || page mtime)
+    if age > 180 days:
+        classify as 'mild' (180-365) or 'strong' (> 365)
+        add to review-candidates list
+```
+
+**These are signals, not errors.** They appear in a separate section of the report; they do NOT block commit or imply the page is wrong.
+
+**Step 7 — Update orphans section**
 
 Overwrite the ⚠️ 孤立页面 section of `index.md` with the fresh orphan list. Do not touch other sections.
 
-**Step 7 — Append to log.md**
+**Step 8 — Append to log.md**
 
 ```
-## [YYYY-MM-DD HH:MM] lint | orphans=N, broken=M, stale-roots=K, dup-candidates=L
+## [YYYY-MM-DD HH:MM] lint | orphans=N, broken=M, stale-roots=K, dup-candidates=L, review-candidates=R
 ```
 
-**Step 8 — Output report**
+**Step 9 — Output report**
+
+Report is split into **two severity levels**:
+
+- ❌ **Real issues** — something is structurally broken and must be fixed
+- ⚠️ **Review candidates** — signals worth a look, but nothing is broken (user decides)
 
 ```
 🧹 Wiki Lint Report
+
+## ❌ Real issues (N + M + K + L)
 
 ### Orphans (N)
 - [[xxx]] — created YYYY-MM-DD
@@ -295,13 +323,27 @@ Overwrite the ⚠️ 孤立页面 section of `index.md` with the fresh orphan li
 ### Duplicate candidates (L)
 - [[xxx-foo]] vs [[xxx-bar]] — similar filenames, review manually
 
-### Promotion candidates
+## ⚠️ Review candidates (R) — age-based, not broken
+
+Per [R5-freshness](maintenance-rules.md#r5). These pages are old enough that their content may no longer reflect the current state of the code/decisions. Decide case-by-case:
+1. Still valid → no action, or re-read and update `date:` to refresh
+2. Outdated but kept for history → add `deprecated: true` frontmatter
+3. Fully obsolete → delete
+
+### Mild (180–365 days)
+- [[decision-hmac-algo]]   8 months ago
+- [[xhs-signature-clock-skew]]   6 months ago
+
+### Strong (> 365 days)
+- [[idempotent-webhook]]   1 year 4 months ago
+- [[entity-old-crm]]   2 years ago
+
+## 💡 Promotion candidates (R3)
 - [[ccc]] — referenced by 7 pages, consider adding `root` tag
 
-### Recommended next steps
-- Integrate orphans into relevant roots
-- Fix broken wikilinks (rename or create missing pages)
-- Update stale roots by re-ingesting their missed children
+## Recommended next steps
+- Fix real issues first (orphans / broken / stale-roots / duplicates)
+- Then review candidates in descending age
 ```
 
 ### Edge cases
