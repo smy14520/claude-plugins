@@ -32,6 +32,8 @@ Match user intent; full procedures in [references/workflow.md](references/workfl
 
 Triggers: "实施 T-003", "执行下一个 task", "run next task".
 
+> **Reasoning rhythm**: 🥐 **light**. Selection + eligibility check, mechanical.
+
 Procedure:
 
 1. Locate `.claude/tasks/<file>.tasks.md` (user specifies OR scan most-recent)
@@ -45,6 +47,8 @@ If no task file: fall back to ad-hoc mode (`references/workflow.md#ad-hoc`).
 
 Triggers: after Pick, or immediate start.
 
+> **Reasoning rhythm**: 🥐 **light**. You are a translator, not a designer — task `deliverable` + `acceptance` are the contract. If the translation is not mechanical, that is a sign of ambiguity and you should emit `NEEDS_CONTEXT`, not think harder. Save tokens here; reserve heavy thinking for Verify.
+
 Procedure:
 
 1. Read the task's `deliverable` + `acceptance` + `notes`
@@ -56,6 +60,8 @@ Procedure:
 
 Triggers: after Execute, always before reporting DONE.
 
+> **Reasoning rhythm**: 🍞 **heavy**. Run every acceptance command; read its output carefully; resist the urge to interpret failures as "probably fine". Enable extended thinking when available.
+
 Procedure:
 
 1. Run every command in task's `acceptance:`
@@ -66,6 +72,8 @@ Procedure:
 ### 📤 Report — emit state
 
 Triggers: after Verify, or on BLOCKED / NEEDS_CONTEXT.
+
+> **Reasoning rhythm**: 🥐 **light**. Classification against a fixed 4-state machine; no new reasoning beyond what Verify produced.
 
 Procedure (see [references/state-machine.md](references/state-machine.md) for definitions):
 

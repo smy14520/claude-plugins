@@ -33,6 +33,8 @@ Match user intent; full procedures in [references/workflow.md](references/workfl
 
 Triggers: "拆任务 X", "把 spec X 变成任务", "plan X".
 
+> **Reasoning rhythm**: 🍞 **heavy**. Granularity and boundaries determine whether downstream impl is trivial or painful. Enable extended thinking.
+
 Procedure (detail in `references/workflow.md#decompose`):
 
 1. Resolve input: `.claude/specs/<name>.md` OR in-session description
@@ -45,6 +47,8 @@ Procedure (detail in `references/workflow.md#decompose`):
 
 Triggers: during decomposition, or explicit "有哪些是公共模块".
 
+> **Reasoning rhythm**: 🍞 **heavy**. Mis-identified shared modules are a top source of parallel-impl conflicts. Think carefully.
+
 Procedure:
 
 1. Scan tasks for repeated concerns (e.g. 3 tasks all talk to the same HTTP client)
@@ -56,6 +60,8 @@ Procedure:
 
 Triggers: during decomposition, or explicit "排一下依赖".
 
+> **Reasoning rhythm**: 🍞 **heavy**. Cycle detection + critical-path shaping. Enable extended thinking for DAGs with > 6 tasks.
+
 Procedure:
 
 1. For each task, determine `depends-on: [IDs]`
@@ -65,6 +71,8 @@ Procedure:
 ### 🏷️ Assign role — optional multi-agent annotation
 
 Triggers: user says "按角色分", "tag roles", or when multi-agent impl is anticipated.
+
+> **Reasoning rhythm**: 🥐 **light**. Mechanical classification from a fixed role list.
 
 Procedure:
 

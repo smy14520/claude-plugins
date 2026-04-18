@@ -30,6 +30,8 @@ Match user intent; full procedures in [references/workflow.md](references/workfl
 
 Triggers: "开始写 spec X", "spec 一下 X", "定方案 X".
 
+> **Reasoning rhythm**: 🍞 **heavy**. Framing sets non-negotiables for everything downstream — enable extended thinking / "think harder" if available. Cheap mistakes here cascade.
+
 Procedure (detail in `references/workflow.md#frame`):
 
 1. Name the spec (kebab-case, topic-named, not dated)
@@ -40,6 +42,8 @@ Procedure (detail in `references/workflow.md#frame`):
 ### ⚖️ Decide — resolve open questions
 
 Triggers: during drafting, whenever the spec has unresolved `<TODO-DECIDE: ...>` markers.
+
+> **Reasoning rhythm**: 🍞 **heavy**. Every decision here is a frozen premise for task + impl. Enable extended thinking; do not rush.
 
 Procedure:
 
@@ -52,6 +56,8 @@ Procedure:
 ### ✅ Finalize — seal the spec
 
 Triggers: "spec 定稿", "finalize the spec", user confirms all open questions resolved.
+
+> **Reasoning rhythm**: 🥐 **light**. Mechanical content-contract check. No extended thinking needed.
 
 Procedure:
 
