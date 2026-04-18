@@ -4,6 +4,8 @@ date: YYYY-MM-DD
 topic: <topic-kebab-case>
 ---
 
+<!-- 输出语言: 中文 -->
+
 # Research: <topic>
 
 ## Question

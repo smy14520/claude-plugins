@@ -1,5 +1,7 @@
 # Impl session log: <name>
 
+<!-- 输出语言: 中文 -->
+
 Append-only. One entry per task run (per status transition).
 
 <!--

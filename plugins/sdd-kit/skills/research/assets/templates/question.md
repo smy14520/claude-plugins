@@ -4,6 +4,8 @@ date: YYYY-MM-DD
 feeding: <spec-name or decision this research feeds>
 ---
 
+<!-- 输出语言: 中文 -->
+
 # Question
 
 <one sentence stating exactly what this research is trying to answer>

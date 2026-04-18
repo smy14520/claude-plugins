@@ -4,6 +4,8 @@ confidence: low | medium | high
 date: YYYY-MM-DD
 ---
 
+<!-- 输出语言: 中文 -->
+
 # <Finding title — specific and self-describing>
 
 ## What I found

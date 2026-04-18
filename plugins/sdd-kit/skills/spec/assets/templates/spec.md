@@ -5,6 +5,8 @@ tags: [<domain>, ...]
 supersedes: <old-spec-name>   # optional, remove if N/A
 ---
 
+<!-- 输出语言: 中文 -->
+
 # <feature-name>
 
 ## Goal

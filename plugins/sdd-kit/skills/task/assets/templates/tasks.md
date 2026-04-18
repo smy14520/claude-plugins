@@ -7,6 +7,8 @@ status: draft | confirmed | in-progress | done
 
 # Tasks: <feature-name>
 
+<!-- 输出语言: 中文 -->
+
 <!--
   Task file contract (enforced):
   - NO wikilinks. Self-sufficient file.
