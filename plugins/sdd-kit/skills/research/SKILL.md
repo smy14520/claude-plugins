@@ -1,6 +1,7 @@
 ---
 name: research
-description: "Use this skill when the user wants to EXPLORE a topic before committing to a spec/design. Trigger phrases: '研究一下 X', '调研 X', '看看 X 怎么实现的', '先探索一下', 'do research on X', 'let's investigate X', 'explore X before we decide'. The skill produces `.claude/research/<topic>/` with raw collected materials, refined notes, and a `findings.md` summarizing discoveries + open questions + wiki-ingest candidates. It does NOT make design decisions (that is spec skill's job) and does NOT auto-advance to spec. User must explicitly decide which findings to keep and which to discard."
+description: "Bounded exploration of a topic before committing to a spec/design. Produces `.claude/research/<topic>/` with raw materials, refined notes, and a `findings.md` summarizing discoveries + open questions + wiki-ingest candidates. Does NOT make design decisions (spec skill's job) and does NOT auto-advance. Primary invocation: `/sdd-kit:research <topic>`."
+disable-model-invocation: true
 ---
 
 # Research — Bounded Exploration

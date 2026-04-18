@@ -1,6 +1,7 @@
 ---
 name: task
-description: "Use this skill to decompose a spec (or a confirmed goal) into an atomic execution plan that a downstream executor can consume WITHOUT re-deciding anything. Trigger phrases: '拆任务 X', '把 spec X 变成任务', '生成 task 计划', 'break down spec X into tasks', 'plan the work for X'. Produces `.claude/tasks/<name>.tasks.md` — a list of atomic tasks with ID, role, dependencies, deliverable, acceptance. Supports two modes: strict-atomic (every task ≤ 4h, single commit) and lean (coarser tasks). Task files MUST NOT contain `[[wikilinks]]` — they must be self-sufficient. Does NOT auto-trigger impl."
+description: "Decompose a spec (or confirmed goal) into an atomic execution plan a downstream executor can consume WITHOUT re-deciding anything. Output: `.claude/tasks/<name>.tasks.md` — atomic tasks with ID, role, dependencies, deliverable, acceptance. Two modes: strict-atomic (≤ 4h per task) and lean (coarser). Task files MUST NOT contain `[[wikilinks]]`. Does NOT auto-advance. Primary invocation: `/sdd-kit:task <spec-name-or-path>`."
+disable-model-invocation: true
 ---
 
 # Task — Atomic Execution Plan

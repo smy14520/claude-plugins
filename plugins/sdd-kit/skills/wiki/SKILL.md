@@ -1,6 +1,7 @@
 ---
 name: wiki
-description: "Use this skill to manage the project's persistent knowledge wiki at `.claude/wiki/`. Trigger when the user: (a) wants to SAVE knowledge — says '记一下这个坑/这个经验/这个决定', 'sink this into wiki', 'let's document this learning', 'record this gotcha/decision' → run Ingest; (b) wants to RECALL existing knowledge — says '参考 wiki 里的 X', '查一下 wiki 有没有 X', 'any prior art on X', 'have we done similar', 'what does the wiki say about X' → run Query; (c) wants to AUDIT wiki health — says 'wiki 体检/健康检查', 'wiki lint', 'clean up the wiki' → run Lint. Based on Karpathy LLM-Wiki pattern (structured pages with wikilinks, NOT vector retrieval). Pages carry type=entity|concept|gotcha|decision|source in frontmatter; root pages (tag=root) serve as domain hubs."
+description: "Manage the project's persistent knowledge wiki at `.claude/wiki/` — structured pages with wikilinks, Karpathy LLM-Wiki pattern (NOT vector retrieval). Pages carry type=entity|concept|gotcha|decision|source in frontmatter; root pages (tag=root) serve as domain hubs. Three primitives: Ingest (record new knowledge), Query (read index → root → selective follow), Lint (orphans / broken links / stale roots). Primary invocation: `/sdd-kit:wiki <intent and content>`."
+disable-model-invocation: true
 ---
 
 # Wiki — Persistent Knowledge Management

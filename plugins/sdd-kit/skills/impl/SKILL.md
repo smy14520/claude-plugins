@@ -1,6 +1,7 @@
 ---
 name: impl
-description: "Use this skill to execute a task (or ad-hoc goal) as actual code changes. Trigger phrases: '实施 T-00X', '执行 task X', '开始写代码 X', 'implement X', 'run impl on task file Y'. The skill picks a task from `.claude/tasks/<name>.tasks.md`, writes code to meet the task's acceptance, runs verification, and reports using a strict 4-state machine (DONE / DONE_WITH_CONCERNS / NEEDS_CONTEXT / BLOCKED). Executor does NOT make design decisions — ambiguity forces NEEDS_CONTEXT. Never claims DONE without passing the task's `acceptance:` commands. Appends a status line to the task file. Works without a task file too (ad-hoc impl), but reports same 4 states."
+description: "Execute a task (or ad-hoc goal) as actual code changes. Picks a task from `.claude/tasks/<name>.tasks.md`, writes code to meet its acceptance, runs verification, reports with a strict 4-state machine (DONE / DONE_WITH_CONCERNS / NEEDS_CONTEXT / BLOCKED). Never claims DONE without passing `acceptance:` commands. Never silently makes design decisions — ambiguity forces NEEDS_CONTEXT. Appends status line to the task file. Works without a task file too. Primary invocation: `/sdd-kit:impl <task-id-or-file>`."
+disable-model-invocation: true
 ---
 
 # Impl — Task Executor with 4-State Reporting

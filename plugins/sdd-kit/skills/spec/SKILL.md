@@ -1,6 +1,7 @@
 ---
 name: spec
-description: "Use this skill when the user wants to produce a dependable implementation spec for a feature or change. Trigger phrases: '写 spec X', '定方案 X', '设计 X 的实现方案', 'spec 一下 X', 'draft the spec for X', 'nail down the design for X'. Produces `.claude/specs/<name>.md` — a single-file contract covering goal, non-goals, interface, constraints, data/state, integration, test strategy. The spec strictly excludes decision history, rejected alternatives, and discovery narrative (those either go into `[[decision-xxx]]` wiki pages or stay in research). Task skill consumes this spec; impl executes against it. Does NOT auto-trigger task skill."
+description: "Produce a dependable single-file implementation spec for a feature or change. Output: `.claude/specs/<name>.md` — a contract covering goal, non-goals, interface, constraints, data/state, integration, test strategy. Strictly excludes decision history, rejected alternatives, and discovery narrative. Task skill consumes it; impl executes against it. Does NOT auto-advance. Primary invocation: `/sdd-kit:spec <name>`."
+disable-model-invocation: true
 ---
 
 # Spec — Dependable Design Contract

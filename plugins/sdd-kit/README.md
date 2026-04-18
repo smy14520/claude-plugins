@@ -57,14 +57,30 @@ research → spec → task → impl
 
 ## 使用
 
-参见每个 skill 的 SKILL.md。四个 SDD 阶段 skill（research / spec / task / impl）彼此独立，不自动跳转；wiki skill 作为知识沉淀层，由用户显式触发 ingest。
+**只接受显式 slash 命令触发。所有 skill 都设置了 `disable-model-invocation: true`，不会被 Claude 自作主张激活。**
+
+```bash
+# 四阶段主流程
+/sdd-kit:research <topic>            # 探索主题，产出 .claude/research/<topic>/
+/sdd-kit:spec <name>                 # 写 spec，产出 .claude/specs/<name>.md
+/sdd-kit:task <spec-name-or-path>    # 拆 task，产出 .claude/tasks/<name>.tasks.md
+/sdd-kit:impl <task-id-or-file>      # 执行 task，报 4 态 (DONE/DONE_WITH_CONCERNS/NEEDS_CONTEXT/BLOCKED)
+
+# 知识沉淀层（独立于 SDD 流）
+/sdd-kit:wiki <intent and content>   # ingest / query / lint 三选一，由内容自动派发
+```
+
+阶段之间**不自动跳转**。wiki 也必须显式触发。
+
+> **为什么要显式触发？** 避免 skill "过度触发"（Superpowers 曾因 1% 阈值被 Reddit 诟病烧 token）。中文用户还多一层好处：slash 命令是英文字符精确匹配，不依赖模型对中文意图的理解。
 
 ## 和 autolearn-sdd-kit 的差异
 
 | 维度 | autolearn-sdd-kit | sdd-kit |
 |------|-------------------|---------|
 | 阶段数 | 8（brainstorm/research/design/spec/tasks/impl/review/extract-experience） | 4（research/spec/task/impl） |
-| 命令层 | 14 commands | 0 commands（全 skill，参考 superpowers v5 路线） |
+| 命令层 | 14 厚 commands（每个做 orchestration，重复 skill 内容） | 5 薄 commands（仅作为 skill 入口，单一真相源仍在 skill） |
+| 触发方式 | 自然语言 + 命令并存（隐式触发开放） | 仅显式 `/sdd-kit:xxx`（`disable-model-invocation: true`） |
 | Agent | 9 agents | 0 agents（先做 single-agent） |
 | 知识组织 | 4 抽屉（experience / modules / rules / gotchas）+ 3 索引 | 1 wiki + 1 index.md |
 | 页面分类 | 按类型前缀硬绑 | 按主题命名 + 类型降级为 frontmatter 属性 |
