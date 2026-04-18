@@ -144,7 +144,7 @@ MUST specify:
 
 ### Forbidden
 
-- Using BLOCKED to avoid verifying (if you didn't run the command, you don't know it's blocked)
+- Using BLOCKED to avoid SelfCheck (if you didn't run the command, you don't know it's blocked)
 - Silent workaround that evades the blocker (that's DONE_WITH_CONCERNS at best, but more likely NEEDS_CONTEXT)
 - Claiming BLOCKED for design issues (that's NEEDS_CONTEXT)
 
@@ -170,7 +170,7 @@ User options:
 ### Forward transitions (allowed)
 
 ```
-(start)  ───────►  Execute  ───────►  Verify  ───────►  DONE
+(start)  ───────►  Execute  ───────►  SelfCheck  ────►  DONE
                       │                 │
                       │                 ├──► DONE_WITH_CONCERNS (+ concerns doc)
                       │                 │
@@ -192,7 +192,7 @@ DONE           ──(regression found)──►  file NEW task, do NOT revise T
 
 ### Forbidden transitions (HARD RULES)
 
-- ❌ `DONE ← BLOCKED` silently (never "figured out a workaround, now it's DONE" without explicit re-verify)
+- ❌ `DONE ← BLOCKED` silently (never "figured out a workaround, now it's DONE" without explicit re-SelfCheck)
 - ❌ `DONE ← NEEDS_CONTEXT` silently (never "just guessed at an answer and moved on")
 - ❌ `DONE ← DONE_WITH_CONCERNS` (concerns don't dissolve; they require follow-up)
 

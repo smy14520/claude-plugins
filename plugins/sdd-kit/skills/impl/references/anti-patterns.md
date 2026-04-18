@@ -10,7 +10,7 @@ Observed failure modes, many inherited from prior SDD tooling. Avoid all.
 
 **Why wrong**: violates the core "no unverified claims" rule. Propagates false green.
 
-**Fix**: Verify step MUST execute every `acceptance:` entry. If a command can't be run (env issue), state is BLOCKED, not DONE.
+**Fix**: SelfCheck step MUST execute every `acceptance:` entry. If a command can't be run (env issue), state is BLOCKED, not DONE.
 
 ---
 
@@ -43,7 +43,7 @@ Observed failure modes, many inherited from prior SDD tooling. Avoid all.
 **Fix**:
 
 - If the test itself is wrong → that's a task-level issue, bounce NEEDS_CONTEXT
-- If the implementation is wrong → fix impl, re-verify
+- If the implementation is wrong → fix impl, re-SelfCheck
 - Never edit the task's `acceptance:` field from impl
 
 ---
@@ -62,9 +62,9 @@ Observed failure modes, many inherited from prior SDD tooling. Avoid all.
 
 **Symptom**: status says DONE, but `pnpm test` output actually shows 2 failures (the executor skimmed the final "passed" line from a different test suite).
 
-**Why wrong**: superficial verification.
+**Why wrong**: superficial SelfCheck.
 
-**Fix**: Verify means parse exit code + check the actual failure count in output. If in doubt, dump the output lines for user.
+**Fix**: SelfCheck means parse exit code + check the actual failure count in output. If in doubt, dump the output lines for user.
 
 ---
 
@@ -88,13 +88,13 @@ Observed failure modes, many inherited from prior SDD tooling. Avoid all.
 
 ---
 
-## 9. Verifying with `# it should work` comments instead of tests
+## 9. SelfCheck with `# it should work` comments instead of commands
 
-**Symptom**: task had no test in acceptance (because task skill didn't decompose it), so executor adds a comment like `// verified manually` and marks DONE.
+**Symptom**: task had no runnable check in acceptance (because task skill didn't decompose it), so executor adds a comment like `// verified manually` and marks DONE.
 
 **Why wrong**: unverifiable; no regression guard.
 
-**Fix**: if task acceptance genuinely has no runnable check (e.g. "config value updated"), that acceptance is a file-state predicate — read the file and verify it programmatically. If task truly requires manual verification, report DONE-PENDING-MANUAL and wait.
+**Fix**: if task acceptance genuinely has no runnable check (e.g. "config value updated"), that acceptance is a file-state predicate — read the file and check it programmatically. If task truly requires manual confirmation, report DONE-PENDING-MANUAL and wait.
 
 ---
 
@@ -120,7 +120,7 @@ Observed failure modes, many inherited from prior SDD tooling. Avoid all.
 
 ## 12. Not surfacing test observations
 
-**Symptom**: during verification, executor notices 3 pre-existing test failures in unrelated area. Says nothing.
+**Symptom**: during SelfCheck, executor notices 3 pre-existing test failures in unrelated area. Says nothing.
 
 **Why wrong**: lost signal. User doesn't know the project has broken tests.
 

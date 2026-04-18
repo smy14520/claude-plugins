@@ -1,7 +1,7 @@
 {
   "name": "sdd-kit",
-  "version": "0.2.0",
-  "description": "SDD Kit: research → spec → task → impl 四阶段流程 + 基于 Karpathy LLM-Wiki 的持久化知识层",
+  "version": "0.3.0",
+  "description": "SDD Kit: research → spec → task → impl → review 五阶段流程 + 基于 Karpathy LLM-Wiki 的持久化知识层",
   "author": {
     "name": "camellia",
     "email": "camellia@gmail.com"

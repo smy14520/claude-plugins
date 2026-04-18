@@ -1,28 +1,30 @@
 ---
 name: impl
-description: "Execute a task (or ad-hoc goal) as actual code changes. Picks a task from `.claude/tasks/<name>.tasks.md`, writes code to meet its acceptance, runs verification, reports with a strict 4-state machine (DONE / DONE_WITH_CONCERNS / NEEDS_CONTEXT / BLOCKED). Never claims DONE without passing `acceptance:` commands. Never silently makes design decisions — ambiguity forces NEEDS_CONTEXT. Appends status line to the task file. Works without a task file too. Primary invocation: `/sdd-kit:impl <task-id-or-file>`."
+description: "Execute a task (or ad-hoc goal) as actual code changes. Picks a task from `.claude/tasks/<name>.tasks.md`, writes code to meet its acceptance, runs its own acceptance commands (self-check, not semantic review), reports with a strict 4-state machine (DONE / DONE_WITH_CONCERNS / NEEDS_CONTEXT / BLOCKED). Never claims DONE without passing `acceptance:` commands. Never silently makes design decisions — ambiguity forces NEEDS_CONTEXT. Semantic audit against spec is the review skill's job, not impl's. Appends status line to the task file. Works without a task file too. Primary invocation: `/sdd-kit:impl <task-id-or-file>`."
 disable-model-invocation: true
 ---
 
 # Impl — Task Executor with 4-State Reporting
 
-Execute tasks as code. Verify before claiming DONE. Never silently downgrade BLOCKED into DONE.
+Execute tasks as code. Run your own acceptance commands before claiming DONE. Never silently downgrade BLOCKED into DONE.
 
-## Positioning in the 4-phase workflow
+## Positioning in the 5-phase workflow
 
 ```
-research → spec → task → [impl]
-                           ↓
-                           └─── reports status, does NOT mutate spec/task
+research → spec → task → [impl] → review
+                           ↓          ↑
+                           └─ self-check only (mechanical)
+                              semantic audit lives in review skill
 ```
 
 Impl is the **execution** phase. It:
 
 - Reads the task (from file or in-session)
 - Writes code to satisfy acceptance
-- Runs verification commands
+- Runs its own acceptance commands (**self-check**, mechanical)
 - Reports a status in the 4-state machine
 - **Does not** change the task list; **does not** make design decisions
+- **Does not** perform semantic audit against spec — that is the `review` skill's job
 
 ## Four primitives
 
@@ -47,7 +49,7 @@ If no task file: fall back to ad-hoc mode (`references/workflow.md#ad-hoc`).
 
 Triggers: after Pick, or immediate start.
 
-> **Reasoning rhythm**: 🥐 **light**. You are a translator, not a designer — task `deliverable` + `acceptance` are the contract. If the translation is not mechanical, that is a sign of ambiguity and you should emit `NEEDS_CONTEXT`, not think harder. Save tokens here; reserve heavy thinking for Verify.
+> **Reasoning rhythm**: 🥐 **light**. You are a translator, not a designer — task `deliverable` + `acceptance` are the contract. If the translation is not mechanical, that is a sign of ambiguity and you should emit `NEEDS_CONTEXT`, not think harder. Save tokens here; heavy semantic reasoning belongs to the `review` skill (a separate invocation, different context).
 
 Procedure:
 
@@ -56,24 +58,26 @@ Procedure:
 3. Write code aimed at acceptance criteria
 4. If ambiguity arises → STOP and emit NEEDS_CONTEXT (see state-machine.md)
 
-### ✅ Verify — run checks
+### ✅ SelfCheck — run the task's own acceptance commands
 
 Triggers: after Execute, always before reporting DONE.
 
-> **Reasoning rhythm**: 🍞 **heavy**. Run every acceptance command; read its output carefully; resist the urge to interpret failures as "probably fine". Enable extended thinking when available.
+> **Reasoning rhythm**: 🥐 **light, disciplined**. Mechanical: run commands, read output, check exit codes. The discipline is refusing to interpret failures as "probably fine" — not heavy reasoning. Heavy semantic reasoning belongs to the `review` skill.
+
+> **Scope**: SelfCheck verifies only what the task's `acceptance:` block specifies. It does NOT cross-check against spec semantics, does NOT inspect whether the code truly solves the user-level problem. Those are `review` skill concerns.
 
 Procedure:
 
 1. Run every command in task's `acceptance:`
 2. Capture exit code + relevant output
 3. Any failure → do NOT claim DONE
-4. Verification scope matches acceptance — no extra, no less
+4. SelfCheck scope matches `acceptance:` — no extra, no less
 
 ### 📤 Report — emit state
 
-Triggers: after Verify, or on BLOCKED / NEEDS_CONTEXT.
+Triggers: after SelfCheck, or on BLOCKED / NEEDS_CONTEXT.
 
-> **Reasoning rhythm**: 🥐 **light**. Classification against a fixed 4-state machine; no new reasoning beyond what Verify produced.
+> **Reasoning rhythm**: 🥐 **light**. Classification against a fixed 4-state machine; no new reasoning beyond what SelfCheck produced.
 
 Procedure (see [references/state-machine.md](references/state-machine.md) for definitions):
 
@@ -128,7 +132,7 @@ Checkbox semantics:
 3. **No design decisions** — if the task has ambiguity, emit NEEDS_CONTEXT. Do not invent a choice.
 4. **No task mutation** — impl does not edit the task's title, deliverable, or acceptance. Only appends to status log.
 5. **One task at a time** — complete + report before picking the next. Prevents half-done state.
-6. **Verification = acceptance** — if acceptance says "passes test X", you run X. Don't run less (false DONE). Don't run more (scope creep, unrelated failures).
+6. **SelfCheck = acceptance** — if acceptance says "passes test X", you run X. Don't run less (false DONE). Don't run more (scope creep, unrelated failures). Don't second-guess the spec — if spec itself seems wrong, emit NEEDS_CONTEXT or let `review` flag SPEC_DRIFT.
 7. **Ad-hoc mode follows same rules** — even without a task file, same 4-state reporting.
 8. **No auto-advance to next task** — impl reports one task and stops, unless user explicitly says "continue".
 
@@ -139,11 +143,13 @@ If `.claude/impl-logs/` does not exist and user wants multi-session trace: creat
 
 ## What this skill does NOT do
 
-- Does not modify spec (spec is authoritative; if spec is wrong, return NEEDS_CONTEXT)
+- Does not modify spec (spec is authoritative; if spec is wrong, return NEEDS_CONTEXT, or let `review` flag SPEC_DRIFT)
 - Does not modify task definition (only appends status)
-- Does not skip verification "because it's obvious"
+- Does not skip SelfCheck "because it's obvious"
+- Does not perform semantic audit against spec (that is the `review` skill's job)
 - Does not bundle multiple tasks into one commit / one status line
 - Does not auto-advance after DONE — user decides
+- Does not auto-invoke `review` — user decides when to audit
 
 ## When NOT to activate
 
@@ -161,3 +167,4 @@ See [references/anti-patterns.md](references/anti-patterns.md). Quick list:
 - Editing the task's acceptance to pass
 - "Running tests" without reading their output
 - Bundling unrelated cleanup into a task commit
+- Performing semantic audit against spec within SelfCheck (that belongs to `review`)

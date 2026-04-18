@@ -1,6 +1,8 @@
-# Impl workflow: Pick / Execute / Verify / Report
+# Impl workflow: Pick / Execute / SelfCheck / Report
 
 Detailed procedures for the four primitives. SKILL.md gives high-level steps; this file gives the full workflow including edge cases and ad-hoc mode.
+
+> **Scope reminder**: Impl's `SelfCheck` runs the task's own `acceptance:` commands. It does NOT perform semantic audit against spec — that is the `review` skill. Keeping these separate prevents impl's limited-context view (task-only) from silently approving work that drifts from spec.
 
 ---
 
@@ -103,7 +105,7 @@ Wait for answer. If user wants minimal task file → invoke task skill with 1-ta
 
 **Step A2 — Same execution flow**
 
-Otherwise, treat user's answer as the task. Create an in-memory task object with the same fields. Run Execute → Verify → Report as normal.
+Otherwise, treat user's answer as the task. Create an in-memory task object with the same fields. Run Execute → SelfCheck → Report as normal.
 
 **Step A3 — Status lives where?**
 
@@ -171,9 +173,22 @@ The line: would a reviewer reasonably call out your choice? If yes → ask / NEE
 
 ---
 
-## Verify
+## SelfCheck
 
-Run the task's acceptance commands. Report facts, not feelings.
+Run the task's acceptance commands. Report facts, not feelings. This is **self**-check (run your own acceptance), not semantic review (which is the `review` skill).
+
+**What SelfCheck is NOT for**:
+
+- Deciding whether the code truly solves the user-level problem (review)
+- Comparing implementation against spec constraints (review)
+- Consulting wiki for relevant gotchas (review)
+- Looking at git diff beyond the current task's files (review)
+
+**What SelfCheck IS for**:
+
+- Running every `acceptance:` command in the task
+- Reading their exit codes and output carefully
+- Refusing to claim DONE when any acceptance fails
 
 ### Full procedure
 
@@ -185,7 +200,7 @@ Extract each command or predicate from `acceptance:` field.
 
 For commands: execute with timeout. Capture exit code + last ~40 lines of output.
 
-For file-state predicates: read the file, verify the exported signature / content.
+For file-state predicates: read the file, check the exported signature / content against acceptance.
 
 For HTTP predicates: run the curl or equivalent, parse response.
 
@@ -212,11 +227,11 @@ If an acceptance criterion requires human eyes (e.g. "UI looks correct"):
 - Run automated parts
 - For manual: emit "DONE-PENDING-MANUAL: <criterion> — 请人工确认后在 status log 改 [x]"
 
-**Case: verification command itself is broken**
+**Case: acceptance command itself is broken**
 
 If `pnpm test path/xxx.test.ts` fails because of a toolchain issue (not the code under test):
 
-- BLOCKED: "toolchain error <detail>, cannot verify"
+- BLOCKED: "toolchain error <detail>, cannot SelfCheck"
 - Do NOT interpret toolchain failure as code failure
 
 **Case: acceptance passes but other tests break**
@@ -301,7 +316,7 @@ If user is running multiple tasks in one session, maintain `.claude/impl-logs/<n
 ```markdown
 ## [2025-04-18 14:20] T-003 DONE
 - deliverable: src/webhooks/xhs-handler.ts
-- verify: 3/3 pass
+- selfcheck: 3/3 pass
 - duration: 2h 40min
 
 ## [2025-04-18 15:10] T-005 NEEDS_CONTEXT

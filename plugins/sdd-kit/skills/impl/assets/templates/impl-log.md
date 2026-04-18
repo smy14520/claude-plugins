@@ -14,7 +14,7 @@ Append-only. One entry per task run (per status transition).
 ## [YYYY-MM-DD HH:MM] T-001 DONE
 
 - Deliverable: <file(s) changed>
-- Verification:
+- SelfCheck:
   - cmd1 — exit 0 (N tests)
   - cmd2 — match expected
 - Duration: Xh Ymin
@@ -31,7 +31,7 @@ Append-only. One entry per task run (per status transition).
 
 - (Re-run after user clarified <thing>)
 - Deliverable: <files>
-- Verification:
+- SelfCheck:
   - cmd1 — exit 0
 - Duration: Xh Ymin
 - Note: concerns from NEEDS_CONTEXT resolved
