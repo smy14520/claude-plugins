@@ -1,7 +1,6 @@
 ---
 name: research
-description: "Bounded exploration of a topic before committing to a spec/design. Produces `.claude/research/<topic>/` with raw materials, refined notes, and a `findings.md` summarizing discoveries + open questions + wiki-ingest candidates. Does NOT make design decisions (spec skill's job) and does NOT auto-advance. Primary invocation: `/sdd-kit:research <topic>`."
-disable-model-invocation: true
+description: "Bounded exploration of a topic before committing to a spec/design. Produces `.claude/research/<topic>/` with raw materials, refined notes, and a `findings.md` summarizing discoveries + open questions + wiki-ingest candidates. Does NOT make design decisions (spec skill's job) and does NOT auto-advance. Invoke only on explicit user request (e.g. '用 research skill 调研 <topic>')."
 ---
 
 # Research — Bounded Exploration

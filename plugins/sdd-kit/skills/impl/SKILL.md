@@ -1,7 +1,6 @@
 ---
 name: impl
-description: "Execute a task (or ad-hoc goal) as actual code changes. Picks a task from `.claude/tasks/<name>.tasks.md`, writes code to meet its acceptance, runs its own acceptance commands (self-check, not semantic review), reports with a strict 4-state machine (DONE / DONE_WITH_CONCERNS / NEEDS_CONTEXT / BLOCKED). Never claims DONE without passing `acceptance:` commands. Never silently makes design decisions — ambiguity forces NEEDS_CONTEXT. Semantic audit against spec is the review skill's job, not impl's. Appends status line to the task file. Works without a task file too. Primary invocation: `/sdd-kit:impl <task-id-or-file>`."
-disable-model-invocation: true
+description: "Execute a task (or ad-hoc goal) as actual code changes. Picks a task from `.claude/tasks/<name>.tasks.md`, writes code to meet its acceptance, runs its own acceptance commands (self-check, not semantic review), reports with a strict 4-state machine (DONE / DONE_WITH_CONCERNS / NEEDS_CONTEXT / BLOCKED). Never claims DONE without passing `acceptance:` commands. Never silently makes design decisions — ambiguity forces NEEDS_CONTEXT. Semantic audit against spec is the review skill's job, not impl's. Appends status line to the task file. Works without a task file too. Invoke only on explicit user request (e.g. '用 impl skill 执行 <task-id>')."
 ---
 
 # Impl — Task Executor with 4-State Reporting

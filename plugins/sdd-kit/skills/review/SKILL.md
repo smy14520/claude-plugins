@@ -1,7 +1,6 @@
 ---
 name: review
-description: "Independent semantic audit of impl output against spec, task, wiki, and actual git diff. Runs AFTER impl reports DONE/DONE_WITH_CONCERNS. Read-only — never edits code, spec, or task. Reports with a strict 4-state machine (APPROVED / APPROVED_WITH_NOTES / NEEDS_REWORK / SPEC_DRIFT). Appends to task file's `## Review log` (separate from Status log). Must consult git diff; impl self-check is not a substitute. Primary invocation: `/sdd-kit:review <task-id-or-file>`."
-disable-model-invocation: true
+description: "Independent semantic audit of impl output against spec, task, wiki, and actual git diff. Runs AFTER impl reports DONE/DONE_WITH_CONCERNS. Read-only — never edits code, spec, or task. Reports with a strict 4-state machine (APPROVED / APPROVED_WITH_NOTES / NEEDS_REWORK / SPEC_DRIFT). Appends to task file's `## Review log` (separate from Status log). Must consult git diff; impl self-check is not a substitute. Invoke only on explicit user request (e.g. '用 review skill 审计 <task-id>')."
 ---
 
 # Review — Independent Semantic Audit

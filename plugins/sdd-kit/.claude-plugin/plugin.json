@@ -6,6 +6,5 @@
     "name": "camellia",
     "email": "camellia@gmail.com"
   },
-  "commands": ["./commands/"],
   "skills": ["./skills/"]
 }

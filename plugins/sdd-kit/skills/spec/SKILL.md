@@ -1,7 +1,6 @@
 ---
 name: spec
-description: "Produce a dependable single-file implementation spec for a feature or change. Output: `.claude/specs/<name>.md` — a contract covering goal, non-goals, interface, constraints, data/state, integration, test strategy. Strictly excludes decision history, rejected alternatives, and discovery narrative. Task skill consumes it; impl executes against it. Does NOT auto-advance. Primary invocation: `/sdd-kit:spec <name>`."
-disable-model-invocation: true
+description: "Produce a dependable single-file implementation spec for a feature or change. Output: `.claude/specs/<name>.md` — a contract covering goal, non-goals, interface, constraints, data/state, integration, test strategy. Strictly excludes decision history, rejected alternatives, and discovery narrative. Task skill consumes it; impl executes against it. Does NOT auto-advance. Invoke only on explicit user request (e.g. '用 spec skill 写 <name>')."
 ---
 
 # Spec — Dependable Design Contract

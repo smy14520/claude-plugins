@@ -1,7 +1,6 @@
 ---
 name: task
-description: "Decompose a spec (or confirmed goal) into an atomic execution plan a downstream executor can consume WITHOUT re-deciding anything. Output: `.claude/tasks/<name>.tasks.md` — atomic tasks with ID, role, dependencies, deliverable, acceptance. Two modes: strict-atomic (≤ 4h per task) and lean (coarser). Task files MUST NOT contain `[[wikilinks]]`. Does NOT auto-advance. Primary invocation: `/sdd-kit:task <spec-name-or-path>`."
-disable-model-invocation: true
+description: "Decompose a spec (or confirmed goal) into an atomic execution plan a downstream executor can consume WITHOUT re-deciding anything. Output: `.claude/tasks/<name>.tasks.md` — atomic tasks with ID, role, dependencies, deliverable, acceptance. Two modes: strict-atomic (≤ 4h per task) and lean (coarser). Task files MUST NOT contain `[[wikilinks]]`. Does NOT auto-advance. Invoke only on explicit user request (e.g. '用 task skill 拆 <spec>')."
 ---
 
 # Task — Atomic Execution Plan

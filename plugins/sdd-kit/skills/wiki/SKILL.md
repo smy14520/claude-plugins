@@ -1,7 +1,6 @@
 ---
 name: wiki
-description: "Manage the project's persistent knowledge wiki at `.claude/wiki/` — structured pages with wikilinks, Karpathy LLM-Wiki pattern (NOT vector retrieval). Pages carry type=entity|concept|gotcha|decision|source in frontmatter; root pages (tag=root) serve as domain hubs. Three primitives: Ingest (record new knowledge), Query (read index → root → selective follow), Lint (orphans / broken links / stale roots). Primary invocation: `/sdd-kit:wiki <intent and content>`."
-disable-model-invocation: true
+description: "Manage the project's persistent knowledge wiki at `.claude/wiki/` — structured pages with wikilinks, Karpathy LLM-Wiki pattern (NOT vector retrieval). Pages carry type=entity|concept|gotcha|decision|source in frontmatter; root pages (tag=root) serve as domain hubs. Three primitives: Ingest (record new knowledge), Query (read index → root → selective follow), Lint (orphans / broken links / stale roots). Invoke only on explicit user request (e.g. '用 wiki skill ingest / query / lint …')."
 ---
 
 # Wiki — Persistent Knowledge Management
