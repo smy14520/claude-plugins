@@ -1,0 +1,153 @@
+---
+name: impl
+description: "Use this skill to execute a task (or ad-hoc goal) as actual code changes. Trigger phrases: '实施 T-00X', '执行 task X', '开始写代码 X', 'implement X', 'run impl on task file Y'. The skill picks a task from `.claude/tasks/<name>.tasks.md`, writes code to meet the task's acceptance, runs verification, and reports using a strict 4-state machine (DONE / DONE_WITH_CONCERNS / NEEDS_CONTEXT / BLOCKED). Executor does NOT make design decisions — ambiguity forces NEEDS_CONTEXT. Never claims DONE without passing the task's `acceptance:` commands. Appends a status line to the task file. Works without a task file too (ad-hoc impl), but reports same 4 states."
+---
+
+# Impl — Task Executor with 4-State Reporting
+
+Execute tasks as code. Verify before claiming DONE. Never silently downgrade BLOCKED into DONE.
+
+## Positioning in the 4-phase workflow
+
+```
+research → spec → task → [impl]
+                           ↓
+                           └─── reports status, does NOT mutate spec/task
+```
+
+Impl is the **execution** phase. It:
+
+- Reads the task (from file or in-session)
+- Writes code to satisfy acceptance
+- Runs verification commands
+- Reports a status in the 4-state machine
+- **Does not** change the task list; **does not** make design decisions
+
+## Four primitives
+
+Match user intent; full procedures in [references/workflow.md](references/workflow.md).
+
+### 🎯 Pick — select task
+
+Triggers: "实施 T-003", "执行下一个 task", "run next task".
+
+Procedure:
+
+1. Locate `.claude/tasks/<file>.tasks.md` (user specifies OR scan most-recent)
+2. Read task list + existing status log
+3. Pick next eligible task: `depends-on` all in `DONE` state, task itself not yet done/blocked
+4. Confirm with user: "下一个: T-003 `<title>` — estimate 3h. 开始？"
+
+If no task file: fall back to ad-hoc mode (`references/workflow.md#ad-hoc`).
+
+### 🔨 Execute — write code
+
+Triggers: after Pick, or immediate start.
+
+Procedure:
+
+1. Read the task's `deliverable` + `acceptance` + `notes`
+2. Read spec if needed (only for context, not for re-decision)
+3. Write code aimed at acceptance criteria
+4. If ambiguity arises → STOP and emit NEEDS_CONTEXT (see state-machine.md)
+
+### ✅ Verify — run checks
+
+Triggers: after Execute, always before reporting DONE.
+
+Procedure:
+
+1. Run every command in task's `acceptance:`
+2. Capture exit code + relevant output
+3. Any failure → do NOT claim DONE
+4. Verification scope matches acceptance — no extra, no less
+
+### 📤 Report — emit state
+
+Triggers: after Verify, or on BLOCKED / NEEDS_CONTEXT.
+
+Procedure (see [references/state-machine.md](references/state-machine.md) for definitions):
+
+1. Classify into: DONE / DONE_WITH_CONCERNS / NEEDS_CONTEXT / BLOCKED
+2. Append status line to task file's `## Status log` section
+3. Emit structured summary to user with next-task suggestion (no auto-advance)
+
+## Four states
+
+Full definitions in [references/state-machine.md](references/state-machine.md). Quick reference:
+
+| State | Meaning |
+|-------|---------|
+| **DONE** | All acceptance commands passed, no known compromises |
+| **DONE_WITH_CONCERNS** | Acceptance passed, but executor noticed tech debt / compromise / non-ideal path. MUST document concern. |
+| **NEEDS_CONTEXT** | Ambiguity or missing info blocks completion; executor refuses to decide. MUST specify what context is needed. |
+| **BLOCKED** | Environment / dependency / external factor prevents proceeding. MUST name blocker. |
+
+## Directory structure
+
+```
+.claude/tasks/
+└── <name>.tasks.md      # ← appended status log lives inside this file
+
+.claude/impl-logs/       # optional, created on first long-running impl
+└── <name>.log.md        # cumulative session trace (multi-task runs)
+```
+
+## Status line format
+
+Exact format, appended to the task file's `## Status log` section:
+
+```
+- [x] T-003 (DONE) — 2025-04-18 14:20 — all acceptance cmds green (3/3)
+- [?] T-004 (DONE_WITH_CONCERNS) — 2025-04-18 14:50 — passed but: retry logic uses fixed 3 tries, no backoff; see note in src/webhooks/xhs-handler.ts:42
+- [!] T-005 (NEEDS_CONTEXT) — 2025-04-18 15:10 — spec ambiguous on replay window: 24h vs 7d? acceptance doesn't specify
+- [✗] T-006 (BLOCKED) — 2025-04-18 15:30 — db migration fails: local postgres 14 vs expected 15; need devops to align
+```
+
+Checkbox semantics:
+
+- `[x]` — DONE
+- `[?]` — DONE_WITH_CONCERNS
+- `[!]` — NEEDS_CONTEXT
+- `[✗]` — BLOCKED
+
+## Core rules
+
+1. **No unverified claims** — NEVER emit DONE without running `acceptance:` commands. "Should work" = NEEDS_CONTEXT, not DONE.
+2. **No silent state downgrade** — BLOCKED does not become DONE because "I figured out a workaround". A workaround that deviates from acceptance is DONE_WITH_CONCERNS. A workaround that meets acceptance is DONE.
+3. **No design decisions** — if the task has ambiguity, emit NEEDS_CONTEXT. Do not invent a choice.
+4. **No task mutation** — impl does not edit the task's title, deliverable, or acceptance. Only appends to status log.
+5. **One task at a time** — complete + report before picking the next. Prevents half-done state.
+6. **Verification = acceptance** — if acceptance says "passes test X", you run X. Don't run less (false DONE). Don't run more (scope creep, unrelated failures).
+7. **Ad-hoc mode follows same rules** — even without a task file, same 4-state reporting.
+8. **No auto-advance to next task** — impl reports one task and stops, unless user explicitly says "continue".
+
+## Initialization
+
+If `.claude/tasks/` does not exist: impl cannot run task-mode, only ad-hoc.
+If `.claude/impl-logs/` does not exist and user wants multi-session trace: create on first impl.
+
+## What this skill does NOT do
+
+- Does not modify spec (spec is authoritative; if spec is wrong, return NEEDS_CONTEXT)
+- Does not modify task definition (only appends status)
+- Does not skip verification "because it's obvious"
+- Does not bundle multiple tasks into one commit / one status line
+- Does not auto-advance after DONE — user decides
+
+## When NOT to activate
+
+- Task file has unresolved upstream BLOCKED on a dependency — resolve that first
+- User is still in research/spec phase — use prior skills
+- No code change is actually needed (pure design discussion) — just answer
+
+## Anti-patterns
+
+See [references/anti-patterns.md](references/anti-patterns.md). Quick list:
+
+- Claiming DONE without running `acceptance:` commands
+- Merging BLOCKED into DONE_WITH_CONCERNS without naming the blocker
+- Silently making a design choice to unblock (should be NEEDS_CONTEXT)
+- Editing the task's acceptance to pass
+- "Running tests" without reading their output
+- Bundling unrelated cleanup into a task commit

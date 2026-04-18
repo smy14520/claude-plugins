@@ -50,14 +50,14 @@ research → spec → task → impl
 ## 当前状态
 
 - [x] wiki skill（知识层宪法）
-- [ ] research skill
-- [ ] spec skill
-- [ ] task skill
-- [ ] impl skill
+- [x] research skill（探索 + raw/refined 分层 + 显式 ingest 提议）
+- [x] spec skill（决策门户 + 内容契约 + 无决策史）
+- [x] task skill（原子拆解 + DAG + strict-atomic/lean 双模式 + 无 wikilink）
+- [x] impl skill（四态状态机 + 可验证 acceptance + 不静默决策）
 
 ## 使用
 
-参见每个 skill 的 SKILL.md。
+参见每个 skill 的 SKILL.md。四个 SDD 阶段 skill（research / spec / task / impl）彼此独立，不自动跳转；wiki skill 作为知识沉淀层，由用户显式触发 ingest。
 
 ## 和 autolearn-sdd-kit 的差异
 
