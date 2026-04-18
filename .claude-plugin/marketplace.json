@@ -18,6 +18,17 @@
         "name": "camellia",
         "email": "camellia@gmail.com"
       }
+    },
+    {
+      "name": "sdd-kit",
+      "description": "Spec-Driven Development + Karpathy-style persistent wiki (research → spec → task → impl, skill-first, no commands/agents)",
+      "version": "0.1.0",
+      "source": "./plugins/sdd-kit",
+      "category": "development",
+      "author": {
+        "name": "camellia",
+        "email": "camellia@gmail.com"
+      }
     }
   ]
 }
