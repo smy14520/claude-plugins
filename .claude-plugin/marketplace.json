@@ -9,17 +9,6 @@
   },
   "plugins": [
     {
-      "name": "autolearn-sdd-kit",
-      "description": "Compounding Auto-Learning + Spec-Driven Development workflow (commands + agents + skills)",
-      "version": "0.3.0",
-      "source": "./plugins/autolearn-sdd-kit",
-      "category": "development",
-      "author": {
-        "name": "camellia",
-        "email": "camellia@gmail.com"
-      }
-    },
-    {
       "name": "sdd-kit",
       "description": "Spec-Driven Development + Karpathy-style persistent wiki. 5 skills: research / spec / task / impl / wiki. Skill-first, no commands/agents. Phases independent; user controls transitions.",
       "version": "0.2.0",
