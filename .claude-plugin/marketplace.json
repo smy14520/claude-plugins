@@ -11,7 +11,7 @@
     {
       "name": "sdd-kit",
       "description": "Spec-Driven Development + Karpathy-style persistent wiki. 5 skills: research / spec / task / impl / wiki. Skill-first, no commands/agents. Phases independent; user controls transitions.",
-      "version": "0.2.0",
+      "version": "0.3.0",
       "source": "./plugins/sdd-kit",
       "category": "development",
       "author": {

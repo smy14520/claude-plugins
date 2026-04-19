@@ -83,9 +83,11 @@ User decides whether to file it.
 
 - Spec says X, task says Y, they contradict
 - Acceptance references a file/command that doesn't exist
-- A concrete value is missing (e.g. TTL, retry count) that affects behavior
+- A concrete value is missing (e.g. TTL, retry count, URL, enum choice) that affects behavior
 - Two reasonable implementations exist and task doesn't choose
 - Required upstream dependency has undefined behavior
+- Task deliverable uses an open verb (`校准 / 保持 / 验证 / 确保 / 适配`) instead of `CREATE / ADD / SET / DELETE / REPLACE` with a concrete target — do NOT self-research the missing value
+- Task or spec file contains a remaining `<TODO-DECIDE>` or `<TBD>` marker relevant to this task — spec was not finalized
 
 ### Required output
 
@@ -102,6 +104,7 @@ MUST specify:
 - Using NEEDS_CONTEXT to avoid reading the spec more carefully
 - Claiming NEEDS_CONTEXT on decisions already made in spec (re-read, don't ask)
 - Silently making the choice and marking DONE — that's the core failure mode to avoid
+- Self-conducting research (reading external docs, web search, exploring codebase for "what should this URL be") to resolve an open verb or unresolved marker — that's the spec / research phase's job, not impl's. Emit NEEDS_CONTEXT and bounce back.
 
 ### Status line example
 

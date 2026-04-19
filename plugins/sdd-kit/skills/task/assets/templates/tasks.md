@@ -15,6 +15,9 @@ status: draft | confirmed | in-progress | done
   - NO decisions. Every task is execution only.
   - IDs are append-only. Never renumber.
   - Every acceptance is a command or binary predicate.
+  - Closed verbs only: CREATE | ADD | SET | DELETE | REPLACE with concrete target values.
+    Open verbs (校准 / 保持 / 验证 / 确保 / 适配) signal the source spec has an unresolved
+    `<TODO-DECIDE>` — bounce back to spec, do not smuggle ambiguity into task.
 -->
 
 ## Summary

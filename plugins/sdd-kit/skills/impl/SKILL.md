@@ -128,7 +128,7 @@ Checkbox semantics:
 
 1. **No unverified claims** — NEVER emit DONE without running `acceptance:` commands. "Should work" = NEEDS_CONTEXT, not DONE.
 2. **No silent state downgrade** — BLOCKED does not become DONE because "I figured out a workaround". A workaround that deviates from acceptance is DONE_WITH_CONCERNS. A workaround that meets acceptance is DONE.
-3. **No design decisions** — if the task has ambiguity, emit NEEDS_CONTEXT. Do not invent a choice.
+3. **No design decisions, no self-research** — if the task has ambiguity (open verb like `校准 / 保持 / 验证`, missing concrete value, unresolved `<TODO-DECIDE>`), emit NEEDS_CONTEXT. Do not invent a choice. Do not fetch external docs, web-search, or compare peer code to fill the gap — that is spec / research phase's job. Bounce back.
 4. **No task mutation** — impl does not edit the task's title, deliverable, or acceptance. Only appends to status log.
 5. **One task at a time** — complete + report before picking the next. Prevents half-done state.
 6. **SelfCheck = acceptance** — if acceptance says "passes test X", you run X. Don't run less (false DONE). Don't run more (scope creep, unrelated failures). Don't second-guess the spec — if spec itself seems wrong, emit NEEDS_CONTEXT or let `review` flag SPEC_DRIFT.

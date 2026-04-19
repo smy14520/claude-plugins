@@ -56,6 +56,9 @@ Exact inputs, outputs, error shapes:
 - For HTTP: method, path, request body schema, response body schema, status codes
 - For functions: signature, parameter types, return type, exceptions
 - For events: topic, payload schema, ack protocol
+- For config / constants: exact names AND exact values (URLs, enum lists, SLO numbers, feature-flag keys)
+
+**Unknown concrete values** (a URL you don't know yet, an enum you haven't decided) MUST be written as `<TODO-DECIDE: specific question>`. Descriptions like "与 docs 保持一致" / "校准 XX" / "保持默认" are forbidden in place of exact values — they silently leak unresolved work to task and impl, where resolving them is expensive. See also Finalize step's marker grep.
 
 Include an acceptance-criteria block:
 

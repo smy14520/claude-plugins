@@ -31,6 +31,15 @@ supersedes: <old-spec-name>   # optional, remove if N/A
 <For HTTP: method, path, request schema, response schema, status codes>
 <For functions: signature, param types, return type, exceptions>
 <For events: topic, payload schema, ack protocol>
+<For config / constants: exact names AND exact values (URLs, enum lists, SLO numbers)>
+
+<!--
+  Unknown values policy:
+  If a concrete value (URL, constant, schema field, enum choice) is required by impl
+  but not yet known, write `<TODO-DECIDE: specific question>` in place of the value.
+  Do NOT substitute descriptions like "与 docs 保持一致" or "校准配置" for exact values.
+  Finalize will grep for markers and block `status: accepted` while any remain.
+-->
 
 ### Acceptance
 

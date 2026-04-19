@@ -101,6 +101,7 @@ File naming:
 5. **Acceptance is verifiable** — each task must name: (a) file(s) that will change, (b) command(s) to verify (`pnpm test`, `curl …`, etc.).
 6. **Shared modules go first** — if task T-004 depends on shared T-001, T-001 must be scheduled ahead.
 7. **No auto-advance** — after task file is written, skill stops. Impl is a separate invocation.
+8. **Closed verbs only** — each task's deliverable uses `CREATE | ADD | SET | DELETE | REPLACE` with concrete target values. Open verbs (`校准 / 保持 / 验证 / 确保 / 适配`) signal an unresolved value upstream — bounce back to spec as `<TODO-DECIDE>`, do not write a vague task for impl to research.
 
 ## Mode selection (strict-atomic vs lean)
 
