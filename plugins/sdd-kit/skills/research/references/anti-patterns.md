@@ -133,7 +133,19 @@
 
 ---
 
-## 13. 抓取后放弃
+## 13. 意图未锚定
+
+**症状**：research 文件夹存在，question.md 已创建，但收集的材料与研究问题没有明确关联。Refined 笔记写的是"发现了 X"但无法回答"这对决策有什么影响"。
+
+**原因**：Scope 阶段跳过了意图锚定，或者意图锚定的 success criteria 写得过于抽象（如"了解 X 的生态"而非"能列出 3 个以上可选方案并比较其优劣"）。
+
+**代价**：收集了一堆"看起来有用"但无法服务于具体决策的材料。Spec 阶段需要重新研究。
+
+**正确做法**：Scope 阶段必须填写意图锚定的三个子字段（Decision type / Success criteria / Downstream）。Collect 和 Refine 时以 success criteria 为筛选依据——无法关联到 criteria 的材料不收集。
+
+---
+
+## 14. 抓取后放弃
 
 **症状**：skill 对 URL 尝试 `curl`（或等效工具），收到错误或空响应，然后静默省略该来源或在提炼笔记中写入"couldn't fetch"。
 

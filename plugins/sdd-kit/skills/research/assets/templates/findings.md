@@ -12,10 +12,13 @@ topic: <topic-kebab-case>
 
 <从 question.md 复制 — 一句话>
 
-## 核心发现
+## 关键发现（直接影响决策）
 
 - **<发现 1 标题>** — <一句话摘要> → `refined/<note-1>.md`
 - **<发现 2 标题>** — <一句话摘要> → `refined/<note-2>.md`
+
+## 背景发现（提供上下文）
+
 - **<发现 3 标题>** — <一句话摘要> → `refined/<note-3>.md`
 
 ## 待解决问题
@@ -29,9 +32,8 @@ topic: <topic-kebab-case>
 
 （值得提升为长期 wiki 知识的精炼笔记。用户需显式执行 `wiki` 入库操作。）
 
-- `refined/<note-a>.md` → 建议 wiki 类型: `entity` / 名称: `<wiki-page-name>`
-- `refined/<note-b>.md` → 建议 wiki 类型: `gotcha` / 名称: `<wiki-page-name>`
-- `refined/<note-c>.md` → 建议 wiki 类型: `concept` / 名称: `<wiki-page-name>`
+- `refined/<note-a>.md` — <一句话理由，为什么值得持久化>
+- `refined/<note-b>.md` — <一句话理由>
 
 ## 临时性内容（不要入库）
 

@@ -1,15 +1,7 @@
 ---
 status: open
 date: YYYY-MM-DD
-feeding: <spec-name or decision this research feeds>
-
-# 可选 — 覆盖 Collect 的默认抓取策略（参见 references/data-collection.md）
-# 仅在默认策略不足时取消注释并调整。
-# fetch:
-#   max_pages: 30                # 默认 10；论坛/长 API 分页/社区场景可上调
-#   follow_depth: 2              # 默认 1；仅在 1 级追踪明显不足时上调
-#   tools_force: [playwright]    # 跳过调度矩阵，始终使用这些工具
-#   tools_exclude: [js-reverse]  # 在本次研究中永远不调用这些工具
+downstream: <spec-name | direct-answer | wiki-ingest>
 ---
 
 <!-- 输出语言: 中文 -->
@@ -29,10 +21,16 @@ feeding: <spec-name or decision this research feeds>
 - <明确排除项 1 — 不纳入研究的内容>
 - <明确排除项 2>
 
-## 对接决策
+## 意图锚定
 
-<哪个 spec / 设计选择将使用本次研究的输出>
+- **Decision type**: 选型 / 估工 / 理解现状 / 评估可行性
+- **Success criteria**: <什么样的发现算"有用的"？1-3 条具体判断标准>
+- **Downstream**: <spec-name / 直接回答 / wiki 摄取>
 
-## 时间预算
+## 范围变更记录
 
-<粗略估计：例如 2 小时 / 半天 / 1 天>
+<!-- 仅在修订 question.md 时追加。首次创建时删除本节。 -->
+
+| 日期 | 变更内容 | 原因 |
+|------|----------|------|
+| YYYY-MM-DD | <什么范围从 in-scope 移到了 out-of-scope，或反之> | <为什么> |
