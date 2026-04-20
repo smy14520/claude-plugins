@@ -49,7 +49,7 @@ Procedure:
 
 1. Accept raw inputs (pasted docs, URLs, screenshots, code dumps) → `raw/`
 2. Scan codebase for relevant entry points → extract minimal quotes, save as `raw/codebase-<area>.md`
-3. If user provides URLs, fetch and save summaries as `raw/ext-<name>.md`
+3. For URL-based inputs, follow the tool matrix, completeness rules, and failure handling in [references/data-collection.md](references/data-collection.md). Save to `raw/ext-<name>.md` (or per-tab / per-page variants per that reference). **A single `curl`-style attempt that fails and gives up is an anti-pattern** — the fallback ladder must be exhausted before declaring a URL unretrievable.
 4. **Do not distill yet**. Raw is raw.
 
 ### 🔍 Refine — distill into focused notes
@@ -101,6 +101,7 @@ Procedure:
 5. **No auto-advance** — after `findings.md`, stop. Let the user decide next steps.
 6. **Wikilinks are optional hints** — research notes MAY reference `[[wiki-page]]` but must not depend on wiki existing. If the wiki doesn't have a matching page, leave a plain name.
 7. **Ingest is user-triggered** — the `findings.md` only *proposes* which items to ingest. Ingest itself runs through the `wiki` skill, invoked explicitly.
+8. **Fetch is a strategy ladder, not a single call** — when Collect touches external URLs, follow [references/data-collection.md](references/data-collection.md). Silent dropping of a URL (e.g. "curl failed, moving on") is forbidden. Tabs / pagination / one-level referenced docs / primary assets must be covered per that reference. Unretrievable sources must be explicitly recorded as `raw/ext-<name>-failed.md` and surfaced in `findings.md`'s open questions.
 
 ## Initialization
 

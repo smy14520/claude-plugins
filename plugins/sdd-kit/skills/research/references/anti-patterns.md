@@ -130,3 +130,31 @@ Patterns seen in prior iterations (including `autolearn-sdd-kit`) that erode res
 **Cost**: impossible to scope; `findings.md` becomes unusable.
 
 **Correct approach**: one research folder per bounded question. If a new question arises, open a new folder, even if adjacent. Folders are cheap; attention isn't.
+
+---
+
+## 13. Fetch-and-give-up
+
+**Symptom**: the skill tries `curl` (or its equivalent) against a URL, receives an error or empty body, and either silently omits the source or writes "couldn't fetch" into refined notes.
+
+**Variants**:
+
+- "403 / Cloudflare challenge, skipping this URL"
+- "SPA, probably hard to scrape, moving on"
+- "Used the search result snippet as the content"
+- Fetching page 1 only on a paginated list
+- Fetching one tab on a multi-tab page
+
+**Cost**:
+
+- Data incompleteness silently propagates to spec and downstream phases
+- Spec decisions made on partial evidence
+- Later reviewers cannot distinguish "this data is unavailable" from "we didn't try"
+
+**Correct approach**: follow the strategy ladder and completeness rules in [data-collection.md](data-collection.md). Specifically:
+
+- Exhaust the fallback chain (primary tool → fallback tool → next fallback) before declaring unretrievable
+- Cover tabs, pagination (up to `max_pages`, default 10), and one-level material references
+- Record failures as `raw/ext-<name>-failed.md` and surface them in `findings.md`'s open questions — never silent omission
+- Never substitute a search-result snippet for the actual page content
+- Never fabricate content inferred from URL or title

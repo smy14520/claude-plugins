@@ -292,6 +292,8 @@ Option B.
 
 **This is the only page type that gets a filename prefix**: `source-<name>.md`.
 
+> **If the source must be fetched from a URL** (user pastes a URL and asks to ingest directly, bypassing research), follow the tool matrix and completeness rules in [`../../research/references/data-collection.md`](../../research/references/data-collection.md) before building the summary. A `curl`-and-give-up approach corrupts the source page with incomplete data; prefer routing through the `research` skill when fetch complexity is high.
+
 ### Content contract
 
 - Brief summary of what the source covers (2-4 paragraphs)

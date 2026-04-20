@@ -2,6 +2,14 @@
 status: open
 date: YYYY-MM-DD
 feeding: <spec-name or decision this research feeds>
+
+# Optional — overrides Collect's default fetch strategy (see references/data-collection.md)
+# Uncomment and adjust only when defaults are insufficient.
+# fetch:
+#   max_pages: 30                # default 10; raise for forums / long API paging / communities
+#   follow_depth: 2              # default 1; raise only if 1-level follow is clearly insufficient
+#   tools_force: [playwright]    # skip the dispatch matrix and always use these tools
+#   tools_exclude: [js-reverse]  # never invoke these tools in this research
 ---
 
 <!-- 输出语言: 中文 -->
