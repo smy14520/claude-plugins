@@ -1,48 +1,48 @@
-# Decomposition: strict-atomic vs lean
+# 任务拆分：strict-atomic vs lean
 
-Two explicit modes. Pick per task file (not per session).
+两种显式模式。按任务文件选择（而非按会话）。
 
-## Mode comparison
+## 模式对比
 
-| Aspect | strict-atomic | lean |
-|--------|---------------|------|
-| Max size per task | ≤ 4h | ≤ 1 day |
-| Deliverables per task | Exactly 1 | 1-3 related |
-| Files touched per task | Typically 1-2 | Up to ~5 |
-| Commit grain | 1 task = 1 commit | 1 task = 1-few commits |
-| Good for | multi-agent / multi-person; parallel impl; long-lived work | solo dev; quick prototypes; time-boxed work |
-| Ceremony | high (more tasks, explicit DAG) | lower (fewer tasks, implicit order) |
-| Risk | over-decomposition for small work | tasks become too coarse to verify precisely |
+| 维度 | strict-atomic | lean |
+|------|---------------|------|
+| 单任务最大尺寸 | ≤ 4h | ≤ 1 天 |
+| 单任务交付物数 | 恰好 1 个 | 1-3 个相关项 |
+| 单任务涉及文件数 | 通常 1-2 个 | 最多约 5 个 |
+| 提交粒度 | 1 个任务 = 1 次提交 | 1 个任务 = 1 到少量提交 |
+| 适用场景 | 多 agent / 多人；并行 impl；长期工作 | 单人开发；快速原型；有时间盒的工作 |
+| 仪式感 | 高（更多任务，显式 DAG） | 较低（更少任务，隐式顺序） |
+| 风险 | 对小工作过度拆分 | 任务过粗导致无法精确验证 |
 
-## Choosing
+## 如何选择
 
-### Pick strict-atomic when
+### 选 strict-atomic 的场景
 
-- Multiple humans or agents will execute concurrently
-- Work spans > 1 week (need stable handoff points)
-- Critical feature where each unit needs independent review
-- User explicitly wants parallelism
+- 多个人或 agent 将并行执行
+- 工作跨度 > 1 周（需要稳定的交接点）
+- 关键功能，每个单元需要独立审查
+- 用户明确要求并行
 
-### Pick lean when
+### 选 lean 的场景
 
-- Solo, 1-2 day effort
-- Prototype / experiment where the plan may change
-- Simple CRUD-style work where the seams are obvious
-- Over-decomposition would add more ceremony than value
+- 单人，1-2 天的工作量
+- 原型/实验，计划可能变化
+- 简单的 CRUD 类工作，切分点很明显
+- 过度拆分会增加超过价值的仪式感
 
-### Default
+### 默认值
 
-If user doesn't specify: **strict-atomic**. Err on the side of clear seams; coarse tasks are worse than too-many tasks.
+如果用户未指定：**strict-atomic**。宁可多拆也不要少拆；过粗的任务比过多的任务更糟。
 
-## strict-atomic rules
+## strict-atomic 规则
 
-1. Every task has **one** `deliverable:` entry (not "three files")
-2. Every task has **one** verifiable acceptance (can be a command)
-3. Estimates 0.5h – 4h
-4. Shared modules are always separate tasks
-5. Tests can be their own tasks OR bundled into the feature task — both acceptable; consistency within a file
+1. 每个任务有且仅有**一个** `deliverable:` 条目（不是"三个文件"）
+2. 每个任务有且仅有**一个**可验证的验收标准（可以是一个命令）
+3. 估算范围 0.5h – 4h
+4. 共享模块始终是独立任务
+5. 测试可以是独立任务，也可以捆绑在功能任务中——两种都可接受；但在同一文件内保持一致
 
-### Example (strict-atomic)
+### 示例（strict-atomic）
 
 ```markdown
 - id: T-003
@@ -67,14 +67,14 @@ If user doesn't specify: **strict-atomic**. Err on the side of clear seams; coar
   estimate: 2h
 ```
 
-## lean rules
+## lean 规则
 
-1. A task can bundle related deliverables ("handler + its unit test")
-2. Still has a single acceptance, but may be multi-step
-3. Estimates up to 1 day (~6-8h)
-4. Shared modules may be inlined into first consumer; promote out if a second consumer emerges
+1. 一个任务可以捆绑相关交付物（"处理器 + 其单元测试"）
+2. 仍然有单一的验收标准，但可以是多步的
+3. 估算最高 1 天（约 6-8h）
+4. 共享模块可以内联到第一个消费任务中；当出现第二个消费方时再提取
 
-### Example (lean)
+### 示例（lean）
 
 ```markdown
 - id: T-003
@@ -88,72 +88,72 @@ If user doesn't specify: **strict-atomic**. Err on the side of clear seams; coar
   estimate: 5h
 ```
 
-## Decomposition heuristics (both modes)
+## 拆分启发式规则（两种模式通用）
 
-### The "what can I verify independently?" test
+### "我能独立验证什么？" 测试
 
-If a deliverable cannot be verified without first verifying another, it depends on that one. That dependency becomes `depends-on`.
+如果一个交付物必须先验证另一个才能验证自己，那么它依赖于那一个。这个依赖关系就是 `depends-on`。
 
-### The "single concern" test
+### "单一关注点" 测试
 
-A task should have one reason to change. If you can imagine two PRs for the same task, split.
+一个任务应该只有一个变更理由。如果你能想象同一个任务会产生两个 PR，那就拆分。
 
-### The "too-small" smell
+### "太小" 的气味
 
-If a task has:
+如果一个任务：
 
-- Estimate < 30 min
-- Deliverable is literally one line ("add feature flag")
-- No dependencies, no dependents
+- 估算 < 30 分钟
+- 交付物实际上只有一行（"添加功能开关"）
+- 无依赖，也无被依赖
 
-Consider inlining into the next task. Micro-tasks pile ceremony.
+考虑内联到下一个任务中。微型任务会堆积仪式感。
 
-### The "too-big" smell
+### "太大" 的气味
 
-If a task has:
+如果一个任务：
 
-- Estimate > mode's max (4h atomic / 1 day lean)
-- Deliverable is a list ("migrate X, rewrite Y, add Z")
-- Multiple `notes:` about "also need to handle..."
+- 估算超过模式上限（strict-atomic 的 4h / lean 的 1 天）
+- 交付物是一个列表（"迁移 X，重写 Y，添加 Z"）
+- 多条 `notes:` 说"还需要处理……"
 
-Split.
+拆分。
 
-## Common decomposition buckets
+## 常见拆分分类
 
-Derive tasks from these spec sections:
+从以下 spec 章节推导任务：
 
-| Spec section | Typical tasks |
-|--------------|---------------|
-| Data / state design | migrations, seeds, schema tests |
-| Interface contract | handler, controller, api client, validators |
-| Constraints | rate-limiter, auth middleware, signature verifier |
-| Integration points | producer, consumer, adapters |
-| Test strategy | unit / integration / load test tasks |
-| Observability | metrics emitters, log enrichers, dashboards |
+| Spec 章节 | 典型任务 |
+|----------|---------|
+| 数据/状态设计 | 迁移、种子数据、模式测试 |
+| 接口契约 | 处理器、控制器、API 客户端、验证器 |
+| 约束条件 | 速率限制器、认证中间件、签名验证器 |
+| 集成点 | 生产者、消费者、适配器 |
+| 测试策略 | 单元/集成/负载测试任务 |
+| 可观测性 | 指标发射器、日志增强器、仪表盘 |
 
-Use these as a seed list; not every spec needs every bucket.
+将这些作为种子列表；不是每个 spec 都需要每个分类。
 
-## How to decide task order
+## 如何决定任务顺序
 
-The dependency DAG emerges from what consumes what:
+依赖 DAG 从谁消费谁的关系中自然产生：
 
-1. Storage first (migrations, schema) — nothing downstream works without it
-2. Shared utilities next (signature verifier, HTTP client, etc.)
-3. Core logic (handlers, domain services)
-4. Integration (event producers / consumers)
-5. Tests (either alongside #3 or after, per project convention)
-6. Devops last (deploy config, feature flags) — unless blocking (e.g. secret must exist before code can run)
+1. 存储优先（迁移、模式）——下游没有它就无法工作
+2. 共享工具其次（签名验证器、HTTP 客户端等）
+3. 核心逻辑（处理器、领域服务）
+4. 集成（事件生产者/消费者）
+5. 测试（与 #3 并行或之后，按项目惯例）
+6. DevOps 最后（部署配置、功能开关）——除非是阻断性的（如密钥必须在代码运行前存在）
 
-If you find yourself writing a task that references something "to be added later", that's a dependency. Declare it explicitly.
+如果你发现自己写了一个引用"待后续添加"内容的任务，那就是一个依赖。显式声明它。
 
-## Re-decomposition trigger
+## 重新拆分触发条件
 
-Initial task file was lean → impl gets stuck → reveals a hidden dependency → decompose that task further.
+初始任务文件是 lean → impl 遇到阻碍 → 揭示了隐藏依赖 → 对该任务进一步拆分。
 
-Allowed; do:
+允许；做法：
 
-1. Change parent task `status: split`
-2. Add new sub-tasks with fresh IDs, depends-on parent's dependencies
-3. Impl picks up the new atomic tasks
+1. 将父任务 `status` 改为 `split`
+2. 添加新的子任务，使用新 ID，depends-on 继承父任务的依赖
+3. Impl 接手新的原子任务
 
-Never silently edit the parent task; preserve the trail.
+绝不静默编辑父任务；保留操作轨迹。

@@ -3,119 +3,119 @@ name: wiki
 description: "Manage the project's persistent knowledge wiki at `.claude/wiki/` — structured pages with wikilinks, Karpathy LLM-Wiki pattern (NOT vector retrieval). Pages carry type=entity|concept|gotcha|decision|source in frontmatter; root pages (tag=root) serve as domain hubs. Three primitives: Ingest (record new knowledge), Query (read index → root → selective follow), Lint (orphans / broken links / stale roots). Invoke only on explicit user request (e.g. '用 wiki skill ingest / query / lint …')."
 ---
 
-# Wiki — Persistent Knowledge Management
+# Wiki — 持久化知识管理
 
-Manage `.claude/wiki/` as a structured knowledge graph across iterations. Users provide judgment and raw material; this skill handles the bookkeeping.
+将 `.claude/wiki/` 作为跨迭代的结构化知识图谱来管理。用户提供判断力和原始素材，本 skill 负责簿记工作。
 
-## Positioning
+## 定位
 
-This skill is the **schema layer** of Karpathy's 3-layer LLM-Wiki:
+本 skill 是 Karpathy 三层 LLM-Wiki 架构中的 **schema 层**：
 
-- Raw sources → `.claude/research/`, code, external docs
-- **Wiki (maintained here)** → `.claude/wiki/`
-- **Schema (this SKILL.md + references/)** → tells the LLM how to maintain the wiki
+- 原始素材 → `.claude/research/`、代码、外部文档
+- **Wiki（本 skill 维护）** → `.claude/wiki/`
+- **Schema（本 SKILL.md + references/）** → 告诉 LLM 如何维护 wiki
 
-**Core principle**: knowledge is a *compiled artifact*, not retrieved on-the-fly. The LLM is the librarian.
+**核心原则**：知识是*编译产物*，而非实时检索的结果。LLM 扮演图书管理员的角色。
 
-## Three primitives
+## 三个原语
 
-Match user intent to one primitive. Full procedures in [references/operations.md](references/operations.md).
+根据用户意图匹配对应原语。详细流程见 [references/operations.md](references/operations.md)。
 
-### 🟢 Ingest — distill new knowledge
+### 🟢 Ingest — 提炼新知识
 
-Triggers: "记一下这个坑/经验/决定", "sink into wiki", "record this".
+触发短语："记一下这个坑/经验/决定"、"sink into wiki"、"record this"。
 
-Procedure (detail in `references/operations.md#ingest`):
+流程（详见 `references/operations.md#ingest`）：
 
-1. Classify type (entity | concept | gotcha | decision | source)
-2. Determine file name (topic name, kebab-case, no type prefix)
-3. Check if page exists → prompt merge-vs-new if yes
-4. Apply template from [references/page-types.md](references/page-types.md)
-5. Update owning root page per [references/maintenance-rules.md](references/maintenance-rules.md#r1)
-6. Append one line to `log.md`
-7. Emit summary
+1. 分类类型（entity | concept | gotcha | decision | source）
+2. 确定文件名（主题名称，kebab-case，不加类型前缀）
+3. 检查页面是否已存在 → 若存在则提示用户选择合并还是新建
+4. 从 [references/page-types.md](references/page-types.md) 应用模板
+5. 按 [references/maintenance-rules.md](references/maintenance-rules.md#r1) 更新所属 root 页面
+6. 在 `log.md` 追加一行记录
+7. 输出摘要
 
-### 🔵 Query — recall existing knowledge
+### 🔵 Query — 回忆已有知识
 
-Triggers: "参考 wiki 里的 X", "wiki 里有没有 X", "have we done similar".
+触发短语："参考 wiki 里的 X"、"wiki 里有没有 X"、"have we done similar"。
 
-Procedure:
+流程：
 
-1. Read `.claude/wiki/index.md` → identify relevant root pages or cross-domain pages
-2. Read the root page → scan its grouped wikilinks
-3. Selectively follow wikilinks based on user's actual need (do not read everything)
-4. Return a structured summary: pages read, key findings per page, related-but-unread leads
+1. 读取 `.claude/wiki/index.md` → 定位相关的 root 页面或跨领域页面
+2. 读取 root 页面 → 扫描其分组 wikilink
+3. 根据用户的实际需求有选择地跟踪 wikilink（不要全部读取）
+4. 返回结构化摘要：已读页面、每页关键发现、相关但未读的线索
 
-### 🟡 Lint — audit wiki health
+### 🟡 Lint — 审计 wiki 健康状况
 
-Triggers: "wiki 体检", "wiki lint", "clean up wiki".
+触发短语："wiki 体检"、"wiki lint"、"clean up wiki"。
 
-Procedure:
+流程：
 
-1. Scan orphans (non-root pages unreferenced by anything)
-2. Scan broken wikilinks (links to nonexistent pages)
-3. Scan stale roots (root page last update < some child page creation)
-4. Scan duplicate candidates (filename Levenshtein distance < threshold)
-5. Scan **review candidates by age** (pages older than 180 days, per [R5-freshness](references/maintenance-rules.md#r5))
-6. Update `index.md`'s orphans section per [references/maintenance-rules.md](references/maintenance-rules.md#r4)
-7. Output a markdown report with **two severity levels**: ⚠️ review candidates (signal, not error) vs ❌ real issues (broken / orphan / duplicate)
+1. 扫描孤立页面（未被任何页面引用的非 root 页面）
+2. 扫描失效 wikilink（指向不存在页面的链接）
+3. 扫描过期 root 页面（root 页面最后更新时间早于某子页面的创建时间）
+4. 扫描重复候选（文件名 Levenshtein 距离低于阈值）
+5. 扫描**按年龄需要复查的页面**（超过 180 天的页面，参见 [R5-freshness](references/maintenance-rules.md#r5)）
+6. 按 [references/maintenance-rules.md](references/maintenance-rules.md#r4) 更新 `index.md` 的孤立页面区段
+7. 输出 markdown 格式报告，包含**两个严重级别**：⚠️ 复查候选（信号，非错误）vs ❌ 真正的问题（失效 / 孤立 / 重复）
 
-## Directory structure
+## 目录结构
 
 ```
 .claude/wiki/
-├── index.md          # navigation (root + cross-domain + source + orphans ONLY)
-├── log.md            # append-only operation log
+├── index.md          # 导航（仅包含 root + 跨领域 + source + 孤立页面）
+├── log.md            # 仅追加的操作日志
 │
-├── <root-topic>.md   # tag: [root] — domain hub (e.g. ai-customer-service.md)
-├── <topic>.md        # subject-named page (e.g. xhs-api.md, idempotent-webhook.md)
+├── <root-topic>.md   # tag: [root] — 领域枢纽（如 ai-customer-service.md）
+├── <topic>.md        # 以主题命名的页面（如 xhs-api.md、idempotent-webhook.md）
 │
-└── source-<name>.md  # raw material summary (only prefix allowed)
+└── source-<name>.md  # 原始素材摘要（唯一允许的前缀）
 ```
 
-## Core rules (quick reference)
+## 核心规则（速查）
 
-Detailed rationale and procedures are in the `references/` files linked below.
+详细的设计理由和操作流程请参阅下方链接的 `references/` 文件。
 
-1. **Naming** — file name = topic name in kebab-case. **No type prefix** except `source-`. See [references/page-types.md#naming](references/page-types.md).
-2. **Type is frontmatter, not filename** — every page has `type:` in frontmatter (entity | concept | gotcha | decision | source).
-3. **Root pages aggregate** — pages with `tags: [root]` serve as domain entry points. They list child wikilinks grouped by role. See [references/index-and-root.md](references/index-and-root.md).
-4. **index.md is lean** — only lists root pages, cross-domain concepts/decisions, source summaries, and orphans. **Never list child pages of a root**. See [references/index-and-root.md#index-rules](references/index-and-root.md).
-5. **entity pages are aggregation views, not code mirrors** — write info that requires reading 5+ files to reconstruct; do NOT write info that a single file or IDE index already provides. See [references/page-types.md#entity](references/page-types.md).
-6. **Wikilinks policy**:
-   - ✅ Wiki pages link freely to each other
-   - ✅ Spec files MAY link to wiki pages (as background hints)
-   - ❌ **Task files MUST NOT contain wikilinks** (execution plans must be self-sufficient)
-   - ❌ Research notes rarely need wikilinks (ephemeral)
+1. **命名** — 文件名 = 主题名称，kebab-case 格式。**不加类型前缀**，`source-` 除外。参见 [references/page-types.md#naming](references/page-types.md)。
+2. **类型写在 frontmatter 中，而非文件名** — 每个页面在 frontmatter 中都有 `type:` 字段（entity | concept | gotcha | decision | source）。
+3. **root 页面负责聚合** — 带有 `tags: [root]` 的页面作为领域入口，按角色分组列出子页面的 wikilink。参见 [references/index-and-root.md](references/index-and-root.md)。
+4. **index.md 保持精简** — 仅列出 root 页面、跨领域概念/决策、source 摘要和孤立页面。**禁止列出 root 的子页面**。参见 [references/index-and-root.md#index-rules](references/index-and-root.md)。
+5. **entity 页面是聚合视图，而非代码镜像** — 记录那些需要阅读 5 个以上文件才能还原的信息；不要记录单个文件或 IDE 索引已经提供的信息。参见 [references/page-types.md#entity](references/page-types.md)。
+6. **Wikilink 策略**：
+   - ✅ Wiki 页面之间可自由链接
+   - ✅ Spec 文件可以链接到 wiki 页面（作为背景提示）
+   - ❌ **Task 文件禁止包含 wikilink**（执行计划必须自包含）
+   - ❌ Research 笔记很少需要 wikilink（临时性质）
 
-## Initialization
+## 初始化
 
-If `.claude/wiki/` does not exist, create it with seed files from [assets/templates/](assets/templates/):
+若 `.claude/wiki/` 不存在，则从 [assets/templates/](assets/templates/) 创建种子文件：
 
 ```
-.claude/wiki/index.md    ← from assets/templates/index.md
-.claude/wiki/log.md      ← from assets/templates/log.md
+.claude/wiki/index.md    ← 来自 assets/templates/index.md
+.claude/wiki/log.md      ← 来自 assets/templates/log.md
 ```
 
-After creation, append to `log.md`:
+创建完成后，在 `log.md` 中追加：
 
 ```
 ## [YYYY-MM-DD HH:MM] init | wiki initialized
 ```
 
-## What this skill does NOT do
+## 本 skill 不做的事
 
-- Does not perform vector search or embedding-based retrieval (intentional — see Karpathy LLM-Wiki rationale)
-- Does not auto-ingest (every ingest must be user-triggered)
-- Does not store rules/style-guides/PSR-standards (those belong in `CLAUDE.md` or other skills)
-- Does not create pages across the four types categorically named as `experience-*`, `module-*`, `rule-*` (anti-patterns — see [references/anti-patterns.md](references/anti-patterns.md))
+- 不执行向量搜索或基于嵌入的检索（这是有意为之 — 参见 Karpathy LLM-Wiki 设计思路）
+- 不自动 ingest（每次 ingest 必须由用户触发）
+- 不存储规则/风格指南/PSR 标准（那些属于 `CLAUDE.md` 或其他 skill）
+- 不创建以 `experience-*`、`module-*`、`rule-*` 为分类名称的页面（这些都是反模式 — 参见 [references/anti-patterns.md](references/anti-patterns.md)）
 
-## When NOT to activate
+## 何时不激活
 
-Do not run this skill when the user is:
+当用户出现以下情况时，不要运行本 skill：
 
-- Asking a question that can be answered directly without wiki context
-- Working on small local edits (bug fix, style change) unrelated to structured knowledge
-- Explicitly opting out ("don't touch the wiki", "skip wiki")
+- 提问的问题无需 wiki 上下文即可直接回答
+- 正在进行与结构化知识无关的小范围本地编辑（bug 修复、样式调整）
+- 明确选择退出（"don't touch the wiki"、"skip wiki"）
 
-When in doubt, run **Query** (read-only, cheap), not **Ingest**.
+拿不准时，运行 **Query**（只读、成本低），而非 **Ingest**。

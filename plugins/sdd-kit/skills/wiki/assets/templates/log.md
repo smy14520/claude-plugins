@@ -1,4 +1,4 @@
-# Wiki Operation Log
+# Wiki 操作日志
 
 > 追加式日志。每次 ingest / lint / 重要结构调整都在此追加一行。
 > 快速查看最近 5 次操作：`grep "^## \[" log.md | tail -5`

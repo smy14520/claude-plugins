@@ -1,160 +1,160 @@
-# Research anti-patterns
+# Research 反模式
 
-Patterns seen in prior iterations (including `autolearn-sdd-kit`) that erode research quality. Avoid them.
-
----
-
-## 1. The unbounded browse
-
-**Symptom**: research folder grows to 20+ files over days, scope keeps expanding, findings.md never written.
-
-**Why it happens**: no `question.md` upfront, or scope declared but `out-of-scope` list was empty.
-
-**Correct approach**: always write `question.md` first with ≥ 2 explicit `out-of-scope` items. When something out-of-scope comes up, record it as an open question for a *future* research, do not expand the current one.
+在先前迭代（包括 `autolearn-sdd-kit`）中观察到的侵蚀研究质量的模式。避免它们。
 
 ---
 
-## 2. The single monolith
+## 1. 无边界浏览
 
-**Symptom**: one 500-line `research.md` in the root folder, no `raw/` or `refined/` subfolders.
+**症状**：research 文件夹在数天内膨胀至 20+ 个文件，范围不断扩大，findings.md 始终未写。
 
-**Why it happens**: convenience in the moment, no discipline around the 3-layer structure.
+**原因**：没有预先写 `question.md`，或者范围已声明但 `out-of-scope` 列表为空。
 
-**Cost**: future sessions cannot find what they need; the file is unreadable as a whole; no clear "which parts are verbatim, which are interpretation".
-
-**Correct approach**: enforce `raw/*.md` for sources and `refined/*.md` for distillations from day 1. Even a trivial research has at least one of each.
+**正确做法**：始终先写 `question.md`，包含至少 2 个明确的 `out-of-scope` 项。当出现范围外内容时，将其记录为未来研究的未决问题，不要扩展当前研究。
 
 ---
 
-## 3. Decision smuggled into refined/
+## 2. 单一巨型文件
 
-**Symptom**: a refined note says "we should use X" or "the right approach is Y".
+**症状**：根目录下只有一个 500 行的 `research.md`，没有 `raw/` 或 `refined/` 子文件夹。
 
-**Why it happens**: the LLM feels confident while refining and wants to commit.
+**原因**：图一时方便，没有遵循三层结构的纪律。
 
-**Cost**: when spec runs later, the decision is already implicit, and alternatives aren't fairly weighed.
+**代价**：后续会话找不到需要的内容；整个文件不可读；无法区分"哪些是原文，哪些是解读"。
 
-**Correct approach**: phrase as option-description. "X is available, Y is available. Tradeoffs: ..." Decisions happen in spec.
-
----
-
-## 4. Auto-advancing to spec
-
-**Symptom**: at the end of `findings.md`, the research skill opens a spec file and starts filling it.
-
-**Why it is wrong**: violates the "阶段独立" principle. User may want to:
-
-- Pause (think, gather external feedback)
-- Do additional research
-- Skip spec entirely (for a small prototype)
-- Consume findings by other means
-
-**Correct approach**: research ends at `findings.md`. Closing summary *suggests* next steps but does not act on them.
+**正确做法**：从第一天起就严格执行 `raw/*.md` 存放来源、`refined/*.md` 存放蒸馏结果。即使最简单的研究也至少各有其一。
 
 ---
 
-## 5. Uncited findings
+## 3. 决策被偷运进 refined/
 
-**Symptom**: `refined/xxx.md` says "the API uses X pattern" without linking to the `raw/` source.
+**症状**：提炼笔记写的是"我们应该用 X"或"正确的方案是 Y"。
 
-**Cost**: cannot verify; becomes received wisdom; may be false.
+**原因**：LLM 在提炼时感到自信，想要做出承诺。
 
-**Correct approach**: every refined note has at least one `raw/` citation. If you cannot cite, it is speculation — put it in "Open questions" or drop.
+**代价**：后续运行 spec 时，决策已经隐含其中，替代方案未得到公平权衡。
 
----
-
-## 6. Research writing CLAUDE.md-style rules
-
-**Symptom**: refined note ends with "always use X. never use Y. must do Z."
-
-**Why it is wrong**: research records what exists, not what the project should enforce. Rules live in `CLAUDE.md` or equivalent.
-
-**Correct approach**: describe observations; leave rule-making to spec or explicit style-guide authoring.
+**正确做法**：表述为选项描述。"X 可用，Y 也可用。权衡如下：……"决策在 spec 中做出。
 
 ---
 
-## 7. Ingest-during-research
+## 4. 自动推进到 spec
 
-**Symptom**: during refining, the skill writes to `.claude/wiki/` directly.
+**症状**：在 `findings.md` 结尾，research skill 自动打开 spec 文件并开始填写。
 
-**Why it is wrong**: Wiki ingest is user-triggered. research may surface lots of findings that never matter; auto-ingest creates noise.
+**为什么是错的**：违反"阶段独立"原则。用户可能想要：
 
-**Correct approach**: `findings.md` lists ingest *candidates*; actual ingest is a separate user action via `wiki` skill.
+- 暂停（思考、收集外部反馈）
+- 做额外的研究
+- 完全跳过 spec（对于小型原型）
+- 以其他方式消费 findings
 
----
-
-## 8. Treating user-pasted docs as refined material
-
-**Symptom**: user pastes an article, the skill puts it directly into `refined/` with a new title, claiming it as distilled finding.
-
-**Why it is wrong**: user-pasted material is raw. The value-add of research is distilling raw → refined.
-
-**Correct approach**: user paste → `raw/user-input-YYYY-MM-DD.md`. Distillation happens in the refine step.
+**正确做法**：research 在 `findings.md` 处结束。收尾摘要*建议*下一步但不执行。
 
 ---
 
-## 9. Parallel findings that should be one
+## 5. 无引用的发现
 
-**Symptom**: `refined/xhs-signature.md` and `refined/xhs-auth.md` both describe overlapping subsets of signature + auth behavior.
+**症状**：`refined/xxx.md` 写"API 使用了 X 模式"但未链接到 `raw/` 来源。
 
-**Cost**: summary in findings.md becomes confusing; future reader has to cross-read.
+**代价**：无法验证；变成既有认知；可能为假。
 
-**Correct approach**: if two refined notes overlap more than ~30%, merge. Refined notes should be disjoint concerns.
-
----
-
-## 10. Findings.md without open questions
-
-**Symptom**: "Open questions" section is empty or says "none".
-
-**Why it is suspicious**: real exploration nearly always surfaces uncertainty. Empty open-questions usually means the research was surface-level.
-
-**Correct approach**: before closing, actively challenge: "what would change my conclusion?" If nothing, state that explicitly: "No open questions — confirmed by trying to falsify each finding."
+**正确做法**：每条提炼笔记至少有一个 `raw/` 引用。如果无法引用，那就是推测——放入"未决问题"或丢弃。
 
 ---
 
-## 11. Overusing wikilinks
+## 6. Research 撰写 CLAUDE.md 风格的规则
 
-**Symptom**: every noun in a refined note becomes `[[wikilink]]`, including ones with no corresponding wiki page.
+**症状**：提炼笔记以"always use X. never use Y. must do Z."结尾。
 
-**Cost**: broken links; future lint noise; reader friction.
+**为什么是错的**：research 记录的是已有事实，不是项目应该执行什么规则。规则存在于 `CLAUDE.md` 或等效文件中。
 
-**Correct approach**: use `[[wikilink]]` only when a wiki page actually exists OR you are confident one will be ingested. Otherwise use plain names. Research notes are allowed to read without wiki.
-
----
-
-## 12. Reusing a research folder across unrelated topics
-
-**Symptom**: `.claude/research/general-research/` accumulates findings on multiple disjoint topics over months.
-
-**Cost**: impossible to scope; `findings.md` becomes unusable.
-
-**Correct approach**: one research folder per bounded question. If a new question arises, open a new folder, even if adjacent. Folders are cheap; attention isn't.
+**正确做法**：描述观察结果；将规则制定留给 spec 或显式的风格指南编写。
 
 ---
 
-## 13. Fetch-and-give-up
+## 7. 研究期间摄取
 
-**Symptom**: the skill tries `curl` (or its equivalent) against a URL, receives an error or empty body, and either silently omits the source or writes "couldn't fetch" into refined notes.
+**症状**：在提炼过程中，skill 直接写入 `.claude/wiki/`。
 
-**Variants**:
+**为什么是错的**：Wiki 摄取应由用户触发。research 可能产出大量最终无关紧要的发现；自动摄取制造噪音。
 
-- "403 / Cloudflare challenge, skipping this URL"
-- "SPA, probably hard to scrape, moving on"
-- "Used the search result snippet as the content"
-- Fetching page 1 only on a paginated list
-- Fetching one tab on a multi-tab page
+**正确做法**：`findings.md` 列出摄取*候选*；实际摄取是通过 `wiki` skill 执行的独立用户操作。
 
-**Cost**:
+---
 
-- Data incompleteness silently propagates to spec and downstream phases
-- Spec decisions made on partial evidence
-- Later reviewers cannot distinguish "this data is unavailable" from "we didn't try"
+## 8. 将用户粘贴的文档当作提炼材料
 
-**Correct approach**: follow the strategy ladder and completeness rules in [data-collection.md](data-collection.md). Specifically:
+**症状**：用户粘贴一篇文章，skill 将其直接放入 `refined/` 并起新标题，声称是已蒸馏的发现。
 
-- Exhaust the fallback chain (primary tool → fallback tool → next fallback) before declaring unretrievable
-- Cover tabs, pagination (up to `max_pages`, default 10), and one-level material references
-- Record failures as `raw/ext-<name>-failed.md` and surface them in `findings.md`'s open questions — never silent omission
-- Never substitute a search-result snippet for the actual page content
-- Never fabricate content inferred from URL or title
+**为什么是错的**：用户粘贴的材料是 raw。research 的价值增值在于将 raw 蒸馏为 refined。
+
+**正确做法**：用户粘贴 → `raw/user-input-YYYY-MM-DD.md`。蒸馏在提炼步骤中完成。
+
+---
+
+## 9. 应合并的平行发现
+
+**症状**：`refined/xhs-signature.md` 和 `refined/xhs-auth.md` 都描述了签名 + 认证行为的重叠子集。
+
+**代价**：findings.md 中的摘要变得混乱；后续读者需要交叉阅读。
+
+**正确做法**：如果两条提炼笔记重叠超过约 30%，合并。提炼笔记应该是互不相交的关注点。
+
+---
+
+## 10. 没有未决问题的 findings.md
+
+**症状**："Open questions"章节为空或写"none"。
+
+**为什么值得怀疑**：真正的探索几乎总会揭示不确定性。空的未决问题通常意味着研究停留在表面。
+
+**正确做法**：在关闭之前，主动质疑："什么会改变我的结论？"如果确实没有，明确陈述："无未决问题——已通过尝试证伪每个发现加以确认。"
+
+---
+
+## 11. 过度使用 wikilink
+
+**症状**：提炼笔记中的每个名词都变成 `[[wikilink]]`，包括没有对应 wiki 页面的那些。
+
+**代价**：死链；后续 lint 噪音；阅读障碍。
+
+**正确做法**：仅当 wiki 页面确实存在或你有信心将被摄取时才使用 `[[wikilink]]`。否则使用普通名称。research 笔记允许在没有 wiki 的情况下独立阅读。
+
+---
+
+## 12. 跨不相关主题复用 research 文件夹
+
+**症状**：`.claude/research/general-research/` 在数月内累积了多个不相关主题的发现。
+
+**代价**：无法界定范围；`findings.md` 不可用。
+
+**正确做法**：一个有界问题对应一个 research 文件夹。如果出现新问题，开新文件夹，即使问题相邻。文件夹很廉价；注意力不是。
+
+---
+
+## 13. 抓取后放弃
+
+**症状**：skill 对 URL 尝试 `curl`（或等效工具），收到错误或空响应，然后静默省略该来源或在提炼笔记中写入"couldn't fetch"。
+
+**变体**：
+
+- "403 / Cloudflare 验证，跳过此 URL"
+- "SPA，大概很难抓取，跳过"
+- "用搜索结果摘要当内容"
+- 分页列表只抓了第一页
+- 多标签页面只抓了一个标签
+
+**代价**：
+
+- 数据不完整性静默传播到 spec 及下游阶段
+- Spec 基于不完整证据做决策
+- 后续审查者无法区分"此数据不可获取"和"我们没有尝试"
+
+**正确做法**：遵循 [data-collection.md](data-collection.md) 中的策略阶梯和完整性规则。具体来说：
+
+- 在宣布不可检索之前穷尽回退链（主工具 → 备选工具 → 下一备选）
+- 覆盖标签、分页（至多 `max_pages`，默认 10）和一级实质引用
+- 将失败记录为 `raw/ext-<name>-failed.md` 并在 `findings.md` 的未决问题中披露——永远不要静默省略
+- 永远不要用搜索结果摘要替代实际页面内容
+- 永远不要从 URL 或标题推断捏造内容

@@ -1,66 +1,66 @@
-# Spec workflow: Frame / Decide / Finalize
+# Spec 工作流：Frame / Decide / Finalize
 
-Detailed procedures for the three primitives. SKILL.md gives high-level steps; this file gives the full workflow including edge cases.
+三个原语的详细流程。SKILL.md 给出高层步骤；本文件给出包含边界情况的完整工作流。
 
 ---
 
 ## Frame
 
-Establish the spec's outer shape before writing internals.
+在填充内部内容之前，先确立 spec 的外廓。
 
-### Trigger phrases
+### 触发短语
 
 - "写 spec X" / "开始 spec X" / "spec 一下 X"
 - "定方案 X" / "设计 X 的实现方案"
 - "draft the spec for X" / "let's spec X"
 
-### Full procedure
+### 完整流程
 
-**Step 1 — Name the spec**
+**步骤 1 — 命名 spec**
 
-Extract topic from user's utterance. Convert to kebab-case, topic-named:
+从用户表述中提取主题。转换为 kebab-case 格式，以主题命名：
 
 - ✅ `xhs-customer-webhook.md`, `user-export-api.md`, `rate-limit-refactor.md`
 - ❌ `feature-xhs.md`, `2025-04-xhs-webhook.md`, `v2-webhook.md`
 
-Check if `.claude/specs/<name>.md` already exists:
+检查 `.claude/specs/<name>.md` 是否已存在：
 
-- Exists with `status: accepted` → ask: "spec `<name>` 已存在（status=accepted）。要 (a) 修订现有, (b) 开新版本移旧到 archive/, (c) 取消？"
-- Exists with `status: draft` → "spec `<name>` 草稿已存在，继续当前草稿？"
+- 存在且 `status: accepted` → 询问："spec `<name>` 已存在（status=accepted）。要 (a) 修订现有, (b) 开新版本移旧到 archive/, (c) 取消？"
+- 存在且 `status: draft` → "spec `<name>` 草稿已存在，继续当前草稿？"
 
-**Step 2 — Optionally consume research**
+**步骤 2 — 可选：消费 research 成果**
 
-If user references research: "基于 research/<topic>/findings.md 写 spec" or similar:
+如果用户引用了 research："基于 research/<topic>/findings.md 写 spec" 或类似表述：
 
-1. Read `.claude/research/<topic>/findings.md`
-2. Extract: key findings (become spec background), open questions (become Decide step input), constraints (carry into Constraints section)
-3. **Do NOT copy research content verbatim**. Research is discovery narrative; spec is the final statement.
+1. 读取 `.claude/research/<topic>/findings.md`
+2. 提取：关键发现（作为 spec 背景信息）、开放问题（作为 Decide 步骤的输入）、约束条件（写入 Constraints 章节）
+3. **禁止逐字复制 research 内容**。Research 是探索叙述；spec 是最终结论。
 
-If user does NOT reference research: work from user's in-session input only.
+如果用户未引用 research：仅根据用户在会话中的输入推进。
 
-**Step 3 — Optionally consult wiki**
+**步骤 3 — 可选：参考 wiki**
 
-If user says "参考 wiki 里的 X" or the topic has obvious prior art:
+如果用户说"参考 wiki 里的 X"，或主题明显有先前经验可借鉴：
 
-1. Invoke wiki Query primitive (read-only) — see wiki skill
-2. Fold relevant decisions/entities/gotchas into the spec as **background context**, using `[[wikilink]]` references
-3. Do NOT duplicate wiki content into the spec — link instead
+1. 调用 wiki Query 原语（只读）——参见 wiki skill
+2. 将相关决策/实体/注意事项以**背景上下文**的形式融入 spec，使用 `[[wikilink]]` 引用
+3. 禁止将 wiki 内容复制到 spec 中——用链接代替
 
-**Step 4 — Write skeleton**
+**步骤 4 — 撰写骨架**
 
-Load template from [../assets/templates/spec.md](../assets/templates/spec.md). Fill:
+从 [../assets/templates/spec.md](../assets/templates/spec.md) 加载模板。填写：
 
-- Frontmatter: `status: draft`, `date`, optional `tags`
+- Frontmatter：`status: draft`、`date`、可选的 `tags`
 - `# <Feature>`
-- **Goal** — ONE sentence, imperative voice
-- **Non-goals** — ≥ 2 explicit exclusions
-- **Hard constraints** — numeric where possible
+- **Goal** — 一句话，祈使语气
+- **Non-goals** — 至少 2 条明确的排除项
+- **Hard constraints** — 尽可能使用数值
 
-Leave all other sections as `<TODO: ...>` placeholders.
+其余章节保留为 `<TODO: ...>` 占位符。
 
-**Step 5 — Confirm frame with user**
+**步骤 5 — 与用户确认骨架**
 
-Emit:
+输出：
 
 ```
 📝 .claude/specs/<name>.md (status=draft)
@@ -71,35 +71,35 @@ Emit:
 确认骨架无误再进入 Decide 阶段？
 ```
 
-Wait for user confirmation before filling internals.
+等待用户确认后再填充内部内容。
 
-### Edge cases
+### 边界情况
 
-**Case: user wants a spec but goal is unclear**
+**情况：用户想写 spec 但目标不清晰**
 
-Ask ONE targeted question. "这个 spec 要回答的核心问题是什么？是新建功能，还是替换现有实现，还是扩展接口？"
+提出一个有针对性的问题。"这个 spec 要回答的核心问题是什么？是新建功能，还是替换现有实现，还是扩展接口？"
 
-**Case: non-goals section is empty**
+**情况：non-goals 章节为空**
 
-Challenge the user. A spec without non-goals drifts. Offer examples: "要不要明确写明：此 spec 不涉及 X / Y？"
+质疑用户。没有 non-goals 的 spec 必然会范围蔓延。给出示例："要不要明确写明：此 spec 不涉及 X / Y？"
 
 ---
 
 ## Decide
 
-Resolve open questions one at a time. Record outcomes as flat statements.
+逐一解决开放问题。将结论记录为平铺陈述。
 
-### Trigger
+### 触发条件
 
-During draft, whenever a section has `<TODO-DECIDE: ...>` or the user flags an open question.
+在草稿阶段，当某个章节出现 `<TODO-DECIDE: ...>` 或用户提出开放问题时。
 
-### Full procedure
+### 完整流程
 
-**Step 1 — Enumerate open questions**
+**步骤 1 — 列举开放问题**
 
-From research.findings.open-questions + in-session surfaced + skeleton `<TODO-DECIDE>` markers. List them before resolving any.
+来源：research.findings.open-questions + 会话中新浮现的问题 + 骨架中的 `<TODO-DECIDE>` 标记。先全部列出，再逐一解决。
 
-Example:
+示例：
 
 ```
 📋 Open questions:
@@ -108,9 +108,9 @@ Example:
   3. 幂等 key 作用域: 按 event_id vs 按 (user_id, event_type)
 ```
 
-**Step 2 — One decision at a time**
+**步骤 2 — 逐个决策**
 
-Do NOT ask the user to resolve all at once. Go one-by-one:
+禁止让用户一次性解决所有问题。逐个推进：
 
 ```
 决策 1/3: 签名算法
@@ -123,18 +123,18 @@ Do NOT ask the user to resolve all at once. Go one-by-one:
 你的选择？
 ```
 
-**Step 3 — Record as flat statement**
+**步骤 3 — 记录为平铺陈述**
 
-After user chooses, write into spec as:
+用户做出选择后，写入 spec：
 
 - ✅ `Signature: HMAC-SHA256. Secret rotated via KMS every 90 days.`
 - ❌ `We considered HMAC-SHA256 vs RSA-SHA256. Chose HMAC because...`
 
-The spec states the outcome, not the path.
+Spec 记录结论，不记录过程。
 
-**Step 4 — Offer decision-page ingest**
+**步骤 4 — 建议写入决策页**
 
-After each non-trivial decision, offer:
+每次非平凡决策后，建议：
 
 ```
 💡 这个决策（`签名算法 = HMAC-SHA256`）有明确的取舍背景。要不要把来龙去脉 ingest 为 wiki:
@@ -144,55 +144,55 @@ After each non-trivial decision, offer:
 这样 spec 保持干净，同时决策史得以保留。(y/n/稍后)
 ```
 
-If user says yes → invoke wiki `ingest` primitive.
-If user says no or later → drop rationale from spec, do not preserve in spec itself.
+如果用户同意 → 调用 wiki `ingest` 原语。
+如果用户拒绝或选择稍后 → 从 spec 中移除理由，不在 spec 本身保留。
 
-**Step 5 — Update spec section**
+**步骤 5 — 更新 spec 章节**
 
-Replace `<TODO-DECIDE>` with the flat statement. Move to next open question.
+用平铺陈述替换 `<TODO-DECIDE>`。继续处理下一个开放问题。
 
-### Edge cases
+### 边界情况
 
-**Case: user says "你定"**
+**情况：用户说"你定"**
 
-Do NOT silently pick. State your recommendation + top reason + ask for confirmation:
+禁止默默选择。先陈述建议和核心理由，再请求确认：
 
 ```
 我的建议: HMAC-SHA256 (理由: 本项目已有 KMS，对称密钥运维成本低)
 确认吗？(y/n/改别的)
 ```
 
-Only write once user confirms.
+只有用户确认后才写入。
 
-**Case: user proposes a third option not in the menu**
+**情况：用户提出了菜单之外的第三个选项**
 
-Gladly accept. Record the new option as the decision.
+欣然接受。将新选项记录为决策。
 
-**Case: decision cannot be made yet (missing info)**
+**情况：决策暂时无法做出（缺少信息）**
 
-Keep the `<TODO-DECIDE: ...>` marker. At Finalize step, this will block closure with a clear message. Do not silently drop.
+保留 `<TODO-DECIDE: ...>` 标记。在 Finalize 阶段，此标记会阻止定稿并给出明确提示。禁止静默移除。
 
 ---
 
 ## Finalize
 
-Seal the spec. No more changes to this document without a new revision.
+封印 spec。此文档不再允许修改，除非启动新一轮修订。
 
-### Trigger phrases
+### 触发短语
 
 - "spec 定稿" / "finalize"
 - "这份 spec 可以了"
 - "confirm the spec"
 
-### Full procedure
+### 完整流程
 
-**Step 1 — Scan for unresolved markers**
+**步骤 1 — 扫描未解决的标记**
 
 ```bash
 grep -n "TODO-DECIDE\|<TBD>\|<?>" .claude/specs/<name>.md
 ```
 
-If any match → block finalization:
+如有匹配 → 阻止定稿：
 
 ```
 ❌ 还有未解决项:
@@ -202,27 +202,27 @@ If any match → block finalization:
 请先完成 Decide 再 finalize。
 ```
 
-**Step 2 — Apply content-contract check**
+**步骤 2 — 执行内容契约检查**
 
-See [content-contract.md](content-contract.md) for full list. Automated scan:
+完整清单参见 [content-contract.md](content-contract.md)。自动化扫描：
 
 ```bash
-# Check for narrative / alternatives / history markers
+# 检查叙述性内容 / 备选方案 / 历史记录标记
 grep -nE "^(## (Alternatives|Rejected|History|Rationale|Why we chose))" .claude/specs/<name>.md
 grep -nE "(we considered|we first thought|we decided against|originally we)" .claude/specs/<name>.md
 ```
 
-If found → block, suggest moving to a `[[decision-*]]` wiki page.
+如发现 → 阻止定稿，建议移至 `[[decision-*]]` wiki 页面。
 
-**Step 3 — Check goal / non-goals coverage**
+**步骤 3 — 检查 Goal / Non-goals 覆盖度**
 
-- Goal section ≠ empty, ≠ abstract adjectives ("good", "fast", "solid")
-- Non-goals section has ≥ 2 explicit items
-- Constraints section has measurable values (latency, throughput, consistency class, etc.)
+- Goal 章节不为空，不含抽象形容词（"good"、"fast"、"solid"）
+- Non-goals 章节至少有 2 条明确条目
+- Constraints 章节包含可量化的值（延迟、吞吐量、一致性级别等）
 
-If any fail → emit specific fixit, do NOT auto-write.
+如有不满足 → 输出具体修正建议，禁止自动改写。
 
-**Step 4 — Set frontmatter**
+**步骤 4 — 设置 frontmatter**
 
 ```yaml
 ---
@@ -232,7 +232,7 @@ date: YYYY-MM-DD
 ---
 ```
 
-**Step 5 — Emit closing summary**
+**步骤 5 — 输出结稿摘要**
 
 ```
 ✅ spec 定稿: .claude/specs/<name>.md (status=accepted)
@@ -247,16 +247,16 @@ Open items: 0
 - 或者暂不推进，把 spec 交给他人 review
 ```
 
-### Edge cases
+### 边界情况
 
-**Case: user wants to re-open after accept**
+**情况：用户想在 accept 之后重新打开 spec**
 
-Allowed. Set `status: revising`, make changes, re-run Finalize. The history of revisions is tracked by git, not in the spec.
+允许。将 `status` 设为 `revising`，修改内容后重新执行 Finalize。修订历史由 git 追踪，不记录在 spec 内部。
 
-**Case: spec supersedes an earlier one**
+**情况：spec 取代了之前的版本**
 
-In frontmatter: `supersedes: <old-spec-name>`. In old spec: `status: superseded`, `superseded-by: <new-spec-name>`. Optionally move old spec to `archive/`.
+在 frontmatter 中写入：`supersedes: <old-spec-name>`。在旧 spec 中写入：`status: superseded`、`superseded-by: <new-spec-name>`。可选：将旧 spec 移至 `archive/`。
 
-**Case: spec is too large (> 400 lines)**
+**情况：spec 过长（> 400 行）**
 
-Warn: "spec 长度 N 行，通常 ≤ 300 行为宜。是否可以拆成 2 个 spec（e.g. interface + internals）？"
+警告："spec 长度 N 行，通常 ≤ 300 行为宜。是否可以拆成 2 个 spec（e.g. interface + internals）？"

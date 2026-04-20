@@ -1,161 +1,161 @@
-# Task anti-patterns
+# Task 反模式
 
-Observed failure modes. Avoid all.
-
----
-
-## 1. Tasks with wikilinks
-
-**Symptom**: task file contains `[[entity-xxx]]` or similar.
-
-**Why wrong**: task file must be self-sufficient. Executor reads ONE file. Wikilinks imply "go read the wiki", which forces context-switching and introduces hidden dependencies (wiki drift).
-
-**Fix**: inline the necessary info into the task's `notes:` field (1-line summary). Or put the reference in the spec, not the task.
+观察到的失败模式。全部需要避免。
 
 ---
 
-## 2. Tasks that require reading the spec
+## 1. 任务中包含 wikilink
 
-**Symptom**: task says "implement per spec section X" without spelling out what that means.
+**症状**：任务文件包含 `[[entity-xxx]]` 或类似内容。
 
-**Why wrong**: executor has to cross-read; spec may drift; any ambiguity becomes decision time during impl.
+**为什么错误**：任务文件必须自足。执行者只读一个文件。wikilink 意味着"去读 wiki"，这迫使上下文切换并引入隐性依赖（wiki 漂移）。
 
-**Fix**: copy the relevant acceptance/constraint content into the task directly. Yes, this duplicates text with spec — that's intentional. Spec is authoritative; task is executable.
-
----
-
-## 3. "Investigate X" tasks
-
-**Symptom**: task like "investigate how the current signature verifier works" or "figure out the migration strategy".
-
-**Why wrong**: investigation is research-phase. By the time we're at tasks, we should already know.
-
-**Fix**: bounce back to research or spec. If the unknown is too small for full research, at least record it as a pre-task "spike" with a timebox + explicit exit criteria.
+**修正**：将必要信息内联到任务的 `notes:` 字段中（一行摘要）。或者把引用放在 spec 中，而非任务中。
 
 ---
 
-## 4. "Decide Y" tasks
+## 2. 需要阅读 spec 的任务
 
-**Symptom**: task like "decide which queue system to use" or "choose between HMAC and RSA".
+**症状**：任务写着"按 spec X 节实现"但没有具体说明那是什么意思。
 
-**Why wrong**: decisions are spec-phase. Impl executor should never have to decide.
+**为什么错误**：执行者需要交叉阅读；spec 可能漂移；任何歧义在 impl 时都会变成决策时间。
 
-**Fix**: return to spec, resolve the decision, then re-decompose.
-
----
-
-## 5. Over-decomposition for trivial work
-
-**Symptom**: a 30-line PR becomes 4 tasks: `add type`, `add fn signature`, `fill fn body`, `add test`.
-
-**Why wrong**: more ceremony than value. Each task's `notes` + `acceptance` overhead exceeds the actual work.
-
-**Fix**: either use lean mode, or bundle into one task. A good test: if the PR would be one atomic commit by a human, it's one task.
+**修正**：将相关的验收/约束内容直接复制到任务中。是的，这与 spec 存在文本重复——这是有意为之。Spec 是权威来源；任务是可执行单元。
 
 ---
 
-## 6. Under-decomposition (kitchen-sink tasks)
+## 3. "调研 X" 任务
 
-**Symptom**: one task titled "implement the xhs webhook feature" with 20 files in `deliverable`.
+**症状**：任务如"调研当前签名验证器的工作方式"或"确定迁移策略"。
 
-**Why wrong**: no independent verification, no parallelism, no partial recovery on BLOCKED state.
+**为什么错误**：调研属于 research 阶段。到 tasks 阶段时，我们应该已经知道了。
 
-**Fix**: split by acceptance criterion. Each independently-testable behavior becomes its own task.
-
----
-
-## 7. Missing depends-on
-
-**Symptom**: task touches a module that another task creates, but `depends-on` is empty or wrong.
-
-**Why wrong**: executor runs task out of order, hits missing dep, BLOCKED. User has to manually reason about order.
-
-**Fix**: scan each task's deliverable for references to files / modules / endpoints created by other tasks; populate `depends-on` accordingly.
+**修正**：退回到 research 或 spec。如果未知内容太小不值得完整 research，至少将其记录为有时间盒 + 显式退出标准的预任务"spike"。
 
 ---
 
-## 8. Non-verifiable acceptance
+## 4. "决定 Y" 任务
 
-**Symptom**: acceptance says "works correctly" / "looks good" / "handles edge cases".
+**症状**：任务如"决定使用哪个队列系统"或"在 HMAC 和 RSA 之间选择"。
 
-**Why wrong**: impl can never claim DONE. User has to manually validate every task.
+**为什么错误**：决策属于 spec 阶段。Impl 执行者不应该做决策。
 
-**Fix**: acceptance must be:
-
-- A command (`pnpm test path/xxx.test.ts passes`)
-- A file-state check (`src/xxx.ts exports fn<T>(…): U`)
-- An HTTP call result (`curl -X POST /y returns 200 with {...}`)
-- A binary predicate a human or script can execute
+**修正**：回到 spec，解决决策，然后重新拆分。
 
 ---
 
-## 9. Renumbering IDs
+## 5. 对琐碎工作的过度拆分
 
-**Symptom**: someone re-orders tasks, IDs get renumbered, impl status lines now reference wrong IDs.
+**症状**：一个 30 行的 PR 变成了 4 个任务：`add type`、`add fn signature`、`fill fn body`、`add test`。
 
-**Why wrong**: destroys the trail from `.claude/tasks/foo.tasks.md` status lines and any external tracker.
+**为什么错误**：仪式感超过了价值。每个任务的 `notes` + `acceptance` 开销超过了实际工作量。
 
-**Fix**: IDs are append-only. Move tasks by reordering bullets (markdown order is presentation; ID is identity). Never reissue.
-
----
-
-## 10. Auto-advancing to impl
-
-**Symptom**: at end of decomposition, task skill starts writing code.
-
-**Why wrong**: violates "阶段独立". User may want to review, hand off, or defer.
-
-**Fix**: end with a summary + pointer "to impl: run `impl` skill with task file `<path>`".
+**修正**：要么使用 lean 模式，要么合并为一个任务。一个好的测试：如果人类会把它做成一个原子提交，那它就是一个任务。
 
 ---
 
-## 11. Tasks that reference external state implicitly
+## 6. 拆分不足（大杂烩任务）
 
-**Symptom**: task says "add handler for new endpoint". Which endpoint? From where?
+**症状**：一个任务标题为"实现小红书 webhook 功能"，`deliverable` 中有 20 个文件。
 
-**Why wrong**: executor has to guess / re-derive from spec.
+**为什么错误**：无法独立验证、无法并行、BLOCKED 状态下无法部分恢复。
 
-**Fix**: every task must name the concrete target (path, file, class, function) explicitly in its title or deliverable.
-
----
-
-## 12. Mixed-mode task file
-
-**Symptom**: file starts strict-atomic, then a few lean tasks appear (bundled concerns, ~1 day size).
-
-**Why wrong**: inconsistent mental model; reviewers can't predict granularity; retro becomes noisy.
-
-**Fix**: pick mode per file, not per task. If mid-plan you realize you need a different mode, that's signal to restart the file with the right mode.
+**修正**：按验收标准拆分。每个可独立测试的行为成为独立任务。
 
 ---
 
-## 13. Shared modules as a giant leaf node
+## 7. 缺少 depends-on
 
-**Symptom**: one `shared` task titled "utilities" with 10 deliverables.
+**症状**：任务触及另一个任务创建的模块，但 `depends-on` 为空或错误。
 
-**Why wrong**: defeats the point of shared extraction. Each "utility" is independently consumed; bundling forces artificial coupling.
+**为什么错误**：执行者按错误顺序运行任务，遇到缺失依赖，进入 BLOCKED。用户不得不手动推理顺序。
 
-**Fix**: one shared task per utility. If truly a bundle, that's not "shared" — it's a library and needs its own spec.
+**修正**：扫描每个任务的 deliverable，查找对其他任务创建的文件/模块/端点的引用；相应填充 `depends-on`。
 
 ---
 
-## 14. Tasks without a clear `deliverable:`
+## 8. 不可验证的验收标准
 
-**Symptom**: deliverable says "improvements to X" or "refactor Y".
+**症状**：验收标准写着"正常工作" / "看起来不错" / "处理了边界情况"。
 
-**Why wrong**: "improvement" is not a verifiable artifact.
+**为什么错误**：impl 永远无法声称 DONE。用户必须手动验证每个任务。
 
-**Fix**: deliverable must name a concrete target + change type:
+**修正**：验收标准必须是：
+
+- 一个命令（`pnpm test path/xxx.test.ts passes`）
+- 一个文件状态检查（`src/xxx.ts exports fn<T>(…): U`）
+- 一个 HTTP 调用结果（`curl -X POST /y returns 200 with {...}`）
+- 一个人或脚本可以执行的二元判断
+
+---
+
+## 9. 重新编号 ID
+
+**症状**：有人重新排列任务顺序，ID 被重新编号，impl 状态行现在引用了错误的 ID。
+
+**为什么错误**：破坏了从 `.claude/tasks/foo.tasks.md` 状态行和任何外部追踪器到 ID 的追溯链。
+
+**修正**：ID 只追加。通过重新排列项目符号来移动任务（markdown 顺序是展示；ID 是身份）。永不重用。
+
+---
+
+## 10. 自动推进到 impl
+
+**症状**：拆分结束时，task skill 开始写代码。
+
+**为什么错误**：违反"阶段独立"。用户可能想要审查、移交或推迟。
+
+**修正**：以摘要 + 指针结束："要 impl: 运行 `impl` skill，任务文件 `<path>`"。
+
+---
+
+## 11. 隐式引用外部状态的任务
+
+**症状**：任务写着"为新端点添加处理器"。哪个端点？从哪里来的？
+
+**为什么错误**：执行者需要猜测/从 spec 重新推导。
+
+**修正**：每个任务必须在标题或 deliverable 中显式命名具体目标（路径、文件、类、函数）。
+
+---
+
+## 12. 混合模式任务文件
+
+**症状**：文件以 strict-atomic 开始，然后出现几个 lean 任务（捆绑的关注点，约 1 天大小）。
+
+**为什么错误**：不一致的心智模型；审查者无法预判颗粒度；回顾变得嘈杂。
+
+**修正**：按文件选择模式，而非按任务。如果在规划过程中发现需要不同模式，那是重新以正确模式开始文件的信号。
+
+---
+
+## 13. 共享模块作为巨大的叶子节点
+
+**症状**：一个 `shared` 任务标题为"工具集"，包含 10 个 deliverable。
+
+**为什么错误**：违背了共享提取的目的。每个"工具"被独立消费；捆绑会强制人为耦合。
+
+**修正**：每个工具一个共享任务。如果确实是捆绑的，那不是"shared"——它是一个库，需要自己的 spec。
+
+---
+
+## 14. 缺少明确 `deliverable:` 的任务
+
+**症状**：deliverable 写着"改进 X"或"重构 Y"。
+
+**为什么错误**："改进"不是可验证的制品。
+
+**修正**：deliverable 必须命名具体目标 + 变更类型：
 
 - ✅ `src/service/xhs.ts: extract validateSignature() from handle()`
 - ❌ `improvements to service/xhs.ts`
 
 ---
 
-## 15. Re-opening DONE tasks silently
+## 15. 静默重新打开 DONE 任务
 
-**Symptom**: impl found a bug; task skill (or user) edits the original task and marks it "revised".
+**症状**：impl 发现了一个 bug；task skill（或用户）编辑原始任务并标记为"revised"。
 
-**Why wrong**: loses the audit trail of what was originally DONE vs what changed.
+**为什么错误**：丢失了原始 DONE 内容与变更内容的审计痕迹。
 
-**Fix**: add a new task (`T-020 fix regression in T-003`), with `depends-on: [T-003]`. Do not mutate completed tasks.
+**修正**：添加新任务（`T-020 fix regression in T-003`），设置 `depends-on: [T-003]`。不要修改已完成的任务。

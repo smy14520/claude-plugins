@@ -1,31 +1,31 @@
-# The 4-state review machine
+# 四态审查状态机
 
-Review reports one of exactly four states. This file gives definitions, exit criteria, and transition rules.
+审查报告且仅报告以下四种状态之一。本文件给出定义、退出标准和转换规则。
 
-> **Parallel to impl's state machine**, but different dimensions. Impl measures "did my task acceptance pass". Review measures "does the diff semantically satisfy the spec".
+> **与 impl 的状态机平行**，但维度不同。Impl 衡量"任务验收是否通过"。Review 衡量"diff 是否在语义上满足 spec"。
 
 ---
 
 ## APPROVED
 
-**Meaning**: the diff addresses spec's goal, respects non-goals, meets hard constraints, matches interface contract. No reservations.
+**含义**：diff 实现了 spec 的目标，遵守了非目标，满足硬约束，匹配接口契约。无保留意见。
 
-### Exit criteria (ALL must hold)
+### 退出标准（必须全部满足）
 
-- Goal coverage: can point to diff hunk(s) that deliver the goal
-- Non-goals: diff does not reach into explicitly-excluded scope
-- Hard constraints: every constraint has evidence in diff (code or test)
-- Interface contract: exports match spec
-- Wiki cross-check: no relevant gotcha is contradicted (or none apply)
-- Diff hygiene: no untested required paths, no error-path gaps, no scope creep
+- 目标覆盖：能指出实现目标的 diff 块
+- 非目标：diff 未涉足显式排除的范围
+- 硬约束：每个约束在 diff 中有证据（代码或测试）
+- 接口契约：导出与 spec 一致
+- Wiki 交叉检查：无相关陷阱被违反（或无适用的陷阱）
+- Diff 卫生：无未测试的必要路径、无错误路径缺口、无范围蔓延
 
-### Forbidden reasons to claim APPROVED
+### 禁止用于声称 APPROVED 的理由
 
-- "Acceptance commands passed, looks good" → that's impl's SelfCheck, not review
-- "I skimmed the diff and it feels right" → must cite file:line evidence
-- "No gotcha pages exist for this domain" → ok to skip wiki, but say so explicitly
+- "验收命令通过了，看起来不错" → 那是 impl 的 SelfCheck，不是 review
+- "我扫了一眼 diff，感觉没问题" → 必须引用 file:line 证据
+- "该领域没有 gotcha 页面" → 可以跳过 wiki，但必须显式说明
 
-### Review line example
+### 审查行示例
 
 ```
 - [✓] T-003 (APPROVED) — 2025-04-18 16:40 — goal met; non-goals ✓; rate-limit mw ✓ (src/mw/rate-limit.ts:12); HMAC on raw body ✓; diff clean
@@ -35,40 +35,40 @@ Review reports one of exactly four states. This file gives definitions, exit cri
 
 ## APPROVED_WITH_NOTES
 
-**Meaning**: semantic layer is correct, but reviewer flags minor concerns that are not blocking.
+**含义**：语义层正确，但审查者标记了非阻断性的轻微问题。
 
-### When to use
+### 适用场景
 
-- Minor scope creep that's harmless (e.g. unrelated typo fix in same commit)
-- Hard-coded value where spec implied configurable (soft constraint)
-- Missing optional test coverage for a non-critical path
-- Wiki gotcha partially addressed but not fully
-- Style / naming that departs from project convention in a minor way
+- 轻微的范围蔓延但无害（如同一次提交中修复了不相关的拼写错误）
+- 硬编码值而 spec 暗示应可配置（软约束）
+- 非关键路径缺少可选的测试覆盖
+- Wiki 陷阱部分处理但未完全处理
+- 命名/风格略微偏离项目惯例
 
-### Required output
+### 必要输出
 
-MUST include a concerns block naming:
+必须包含一个 concerns 块，说明：
 
-- What the concern is (one sentence per concern)
-- Where it lives (file:line)
-- Severity rationale (why minor, not blocking)
-- Optional: suggested follow-up task
+- 问题是什么（每条一句话）
+- 所在位置（file:line）
+- 严重性论证（为什么是轻微的，而非阻断性的）
+- 可选：建议的后续任务
 
-### Forbidden
+### 禁止事项
 
-- Using APPROVED_WITH_NOTES to hide a real hard-constraint gap: that's NEEDS_REWORK
-- Vague concerns ("could be cleaner") without specifics
-- Stacking 5+ minor concerns without asking "should this actually be NEEDS_REWORK?"
+- 用 APPROVED_WITH_NOTES 掩盖真正的硬约束缺口：那应该是 NEEDS_REWORK
+- 模糊的问题描述（"可以更整洁"）而无具体内容
+- 堆叠 5+ 个轻微问题而不自问"这实际上应该是 NEEDS_REWORK 吗？"
 
-### Review line example
+### 审查行示例
 
 ```
 - [~] T-004 (APPROVED_WITH_NOTES) — 2025-04-18 16:55 — core correct; timeout hard-coded 5s (spec said "configurable") src/webhooks/xhs-handler.ts:34; suggest follow-up
 ```
 
-### Follow-up pattern
+### 后续任务模式
 
-For substantive concerns, suggest a follow-up task:
+对于实质性问题，建议一个后续任务：
 
 ```
 建议新建 T-0NN: "Make xhs webhook timeout configurable via env"
@@ -77,171 +77,171 @@ For substantive concerns, suggest a follow-up task:
   estimate: 30min
 ```
 
-User decides whether to file it.
+由用户决定是否创建。
 
 ---
 
 ## NEEDS_REWORK
 
-**Meaning**: diff has a semantic gap with spec. Impl must re-engage.
+**含义**：diff 与 spec 之间存在语义缺口。Impl 必须重新处理。
 
-### When to use
+### 适用场景
 
-- Hard-constraint gap (rate limit missing, SLO unaddressed, security check absent)
-- Spec goal not fully delivered (e.g. handler returns 500ms for 95% but spec said 99%)
-- Non-goal violated (scope creep into excluded domain)
-- Required path has no test coverage
-- Interface contract mismatch (exports wrong, signature different)
-- Wiki gotcha directly contradicted without rationale
+- 硬约束缺口（缺少速率限制、SLO 未处理、安全检查缺失）
+- Spec 目标未完全交付（如 handler 对 95% 返回 500ms，但 spec 要求 99%）
+- 非目标被违反（范围蔓延到排除的领域）
+- 必要路径无测试覆盖
+- 接口契约不匹配（导出错误、签名不同）
+- Wiki 陷阱被直接违反且无合理解释
 
-### Required output
+### 必要输出
 
-MUST specify:
+必须指定：
 
-- **Gap**: one-sentence summary of what's missing or wrong
-- **Evidence**: file:line pointing to the code that demonstrates the gap (or "no code addresses this")
-- **Spec reference**: which spec section / constraint was not met
-- **Suggested fix direction**: a hint, not a prescription (reviewer is not impl)
-- **Blast radius**: does this require re-decomposition, or is it a localized patch?
+- **缺口**：一句话概述缺失或错误的内容
+- **证据**：指向展示缺口的代码的 file:line（或"无代码处理此问题"）
+- **Spec 引用**：未满足的 spec 章节/约束
+- **建议修复方向**：提示而非处方（审查者不是 impl）
+- **影响范围**：是否需要重新拆分任务，还是局部修补即可？
 
-### Forbidden
+### 禁止事项
 
-- Using NEEDS_REWORK to enforce personal taste ("I'd have done X instead")
-- Claiming NEEDS_REWORK on things the spec did not require
-- Demanding refactor beyond what's needed to close the gap
-- Writing the actual fix in the review (that's impl's next cycle)
+- 用 NEEDS_REWORK 强加个人品味（"我会用 X 方式做"）
+- 对 spec 未要求的内容声称 NEEDS_REWORK
+- 要求超出修补缺口所需的重构
+- 在审查中写出实际修复代码（那是 impl 的下一个循环）
 
-### Review line example
+### 审查行示例
 
 ```
 - [✗] T-005 (NEEDS_REWORK) — 2025-04-18 17:10 — spec §3 requires rate-limit 10/s per client; diff has no rate-limit middleware (scanned src/webhooks/ and src/mw/); acceptance cmd did not exercise burst scenario
 ```
 
-### Resolution path
+### 解决路径
 
-User options:
+用户选项：
 
-1. Re-run `/sdd-kit:impl T-00X` with the review findings as context
-2. Re-decompose the task if the gap is too large for one cycle
-3. Drop the task if the gap reveals the feature should be deferred
+1. 带上审查发现作为上下文重新运行 `/sdd-kit:impl T-00X`
+2. 如果缺口太大无法在一个循环内解决，重新拆分任务
+3. 如果缺口揭示该功能应推迟，放弃该任务
 
 ---
 
 ## SPEC_DRIFT
 
-**Meaning**: diff appears reasonable, but the spec itself is wrong, inconsistent, or impossible. Bounces back to spec skill, NOT impl.
+**含义**：diff 看起来合理，但 spec 本身是错误的、不一致的或不可行的。退回 spec skill，而非 impl。
 
-### When to use
+### 适用场景
 
-- Spec mandates a dependency that doesn't exist in the codebase
-- Spec's hard constraint is physically impossible (e.g. p99 < 1ms for a network call)
-- Spec contradicts itself (§2 says X, §4 says not-X)
-- Spec assumes architecture that no longer applies (stale spec vs current code)
-- Spec's acceptance command references infrastructure that was deprecated
-- Research phase was skipped and spec is making guesses that reality invalidates
+- Spec 要求了代码库中不存在的依赖
+- Spec 的硬约束在物理上不可行（如对网络调用要求 p99 < 1ms）
+- Spec 自相矛盾（§2 说 X，§4 说非 X）
+- Spec 假设的架构已不再适用（过时的 spec vs 当前代码）
+- Spec 的验收命令引用了已废弃的基础设施
+- Research 阶段被跳过，spec 中的猜测被现实推翻
 
-### Required output
+### 必要输出
 
-MUST specify:
+必须指定：
 
-- **Drift**: one-sentence summary of what the spec got wrong
-- **Evidence**: quote the offending spec line + point to codebase reality
-- **Impact**: what parts of the impl are still valid, what need to be reconsidered
-- **Suggested path**: which spec section to rework; whether research is needed
+- **偏差**：一句话概述 spec 错在哪里
+- **证据**：引用有问题的 spec 行 + 指向代码库现状
+- **影响**：impl 的哪些部分仍然有效，哪些需要重新考虑
+- **建议路径**：需要修改 spec 的哪个章节；是否需要 research
 
-### Forbidden
+### 禁止事项
 
-- Using SPEC_DRIFT as escape hatch when impl is actually at fault (that's NEEDS_REWORK)
-- Claiming SPEC_DRIFT on spec ambiguity (ambiguity → impl should have emitted NEEDS_CONTEXT; if impl guessed, that's NEEDS_REWORK on impl)
-- SPEC_DRIFT that just says "spec could be clearer" — must cite a concrete contradiction or impossibility
+- 用 SPEC_DRIFT 作为 impl 实际有错时的逃避出口（那应该是 NEEDS_REWORK）
+- 对 spec 歧义声称 SPEC_DRIFT（歧义 → impl 应发出 NEEDS_CONTEXT；如果 impl 猜测了，那是 impl 的 NEEDS_REWORK）
+- SPEC_DRIFT 仅说"spec 可以更清晰"——必须引用具体的矛盾或不可行之处
 
-### Review line example
+### 审查行示例
 
 ```
 - [!] T-006 (SPEC_DRIFT) — 2025-04-18 17:30 — spec §4 requires redis for idempotency; no redis dep in package.json; codebase uses in-memory Map in src/store/dedup.ts; spec predates architecture change
 ```
 
-### Recovery path
+### 恢复路径
 
-User options:
+用户选项：
 
-1. `/sdd-kit:spec <name>` to revise the drifted section
-2. `/sdd-kit:research <topic>` if the drift reveals a knowledge gap
-3. Keep the impl's partial work if it's salvageable for the revised spec
-4. Abandon this task entirely if the spec premise is fundamentally broken
+1. `/sdd-kit:spec <name>` 修订偏差的章节
+2. `/sdd-kit:research <topic>` 如果偏差揭示了知识缺口
+3. 如果 impl 的部分工作对修订后的 spec 仍然可用，保留之
+4. 如果 spec 的前提从根本上就是错的，完全放弃此任务
 
-**Do NOT re-run impl first.** Impl against a broken spec just re-creates the bug.
-
----
-
-## State transition rules
-
-### Forward transitions (allowed)
-
-```
-impl (DONE / DONE_WITH_CONCERNS)  ──►  Collect  ──►  Judge  ──►  APPROVED
-                                                         │
-                                                         ├──►  APPROVED_WITH_NOTES (+ concerns block)
-                                                         │
-                                                         ├──►  NEEDS_REWORK (+ gap block)  ──►  back to impl
-                                                         │
-                                                         └──►  SPEC_DRIFT (+ drift block)  ──►  back to spec
-```
-
-### Rework re-review
-
-```
-NEEDS_REWORK  ──(impl re-runs, reports DONE)──►  new review cycle, new review line appended
-SPEC_DRIFT    ──(spec revised, task possibly re-decomposed, impl re-runs)──►  new review cycle
-APPROVED      ──(no action by default)──►  stays APPROVED
-APPROVED_WITH_NOTES  ──(follow-up task filed)──►  stays APPROVED_WITH_NOTES (original)
-```
-
-### Forbidden transitions (HARD RULES)
-
-- ❌ `APPROVED ← NEEDS_REWORK` silently (never "on second thought, good enough" without re-examining evidence)
-- ❌ `APPROVED ← SPEC_DRIFT` silently (spec drift does not dissolve by ignoring it)
-- ❌ `APPROVED_WITH_NOTES` with 5+ concerns (at that point, re-classify as NEEDS_REWORK)
-- ❌ Editing earlier review lines (append-only; new line per re-review)
-
-Each re-entry to review appends a NEW review line; the old line stays for audit.
+**不要先重新运行 impl。** 基于错误 spec 的 impl 只会重新制造 bug。
 
 ---
 
-## Multiple review lines per task
+## 状态转换规则
 
-A task may accumulate multiple review lines over re-reviews:
+### 正向转换（允许）
+
+```
+impl (DONE / DONE_WITH_CONCERNS)  ──►  收集  ──►  判定  ──►  APPROVED
+                                                       │
+                                                       ├──►  APPROVED_WITH_NOTES (+ concerns block)
+                                                       │
+                                                       ├──►  NEEDS_REWORK (+ gap block)  ──►  back to impl
+                                                       │
+                                                       └──►  SPEC_DRIFT (+ drift block)  ──►  back to spec
+```
+
+### 返工复审
+
+```
+NEEDS_REWORK  ──(impl 重新运行，报告 DONE)──►  新审查循环，追加新审查行
+SPEC_DRIFT    ──(spec 修订，任务可能重新拆分，impl 重新运行)──►  新审查循环
+APPROVED      ──(默认无操作)──►  保持 APPROVED
+APPROVED_WITH_NOTES  ──(后续任务已创建)──►  保持 APPROVED_WITH_NOTES（原始记录）
+```
+
+### 禁止的转换（硬性规则）
+
+- ❌ `APPROVED ← NEEDS_REWORK` 静默转换（绝不允许"再想想，够好了"而不重新审查证据）
+- ❌ `APPROVED ← SPEC_DRIFT` 静默转换（spec 偏差不会因忽略而消失）
+- ❌ `APPROVED_WITH_NOTES` 带 5+ 个问题（此时应重新归类为 NEEDS_REWORK）
+- ❌ 编辑之前的审查行（只追加；每次复审新起一行）
+
+每次重新进入审查都追加一条新的审查行；旧行保留用于审计。
+
+---
+
+## 同一任务的多条审查行
+
+一个任务可能在多次复审中积累多条审查行：
 
 ```
 - [✗] T-003 (NEEDS_REWORK) — 2025-04-18 17:10 — rate-limit missing
 - [✓] T-003 (APPROVED) — 2025-04-18 18:40 — re-reviewed after impl rework, rate-limit now at src/mw/rate-limit.ts:12
 ```
 
-This is the audit trail. Do NOT collapse into one line.
+这就是审计痕迹。不要合并为一行。
 
 ---
 
-## Relation to impl's state machine
+## 与 impl 状态机的关系
 
-Review and impl have orthogonal state machines. A task can be:
+Review 和 impl 拥有正交的状态机。一个任务可以是：
 
-| Impl state | Review state | Meaning |
-|-----------|--------------|---------|
-| DONE | not yet reviewed | impl complete, awaiting audit |
-| DONE | APPROVED | ready to ship |
-| DONE | APPROVED_WITH_NOTES | ready to ship with minor follow-up |
-| DONE | NEEDS_REWORK | impl thought it's done; review disagrees → back to impl |
-| DONE | SPEC_DRIFT | impl did its job; spec is wrong → back to spec |
-| DONE_WITH_CONCERNS | APPROVED | concerns were acceptable to reviewer |
-| DONE_WITH_CONCERNS | NEEDS_REWORK | concerns were NOT acceptable |
-| NEEDS_CONTEXT | (cannot review) | impl not complete |
-| BLOCKED | (cannot review) | impl not complete |
+| Impl 状态 | Review 状态 | 含义 |
+|-----------|------------|------|
+| DONE | 未审查 | impl 完成，等待审计 |
+| DONE | APPROVED | 可发布 |
+| DONE | APPROVED_WITH_NOTES | 可发布，有轻微后续事项 |
+| DONE | NEEDS_REWORK | impl 认为完成了；审查不同意 → 回到 impl |
+| DONE | SPEC_DRIFT | impl 做了它该做的；spec 有错 → 回到 spec |
+| DONE_WITH_CONCERNS | APPROVED | 顾虑被审查者接受 |
+| DONE_WITH_CONCERNS | NEEDS_REWORK | 顾虑未被接受 |
+| NEEDS_CONTEXT | （无法审查） | impl 未完成 |
+| BLOCKED | （无法审查） | impl 未完成 |
 
 ---
 
-## Escalation rule
+## 升级规则
 
-If a task has cycled `NEEDS_REWORK → impl → NEEDS_REWORK` 3+ times:
+如果一个任务已循环 `NEEDS_REWORK → impl → NEEDS_REWORK` 3 次以上：
 
 ```
 ⚠️ T-003 has entered NEEDS_REWORK 3 times in review.

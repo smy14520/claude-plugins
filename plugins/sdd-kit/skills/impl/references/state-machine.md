@@ -1,28 +1,28 @@
-# The 4-state machine
+# 四状态机
 
-Impl reports one of exactly four states. This file gives definitions, exit criteria, and transition rules.
+Impl 报告且仅报告以下四种状态之一。本文件给出定义、退出标准和转换规则。
 
 ---
 
 ## DONE
 
-**Meaning**: the task is complete. All acceptance passes. No known compromises or deferred concerns.
+**含义**：任务完成。所有验收标准通过。无已知妥协或遗留问题。
 
-### Exit criteria (ALL must hold)
+### 退出标准（全部必须满足）
 
-- Every command in `acceptance:` executed and returned success
-- Every file-state predicate in `acceptance:` verified
-- No known deviation from spec or task constraints
-- Code is self-consistent (no dangling TODOs left for this task)
+- `acceptance:` 中的每条命令均已执行并返回成功
+- `acceptance:` 中的每个文件状态谓词均已验证
+- 无已知偏离 spec 或任务约束的情况
+- 代码自洽（本任务无残留的 TODO）
 
-### Forbidden reasons to claim DONE
+### 禁止声称 DONE 的理由
 
-- "Acceptance passes locally" → did you run all of them? Actually? Including the HTTP one?
-- "Close enough" → DONE_WITH_CONCERNS instead
-- "Everything except the test, which I'll add later" → not DONE
-- "Passed in my head" → not DONE until commands actually ran
+- "Acceptance 在本地通过了" → 你是否真的运行了全部？包括那条 HTTP 的？
+- "差不多够了" → 应标记为 DONE_WITH_CONCERNS
+- "除了测试，测试我稍后补" → 不是 DONE
+- "在脑子里验证过了" → 命令实际运行之前不是 DONE
 
-### Status line example
+### 状态行示例
 
 ```
 - [x] T-003 (DONE) — 2025-04-18 14:20 — 3/3 acceptance green
@@ -32,37 +32,37 @@ Impl reports one of exactly four states. This file gives definitions, exit crite
 
 ## DONE_WITH_CONCERNS
 
-**Meaning**: acceptance passes, but the executor made a compromise worth surfacing.
+**含义**：验收通过，但执行者做了一项值得上报的妥协。
 
-### When to use
+### 何时使用
 
-- Used a workaround that meets acceptance but isn't the clean solution
-- Skipped an optional improvement mentioned in task notes
-- Introduced a small tech debt the future reader should know about
-- Deviated from project convention in a minor way (documented inline)
+- 使用了满足验收但并非最干净方案的变通手段
+- 跳过了任务备注中提到的可选改进
+- 引入了未来读者应知晓的小额技术债
+- 以次要方式偏离了项目约定（已在代码内注明）
 
-### Required output
+### 必须输出
 
-MUST include a concerns block naming:
+必须包含 concerns 块，写明：
 
-- What the compromise is (one sentence)
-- Where it lives in the code (file:line)
-- Recommended follow-up (optional: new task ID suggestion)
+- 妥协是什么（一句话）
+- 它在代码中的位置（file:line）
+- 建议的后续行动（可选：建议新 task ID）
 
-### Forbidden
+### 禁止事项
 
-- Using DONE_WITH_CONCERNS to hide a real failure: that's BLOCKED or NEEDS_CONTEXT
-- "Concerns: code could be cleaner" without specifics (not actionable)
+- 用 DONE_WITH_CONCERNS 掩盖真正的失败：那应该是 BLOCKED 或 NEEDS_CONTEXT
+- "Concerns: 代码可以更干净" 而无具体内容（不可执行）
 
-### Status line example
+### 状态行示例
 
 ```
 - [?] T-003 (DONE_WITH_CONCERNS) — 2025-04-18 14:50 — passed but retry uses fixed 3 tries, no backoff; src/webhooks/xhs-handler.ts:42
 ```
 
-### Follow-up pattern
+### 后续模式
 
-For substantive concerns, suggest a follow-up task:
+对于实质性 concern，建议一个后续任务：
 
 ```
 建议新建 T-0NN: "Add exponential backoff to xhs retry"
@@ -71,106 +71,106 @@ For substantive concerns, suggest a follow-up task:
   estimate: 1h
 ```
 
-User decides whether to file it.
+由用户决定是否创建。
 
 ---
 
 ## NEEDS_CONTEXT
 
-**Meaning**: executor hit an ambiguity or missing info that forces a design decision. Refuses to guess.
+**含义**：执行者遇到歧义或信息缺失，被迫做出设计决策。拒绝猜测。
 
-### When to use
+### 何时使用
 
-- Spec says X, task says Y, they contradict
-- Acceptance references a file/command that doesn't exist
-- A concrete value is missing (e.g. TTL, retry count, URL, enum choice) that affects behavior
-- Two reasonable implementations exist and task doesn't choose
-- Required upstream dependency has undefined behavior
-- Task deliverable uses an open verb (`校准 / 保持 / 验证 / 确保 / 适配`) instead of `CREATE / ADD / SET / DELETE / REPLACE` with a concrete target — do NOT self-research the missing value
-- Task or spec file contains a remaining `<TODO-DECIDE>` or `<TBD>` marker relevant to this task — spec was not finalized
+- Spec 说 X，task 说 Y，二者矛盾
+- Acceptance 引用了不存在的文件/命令
+- 缺少影响行为的具体值（例如 TTL、重试次数、URL、枚举选择）
+- 存在两种合理实现方案且任务未做选择
+- 必需的上游依赖行为未定义
+- 任务交付物使用了开放性动词（`校准 / 保持 / 验证 / 确保 / 适配`）而非带有具体目标的 `CREATE / ADD / SET / DELETE / REPLACE`——不要自行研究缺失的值
+- 任务或 spec 文件中包含与本任务相关的未解决 `<TODO-DECIDE>` 或 `<TBD>` 标记——spec 尚未定稿
 
-### Required output
+### 必须输出
 
-MUST specify:
+必须指定：
 
-- **Blocked at**: one-sentence summary of what's ambiguous
-- **Needed**: the specific question that would unblock
-- **Source of ambiguity**: where in spec / task the ambiguity lives
-- **Suggested resolution**: what change to spec or task would unblock
-- **Code state**: "no code changes committed" OR "partial: <what's in>"
+- **受阻于**：一句话概述歧义所在
+- **所需信息**：能解除阻塞的具体问题
+- **歧义来源**：歧义位于 spec / task 的何处
+- **建议解决方案**：对 spec 或 task 做什么变更可解除阻塞
+- **代码状态**："no code changes committed" 或 "partial: <已提交的内容>"
 
-### Forbidden
+### 禁止事项
 
-- Using NEEDS_CONTEXT to avoid reading the spec more carefully
-- Claiming NEEDS_CONTEXT on decisions already made in spec (re-read, don't ask)
-- Silently making the choice and marking DONE — that's the core failure mode to avoid
-- Self-conducting research (reading external docs, web search, exploring codebase for "what should this URL be") to resolve an open verb or unresolved marker — that's the spec / research phase's job, not impl's. Emit NEEDS_CONTEXT and bounce back.
+- 用 NEEDS_CONTEXT 来逃避仔细阅读 spec
+- 对 spec 中已做决策的问题声称 NEEDS_CONTEXT（重新阅读，不要询问）
+- 静默做出选择后标记 DONE——这是需要避免的核心失败模式
+- 自行开展研究（阅读外部文档、网络搜索、探索代码库以确定"这个 URL 应该是什么"）来解决开放性动词或未解决标记——那是 spec / research 阶段的工作，不是 impl 的。发出 NEEDS_CONTEXT 并退回。
 
-### Status line example
+### 状态行示例
 
 ```
 - [!] T-003 (NEEDS_CONTEXT) — 2025-04-18 15:10 — spec ambiguous on replay window: 24h vs 7d? acceptance says 24h, spec says 'align with wechat'
 ```
 
-### Resolution path
+### 解决路径
 
-User options:
+用户选项：
 
-1. Clarify in-session → impl consumes clarification, re-runs task
-2. Update spec → re-finalize spec, re-decompose if needed, re-run impl
-3. Drop / descope task → mark task `status: dropped`
-4. Defer → leave NEEDS_CONTEXT, come back later
+1. 会话中澄清 → impl 消化澄清内容，重新运行任务
+2. 更新 spec → 重新定稿 spec，必要时重新分解，重新运行 impl
+3. 删除/缩减任务 → 标记任务 `status: dropped`
+4. 推迟 → 保持 NEEDS_CONTEXT，稍后回来
 
 ---
 
 ## BLOCKED
 
-**Meaning**: environment or external factor prevents the task, unrelated to design ambiguity.
+**含义**：环境或外部因素阻止任务执行，与设计歧义无关。
 
-### When to use
+### 何时使用
 
-- Dependency not installed, missing binary
-- External service unreachable (DB, API, queue)
-- Migration fails for infrastructure reason (version mismatch, missing extension)
-- Permission / auth issue at machine level
-- Upstream task still `NEEDS_CONTEXT` or `BLOCKED` (this task can't proceed)
+- 依赖未安装，缺少二进制文件
+- 外部服务不可达（数据库、API、队列）
+- Migration 因基础设施原因失败（版本不匹配、缺少扩展）
+- 机器级别的权限/认证问题
+- 上游任务仍为 `NEEDS_CONTEXT` 或 `BLOCKED`（本任务无法继续）
 
-### Required output
+### 必须输出
 
-MUST specify:
+必须指定：
 
-- **Blocker**: one-sentence summary
-- **Symptoms**: exact error message(s)
-- **Tried**: any recovery steps attempted
-- **Unblock path**: what needs to happen externally (who / what)
-- **Code state**: "no code changes committed" OR "partial: <what's in>"
+- **阻塞项**：一句话概述
+- **症状**：确切的错误信息
+- **已尝试**：已执行的恢复步骤
+- **解除路径**：需要什么外部操作（谁/什么）
+- **代码状态**："no code changes committed" 或 "partial: <已提交的内容>"
 
-### Forbidden
+### 禁止事项
 
-- Using BLOCKED to avoid SelfCheck (if you didn't run the command, you don't know it's blocked)
-- Silent workaround that evades the blocker (that's DONE_WITH_CONCERNS at best, but more likely NEEDS_CONTEXT)
-- Claiming BLOCKED for design issues (that's NEEDS_CONTEXT)
+- 用 BLOCKED 来逃避 SelfCheck（如果你没有运行命令，你不知道它是被阻塞的）
+- 静默使用绕过阻塞的变通方案（最多是 DONE_WITH_CONCERNS，但更可能是 NEEDS_CONTEXT）
+- 对设计问题声称 BLOCKED（那应该是 NEEDS_CONTEXT）
 
-### Status line example
+### 状态行示例
 
 ```
 - [✗] T-003 (BLOCKED) — 2025-04-18 15:30 — postgres 14 vs 15 schema mismatch; migration requires 15; local is 14
 ```
 
-### Recovery path
+### 恢复路径
 
-User options:
+用户选项：
 
-1. Fix environment → re-run task
-2. Rewrite to work with current env (new decision: run spec / task again)
-3. Defer task, skip ahead to other eligible tasks
-4. Drop task
+1. 修复环境 → 重新运行任务
+2. 改写为适应当前环境（新决策：重新运行 spec / task）
+3. 推迟任务，跳到其他可执行任务
+4. 删除任务
 
 ---
 
-## State transition rules
+## 状态转换规则
 
-### Forward transitions (allowed)
+### 正向转换（允许）
 
 ```
 (start)  ───────►  Execute  ───────►  SelfCheck  ────►  DONE
@@ -184,7 +184,7 @@ User options:
                       └────────────►  BLOCKED (env issue during execute)
 ```
 
-### Rework transitions (re-open)
+### 返工转换（重新打开）
 
 ```
 NEEDS_CONTEXT  ──(user clarifies)──►  re-Execute
@@ -193,19 +193,19 @@ DONE_WITH_CONCERNS  ──(follow-up filed)──►  stays DONE_WITH_CONCERNS
 DONE           ──(regression found)──►  file NEW task, do NOT revise T-003
 ```
 
-### Forbidden transitions (HARD RULES)
+### 禁止的转换（硬性规则）
 
-- ❌ `DONE ← BLOCKED` silently (never "figured out a workaround, now it's DONE" without explicit re-SelfCheck)
-- ❌ `DONE ← NEEDS_CONTEXT` silently (never "just guessed at an answer and moved on")
-- ❌ `DONE ← DONE_WITH_CONCERNS` (concerns don't dissolve; they require follow-up)
+- ❌ `DONE ← BLOCKED` 静默转换（绝不允许"想出了变通方案，现在 DONE 了"而不经过显式的重新 SelfCheck）
+- ❌ `DONE ← NEEDS_CONTEXT` 静默转换（绝不允许"猜了个答案就继续了"）
+- ❌ `DONE ← DONE_WITH_CONCERNS`（concerns 不会自动消失；它们需要后续跟进）
 
-Each re-entry to a task appends a NEW status line; the old line stays for audit.
+每次重新进入任务时追加一条新的状态行；旧行保留用于审计。
 
 ---
 
-## Multiple status lines per task
+## 每个任务的多条状态行
 
-A task may accumulate multiple status lines over re-runs:
+一个任务可能在多次运行中积累多条状态行：
 
 ```
 - [!] T-003 (NEEDS_CONTEXT) — 2025-04-18 15:10 — replay window ambiguity
@@ -213,13 +213,13 @@ A task may accumulate multiple status lines over re-runs:
 - [x] T-003 (DONE) — 2025-04-18 16:30 — env fixed, 3/3 acceptance green
 ```
 
-This is the audit trail. Do NOT collapse into one line.
+这就是审计轨迹。不要合并为一行。
 
 ---
 
-## Escalation rule
+## 升级规则
 
-If a task has cycled through NEEDS_CONTEXT or BLOCKED 3+ times:
+如果一个任务已经循环经历 NEEDS_CONTEXT 或 BLOCKED 3 次以上：
 
 ```
 ⚠️ T-003 has entered NEEDS_CONTEXT/BLOCKED 3 times.

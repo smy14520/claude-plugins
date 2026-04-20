@@ -1,42 +1,42 @@
-# Research workflow: Scope / Collect / Refine / Propose
+# Research 工作流：范围界定 / 收集 / 提炼 / 提议
 
-Detailed procedures for the four primitives. SKILL.md gives high-level steps; this file gives the full workflow including edge cases.
+四个原语的详细流程。SKILL.md 给出高层步骤；本文件提供包含边缘情况在内的完整工作流。
 
 ---
 
-## Scope
+## 范围界定（Scope）
 
-Frame the question before touching any material. A research without a declared scope becomes an infinite browse.
+在接触任何资料之前先框定问题。没有声明范围的研究会变成无边界浏览。
 
-### Trigger phrases
+### 触发短语
 
 - "研究一下 X" / "调研 X"
 - "想做 X 先探索"
 - "X 之前有人做过吗，看看"
 - "do research on X" / "explore X"
 
-### Full procedure
+### 完整流程
 
-**Step 1 — Extract the topic**
+**步骤 1 — 提取主题**
 
-From the user's utterance, pull out:
+从用户的表述中提取：
 
-- Topic name (one noun phrase) → becomes `<topic>` directory in kebab-case
-- Feeding decision (what choice is this research going to feed?)
+- 主题名称（一个名词短语）→ 以 kebab-case 作为 `<topic>` 目录名
+- 喂养决策（这次研究的结论将影响什么决策？）
 
-If the feeding decision is unclear, ask ONE question: "这个研究的结论会影响什么决策？是想选型、估工、还是理解现有代码？"
+如果喂养决策不明确，问一个问题："这个研究的结论会影响什么决策？是想选型、估工、还是理解现有代码？"
 
-**Step 2 — Write `question.md`**
+**步骤 2 — 撰写 `question.md`**
 
-Load template from [../assets/templates/question.md](../assets/templates/question.md). Fill:
+从 [../assets/templates/question.md](../assets/templates/question.md) 加载模板。填写：
 
-- **Question**: single sentence
-- **In scope**: 2-4 bullets, concrete sub-questions
-- **Out of scope**: 2+ bullets, explicit exclusions (critical — this is what prevents bloat)
-- **Feeding decision**: what spec/task will consume this
-- **Time budget**: user's rough estimate (optional, but helpful)
+- **Question**：单句表述
+- **In scope**：2-8 个要点，具体的子问题
+- **Out of scope**：2+ 个要点，明确的排除项（关键——这是防止范围膨胀的手段）
+- **Feeding decision**：哪个 spec/task 将消费此次研究
+- **Time budget**：用户的大致估算（可选，但有帮助）
 
-**Step 3 — Emit summary**
+**步骤 3 — 输出摘要**
 
 ```
 📁 .claude/research/<topic>/question.md 已创建
@@ -45,58 +45,58 @@ Load template from [../assets/templates/question.md](../assets/templates/questio
    下一步: collect (粘贴资料 / 告诉我从哪里开始看)
 ```
 
-### Edge cases
+### 边缘情况
 
-**Case: user hasn't narrowed the scope**
+**情况：用户尚未缩小范围**
 
-Do not guess. Ask ONE question: "你希望这次 research 主要回答什么？" then fill.
+不要猜测。问一个问题："你希望这次 research 主要回答什么？" 然后填写。
 
-**Case: user's scope is huge (e.g. "研究一下前端架构")**
+**情况：用户给的范围很大（如"研究一下前端架构"）**
 
-Propose a narrower scope: "这个范围很大。建议先限定在一个具体问题（如 '如何组织 shared UI components'），回头再扩展。OK 吗？"
+建议收窄范围："这个范围很大。建议先限定在一个具体问题（如 '如何组织 shared UI components'），回头再扩展。OK 吗？"
 
 ---
 
-## Collect
+## 收集（Collect）
 
-Gather raw material into `raw/`. Do not distill here.
+将原始资料归入 `raw/`。此处不做提炼。
 
-### Trigger phrases
+### 触发短语
 
-- User pastes docs, URLs, screenshots
+- 用户粘贴文档、URL、截图
 - "看一下代码里 X 怎么做的"
 - "收集 X 的资料"
 
-### Full procedure
+### 完整流程
 
-**Step 1 — Categorize the input**
+**步骤 1 — 对输入进行分类**
 
-- Pasted doc / text → `raw/user-input-YYYY-MM-DD.md`
-- URL → fetch, summarize briefly (NOT distill), save as `raw/ext-<slug>.md`
-- Code read request → scan, save relevant quotes with file:line refs as `raw/codebase-<area>.md`
+- 粘贴的文档/文本 → `raw/user-input-YYYY-MM-DD.md`
+- URL → 抓取，简要概述（不是提炼），保存为 `raw/ext-<slug>.md`
+- 代码阅读请求 → 扫描，保存相关引用（含 file:line 参考）为 `raw/codebase-<area>.md`
 
-**Step 2 — Write raw file with minimal structure**
+**步骤 2 — 按最小结构写入 raw 文件**
 
-Each raw file has:
+每个 raw 文件包含：
 
 ```markdown
-# <Title>
+# <标题>
 
 > Source: <URL | path | user>
 > Collected: YYYY-MM-DD
 
 ## Content
 
-<verbatim or near-verbatim excerpt>
+<原文或近乎原文的摘录>
 ```
 
-**Step 3 — Do NOT distill during collect**
+**步骤 3 — 收集阶段不要提炼**
 
-Temptation: while reading code, you see a pattern and want to write "this is using pattern X". Resist. Put the excerpt in `raw/`; the refine step will decide whether to abstract.
+诱惑：阅读代码时，你看到了某种模式，想写下"这里使用了 X 模式"。忍住。将摘录放入 `raw/`；提炼步骤会决定是否需要抽象。
 
-**Step 4 — Track what's been collected**
+**步骤 4 — 跟踪已收集内容**
 
-After each collect action, emit:
+每次收集操作后，输出：
 
 ```
 📥 Collected: raw/<file>.md
@@ -104,61 +104,61 @@ After each collect action, emit:
    建议: 继续收集 / 开始 refine
 ```
 
-### Edge cases
+### 边缘情况
 
-**Case: user provides a very long URL / document**
+**情况：用户提供了一个非常长的 URL/文档**
 
-Do not fetch entire doc. Fetch + summarize to ≤ 200 lines, noting what was omitted. Keep original URL prominent.
+抓取整个文档。抓取并概述至 200 行以内，保留重点内容，注明省略了哪些内容。保留原始 URL 的醒目位置。
 
-**Case: scan reveals codebase has nothing relevant**
+**情况：扫描发现代码库中没有相关内容**
 
-Record one-line `raw/codebase-<area>.md`: "Scanned `<paths>`, no relevant matches for `<topic>`."
+写一行 `raw/codebase-<area>.md`："Scanned `<paths>`，no relevant matches for `<topic>`。"
 
-**Case: user wants to skip collect and go straight to refine**
+**情况：用户想跳过收集直接进入提炼**
 
-Only allowed if they are pasting already-curated material. Warn: "跳过 collect 意味着没有原始引用链路。你确定这些资料已经是提炼过的？"
+仅在用户粘贴的是已经整理过的资料时才允许。警告："跳过 collect 意味着没有原始引用链路。你确定这些资料已经是提炼过的？"
 
 ---
 
-## Refine
+## 提炼（Refine）
 
-Distill raw material into focused `refined/<topic>.md` notes.
+将原始资料提炼为聚焦的 `refined/<topic>.md` 笔记。
 
-### Trigger phrases
+### 触发短语
 
 - "整理一下"
 - "把收集到的提炼一下"
 - "refine 一下"
 
-### Full procedure
+### 完整流程
 
-**Step 1 — Group raw files by finding**
+**步骤 1 — 按发现分组 raw 文件**
 
-Read all `raw/*.md`. Group excerpts by the *finding* they support, not by their source.
+阅读所有 `raw/*.md`。按发现所支撑的*发现*分组，而非按来源分组。
 
-Example: signatures mentioned in three different raw files → all feed one `refined/xhs-signature-scheme.md`.
+示例：三个不同 raw 文件中提到的签名 → 全部汇入一个 `refined/xhs-signature-scheme.md`。
 
-**Step 2 — Write one refined note per finding**
+**步骤 2 — 每个发现写一条提炼笔记**
 
-Apply [../assets/templates/finding-note.md](../assets/templates/finding-note.md). Required sections:
+应用 [../assets/templates/finding-note.md](../assets/templates/finding-note.md)。必需的章节：
 
-- **What I found**: the concrete finding (1-3 sentences)
-- **Where**: citations back to `raw/` files with line refs
-- **Why it matters**: how this affects the feeding decision
-- **Open question**: what is still unknown after this finding
+- **What I found**：具体发现（1-3 句话）
+- **Where**：引用回 `raw/` 文件并附带行号
+- **Why it matters**：这如何影响喂养决策
+- **Open question**：该发现之后仍然未知的内容
 
-Hard limit: ≤ 80 lines per note. Longer → split.
+硬性限制：每条笔记不超过 80 行。超长则拆分。
 
-**Step 3 — Discard unused raw**
+**步骤 3 — 丢弃未使用的 raw**
 
-Raw files that didn't contribute to any refined note:
+没有贡献给任何提炼笔记的 raw 文件：
 
-- If they might be useful later → leave them
-- If they are clearly irrelevant → delete or move to `raw/.discarded/`
+- 如果后续可能有用 → 保留
+- 如果明显无关 → 删除或移至 `raw/.discarded/`
 
-Never keep "just in case" raw without a clear downstream purpose.
+永远不要在没有明确下游用途的情况下"以防万一"保留 raw 文件。
 
-**Step 4 — Emit refine summary**
+**步骤 4 — 输出提炼摘要**
 
 ```
 🔍 Refined: N 个 refined notes
@@ -167,61 +167,61 @@ Never keep "just in case" raw without a clear downstream purpose.
    未用 raw 文件: M 个 (保留 / 丢弃)
 ```
 
-### Edge cases
+### 边缘情况
 
-**Case: a finding wants to become a decision**
+**情况：一个发现想变成决策**
 
-If while refining you feel "this finding is actually our choice", STOP. Research does not decide. Rewrite as option-description:
+如果提炼时你觉得"这个发现其实就是我们的选择"，停下。Research 不做决策。改写为选项描述：
 
 - ❌ "We should use webhook"
 - ✅ "Webhook is available. Poll is also available. Tradeoffs: ..."
 
-**Case: a finding is too abstract to cite**
+**情况：一个发现过于抽象，无法引用**
 
-Unverified findings are not findings. Either cite or drop.
+未经验证的发现不是发现。要么引用来源，要么丢弃。
 
 ---
 
-## Propose
+## 提议（Propose）
 
-Close out the research. Produce `findings.md` + wiki-ingest candidates.
+收尾研究。生成 `findings.md` + wiki 摄取候选项。
 
-### Trigger phrases
+### 触发短语
 
 - "总结一下 research"
 - "research 完了"
 - "可以结束研究了"
 - "closing the research"
 
-### Full procedure
+### 完整流程
 
-**Step 1 — Write `findings.md`**
+**步骤 1 — 撰写 `findings.md`**
 
-Apply [../assets/templates/findings.md](../assets/templates/findings.md). Required sections:
+应用 [../assets/templates/findings.md](../assets/templates/findings.md)。必需的章节：
 
-- **Question** (copy from question.md)
-- **Key findings** (≤ 7 bullets, each linking a `refined/` note)
-- **Open questions** (for spec to resolve — explicit list, can be empty only if truly no open Q)
-- **Ingest candidates** — which refined notes are worth promoting to wiki
-- **Ephemeral** — which refined notes are scoped to this decision only (will not be ingested)
+- **Question**（从 question.md 复制）
+- **Key findings**（不超过 7 个要点，每个链接到一条 `refined/` 笔记）
+- **Open questions**（供 spec 解决——明确列表，仅当确实没有未决问题时才可为空）
+- **Ingest candidates**——哪些提炼笔记值得提升至 wiki
+- **Ephemeral**——哪些提炼笔记仅限本次决策范围（不会被摄取）
 
-**Step 2 — Classify ingest candidates by proposed wiki type**
+**步骤 2 — 按建议的 wiki 类型对摄取候选进行分类**
 
-For each candidate, suggest the wiki page type (per wiki skill):
+对每个候选项，建议 wiki 页面类型（按照 wiki skill）：
 
-- `entity` — if it describes a real object in the project
-- `concept` — if it is a reusable abstraction
-- `gotcha` — if it is a specific scenario + error + fix
-- `decision` — if it captures a choice and rationale (will usually become a decision page AFTER spec, not during research)
-- `source` — if it is a summary of external raw material
+- `entity` — 描述项目中的真实对象
+- `concept` — 可复用的抽象
+- `gotcha` — 特定场景 + 错误 + 修复
+- `decision` — 捕获选择及其理由（通常在 spec 之后、而非 research 期间变成决策页面）
+- `source` — 外部原始资料的摘要
 
-**Step 3 — Do NOT auto-ingest**
+**步骤 3 — 不要自动摄取**
 
-Explicitly instruct the user:
+明确告知用户：
 
 > 以上 ingest 建议仅为提议。若要真正写入 wiki，请调用 `wiki` skill 并 ingest 具体条目。
 
-**Step 4 — Emit closing summary**
+**步骤 4 — 输出收尾摘要**
 
 ```
 📤 Research closed: .claude/research/<topic>/findings.md
@@ -236,16 +236,16 @@ Ingest candidates: K (entity: A, concept: B, gotcha: C)
 - 或两者都做，按顺序由你决定
 ```
 
-### Edge cases
+### 边缘情况
 
-**Case: open questions list is empty**
+**情况：未决问题列表为空**
 
-Challenge: "研究结束但没有 open question，是研究确实彻底，还是实际上没发散？" Let user confirm before closing.
+质疑："研究结束但没有 open question，是研究确实彻底，还是实际上没发散？" 让用户确认后再关闭。
 
-**Case: ingest candidates list is empty**
+**情况：摄取候选列表为空**
 
-Fine — not every research produces reusable knowledge. Note in findings.md: "本次 research 无 wiki ingest 候选（所有发现均为本次决策 scoped）。"
+没问题——并非每次研究都会产生可复用的知识。在 findings.md 中注明："本次 research 无 wiki ingest 候选（所有发现均为本次决策 scoped）。"
 
-**Case: user wants to revisit / extend later**
+**情况：用户想之后重新审视/扩展**
 
-Leave `findings.md` with `status: open` in frontmatter. A future session can append without rewriting.
+在 frontmatter 中将 `findings.md` 标记为 `status: open`。后续会话可以直接追加而无需重写。

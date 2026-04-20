@@ -5,29 +5,29 @@ date: YYYY-MM-DD
 status: draft | confirmed | in-progress | done
 ---
 
-# Tasks: <feature-name>
+# 任务: <feature-name>
 
 <!-- 输出语言: 中文 -->
 
 <!--
-  Task file contract (enforced):
-  - NO wikilinks. Self-sufficient file.
-  - NO decisions. Every task is execution only.
-  - IDs are append-only. Never renumber.
-  - Every acceptance is a command or binary predicate.
-  - Closed verbs only: CREATE | ADD | SET | DELETE | REPLACE with concrete target values.
-    Open verbs (校准 / 保持 / 验证 / 确保 / 适配) signal the source spec has an unresolved
-    `<TODO-DECIDE>` — bounce back to spec, do not smuggle ambiguity into task.
+  任务文件约定（强制执行）：
+  - 禁止 wikilinks。本文件应自包含。
+  - 禁止决策。每个任务仅包含可执行操作。
+  - ID 只允许追加，不得重新编号。
+  - 每条验收条件必须是可执行命令或二元谓词。
+  - 仅允许封闭动词：CREATE | ADD | SET | DELETE | REPLACE，并附带具体目标值。
+    开放动词（校准 / 保持 / 验证 / 确保 / 适配）表示来源规格中存在未解决的
+    `<TODO-DECIDE>` — 应退回规格，不得将模糊性带入任务。
 -->
 
-## Summary
+## 概览
 
-- Mode: <strict-atomic | lean>
-- Total tasks: <N>
-- Total estimate: <hours>
-- Critical path: <T-xxx → T-yyy → T-zzz = Nh>
+- 模式: <strict-atomic | lean>
+- 总任务数: <N>
+- 总预估工时: <hours>
+- 关键路径: <T-xxx → T-yyy → T-zzz = Nh>
 
-## Dependency graph
+## 依赖关系图
 
 ```
 T-001 (data)
@@ -39,7 +39,7 @@ T-002 (shared)
 T-007 (devops, standalone)
 ```
 
-## Tasks
+## 任务列表
 
 - id: T-001
   role: data
@@ -79,11 +79,11 @@ T-007 (devops, standalone)
   estimate: 3h
   notes: "Uses T-002 verifier. Reads secret from env XHS_WEBHOOK_SECRET."
 
-# ... add more tasks with appended IDs ...
+# ... 追加更多任务，ID 递增 ...
 
-## Status log
+## 状态日志
 
-(Impl skill appends here as tasks progress. Do NOT edit manually.)
+（实现技能在任务推进时追加。请勿手动编辑。）
 
 <!-- format: `- [x] T-NNN (STATE) — YYYY-MM-DD HH:MM — note` -->
 <!-- STATE ∈ { DONE | DONE_WITH_CONCERNS | NEEDS_CONTEXT | BLOCKED } -->

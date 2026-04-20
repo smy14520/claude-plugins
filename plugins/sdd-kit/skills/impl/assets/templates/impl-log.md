@@ -1,39 +1,39 @@
-# Impl session log: <name>
+# 实现会话日志: <name>
 
 <!-- 输出语言: 中文 -->
 
-Append-only. One entry per task run (per status transition).
+仅追加。每次任务运行（每次状态变更）一条记录。
 
 <!--
-  Optional file. Create only when:
-  - Running multiple tasks in one session (audit trail useful)
-  - User explicitly wants a cumulative trace
-  - Working across sessions and want context carry-over
+  可选文件。仅在以下情况创建：
+  - 单次会话运行多个任务（审计轨迹有用）
+  - 用户明确需要累积记录
+  - 跨会话工作并需要上下文延续
 
-  For single-task runs, the task file's ## Status log is sufficient.
+  对于单次任务运行，任务文件中的 ## Status log 已足够。
 -->
 
 ## [YYYY-MM-DD HH:MM] T-001 DONE
 
-- Deliverable: <file(s) changed>
-- SelfCheck:
+- 交付物: <变更的文件>
+- 自检:
   - cmd1 — exit 0 (N tests)
   - cmd2 — match expected
-- Duration: Xh Ymin
-- Notes: <optional>
+- 耗时: Xh Ymin
+- 备注: <可选>
 
 ## [YYYY-MM-DD HH:MM] T-003 NEEDS_CONTEXT
 
-- Blocked at: <ambiguity summary>
-- Context asked: <specific question>
-- Code state: <no changes / partial X>
-- Duration: Xh Ymin
+- 阻塞于: <歧义摘要>
+- 待澄清: <具体问题>
+- 代码状态: <无变更 / 部分完成 X>
+- 耗时: Xh Ymin
 
 ## [YYYY-MM-DD HH:MM] T-003 DONE
 
-- (Re-run after user clarified <thing>)
-- Deliverable: <files>
-- SelfCheck:
+- (用户澄清 <thing> 后重新运行)
+- 交付物: <files>
+- 自检:
   - cmd1 — exit 0
-- Duration: Xh Ymin
-- Note: concerns from NEEDS_CONTEXT resolved
+- 耗时: Xh Ymin
+- 备注: NEEDS_CONTEXT 阶段的问题已解决

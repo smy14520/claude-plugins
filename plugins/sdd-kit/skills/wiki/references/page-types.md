@@ -1,21 +1,21 @@
-# Page Types and Content Contracts
+# 页面类型与内容契约
 
-Five page types. Each has a distinct purpose and strict content contract.
+五种页面类型。每种有独特的用途和严格的内容契约。
 
-## Naming convention (applies to all types)
+## 命名约定（适用于所有类型）
 
-- File name = topic name in **kebab-case**, all lowercase
-- **No type prefix** (❌ `entity-xxx.md`, ❌ `gotcha-xxx.md`, ❌ `concept-xxx.md`)
-- **Only `source-` prefix allowed** (for raw material summary pages)
-- Type info lives in frontmatter `type:` field
-- Topic names are domain-specific, not abstract (e.g. `xhs-api.md`, not `external-api.md`)
+- 文件名 = 主题名，使用 **kebab-case**，全部小写
+- **无类型前缀**（❌ `entity-xxx.md`，❌ `gotcha-xxx.md`，❌ `concept-xxx.md`）
+- **只允许 `source-` 前缀**（用于原始资料摘要页面）
+- 类型信息放在 frontmatter 的 `type:` 字段中
+- 主题名称应具体到领域，不要过于抽象（例如 `xhs-api.md`，不是 `external-api.md`）
 
-Examples:
+示例：
 - ✅ `ai-customer-service.md`, `xhs-api.md`, `idempotent-webhook.md`
 - ✅ `xhs-signature-clock-skew.md`, `webhook-vs-poll-xhs.md`, `source-xhs-api-doc.md`
 - ❌ `entity-xhs-api.md`, `gotcha-xhs-signature.md`, `decision-webhook.md`
 
-## Frontmatter schema (all types)
+## Frontmatter schema（所有类型通用）
 
 ```yaml
 ---
@@ -26,43 +26,43 @@ date: YYYY-MM-DD               # creation date (auto-set at ingest)
 ---
 ```
 
-Special tags with semantic meaning:
+具有语义含义的特殊标签：
 
-- `root` — this page is a domain hub (aggregates child pages; listed in `index.md`)
-- `cross-domain` — this page is reusable across systems/projects (listed in `index.md`)
+- `root` —— 此页面是领域枢纽（聚合子页面；列在 `index.md` 中）
+- `cross-domain` —— 此页面可跨系统/项目复用（列在 `index.md` 中）
 
 ---
 
 ## type: entity
 
-**Definition**: a real, identifiable object with state, boundary, and version. APIs, service modules, database tables, external systems, queues, stores.
+**定义**：具有状态、边界和版本的真实可识别对象。API、服务模块、数据库表、外部系统、队列、存储。
 
-**Rule of thumb**: you should be able to answer "what *is* it?" rather than "how does it *work*?".
+**经验法则**：你应该能回答"它*是*什么？"而不是"它是*怎么*工作的？"。
 
-### Content contract
+### 内容契约
 
-**Write these** (add value beyond code):
+**应编写的内容**（相比代码增加价值）：
 
-- Cross-file information aggregation (configs scattered across multiple files, callers scattered across modules)
-- Constraints invisible in code (rate limits, signature rules, concurrency limits, correct usage patterns)
-- Call topology and module boundaries
-- Links to related decisions / concepts / gotchas
+- 跨文件信息聚合（分散在多个文件中的配置，分散在多个模块中的调用方）
+- 代码中不可见的约束（速率限制、签名规则、并发限制、正确使用模式）
+- 调用拓扑和模块边界
+- 相关 decision / concept / gotcha 的链接
 
-**Do NOT write these** (code already provides):
+**不应编写的内容**（代码已提供）：
 
-- API endpoint lists (official docs / OpenAPI spec handles this)
-- Method signature lists (IDE handles this)
-- Database column lists (schema file handles this)
-- Configuration key lists (config file handles this)
+- API 端点列表（官方文档 / OpenAPI spec 已处理）
+- 方法签名列表（IDE 已处理）
+- 数据库列列表（schema 文件已处理）
+- 配置项列表（配置文件已处理）
 
-### The 5-file test (hard rule)
+### 5 文件测试（硬性规则）
 
-For every piece of information on an entity page, ask: **"How many files does the AI need to read to reconstruct this info from code?"**
+对 entity 页面上的每条信息，问：**"AI 需要阅读多少个文件才能从代码中重建这条信息？"**
 
-- 1 file to reconstruct → **do not write** (it's noise)
-- 5+ files to reconstruct → **write** (it's real value)
+- 1 个文件即可重建 → **不要写**（是噪声）
+- 需要 5+ 个文件才能重建 → **写**（是真正的价值）
 
-### Template
+### 模板
 
 ```markdown
 ---
@@ -113,20 +113,20 @@ What this entity depends on:
 
 ## type: concept
 
-**Definition**: an abstract thought / pattern / methodology that retains meaning when stripped of specific entity names. Reusable across projects.
+**定义**：抽象的思想/模式/方法论。去掉具体实体名称后仍保留意义。可跨项目复用。
 
-**Rule of thumb**: strip out all proper nouns — does the page still make sense? If yes, it's a concept.
+**经验法则**：去掉所有专有名词——页面是否仍然说得通？如果是，就是 concept。
 
-### Content contract
+### 内容契约
 
-Required sections:
+必需段落：
 
-- **Applicable scenarios** — when should this pattern be used?
-- **Core idea** — the essence, language-agnostic
-- **Trade-offs** — advantages, costs, non-applicable cases
-- **Application example(s)** — at least one `[[entity-xxx]]` link showing where it's used in this project
+- **适用场景** —— 何时应使用此模式？
+- **核心思想** —— 本质，与语言无关
+- **权衡** —— 优势、代价、不适用的场景
+- **应用示例** —— 至少一个 `[[entity-xxx]]` 链接，展示在本项目中的使用位置
 
-### Template
+### 模板
 
 ```markdown
 ---
@@ -137,26 +137,26 @@ date: YYYY-MM-DD
 
 # <Concept Name>
 
-## Applicable scenarios
+## 适用场景
 
 When you have problem X with constraints Y.
 
-## Core idea
+## 核心思想
 
 The essence of the pattern, 2-4 sentences, abstract.
 
-## Trade-offs
+## 权衡
 
 - Advantages: ...
 - Costs: ...
 - Does not apply when: ...
 
-## Application example
+## 应用示例
 
 - [[xxx]] uses this to handle ...
 - [[yyy]] uses this with variation: ...
 
-## References
+## 参考资料
 
 - Origin / inspiration (book / paper / blog), if any
 ```
@@ -165,25 +165,25 @@ The essence of the pattern, 2-4 sentences, abstract.
 
 ## type: gotcha
 
-**Definition**: one specific scenario + one specific error + one specific workaround. Concrete, reproducible, short.
+**定义**：一个具体场景 + 一个具体错误 + 一个具体解决方案。具体、可复现、简短。
 
-### Content contract
+### 内容契约
 
-Required sections:
+必需段落：
 
-- **Reproduction** — how to trigger the problem (conditions, inputs)
-- **Symptom** — what goes wrong (error message, wrong behavior)
-- **Root cause** — why it happens
-- **Workaround** — the verified fix
+- **复现** —— 如何触发该问题（条件、输入）
+- **症状** —— 出了什么问题（错误信息、异常行为）
+- **根因** —— 为什么会发生
+- **解决方案** —— 已验证的修复方法
 
-### Strict limits
+### 严格限制
 
-- **Page length ≤ 50 lines**. If longer, you've mixed multiple gotchas — split.
-- Title must describe a **specific scenario**, not a general topic.
+- **页面长度 ≤ 50 行**。如果更长，说明你混合了多个 gotcha——拆分。
+- 标题必须描述**具体场景**，而非泛泛主题。
   - ✅ `xhs-signature-clock-skew.md`
   - ❌ `xhs-api-issues.md`
 
-### Template
+### 模板
 
 ```markdown
 ---
@@ -195,27 +195,27 @@ severity: low | medium | high | critical
 
 # <Specific scenario>
 
-## Reproduction
+## 复现
 
 1. Setup: ...
 2. Action: ...
 3. Observe: ...
 
-## Symptom
+## 症状
 
 ```
 <error message or behavior>
 ```
 
-## Root cause
+## 根因
 
 Technical explanation of why this happens.
 
-## Workaround
+## 解决方案
 
 The verified fix. Code or config snippet.
 
-## Related
+## 相关
 
 - [[entity-xxx]] — affected entity
 - [[decision-xxx]] — if relevant
@@ -225,18 +225,18 @@ The verified fix. Code or config snippet.
 
 ## type: decision
 
-**Definition**: an Architecture Decision Record (ADR). Focus on **"why this and not that"**, not on "what was built".
+**定义**：架构决策记录（ADR）。重点在于**"为什么选这个而不是那个"**，而非"建了什么"。
 
-### Content contract
+### 内容契约
 
-Required sections:
+必需段落：
 
-- **Context** — what problem forced a decision
-- **Alternatives** — at least 2 options considered
-- **Decision** — what was chosen
-- **Consequences** — positive and negative outcomes, trade-offs accepted
+- **背景** —— 什么问题迫使做出决策
+- **备选方案** —— 至少考虑 2 个选项
+- **决策** —— 选择了什么
+- **后果** —— 正面和负面结果、接受的权衡
 
-### Template
+### 模板
 
 ```markdown
 ---
@@ -248,36 +248,36 @@ status: proposed | accepted | superseded | deprecated
 
 # <Decision title: "Use X for Y">
 
-## Context
+## 背景
 
 What forced this decision? What constraints applied?
 
-## Alternatives considered
+## 备选方案
 
-### Option A: <name>
+### 方案 A: <name>
 - How it works: ...
 - Pros: ...
 - Cons: ...
-- **Rejected because**: ...
+- **否决原因**: ...
 
-### Option B: <name>
+### 方案 B: <name>
 - ...
-- **Accepted because**: ...
+- **采纳原因**: ...
 
-### Option C: <name> (if any)
+### 方案 C: <name> (if any)
 - ...
 
-## Decision
+## 决策
 
 Option B.
 
-## Consequences
+## 后果
 
-- ✅ Positive outcome
-- ⚠️ Accepted trade-off
-- 🔄 Future revisit trigger (what would make us reconsider)
+- ✅ 正面结果
+- ⚠️ 接受的权衡
+- 🔄 未来重新审视的触发条件（什么会让我们重新考虑）
 
-## Related
+## 相关
 
 - Implemented in: [[entity-xxx]]
 - Design pattern: [[concept-xxx]]
@@ -288,20 +288,20 @@ Option B.
 
 ## type: source
 
-**Definition**: a summary page for external raw material (official docs, papers, blog posts, specs).
+**定义**：外部原始资料（官方文档、论文、博客文章、规范）的摘要页面。
 
-**This is the only page type that gets a filename prefix**: `source-<name>.md`.
+**这是唯一使用文件名前缀的页面类型**：`source-<name>.md`。
 
-> **If the source must be fetched from a URL** (user pastes a URL and asks to ingest directly, bypassing research), follow the tool matrix and completeness rules in [`../../research/references/data-collection.md`](../../research/references/data-collection.md) before building the summary. A `curl`-and-give-up approach corrupts the source page with incomplete data; prefer routing through the `research` skill when fetch complexity is high.
+> **如果 source 需要从 URL 获取**（用户粘贴 URL 并要求直接摄入，绕过 research），在构建摘要之前，遵循 [`../../research/references/data-collection.md`](../../research/references/data-collection.md) 中的工具矩阵和完整性规则。简单的 `curl`-然后放弃方法会用不完整数据损坏 source 页面；当获取复杂度较高时，优先通过 `research` skill 路由处理。
 
-### Content contract
+### 内容契约
 
-- Brief summary of what the source covers (2-4 paragraphs)
-- Key takeaways applicable to this project
-- Link to the original source
-- Links to related entity/concept pages this source informed
+- source 涵盖内容的简要摘要（2-4 段）
+- 适用于本项目的关键要点
+- 原始 source 链接
+- 本 source 影响的相关 entity/concept 页面链接
 
-### Template
+### 模板
 
 ```markdown
 ---
@@ -316,16 +316,16 @@ origin: <URL or citation>
 > Original: <URL>
 > Accessed: YYYY-MM-DD
 
-## Summary
+## 摘要
 
 2-4 paragraphs of what the source covers.
 
-## Key takeaways for this project
+## 对本项目的关键要点
 
 - Point 1 that applies to us
 - Point 2 that applies to us
 
-## Informed pages
+## 关联页面
 
 - [[entity-xxx]] — how this source shaped the entity
 - [[concept-xxx]] — abstract pattern derived from this source
@@ -333,14 +333,14 @@ origin: <URL or citation>
 
 ---
 
-## Type decision tree (when ingesting)
+## 类型决策树（摄入时使用）
 
-When the user asks to ingest, classify with this tree:
+当用户要求摄入时，使用此决策树分类：
 
-1. Is it an **external raw material** (doc / paper / blog)? → `source`
-2. Is it a **specific scenario + error + fix**? → `gotcha`
-3. Is it a **rationale for choosing one approach over alternatives**? → `decision`
-4. Can it be **stripped of proper nouns and still make sense**? → `concept`
-5. Is it a **real object in this project** (API, module, table, queue)? → `entity`
+1. 是**外部原始资料**（文档/论文/博客）？→ `source`
+2. 是**具体场景 + 错误 + 修复方案**？→ `gotcha`
+3. 是**选择某个方案而非其他方案的理由**？→ `decision`
+4. **去掉专有名词后仍然说得通**？→ `concept`
+5. 是**本项目中的真实对象**（API、模块、表、队列）？→ `entity`
 
-If ambiguous, prefer the more specific type (gotcha > decision > entity > concept) so it carries more constraint signal.
+如果模糊，优先选择更具体的类型（gotcha > decision > entity > concept），使其携带更多约束信号。

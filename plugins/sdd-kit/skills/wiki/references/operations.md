@@ -1,94 +1,94 @@
-# Operations: Ingest / Query / Lint
+# 操作：Ingest / Query / Lint
 
-Detailed procedures for the three primitives. SKILL.md gives high-level steps; this file gives the full workflow including edge cases.
+三个基本操作的详细流程。SKILL.md 提供高层步骤；本文件提供包含边界情况的完整工作流程。
 
 ---
 
 ## Ingest
 
-Distill new knowledge into a wiki page. Always user-triggered, never automatic.
+将新知识提炼为 wiki 页面。始终由用户触发，从不自动执行。
 
-### Trigger phrases (user intent)
+### 触发指令（用户意图）
 
 - "记一下这个坑" / "记录这个经验"
 - "沉淀一下 xxx" / "把 xxx 加到 wiki"
 - "这个决定值得记下来"
 - "让 wiki 收录这个"
 
-### Full procedure
+### 完整流程
 
-**Step 1 — Classify type**
+**步骤 1 —— 分类类型**
 
-Use the decision tree in [page-types.md#type-decision-tree](page-types.md):
+使用 [page-types.md#type-decision-tree](page-types.md) 中的决策树：
 
-1. External raw material? → `source`
-2. Specific scenario + error + fix? → `gotcha`
-3. Rationale for choosing among alternatives? → `decision`
-4. Strips of proper nouns and still makes sense? → `concept`
-5. Real object in this project? → `entity`
+1. 外部原始资料？→ `source`
+2. 具体场景 + 错误 + 修复方案？→ `gotcha`
+3. 在多个方案中选择某个方案的理由？→ `decision`
+4. 去掉所有专有名词后仍然说得通？→ `concept`
+5. 本项目中的真实对象？→ `entity`
 
-If ambiguous, **prefer the more specific type** (gotcha > decision > entity > concept).
+如果模糊，**优先选择更具体的类型**（gotcha > decision > entity > concept）。
 
-**Step 2 — Determine file name**
+**步骤 2 —— 确定文件名**
 
-Extract topic from user's description. Convert to **kebab-case, all lowercase**.
+从用户描述中提取主题。转换为 **kebab-case，全部小写**。
 
-- Gotchas: name the scenario, not the topic. `xhs-signature-clock-skew` ✅, `xhs-api-issue` ❌
-- Decisions: name the choice. `webhook-vs-poll-for-xhs` ✅, `xhs-integration` ❌
-- Entities: name the entity. `xhs-api`, `user-service`
-- Concepts: name the pattern. `idempotent-webhook`, `optimistic-lock`
-- Sources: prefix `source-`. `source-xhs-api-doc`
+- Gotcha：命名场景，而非主题。`xhs-signature-clock-skew` ✅，`xhs-api-issue` ❌
+- Decision：命名选择。`webhook-vs-poll-for-xhs` ✅，`xhs-integration` ❌
+- Entity：命名实体。`xhs-api`, `user-service`
+- Concept：命名模式。`idempotent-webhook`, `optimistic-lock`
+- Source：加 `source-` 前缀。`source-xhs-api-doc`
 
-**Step 3 — Check existence**
+**步骤 3 —— 检查是否已存在**
 
 ```bash
 ls .claude/wiki/<filename>.md
 ```
 
-If exists:
+如果已存在：
 
-Prompt user: "页面 `<filename>.md` 已存在。要 (a) 合并到现有页面，(b) 创建新页面（改名），还是 (c) 取消？"
+提示用户："页面 `<filename>.md` 已存在。要 (a) 合并到现有页面，(b) 创建新页面（改名），还是 (c) 取消？"
 
-Wait for user choice before continuing.
+等待用户选择后再继续。
 
-**Step 4 — Apply template**
+**步骤 4 —— 应用模板**
 
-Load the template from [page-types.md](page-types.md) matching the type. Fill in from user's description.
+从 [page-types.md](page-types.md) 加载匹配类型的模板。根据用户描述填充。
 
-**Important**: do NOT ask the user to fill every template section verbatim. Fill what you can infer from their description; leave sections they haven't covered as `_(待补充)_` placeholders with a note in the summary.
+**重要**：不要要求用户逐项填写每个模板段落。从其描述中推断能填充的内容；用户未涉及的部分保留为 `_(待补充)_` 占位符，并在摘要中注明。
 
-**Step 5 — Identify owning root page**
+**步骤 5 —— 确定归属根页面**
 
-Scan the new page's `tags:` frontmatter. For each tag:
+扫描新页面的 `tags:` frontmatter。对每个标签：
 
 ```bash
 grep -l "tags:.*\b<tag>\b" .claude/wiki/*.md | xargs grep -l "tags:.*\broot\b"
 ```
 
-Candidates are root pages whose tags overlap.
+候选者是标签有重叠的根页面。
 
-If exactly one match → that is the owning root.
-If zero matches → page is an orphan (for now); do not auto-create a root, just note it.
-If 2+ matches → prefer the root with the most tag overlap; if still ambiguous, ask user.
+如果恰好一个匹配 → 即为归属根页面。
+如果零匹配 → 页面为孤立（暂时）；不要自动创建根页面，只需注明。
+如果 2+ 匹配 → 优先选择标签重叠最多的根页面；如果仍然模糊，询问用户。
 
-**Step 6 — Update owning root page (R1)**
+**步骤 6 —— 更新归属根页面（R1）**
 
-See [maintenance-rules.md#r1](maintenance-rules.md) for the detailed rule. Short version:
+详细规则见 [maintenance-rules.md#r1](maintenance-rules.md)。简版：
 
-- Insert wikilink in the matching section of the root page (已接入渠道 / 设计模式 / 已知陷阱 / etc.)
-- Add one line to 版本演进 if the change is significant
-- **Never rewrite existing root page content** — only append
+- 在根页面的对应段落（已接入渠道 / 设计模式 / 已知陷阱 / 等）中插入 wikilink
+- 如果变更是重大变更，在版本演进中追加一行
+- **绝不重写已有根页面内容**——只追加
 
-**Step 7 — Append to log.md**
+**步骤 7 —— 追加到 log.md**
 
-Single line format:
+单行格式：
 
 ```
 ## [YYYY-MM-DD HH:MM] ingest | <type>: <name>
 <optional one-line note>
 ```
 
-**Step 8 — Output summary**
+**步骤 8 —— 输出摘要**
 
 ```
 ✅ Ingest 完成
@@ -99,78 +99,78 @@ Single line format:
 - Log: 已追加
 ```
 
-### Edge cases
+### 边界情况
 
-**Case: user says "记一下" without enough detail**
+**情况：用户说"记一下"但细节不足**
 
-Ask ONE targeted question to identify the type and key content. Never ingest a page with only the title and no body.
+提出一个有针对性的问题以确定类型和关键内容。绝不摄入只有标题没有正文的页面。
 
-Good question: "这个坑的触发条件是什么？错误信息是什么？"
-Bad question: "请填写以下所有字段..."
+好问题："这个坑的触发条件是什么？错误信息是什么？"
+坏问题："请填写以下所有字段..."
 
-**Case: page already covers the topic but user wants to add new info**
+**情况：页面已涵盖该主题但用户想添加新信息**
 
-Prefer **append to existing page** over creating a new one, unless the new info is a distinct gotcha / decision. Treat the existing page as living, not fixed.
+优先**追加到现有页面**而非创建新页面，除非新信息是独立的 gotcha/decision。将现有页面视为活文档，而非固定文档。
 
-**Case: the ingestion reveals a new root should exist**
+**情况：摄入过程中发现应该存在新的根页面**
 
-If during ingest you realize several existing pages share a domain with no root, do NOT create a root unprompted. Finish the current ingest, then mention: "注意到 `<tag>` 领域已有 5+ 相关页面但无 root，建议考虑创建 root 页面 `<name>.md`。"
+如果在摄入过程中发现多个现有页面共享一个领域但没有根页面，不要主动创建根页面。完成当前摄入后提示："注意到 `<tag>` 领域已有 5+ 相关页面但无 root，建议考虑创建 root 页面 `<name>.md`。"
 
 ---
 
 ## Query
 
-Retrieve knowledge for a specific task (e.g. spec drafting). Read-only.
+为特定任务（例如 spec 起草）检索知识。只读操作。
 
-### Trigger phrases
+### 触发指令
 
 - "参考 wiki 里的 X"
 - "查一下 wiki 有没有 X"
 - "X 之前做过类似的吗"
 - "wiki 里 X 是怎么设计的"
 
-### Full procedure
+### 完整流程
 
-**Step 1 — Read index.md**
+**步骤 1 —— 读取 index.md**
 
 ```bash
 cat .claude/wiki/index.md
 ```
 
-Identify relevant entries across the five sections:
+识别五个段落中的相关条目：
 
-- 🏠 根实体 — system-level entry points matching the query
-- 🧠 跨域通用模式 — abstract patterns matching the query
-- 📋 跨系统决策 — cross-cutting decisions
-- 📜 Source 摘要 — raw material references
-- ⚠️ 孤立页面 — uncategorized pages (check last, may contain relevant matter)
+- 🏠 根实体 —— 匹配查询的系统级入口
+- 🧠 跨域通用模式 —— 匹配查询的抽象模式
+- 📋 跨系统决策 —— 跨领域决策
+- 📜 Source 摘要 —— 原始资料引用
+- ⚠️ 孤立页面 —— 未分类页面（最后检查，可能包含相关内容）
 
-**Step 2 — Read root pages**
+**步骤 2 —— 读取根页面**
 
-For each relevant root page, read it fully. Note the grouped wikilinks under 核心模块 / 已接入渠道 / 关键决策 / 设计模式 / 已知陷阱 / etc.
+对每个相关的根页面，完整读取。注意核心模块 / 已接入渠道 / 关键决策 / 设计模式 / 已知陷阱 / 等段落下分组的 wikilink。
 
-**Step 3 — Selectively follow wikilinks**
+**步骤 3 —— 选择性跟踪 wikilink**
 
-Do NOT read every wikilink. Apply judgment:
+不要读取每个 wikilink。运用判断：
 
-- Reading 2-3 analogous child entities is usually useful (e.g. for `xhs` work, read `wechat-api` and `douyin-api` as analogs)
-- Reading 1-2 key gotchas helps surface reproduction patterns
-- Reading 1 key decision explains the "why" behind the architecture
-- Skip wikilinks clearly irrelevant to the current query
+- 读取 2-3 个类似子实体通常有用（例如做 `xhs` 工作时，读取 `wechat-api` 和 `douyin-api` 作为类比）
+- 读取 1-2 个关键 gotcha 有助于发现复现模式
+- 读取 1 个关键 decision 可解释架构背后的"为什么"
+- 跳过明显与当前查询无关的 wikilink
 
-**Step 4 — Also read cross-domain pages from index.md**
+**步骤 4 —— 同时读取 index.md 中的跨域页面**
 
-If the query involves an abstract pattern, read the cross-domain concept/decision even if it's already linked from a root.
+如果查询涉及抽象模式，即使该模式已从根页面链接，也要读取跨域 concept/decision。
 
-**Step 5 — Output structured summary**
+**步骤 5 —— 输出结构化摘要**
 
-Annotate each `已读取` entry with a freshness hint per [R5-freshness](maintenance-rules.md#r5). Compute age from page's `date:` frontmatter if present, else filesystem mtime.
+对每个 `已读取` 条目按 [R5-freshness](maintenance-rules.md#r5) 标注新鲜度提示。从页面的 `date:` frontmatter 计算年龄（如果存在），否则使用文件系统 mtime。
 
-- `< 90 days`: no annotation
-- `90–180 days`: `(X months ago)` — neutral
-- `180–365 days`: `(X months ago ⚠️)` — yellow warning
-- `> 365 days`: `(X months ago ⚠️ stale)` — strong warning
-- `source-*.md` or `tags: [evergreen]`: never annotate
+- `< 90 days`：无标注
+- `90–180 days`：`(X months ago)` —— 中性
+- `180–365 days`：`(X months ago ⚠️)` —— 黄色警告
+- `> 365 days`：`(X months ago ⚠️ stale)` —— 强警告
+- `source-*.md` 或 `tags: [evergreen]`：不标注
 
 ```
 📚 Wiki Query: "<original query>"
@@ -193,38 +193,38 @@ Annotate each `已读取` entry with a freshness hint per [R5-freshness](mainten
 有 2 页标注 ⚠️（> 180 天未更新）。建议阅读时核对与当前代码/决策是否仍一致。
 ```
 
-### Edge cases
+### 边界情况
 
-**Case: user didn't specify scope, just "参考 wiki"**
+**情况：用户未指定范围，只说"参考 wiki"**
 
-Ask one clarifying question: "参考 wiki 里的哪方面？是架构决策、具体模块、踩过的坑，还是抽象模式？"
+提一个澄清问题："参考 wiki 里的哪方面？是架构决策、具体模块、踩过的坑，还是抽象模式？"
 
-**Case: no relevant pages found**
+**情况：未找到相关页面**
 
-Output: "Wiki 中未找到与 `<query>` 相关的页面。建议：在 research 阶段完成后再 ingest 相关发现。"
+输出："Wiki 中未找到与 `<query>` 相关的页面。建议：在 research 阶段完成后再 ingest 相关发现。"
 
-**Case: relevant pages exist but are stale**
+**情况：存在相关页面但已过时**
 
-Handled by R5-freshness inline annotation (see Step 5 above). No separate edge-case treatment needed — age hints are now part of every Query output.
+由 R5-freshness 内联标注处理（见步骤 5）。无需单独的边界情况处理——年龄提示现在是每次 Query 输出的标准部分。
 
 ---
 
 ## Lint
 
-Audit wiki health. Read-only except for updating `index.md` orphans section.
+审计 wiki 健康度。除更新 `index.md` 孤立页面段落外，均为只读操作。
 
-### Trigger phrases
+### 触发指令
 
 - "wiki 体检"
 - "wiki 健康检查"
 - "wiki lint"
 - "清理一下 wiki"
 
-### Full procedure
+### 完整流程
 
-**Step 1 — Scan orphans**
+**步骤 1 —— 扫描孤立页面**
 
-Non-root pages that are not referenced by any other page:
+不被任何其他页面引用的非根页面：
 
 ```bash
 # Pseudocode
@@ -233,17 +233,17 @@ for each page in wiki/ (excluding index.md, log.md, root pages):
         mark as orphan
 ```
 
-**Step 2 — Scan broken wikilinks**
+**步骤 2 —— 扫描断裂 wikilink**
 
-Wikilinks that target non-existent pages:
+指向不存在页面的 wikilink：
 
 ```bash
 # Extract all [[xxx]] references and verify xxx.md exists
 ```
 
-**Step 3 — Scan stale roots**
+**步骤 3 —— 扫描过时根页面**
 
-Root pages whose last-update time is older than the creation time of one of their children (indicates the child was added but the root wasn't updated — R1 violation):
+最后更新时间早于其某个子页面创建时间的根页面（表明子页面已添加但根页面未更新——R1 违规）：
 
 ```bash
 for each root in wiki/ (tags contains root):
@@ -253,19 +253,19 @@ for each root in wiki/ (tags contains root):
             flag as stale root
 ```
 
-**Step 4 — Scan duplicate candidates**
+**步骤 4 —— 扫描重复候选**
 
-Pages with filenames of high similarity (Levenshtein distance ≤ 3 among filenames > 10 chars):
+文件名高度相似的页面（文件名 > 10 个字符时 Levenshtein 距离 ≤ 3）：
 
 ```bash
 # e.g. xhs-signature-clock-skew.md vs xhs-signature-timing-skew.md
 ```
 
-These are manual-review signals, not automatic merges.
+这些是人工审查信号，不自动合并。
 
-**Step 5 — Promotion candidates (R3)**
+**步骤 5 —— 晋升候选（R3）**
 
-Pages referenced by 5+ other pages but missing `root` tag:
+被 5+ 个其他页面引用但缺少 `root` 标签的页面：
 
 ```bash
 for each page:
@@ -274,9 +274,9 @@ for each page:
         suggest promotion
 ```
 
-**Step 6 — Review candidates by age (R5)**
+**步骤 6 —— 按年龄审查候选（R5）**
 
-Scan all non-excluded pages for age > 180 days:
+扫描所有非豁免页面，查找年龄 > 180 天的页面：
 
 ```bash
 for each page in wiki/ (excluding source-*.md, pages tagged 'evergreen'):
@@ -286,24 +286,24 @@ for each page in wiki/ (excluding source-*.md, pages tagged 'evergreen'):
         add to review-candidates list
 ```
 
-**These are signals, not errors.** They appear in a separate section of the report; they do NOT block commit or imply the page is wrong.
+**这些是信号，不是错误。** 它们出现在报告的独立段落中；不会阻断提交，也不意味着页面有错。
 
-**Step 7 — Update orphans section**
+**步骤 7 —— 更新孤立页面段落**
 
-Overwrite the ⚠️ 孤立页面 section of `index.md` with the fresh orphan list. Do not touch other sections.
+用最新的孤立列表覆盖 `index.md` 的 ⚠️ 孤立页面段落。不要修改其他段落。
 
-**Step 8 — Append to log.md**
+**步骤 8 —— 追加到 log.md**
 
 ```
 ## [YYYY-MM-DD HH:MM] lint | orphans=N, broken=M, stale-roots=K, dup-candidates=L, review-candidates=R
 ```
 
-**Step 9 — Output report**
+**步骤 9 —— 输出报告**
 
-Report is split into **two severity levels**:
+报告分为**两个严重程度级别**：
 
-- ❌ **Real issues** — something is structurally broken and must be fixed
-- ⚠️ **Review candidates** — signals worth a look, but nothing is broken (user decides)
+- ❌ **实际问题**——结构性损坏，必须修复
+- ⚠️ **审查候选**——值得查看的信号，但没有损坏（用户决定）
 
 ```
 🧹 Wiki Lint Report
@@ -346,15 +346,15 @@ Per [R5-freshness](maintenance-rules.md#r5). These pages are old enough that the
 - Then review candidates in descending age
 ```
 
-### Edge cases
+### 边界情况
 
-**Case: wiki is empty or near-empty (<5 pages)**
+**情况：wiki 为空或接近为空（<5 页）**
 
-Skip lint with note: "Wiki 页面过少（<5），暂无需体检。"
+跳过 lint 并提示："Wiki 页面过少（<5），暂无需体检。"
 
-**Case: too many orphans (>30% of total pages)**
+**情况：孤立页面过多（>30% 的总页面数）**
 
-Emit a strong warning:
+发出强烈警告：
 
 ```
 ⚠️ WARNING: 孤立页面占比 X%（> 30%），wiki 组织可能失控。

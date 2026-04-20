@@ -1,38 +1,38 @@
-# Task workflow: Decompose / Identify-shared / Order / Assign-role
+# Task 工作流：拆分 / 识别共享 / 排序 / 分配角色
 
-Detailed procedures for the four primitives. SKILL.md gives the high-level steps; this file gives the full workflow including edge cases.
+四个原语的详细流程。SKILL.md 给出高层步骤；本文件给出包含边界情况的完整工作流。
 
 ---
 
-## Decompose
+## 拆分
 
-Split spec into atomic units.
+将 spec 拆解为原子单元。
 
-### Trigger phrases
+### 触发短语
 
 - "拆任务 X" / "把 spec X 变成任务"
 - "plan X" / "break down spec X"
 - "生成 task 计划"
 
-### Full procedure
+### 完整流程
 
-**Step 1 — Resolve input**
+**步骤 1 — 解析输入**
 
-Case A: `.claude/specs/<name>.md` exists
+情况 A：`.claude/specs/<name>.md` 存在
 
-- Read it. Check `status:` frontmatter:
-  - `accepted` → proceed
-  - `draft` / `revising` → block: "spec `<name>` 仍是 draft / revising，请先 finalize 再拆任务。"
-  - `superseded` → ask: "此 spec 已 superseded by `<new>`. 用新 spec 吗？"
+- 读取。检查 `status:` 前置元数据：
+  - `accepted` → 继续
+  - `draft` / `revising` → 阻断："spec `<name>` 仍是 draft / revising，请先 finalize 再拆任务。"
+  - `superseded` → 询问："此 spec 已 superseded by `<new>`. 用新 spec 吗？"
 
-Case B: no spec, user gave in-session goal
+情况 B：没有 spec，用户给出了会话内目标
 
-- Confirm the goal in one line back to user:
+- 向用户确认理解的目标，一行回复：
   - "理解的目标: `<goal>`. Acceptance: `<criteria>`. 对吗？"
-- Only after user confirms, proceed
-- Create task file anyway, even without spec reference
+- 用户确认后才继续
+- 即使没有 spec 引用也创建任务文件
 
-**Step 2 — Ask mode**
+**步骤 2 — 询问模式**
 
 ```
 📋 拆任务模式:
@@ -43,47 +43,47 @@ Case B: no spec, user gave in-session goal
 选哪个？
 ```
 
-Wait for user choice before proceeding. Record choice in task file frontmatter.
+等待用户选择后再继续。将选择记录在任务文件前置元数据中。
 
-**Step 3 — Split**
+**步骤 3 — 拆分**
 
-From spec's Acceptance + Data/state + Interface + Test strategy sections, derive units. Each unit should be:
+从 spec 的验收标准 + 数据/状态 + 接口 + 测试策略章节推导单元。每个单元应：
 
-- A single deliverable (one new file, one modified file, one endpoint, one migration, one test suite)
-- Independently verifiable (has a concrete "done" check)
-- Under the mode's size budget
+- 是单一的交付物（一个新文件、一个修改的文件、一个端点、一个迁移、一个测试套件）
+- 可独立验证（有具体的"完成"检查）
+- 在模式的尺寸预算内
 
-Typical seed buckets (not exhaustive):
+典型的种子分类（非穷举）：
 
-- Data: migrations, schema changes, seed data
-- Core logic: pure functions, domain models
-- Integration: HTTP handlers, event producers, message consumers
-- Cross-cutting: config, secrets, feature flags
-- Observability: metrics, logs, traces
-- Tests: unit, integration, load
+- 数据：迁移、模式变更、种子数据
+- 核心逻辑：纯函数、领域模型
+- 集成：HTTP 处理器、事件生产者、消息消费者
+- 横切关注点：配置、密钥、功能开关
+- 可观测性：指标、日志、链路追踪
+- 测试：单元测试、集成测试、负载测试
 
-**Step 4 — Assign stable IDs**
+**步骤 4 — 分配稳定 ID**
 
-Format: `T-001`, `T-002`, …, zero-padded to 3 digits. IDs are append-only; never renumber.
+格式：`T-001`、`T-002`、……，零填充到 3 位。ID 只追加；永不重新编号。
 
-When editing an existing task file: new tasks get IDs = max(existing) + 1.
+编辑已有任务文件时：新任务的 ID = max(已有) + 1。
 
-**Step 5 — Fill required fields per task**
+**步骤 5 — 填写每个任务的必要字段**
 
-For each task, per [content-contract](#required-task-fields) below. Populate:
+对每个任务，按下方 [内容契约](#必要任务字段) 填写：
 
 - `id`
-- `role` (default `unassigned`)
-- `title` (one line, imperative)
-- `deliverable` (concrete artifact)
-- `depends-on` (list of IDs, possibly empty)
-- `acceptance` (command or file-state check)
-- `estimate` (hours)
-- `notes` (optional, for non-obvious context)
+- `role`（默认 `unassigned`）
+- `title`（一行，祈使语气）
+- `deliverable`（具体制品）
+- `depends-on`（ID 列表，可为空）
+- `acceptance`（命令或文件状态检查）
+- `estimate`（小时数）
+- `notes`（可选，用于非显而易见的上下文）
 
-**Step 6 — Emit draft for confirmation**
+**步骤 6 — 输出草稿供确认**
 
-Before writing final file, emit task list inline for user review:
+写入最终文件之前，内联输出任务列表供用户审查：
 
 ```
 📝 Task draft (strict-atomic, 12 tasks):
@@ -96,74 +96,74 @@ T-003 [backend] POST /webhook/xhs handler — deps: T-001, T-002 — 3h
 对吗？(y / edit: 改/删/加哪一条)
 ```
 
-Wait for confirmation / edits. Do NOT write the final file until user confirms.
+等待确认/编辑。用户确认前不要写入最终文件。
 
-### Required task fields
+### 必要任务字段
 
 ```yaml
 - id: T-001
   role: backend | frontend | data | devops | shared | test | unassigned
-  title: "<imperative action>"
-  deliverable: "<concrete artifact: file path / endpoint / migration name>"
-  depends-on: [T-000, ...]      # list of IDs; can be empty
+  title: "<祈使动作>"
+  deliverable: "<具体制品：文件路径 / 端点 / 迁移名称>"
+  depends-on: [T-000, ...]      # ID 列表；可为空
   acceptance: |
     - file: src/xxx.ts exists with <signature>
     - run: `pnpm test tests/xxx.test.ts` passes
     - or: `curl -X POST localhost:3000/yyy` returns 200
   estimate: 2h
   notes: |
-    Optional. Non-obvious context for the executor.
-    Do NOT put decision content here; decisions belong in spec.
+    可选。给执行者的非显而易见的上下文。
+    不要在这里放决策内容；决策属于 spec。
 ```
 
-### Edge cases
+### 边界情况
 
-**Case: spec has an open `<TODO-DECIDE>` marker**
+**情况：spec 中有未解决的 `<TODO-DECIDE>` 标记**
 
-Block: "spec `<name>` 仍有 `TODO-DECIDE`。请先回到 spec skill 完成决策，再拆任务。" Provide grep line numbers.
+阻断："spec `<name>` 仍有 `TODO-DECIDE`。请先回到 spec skill 完成决策，再拆任务。" 提供 grep 行号。
 
-**Case: spec is too abstract to decompose**
+**情况：spec 过于抽象，无法拆分**
 
-Ask: "spec 的 Acceptance 只有 N 条且偏抽象，我拆出来的会是 coarse 颗粒度。要不要先把 spec 的 Acceptance 细化？" Let user choose: detail spec vs accept coarse tasks.
+询问："spec 的 Acceptance 只有 N 条且偏抽象，我拆出来的会是粗颗粒度。要不要先把 spec 的 Acceptance 细化？" 让用户选择：细化 spec 还是接受粗粒度任务。
 
-**Case: user wants to add/remove a task mid-plan**
+**情况：用户想在计划中添加/删除任务**
 
-Always possible. For add: new ID. For remove: mark `status: dropped` in the task block rather than deleting (preserves git history). For change: edit in place, but task IDs stay.
+始终可以。添加：新 ID。删除：在任务块中标记 `status: dropped` 而非删除（保留 git 历史）。修改：原地编辑，但任务 ID 不变。
 
 ---
 
-## Identify shared
+## 识别共享
 
-Find repeated concerns across tasks; extract as shared-module tasks.
+查找任务间重复的关注点；提取为共享模块任务。
 
-### When to run
+### 何时运行
 
-- Automatically during Decompose, after initial split
-- Or explicitly when user asks "有哪些公共模块"
+- 在拆分过程中自动执行，紧跟初始拆分之后
+- 或用户显式询问"有哪些公共模块"时
 
-### Procedure
+### 流程
 
-**Step 1 — Scan task list for duplicate deliverables**
+**步骤 1 — 扫描任务列表中的重复交付物**
 
-Look for patterns:
+查找模式：
 
-- 3+ tasks all call "signature-verifier" → extract `T-XXX signature-verifier util` with `role: shared`
-- 2+ tasks touch the same config loader → extract shared config task
-- Multiple tasks reference the same HTTP client → extract shared client
+- 3+ 个任务都调用"signature-verifier" → 提取 `T-XXX signature-verifier util`，`role: shared`
+- 2+ 个任务触及同一配置加载器 → 提取共享配置任务
+- 多个任务引用同一 HTTP 客户端 → 提取共享客户端任务
 
-**Step 2 — Create shared task**
+**步骤 2 — 创建共享任务**
 
 - `role: shared`
-- `depends-on:` usually `[]` (shared modules are leaves)
-- Clear acceptance: the module is importable and has its own unit tests
+- `depends-on:` 通常为 `[]`（共享模块是叶子节点）
+- 明确的验收标准：模块可导入且有独立的单元测试
 
-**Step 3 — Retarget dependent tasks**
+**步骤 3 — 重定向依赖任务**
 
-Consumer tasks add the new shared task to their `depends-on`.
+消费任务将新的共享任务添加到其 `depends-on` 中。
 
-**Step 4 — Warn if shared count is high**
+**步骤 4 — 共享任务过多时发出警告**
 
-If `shared` role tasks > 30% of total → emit warning:
+如果 `shared` 角色任务 > 总数的 30% → 发出警告：
 
 ```
 ⚠️ Shared tasks 占比 X%. 可能存在以下信号:
@@ -173,34 +173,34 @@ If `shared` role tasks > 30% of total → emit warning:
 要继续这种颗粒度吗？
 ```
 
-### Edge cases
+### 边界情况
 
-**Case: shared module is trivial (< 30 LoC)**
+**情况：共享模块过于简单（< 30 行代码）**
 
-Do not extract as separate task. Inline into the first consumer; add a note.
+不提取为独立任务。内联到第一个消费任务中；添加备注。
 
-**Case: shared module is genuinely cross-spec**
+**情况：共享模块确实是跨 spec 的**
 
-If the shared module is also consumed by other specs (or existing code), note: "此 shared module 可能 affects 其他 spec，需要 cross-spec 协调。" Flag to user.
+如果共享模块也被其他 spec（或现有代码）消费，标注："此 shared module 可能 affects 其他 spec，需要 cross-spec 协调。" 标记给用户。
 
 ---
 
-## Order
+## 排序
 
-Build the DAG of `depends-on` relations.
+构建 `depends-on` 关系的 DAG（有向无环图）。
 
-### Procedure
+### 流程
 
-**Step 1 — Collect depends-on edges**
+**步骤 1 — 收集 depends-on 边**
 
 ```
 T-003 depends on: T-001, T-002
 T-005 depends on: T-003
 ```
 
-**Step 2 — Cycle check**
+**步骤 2 — 环检测**
 
-DFS for cycles. If found:
+DFS 检查环。如发现：
 
 ```
 ❌ 依赖环:
@@ -211,9 +211,9 @@ DFS for cycles. If found:
 - 或引入中间层抽象 (新增 shared task)
 ```
 
-**Step 3 — Emit DAG as text**
+**步骤 3 — 输出 DAG 文本**
 
-Use a simple ASCII or mermaid tree. Do not over-stylize.
+使用简单的 ASCII 或 mermaid 树形图。不要过度美化。
 
 ```
 Dependency order:
@@ -224,9 +224,9 @@ Dependency order:
   T-007 (devops, standalone)
 ```
 
-**Step 4 — Identify critical path**
+**步骤 4 — 识别关键路径**
 
-Sum estimates along the longest dependency chain. Emit:
+沿最长依赖链汇总估算值。输出：
 
 ```
 Critical path: T-002 → T-003 → T-005 → T-006 = 9h
@@ -234,35 +234,35 @@ Total estimate: 18h
 Max parallel branches: 3
 ```
 
-### Edge cases
+### 边界情况
 
-**Case: everything is sequential**
+**情况：全部任务都是串行的**
 
-If no parallelism possible (every task depends on the prior one), note: "all tasks form a linear chain — no parallelism possible. strict-atomic mode may be over-kill; 考虑 lean."
+如果无并行可能（每个任务都依赖前一个），标注："所有任务构成线性链——无并行可能。strict-atomic 模式可能过重；考虑 lean。"
 
-**Case: DAG is very wide (many leaves)**
+**情况：DAG 非常宽（多个叶子节点）**
 
-Good for parallelism. Emit the leaves list so user knows which can start immediately.
+有利于并行。输出叶子节点列表，让用户知道哪些可以立即开始。
 
 ---
 
-## Assign role
+## 分配角色
 
-Optionally annotate each task with a role tag. Roles are advisory.
+可选地为每个任务标注角色标签。角色仅作参考。
 
-### Standard roles
+### 标准角色
 
-- `backend` — server-side code, APIs, business logic
-- `frontend` — UI, client-side logic
-- `data` — schema, migrations, ETL
-- `devops` — infra, CI, deploys, secrets
-- `shared` — cross-role utilities
-- `test` — test-only deliverables
-- `unassigned` — default, when role unclear
+- `backend` — 服务端代码、API、业务逻辑
+- `frontend` — UI、客户端逻辑
+- `data` — 模式、迁移、ETL
+- `devops` — 基础设施、CI、部署、密钥
+- `shared` — 跨角色工具
+- `test` — 纯测试交付物
+- `unassigned` — 默认，角色不明确时使用
 
-### Procedure
+### 流程
 
-**Step 1 — Infer from deliverable**
+**步骤 1 — 从交付物推断**
 
 - `migration: xhs_events table` → `data`
 - `POST /webhook/xhs handler` → `backend`
@@ -270,7 +270,7 @@ Optionally annotate each task with a role tag. Roles are advisory.
 - `tests/webhook.test.ts` → `test`
 - `terraform: add new topic` → `devops`
 
-**Step 2 — Ask user to confirm**
+**步骤 2 — 请用户确认**
 
 ```
 📝 Role 分配建议 (可改):
@@ -285,16 +285,16 @@ Optionally annotate each task with a role tag. Roles are advisory.
 修改吗？
 ```
 
-**Step 3 — Custom roles**
+**步骤 3 — 自定义角色**
 
-User may define project-specific roles (e.g. `ml`, `mobile-ios`). Accept and record in task frontmatter.
+用户可以定义项目特定角色（如 `ml`、`mobile-ios`）。接受并记录在任务前置元数据中。
 
-### Edge cases
+### 边界情况
 
-**Case: role is ambiguous**
+**情况：角色不明确**
 
-Tag `unassigned` and note in task's `notes:` field. Do not guess.
+标记 `unassigned` 并在任务的 `notes:` 字段中注明。不要猜测。
 
-**Case: user skips role assignment**
+**情况：用户跳过角色分配**
 
-Fine. All tasks become `role: unassigned`. Impl skill will still work — it reads tasks regardless of role.
+可以。所有任务变为 `role: unassigned`。Impl skill 仍然可以工作——它不管角色都会读取任务。

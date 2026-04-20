@@ -1,157 +1,157 @@
-# Review anti-patterns
+# Review 反模式
 
-Observed failure modes. Avoid all.
-
----
-
-## 1. Rubber-stamp APPROVED
-
-**Symptom**: review line says APPROVED with nothing more than "LGTM" or "looks good".
-
-**Why wrong**: violates "no blessing without naming what was checked". Makes review worthless as audit trail — a future reader cannot reconstruct what was verified.
-
-**Fix**: APPROVED MUST cite at least: goal ✓, non-goals ✓, constraints ✓ (named), diff scope ✓. Short is fine; nameless is not.
+观察到的失败模式。全部需要避免。
 
 ---
 
-## 2. Reading only the task file, not the git diff
+## 1. 橡皮图章式 APPROVED
 
-**Symptom**: reviewer reads task's `acceptance:` and Status log line "DONE — 3/3 pass", then marks APPROVED without running `git diff`.
+**症状**：审查行写着 APPROVED，但只有"LGTM"或"looks good"。
 
-**Why wrong**: that's just re-reading impl's own self-check. Review's whole purpose is independent cross-check against actual code.
+**为什么错误**：违反"没有说明检查了什么就不能通过"。使审查作为审计痕迹毫无价值——未来的读者无法还原验证了什么。
 
-**Fix**: `git diff <base>..HEAD -- <files>` is mandatory. No review without diff inspection.
-
----
-
-## 3. Conflating "acceptance passed" with "spec satisfied"
-
-**Symptom**: "All acceptance commands returned exit 0, so APPROVED."
-
-**Why wrong**: acceptance commands are what the task skill specified as the executable check. They may be incomplete (task missed a constraint), or may test the wrong thing (test bug). Semantic satisfaction of spec is a higher bar.
-
-**Fix**: treat acceptance success as **necessary but not sufficient**. Explicitly cross-check spec's hard constraints against the diff, independent of whether acceptance tested them.
+**修正**：APPROVED 必须至少引用：目标 ✓、非目标 ✓、约束 ✓（具名）、diff 范围 ✓。可以简短；但不能匿名。
 
 ---
 
-## 4. Editing code to fix what review found
+## 2. 只读任务文件，不看 git diff
 
-**Symptom**: review finds a missing rate-limit, then in the same turn edits `src/mw/rate-limit.ts` to add one and marks APPROVED.
+**症状**：审查者阅读任务的 `acceptance:` 和状态日志中的"DONE — 3/3 pass"，然后直接标记 APPROVED，不运行 `git diff`。
 
-**Why wrong**: review is read-only by design. Code changes belong to impl's next cycle, where they get their own SelfCheck and (later) their own review line. Fixing in review destroys the independence that gives review its value.
+**为什么错误**：那只是在重复阅读 impl 自己的自检。审查的全部意义在于针对实际代码的独立交叉验证。
 
-**Fix**: emit NEEDS_REWORK with the gap description. Let user invoke `/sdd-kit:impl T-00X` for the fix.
-
----
-
-## 5. Downgrading NEEDS_REWORK to APPROVED_WITH_NOTES to avoid another cycle
-
-**Symptom**: reviewer found a missing rate-limit (hard constraint) but marks APPROVED_WITH_NOTES "suggest follow-up task" to avoid sending user back to impl.
-
-**Why wrong**: hard-constraint gaps are blocking by definition. Classifying them as "notes" falsifies the audit trail and lets a real bug ship.
-
-**Fix**: hard constraint missing = NEEDS_REWORK. Period. If the user finds the cycle time annoying, the answer is better task decomposition, not softer review.
+**修正**：`git diff <base>..HEAD -- <files>` 是强制性的。没有 diff 检查就没有审查。
 
 ---
 
-## 6. Claiming APPROVED without checking hard constraints against diff
+## 3. 将"验收通过"等同于"spec 已满足"
 
-**Symptom**: review line says APPROVED, but reviewer never explicitly verified the rate-limit / SLO / HMAC / idempotency / retry-policy requirements.
+**症状**："所有验收命令返回 exit 0，所以 APPROVED。"
 
-**Why wrong**: these are the constraints most likely to be silently unmet — they don't always fail acceptance tests, they just degrade production quality or security.
+**为什么错误**：验收命令是 task skill 指定的可执行检查。它们可能不完整（任务遗漏了某个约束），或测试了错误的东西（测试 bug）。语义上满足 spec 是更高的标准。
 
-**Fix**: for every hard constraint in spec, explicitly cite file:line evidence in the review (either "✓ at X:Y" or "✗ not addressed").
-
----
-
-## 7. Using the same chat context that wrote the code (self-review)
-
-**Symptom**: user runs `/sdd-kit:impl T-003` and then immediately `/sdd-kit:review T-003` in the same chat. The model that just wrote the code now reviews itself.
-
-**Why wrong**: context bias — the model has anchored on "this is the right answer" during impl and cannot neutrally audit.
-
-**Fix**: invoke review in a new chat / subagent. If unavoidable, flag it in the review line: `note: same-session review (self-audit); consider second opinion`.
+**修正**：将验收成功视为**必要但不充分**条件。独立于验收是否测试了硬约束，显式地将 spec 的硬约束与 diff 交叉比对。
 
 ---
 
-## 8. Vague NEEDS_REWORK
+## 4. 在审查中直接修改代码来修复发现的问题
 
-**Symptom**: review says NEEDS_REWORK with reason "code is not clean".
+**症状**：审查发现缺少速率限制，然后在同一轮次中编辑 `src/mw/rate-limit.ts` 添加了一个，然后标记 APPROVED。
 
-**Why wrong**: impl cannot act on it. No file:line, no spec section, no concrete gap. Looks like a review but is really a vibe.
+**为什么错误**：审查在设计上是只读的。代码变更属于 impl 的下一个循环，在那里它们会经过自己的 SelfCheck 和（稍后的）自己的审查行。在审查中修复代码破坏了审查赖以提供价值的独立性。
 
-**Fix**: NEEDS_REWORK must specify: Gap (one sentence) / Evidence (file:line) / Spec reference (§X) / Suggested fix direction.
-
----
-
-## 9. Claiming SPEC_DRIFT when impl is actually at fault
-
-**Symptom**: impl silently guessed at an ambiguity and produced odd code. Review calls SPEC_DRIFT.
-
-**Why wrong**: the drift is in impl's interpretation, not the spec. Real SPEC_DRIFT is spec-level contradiction or impossibility.
-
-**Fix**:
-
-- If impl guessed where spec was clear → NEEDS_REWORK on impl
-- If impl guessed where spec was ambiguous → NEEDS_REWORK on impl (should have emitted NEEDS_CONTEXT), plus hint to spec that clarification is worthwhile
-- If spec itself is wrong / impossible / self-contradictory → SPEC_DRIFT
+**修正**：发出 NEEDS_REWORK 并附上缺口描述。让用户调用 `/sdd-kit:impl T-00X` 来修复。
 
 ---
 
-## 10. Writing the actual fix inside review findings
+## 5. 将 NEEDS_REWORK 降级为 APPROVED_WITH_NOTES 以避免另一个循环
 
-**Symptom**: review's "findings" section contains a full code snippet showing how to fix the gap, not just a direction hint.
+**症状**：审查者发现了缺少速率限制（硬约束），但标记为 APPROVED_WITH_NOTES 并附"建议后续任务"，以避免把用户送回 impl。
 
-**Why wrong**: review over-reaches. It prescribes implementation, which is impl's domain. If review is that specific, maybe the reviewer should have run impl themselves; but they didn't, so the prescription is untested.
+**为什么错误**：硬约束缺口按定义就是阻断性的。将其归类为"备注"会伪造审计痕迹并让真正的 bug 上线。
 
-**Fix**: findings describe what's missing and point to spec+codebase context. Let impl decide how to fix in its next cycle.
-
----
-
-## 11. Reviewing a task still in NEEDS_CONTEXT / BLOCKED
-
-**Symptom**: user asks to review T-005 even though impl reported NEEDS_CONTEXT.
-
-**Why wrong**: there's no DONE state to audit. Whatever partial code exists is incomplete by impl's own admission.
-
-**Fix**: refuse with pointer to resolve impl state first. Never "review" incomplete work.
+**修正**：硬约束缺失 = NEEDS_REWORK。没有例外。如果用户觉得循环时间烦人，答案是更好的任务拆分，而不是更宽松的审查。
 
 ---
 
-## 12. Re-editing an earlier review line
+## 6. 声称 APPROVED 但未对照 diff 检查硬约束
 
-**Symptom**: task T-003 got NEEDS_REWORK, impl fixed it, reviewer EDITS the original NEEDS_REWORK line to APPROVED.
+**症状**：审查行写着 APPROVED，但审查者从未显式验证速率限制/SLO/HMAC/幂等性/重试策略要求。
 
-**Why wrong**: destroys audit trail. Future reader cannot see the rework cycle happened.
+**为什么错误**：这些是最可能被静默遗漏的约束——它们不一定会在验收测试中失败，但会降低生产质量或安全性。
 
-**Fix**: append a NEW review line. Old line stays.
-
----
-
-## 13. Stacking many minor concerns instead of asking "is this NEEDS_REWORK?"
-
-**Symptom**: review is APPROVED_WITH_NOTES but lists 7 concerns across 4 files.
-
-**Why wrong**: beyond a few notes, the signal flips — the diff has systemic issues that warrant another impl cycle, not a "follow-up suggestion".
-
-**Fix**: threshold of ~3 minor concerns. Above that, re-classify as NEEDS_REWORK with "diff needs multiple corrections" as the gap.
+**修正**：对 spec 中的每个硬约束，在审查中显式引用 file:line 证据（"✓ at X:Y" 或"✗ 未处理"）。
 
 ---
 
-## 14. Over-reading: re-litigating spec in review
+## 7. 使用编写代码时的同一聊天上下文（自我审查）
 
-**Symptom**: review finds the implementation correct per spec, but reviewer uses review to argue the spec is suboptimal ("we should have chosen a different algorithm").
+**症状**：用户在同一个聊天中先运行 `/sdd-kit:impl T-003`，然后立即运行 `/sdd-kit:review T-003`。刚写完代码的模型现在审查自己。
 
-**Why wrong**: review audits impl against spec, not spec against the reviewer's preferences. That's a spec-skill conversation.
+**为什么错误**：上下文偏见——模型在 impl 期间已锚定在"这是正确答案"上，无法中立地审计。
 
-**Fix**: if spec seems wrong but diff implements it correctly → APPROVED and separately recommend user revisit spec. Not SPEC_DRIFT (which is contradiction/impossibility), just design debt worth a later look.
+**修正**：在新聊天/子代理中调用审查。如果无法避免，在审查行中标注：`note: same-session review (self-audit); consider second opinion`。
 
 ---
 
-## 15. Silently skipping wiki cross-check
+## 8. 模糊的 NEEDS_REWORK
 
-**Symptom**: review never mentions wiki. Maybe checked, maybe not — unclear.
+**症状**：审查写着 NEEDS_REWORK，理由是"代码不够整洁"。
 
-**Why wrong**: wiki gotchas exist precisely to catch repeat pains. Silent skip loses institutional memory.
+**为什么错误**：impl 无法据此采取行动。没有 file:line，没有 spec 章节，没有具体缺口。看起来像审查，实际上只是主观感受。
 
-**Fix**: explicitly say either "wiki: checked [[gotcha-X]], [[gotcha-Y]] — no contradictions" or "wiki: skipped — no pages in this domain yet".
+**修正**：NEEDS_REWORK 必须指定：缺口（一句话）/ 证据（file:line）/ Spec 引用（§X）/ 建议修复方向。
+
+---
+
+## 9. impl 实际有错时声称 SPEC_DRIFT
+
+**症状**：impl 在歧义处悄悄猜测并产生了奇怪代码。审查调用 SPEC_DRIFT。
+
+**为什么错误**：偏差在 impl 的解读中，不在 spec 里。真正的 SPEC_DRIFT 是 spec 层面的矛盾或不可行性。
+
+**修正**：
+
+- 如果 spec 清晰但 impl 猜测了 → impl 的 NEEDS_REWORK
+- 如果 spec 歧义且 impl 猜测了 → impl 的 NEEDS_REWORK（应发出 NEEDS_CONTEXT），同时提示 spec 值得澄清
+- 如果 spec 本身是错误的/不可行的/自相矛盾的 → SPEC_DRIFT
+
+---
+
+## 10. 在审查发现中写出实际修复代码
+
+**症状**：审查的"发现"部分包含完整的代码片段，展示如何修复缺口，而不仅仅是方向提示。
+
+**为什么错误**：审查越权。它开出了实现处方，这是 impl 的领域。如果审查已经如此具体，也许审查者应该直接运行 impl；但他们没有，所以这个处方是未经验证的。
+
+**修正**：发现应描述缺失了什么并指向 spec+代码库上下文。让 impl 在其下一个循环中决定如何修复。
+
+---
+
+## 11. 审查仍处于 NEEDS_CONTEXT / BLOCKED 状态的任务
+
+**症状**：用户要求审查 T-005，但 impl 报告的是 NEEDS_CONTEXT。
+
+**为什么错误**：没有 DONE 状态可供审计。存在的部分代码按 impl 自己的承认是不完整的。
+
+**修正**：拒绝并指出需先解决 impl 状态。绝不"审查"不完整的工作。
+
+---
+
+## 12. 重新编辑之前的审查行
+
+**症状**：任务 T-003 收到 NEEDS_REWORK，impl 修复了它，审查者编辑原始 NEEDS_REWORK 行改为 APPROVED。
+
+**为什么错误**：破坏审计痕迹。未来的读者无法看到返工循环曾经发生。
+
+**修正**：追加一条新的审查行。旧行保持不变。
+
+---
+
+## 13. 堆叠多个轻微问题而不自问"这应该是 NEEDS_REWORK 吗？"
+
+**症状**：审查是 APPROVED_WITH_NOTES 但列出了 4 个文件中的 7 个问题。
+
+**为什么错误**：超过几个备注后，信号翻转——diff 存在系统性问题，值得再来一轮 impl，而不是"后续建议"。
+
+**修正**：阈值约为 3 个轻微问题。超过此数，重新归类为 NEEDS_REWORK，缺口描述为"diff 需要多处修正"。
+
+---
+
+## 14. 过度解读：在审查中重新争论 spec
+
+**症状**：审查发现实现按 spec 是正确的，但审查者利用审查来论证 spec 不是最优的（"我们应该选择不同的算法"）。
+
+**为什么错误**：审查审计的是 impl 是否符合 spec，不是 spec 是否符合审查者的偏好。那是一个 spec skill 的对话。
+
+**修正**：如果 spec 看起来有误但 diff 正确实现了它 → APPROVED，并单独建议用户重新审视 spec。不是 SPEC_DRIFT（那是矛盾/不可行），只是值得后续关注的设计债务。
+
+---
+
+## 15. 静默跳过 wiki 交叉检查
+
+**症状**：审查从未提及 wiki。也许检查了，也许没有——不清楚。
+
+**为什么错误**：wiki 陷阱的存在正是为了捕获反复出现的痛点。静默跳过会丢失组织记忆。
+
+**修正**：显式说明"wiki: checked [[gotcha-X]], [[gotcha-Y]] — no contradictions"或"wiki: skipped — no pages in this domain yet"。

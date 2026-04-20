@@ -9,75 +9,75 @@ supersedes: <old-spec-name>   # optional, remove if N/A
 
 # <feature-name>
 
-## Goal
+## 目标
 
-<ONE sentence, imperative voice. Describes the outcome, not the path.>
+<一句话，祈使语气。描述最终结果，而非实现路径。>
 
-## Non-goals
+## 非目标
 
-- <explicit exclusion 1>
-- <explicit exclusion 2>
+- <明确排除项 1>
+- <明确排除项 2>
 
-## Hard constraints
+## 硬约束
 
-- <numeric constraint, e.g. p99 latency < 200ms>
-- <binary constraint, e.g. signature verified per RFC xxx>
-- <compatibility constraint, e.g. must not break existing /webhook/wechat handler>
+- <数值型约束，例如 p99 延迟 < 200ms>
+- <二元约束，例如签名按 RFC xxx 验证>
+- <兼容性约束，例如不得破坏现有 /webhook/wechat 处理器>
 
-## Interface contract
+## 接口契约
 
-### Inputs / Outputs
+### 输入 / 输出
 
-<For HTTP: method, path, request schema, response schema, status codes>
-<For functions: signature, param types, return type, exceptions>
-<For events: topic, payload schema, ack protocol>
-<For config / constants: exact names AND exact values (URLs, enum lists, SLO numbers)>
+<HTTP：方法、路径、请求 schema、响应 schema、状态码>
+<函数：签名、参数类型、返回类型、异常>
+<事件：topic、payload schema、确认协议>
+<配置 / 常量：精确名称和精确值（URL、枚举列表、SLO 数值）>
 
 <!--
-  Unknown values policy:
-  If a concrete value (URL, constant, schema field, enum choice) is required by impl
-  but not yet known, write `<TODO-DECIDE: specific question>` in place of the value.
-  Do NOT substitute descriptions like "与 docs 保持一致" or "校准配置" for exact values.
-  Finalize will grep for markers and block `status: accepted` while any remain.
+  未知值策略：
+  若实现需要某个具体值（URL、常量、schema 字段、枚举选项）但尚未确定，
+  请在该值位置写 `<TODO-DECIDE: 具体问题>`。
+  不得用描述性文字替代精确值。
+  Finalize 阶段会 grep 检查标记，仍有未决项时将阻止 `status: accepted`。
 -->
 
-### Acceptance
+### 验收标准
 
-- [ ] <verifiable happy path acceptance>
-- [ ] <verifiable failure path acceptance>
-- [ ] <idempotency / replay if relevant>
-- [ ] <observability: metric / log / trace that must emit>
+- [ ] <可验证的正常路径验收>
+- [ ] <可验证的异常路径验收>
+- [ ] <幂等性 / 重放（如适用）>
+- [ ] <可观测性：必须发出的 metric / log / trace>
 
-## Data / state design
+## 数据 / 状态设计
 
-<Tables, queues, caches involved. State machine if any. Shape, not full DDL.>
+<涉及的表、队列、缓存。如有状态机请说明。描述结构，无需完整 DDL。>
 
-- Tables touched: `<table> (fields...)`
-- Cache keys: `<pattern>` TTL `<value>`
-- State transitions: `<from> → <to>` on `<event>`
+- 涉及的表：`<table> (fields...)`
+- 缓存键：`<pattern>` TTL `<value>`
+- 状态转换：`<from> → <to>` 触发条件 `<event>`
 
-## Integration points
+## 集成点
 
-- Upstream: <who calls this>
-- Downstream: <what this calls>
-- Sibling: <shares util X with [[sibling-entity]]>
+- 上游：<谁调用本模块>
+- 下游：<本模块调用谁>
+- 同级：<与 [[sibling-entity]] 共享工具 X>
 
-## Test strategy
+## 测试策略
 
-- Unit: <key scenarios>
-- Integration: <end-to-end flow>
-- <Load / replay / failure-injection if relevant>
+- 单元测试：<关键场景>
+- 集成测试：<端到端流程>
+- <负载 / 重放 / 故障注入（如适用）>
 
-## Background (optional, ≤ 5 lines)
+## 背景（可选，不超过 5 行）
 
-<Only if a reader truly needs one-line context. Link to [[decision-*]] pages for rationale. Delete this section if not needed.>
+<仅在读者确实需要一行上下文时填写。决策理由链接至 [[decision-*]] 页面。不需要时删除本节。>
 
 <!--
-  Reminders (delete after drafting):
-  - No decision history here. Rationale → [[decision-xxx]] wiki page.
-  - No alternatives listed. Options comparison → decision page or research.
-  - No implementation steps. Task breakdown → task skill.
-  - Non-goals must have ≥ 2 items.
-  - Constraints must be numeric or binary.
-  - Acceptance must cover happy path, failure path, idempotency, observability.
+  提醒（起草完成后删除）：
+  - 不在此记录决策历史。理由 → [[decision-xxx]] wiki 页面。
+  - 不列出备选方案。方案对比 → 决策页面或研究文档。
+  - 不写实现步骤。任务拆解 → task skill。
+  - 非目标不少于 2 条。
+  - 约束必须是数值型或二元型。
+  - 验收标准须覆盖正常路径、异常路径、幂等性、可观测性。
 -->

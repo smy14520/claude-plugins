@@ -6,21 +6,21 @@ date: YYYY-MM-DD
 
 <!-- 输出语言: 中文 -->
 
-# <Finding title — specific and self-describing>
+# <发现标题 — 具体且自描述>
 
-## What I found
+## 发现内容
 
-<1-3 sentences. Concrete claim, not abstract.>
+<1-3 句话。具体的论断，而非抽象描述。>
 
-## Where
+## 来源
 
-- `raw/<source-1>.md` lines X-Y — <brief context>
-- `raw/<source-2>.md` — <brief context>
+- `raw/<source-1>.md` 第 X-Y 行 — <简要上下文>
+- `raw/<source-2>.md` — <简要上下文>
 
-## Why it matters
+## 意义
 
-<how this affects the feeding decision; 1-2 sentences>
+<此发现如何影响后续决策；1-2 句话>
 
-## Open question
+## 待确认问题
 
-<what is still unknown after this finding; or explicit "none, confirmed">
+<此发现后仍然未知的内容；或明确写"无，已确认">
