@@ -1,91 +1,134 @@
-# Research 工作流：范围界定 / 收集 / 提炼 / 提议
+# Research 工作流：澄清 / 收集 / 记笔记 / 快照
 
-四个原语的详细流程。SKILL.md 给出高层步骤；本文件提供包含边缘情况在内的完整工作流。
+Research 是一个**可回环的、index-first 的需求探索工作流**。它不是单次线性流水线，也不是纯资料搬运。目标是把模糊需求从**发散**逐步推进到“**足够收敛，可以进入 spec**”。
 
 ---
 
-## 范围界定（Scope）
+## 总体节奏
 
-在接触任何资料之前先框定问题并锚定意图。没有声明范围和意图的研究会变成无边界浏览。
+典型节奏：
+
+```text
+Clarify → Collect → Note → Check → Snapshot
+    ↑         ↓         ↓       ↓       ↓
+    └──────── Reframe / revisit as needed ───────┘
+```
+
+说明：
+
+- `Clarify` 可以在最开始出现，也可以在 Collect/Note 过程中反复回到
+- `Check` 不是硬门，而是判断当前是否“足够收敛”
+- `Snapshot` 不是一定意味着结案；它可以只是刷新 `index.md` 与 `log.md`
+- 如果需求理解发生变化，进入 `Reframe`
+
+---
+
+## 澄清（Clarify）
+
+当用户的问题本身还模糊、带有多个可能理解，或尚不清楚该收集什么时，先 Clarify。
 
 ### 触发短语
 
-- "研究一下 X" / "调研 X"
-- "想做 X 先探索"
-- "X 之前有人做过吗，看看"
-- "do research on X" / "explore X"
+- "调研 X" / "研究一下 X"
+- "我还不确定这个需求到底应该怎么理解"
+- "先看看这个东西应该怎么做"
+- "这个需求需要哪些前提"
 
 ### 完整流程
 
-**步骤 1 — 提取主题和意图**
+**步骤 1 — 暂定性重述需求**
 
-从用户的表述中提取：
+先写出一个**当前最可能的理解**，明确这是 provisional 的：
 
-- 主题名称（一个名词短语）→ 以 kebab-case 作为 `<topic>` 目录名
-- 意图锚定：
-  - Decision type：选型 / 估工 / 理解现状 / 评估可行性
-  - Success criteria：什么算"有用的发现"
-  - Downstream：spec-name / 直接回答 / wiki 摄取
+- 用户想解决什么问题？
+- 当前看像是产品问题、接入问题、流程问题，还是兼而有之？
+- 有哪些关键未知会改变研究方向？
 
-如果意图不明确，问一个问题："这次研究的结论会影响什么决策？是想选型、估工、还是理解现有代码？"
+**步骤 2 — 列出已知 / 未知 / 假设 / 歧义**
 
-**步骤 2 — 撰写 `question.md`**
+至少梳理四类信息：
 
-从 [../assets/templates/question.md](../assets/templates/question.md) 加载模板。填写：
+- 已知事实
+- 尚未知的关键前提
+- 当前假设（待验证）
+- 可能存在的多种需求理解
 
-- **Question**：单句表述
-- **In scope**：2-8 个要点，具体的子问题
-- **Out of scope**：2+ 个要点，明确的排除项（关键——这是防止范围膨胀的手段）
-- **Intent anchor**：Decision type / Success criteria / Downstream
+**步骤 3 — 提问**
 
-**步骤 3 — 输出摘要**
+如果不问清楚就不知道该查什么，提出 1-3 个最高杠杆问题。优先问：
 
-```
-📁 .claude/research/<topic>/question.md 已创建
-   In scope: X, Y
-   Out of scope: Z
-   Intent: <decision-type> → <downstream>
-   下一步: collect (粘贴资料 / 告诉我从哪里开始看)
+- 哪个结果才算满足需求？
+- 当前更像做什么：验证可行性、打通接入、做 MVP、还是做完整方案？
+- 哪些条件如果成立，会让这次研究走向完全不同的路径？
+
+**步骤 4 — 创建或更新 `index.md`**
+
+从 [../assets/templates/index.md](../assets/templates/index.md) 加载模板。填写：
+
+- 研究问题
+- 当前理解
+- 当前范围 / 暂不纳入
+- 意图锚定
+- 仍未解决的问题
+- 当前是否适合进入 spec
+
+**步骤 5 — 在 `log.md` 追加本轮澄清记录**
+
+从 [../assets/templates/log.md](../assets/templates/log.md) 开始，记录本轮 clarifying 发生了什么。
+
+**步骤 6 — 输出当前 framing**
+
+```text
+❓ 当前 research index 已更新
+   当前理解: <provisional understanding>
+   关键歧义: <a>, <b>
+   建议下一步: continue clarify / start collect
 ```
 
 ### 边缘情况
 
-**情况：用户尚未缩小范围**
+**情况：用户自己也不知道需求该怎么定义**
 
-不要猜测。问一个问题："你希望这次 research 主要回答什么？" 然后填写。
+这是正常情况。不要强迫用户先给清晰 scope。先用 Clarify 帮用户把问题问清楚，再决定 Collect 什么。
 
-**情况：用户给的范围很大（如"研究一下前端架构"）**
+**情况：需求存在两种以上合理解释**
 
-建议收窄范围："这个范围很大。建议先限定在一个具体问题（如 '如何组织 shared UI components'），回头再扩展。OK 吗？"
+并列写出，不要急着合并。例如：
+
+- 理解 A：做自用工具
+- 理解 B：做服务商 SaaS
+
+后续 Collect/Note 的素材可能帮助淘汰其中一种，或要求用户确认。
 
 ---
 
 ## 收集（Collect）
 
-将原始资料归入 `raw/`。此处不做提炼。
+将原始资料归入 `raw/`。Collect 仍然偏保真，但它现在服务于“澄清需求”，不只是为了后续归档。
 
 ### 触发短语
 
 - 用户粘贴文档、URL、截图
 - "看一下代码里 X 怎么做的"
 - "收集 X 的资料"
+- Clarify 阶段发现缺关键前提，需要查证
 
 ### 完整流程
 
-**步骤 1 — 对输入进行分类**
+**步骤 1 — 对输入分类**
 
 - 粘贴的文档/文本 → `raw/user-input-YYYY-MM-DD.md`
 - URL → 判断来源级别（用户提供 vs 研究发现），按 [data-collection.md](data-collection.md) 获取，保存为 `raw/ext-<slug>.md`
-- 代码阅读请求 → 扫描，保存相关引用（含 file:line 参考）为 `raw/codebase-<area>.md`
+- 代码阅读请求 → 扫描，保存相关引用（含 `file:line` 参考）为 `raw/codebase-<area>.md`
 
-**用户提供的 URL vs 研究发现的 URL**：
+**步骤 2 — 用户 URL 与研究发现 URL 区分处理**
 
-- 用户主动粘贴的 URL → 强制获取，穷尽工具阶梯，需要登录则暂停请求用户协助
-- 研究过程中发现的 URL → 按意图锚定的 success criteria 判断是否追踪
+- 用户主动给的 URL → 强制获取，穷尽工具阶梯，需要登录则暂停请求用户协助
+- 研究过程中发现的 URL → 按当前理解与意图锚定判断是否值得追踪
 
-**步骤 2 — 按最小结构写入 raw 文件**
+**步骤 3 — 写入 raw 文件**
 
-每个 raw 文件包含：
+每个 raw 文件包含最小元信息：
 
 ```markdown
 # <标题>
@@ -98,208 +141,257 @@
 <原文或近乎原文的摘录>
 ```
 
-**步骤 3 — 收集阶段不要提炼**
+**步骤 4 — 在收集过程中监听“理解变化”信号**
 
-诱惑：阅读代码时，你看到了某种模式，想写下"这里使用了 X 模式"。忍住。将摘录放入 `raw/`；提炼步骤会决定是否需要抽象。
+当 Collect 过程中出现以下信号，立即考虑回到 Clarify 或进入 Reframe：
 
-**步骤 4 — 跟踪已收集内容**
+- 发现隐藏前提（例如账号、资质、配置、测试环境）
+- 发现两种互斥接入模式
+- 发现最初需求中的表述不足以决定要继续收集哪类资料
+- 发现“看似非代码”的信息会实质影响后续测试/上线/运营
 
-每次收集操作后，输出：
+**步骤 5 — 更新 `index.md` 的关键来源（如适用）**
 
-```
+把本轮最关键的 source 链接加到 `## 关键来源`。
+
+**步骤 6 — 输出收集摘要**
+
+```text
 📥 Collected: raw/<file>.md
    已有 raw 文件: N 个
-   建议: 继续收集 / 开始 refine
+   发现的新信号: <if any>
+   建议下一步: continue collect / clarify / note
 ```
 
 ### 边缘情况
 
-**情况：用户提供了一个非常长的 URL/文档**
+**情况：用户给的范围很大**
 
-抓取整个文档。抓取并概述至 200 行以内，保留重点内容，注明省略了哪些内容。保留原始 URL 的醒目位置。
+不要立刻要求缩窄到完美边界。可以先收集 1-2 个最关键前提，用来帮助下一轮 Clarify。
 
 **情况：扫描发现代码库中没有相关内容**
 
-写一行 `raw/codebase-<area>.md`："Scanned `<paths>`，no relevant matches for `<topic>`。"
+写入 `raw/codebase-<area>.md`：
+
+> Scanned `<paths>`, no relevant matches for `<topic>`.
+
+这同样是对需求有意义的发现。
 
 **情况：URL 获取需要登录**
 
-暂停。告知用户："此 URL 需要登录才能访问。请在浏览器中完成登录后告知我，我将继续抓取。" 等待用户确认后用 playwright 继续。不要跳过。
-
-**情况：用户想跳过收集直接进入提炼**
-
-仅在用户粘贴的是已经整理过的资料时才允许。警告："跳过 collect 意味着没有原始引用链路。你确定这些资料已经是提炼过的？"
+暂停并请求用户协助，不可静默跳过。
 
 ---
 
-## 提炼（Refine）
+## 记笔记（Note）
 
-将原始资料提炼为聚焦的 `refined/<topic>.md` 笔记。
+将原始资料整理为带来源的 `notes/<subtopic>.md`。Note 的职责不只是“总结”，还包括解释资料对需求意味着什么，并让后续执行者可导航地阅读。
 
 ### 触发短语
 
 - "整理一下"
-- "把收集到的提炼一下"
-- "refine 一下"
+- "这些资料说明了什么"
+- "把收集到的内容按主题整理"
+- "现在更像哪种需求理解"
 
 ### 完整流程
 
-**步骤 1 — 按发现分组 raw 文件**
+**步骤 1 — 按主题或歧义点分组 raw 文件**
 
-阅读所有 `raw/*.md`。按发现所支撑的*发现*分组，而非按来源分组。
+阅读所有 `raw/*.md`。按以下任一维度分组：
 
-示例：三个不同 raw 文件中提到的签名 → 全部汇入一个 `refined/xhs-signature-scheme.md`。
+- 一个主题
+- 一个关键约束
+- 一个隐藏前提
+- 一个需求歧义点
+- 一组相互冲突的证据
+- 一个流程/链路（如授权流程、回调流程）
 
-**步骤 2 — 每个发现写一条提炼笔记**
+不是按来源站点分组。
 
-应用 [../assets/templates/finding-note.md](../assets/templates/finding-note.md)。必需的章节：
+**步骤 2 — 每个组写或更新一条主题 note**
 
-- **What I found**：具体发现（1-3 句话）
-- **Where**：引用回 `raw/` 文件并附带行号
-- **Why it matters**：这如何影响意图锚定中的决策上下文
-- **Open question**：该发现之后仍然未知的内容
+应用 [../assets/templates/note.md](../assets/templates/note.md)，创建或更新 `notes/<subtopic>.md`，至少写：
 
-可选章节：
+- 当前结论
+- 来源
+- 这对需求意味着什么
+- 仍未解决的问题
+- 相关笔记
 
-- **Conflicting evidence**：多个来源对同一事实给出不同说法时使用
+**步骤 3 — 允许比较解释，但禁止拍板**
 
-硬性限制：每条笔记不超过 120 行。超长则拆分。
+允许写：
 
-**步骤 3 — 标记未使用的 raw 文件**
+- 这条证据更支持哪种需求理解
+- 如果目标是 A，这条发现意味着 B
+- 若采用路径 X，将新增哪些前提
 
-没有贡献给任何提炼笔记的 raw 文件：保留在 `raw/` 中，不删除。在 findings.md 中标注为 "unused" 并说明原因。
+禁止写：
 
-**步骤 4 — 输出提炼摘要**
+- 我们最终选择 X
+- 正确方案就是 Y
 
-```
-🔍 Refined: N 个 refined notes
-   - <finding-1> → <note-1>.md
-   - <finding-2> → <note-2>.md
-   未用 raw 文件: M 个 (将在 findings.md 中标注)
-```
+**步骤 4 — 维护 `index.md` 的主题导航**
+
+每新增一个 note，就在 `index.md` 的 `## 主题导航` 中加入口。
+
+**步骤 5 — 记录冲突与不确定性**
+
+多个来源冲突时，在 note 中用 `## 证据冲突` 段保留差异。Research 不负责最终裁决，只负责把冲突说清楚。
 
 ### 边缘情况
 
-**情况：一个发现想变成决策**
+**情况：你开始想替用户做设计选择**
 
-如果提炼时你觉得"这个发现其实就是我们的选择"，停下。Research 不做决策。改写为选项描述：
+停下。将它改写为：
 
-- ❌ "We should use webhook"
-- ✅ "Webhook is available. Poll is also available. Tradeoffs: ..."
+- 目前有哪些理解路径
+- 哪条路径更受证据支持
+- 还差什么信息才能冻结
 
-**情况：一个发现过于抽象，无法引用**
+**情况：一个结论完全无法引用来源**
 
-未经验证的发现不是发现。要么引用来源，要么丢弃。
-
-**情况：多个来源说法冲突**
-
-使用 `## Conflicting evidence` 段记录各方说法和可能原因（版本差异、语境不同、其中一方过时）。不要在 research 阶段裁定谁对——裁定是 spec 的职责。
+那不是可靠结论。要么回 Collect 找依据，要么把它降级为 open question。
 
 ---
 
-## 完整性检查（Refine → Propose 之间的门控）
+## 收敛检查（Check）
 
-提炼完成后，在进入提议之前必须通过完整性检查：
-
-### 检查项
-
-1. **Success criteria 覆盖**：意图锚定的每条 success criteria 是否都有至少一条 refined 笔记回应？如果有 criteria 未被覆盖 → 回到收集补充材料。
-2. **未回答的子问题**：question.md 中的子问题是否都被涉及？如果遗漏 → 回到收集。
-3. **范围偏移信号**：提炼过程中是否发现了 question.md 的范围需要调整？如果需要 → 执行 re-scope（见下方）。
-
-### 输出
-
-```
-✅ Completeness check passed — all success criteria covered
-   或
-⚠️ Gap: <某条 success criteria> 尚无对应发现
-   建议: 回到 Collect 补充 <具体方向>
-```
-
----
-
-## 重新界定范围（Re-scope）
-
-当提炼或完整性检查揭示 question.md 的范围需要调整时。
+Check 的目的不是机械放行，而是判断：当前理解是否已足够收敛，值得进入 spec。
 
 ### 何时触发
 
-- 提炼发现原始问题提偏了（如"研究前端架构"实际需要的是"研究状态管理方案"）
-- 排除范围里的内容其实与研究高度相关
-- 意图锚定的 success criteria 需要修正
+- 整理出一批主题 notes 之后
+- 用户问"现在够不够进入 spec"
+- 你自己判断当前已经有阶段性结论
+
+### 检查项
+
+1. **当前已明确什么？**
+   - 哪些关键事实已经确认
+   - 哪些前提已经浮现
+2. **当前还缺什么？**
+   - 哪些歧义会实质影响后续 spec
+   - 哪些只是细节，暂不阻塞进入 spec
+3. **当前是否足以进入 spec？**
+   - 如果可以，说明为什么
+   - 如果不可以，说明下一轮应该继续 Collect 还是继续 Clarify
+
+### 输出
+
+```text
+✅ Ready for spec — 当前关键前提已足够清楚
+   或
+⚠️ Not ready yet
+   已明确: <...>
+   缺口: <...>
+   建议下一步: clarify / collect
+```
+
+### 后续动作
+
+- 把判断写回 `index.md` 的 `## 当前是否适合进入 spec`
+- 如有明显状态变化，在 `log.md` 追加一条 `check` 或 `snapshot` 记录
+
+---
+
+## 重构理解（Reframe）
+
+当探索揭示最初的问题提法或边界已经失效时，进入 Reframe。
+
+### 何时触发
+
+- 发现最初问错了问题
+- 研究过程中暴露出一个更关键的上游前提
+- 原本排除的内容实际上会直接影响需求形状
+- 用户在讨论中改变了目标或优先级
 
 ### 流程
 
-1. **不删除旧的 question.md 内容**，而是在 `## Scope history` 表中追加一条变更记录
-2. 更新 In scope / Out of scope / Intent anchor
-3. 已有的 raw/ 和 refined/ 文件保留，标注哪些是旧范围的产出
-4. 输出变更摘要：
+1. 更新 `index.md` 中：
+   - 当前理解
+   - 当前范围 / 暂不纳入
+   - 仍未解决的问题
+2. 在 `log.md` 中追加一条 `reframe` 记录，写清原因
+3. 不删除旧 `raw/` / `notes/`
+4. 若旧 note 因理解变化而部分失效，在后续相关 note 中说明“被何种新理解修正”
+5. 输出变更摘要：
 
-```
-📐 Re-scoped: <topic>
-   变更: <什么从 in-scope 移到了 out-of-scope，或反之>
-   原因: <为什么>
-   已有文件: N 个 raw, M 个 refined (保留)
+```text
+📐 Reframed: <topic>
+   变更: <old understanding> → <new understanding>
+   原因: <what evidence/discussion changed it>
+   下一步: clarify / collect / note
 ```
 
 ---
 
-## 提议（Propose）
+## 状态快照（Snapshot）
 
-收尾研究。生成 `findings.md` + wiki 摄取候选项。
+Research 的收尾动作是“刷新入口与状态”，不是强制结案。
 
 ### 触发短语
 
 - "总结一下 research"
-- "research 完了"
+- "先记一下当前状态"
+- "这一轮先到这"
 - "可以结束研究了"
-- "closing the research"
 
 ### 完整流程
 
-**步骤 1 — 撰写 `findings.md`**
+**步骤 1 — 刷新 `index.md`**
 
-应用 [../assets/templates/findings.md](../assets/templates/findings.md)。必需的章节：
+至少更新：
 
-- **Question**（从 question.md 复制）
-- **Critical findings**（直接影响决策的发现，链接到 refined/ 笔记）
-- **Context findings**（提供背景但不直接影响决策的发现）
-- **Open questions**（供 spec 解决——明确列表，仅当确实没有未决问题时才可为空）
-- **Ingest candidates**——哪些提炼笔记值得提升至 wiki，每个附一句理由（不做 wiki 类型分类）
-- **Ephemeral**——哪些提炼笔记仅限本次决策范围
+- 当前理解
+- 主题导航
+- 关键来源
+- 仍未解决的问题
+- 当前是否适合进入 spec
+- 下一步建议
 
-**步骤 2 — 不要自动摄取**
+**步骤 2 — 在 `log.md` 追加本轮总结**
 
-明确告知用户：
+记录：
 
-> 以上 ingest 建议仅为提议。若要真正写入 wiki，请调用 `wiki` skill 并 ingest 具体条目。
+- 做了什么
+- 新增了哪些文件
+- 理解是否变化
+- 下一步建议
 
-**步骤 3 — 输出收尾摘要**
+**步骤 3 — 设置状态**
 
-```
-📤 Research closed: .claude/research/<topic>/findings.md
+- 若后续大概率还会继续 → `status: open`
+- 若当前足够进入 spec → `status: ready-for-spec`
+- 若用户明确确认本轮 research 已完成 → `status: closed`
 
-Critical findings: N
-Context findings: M
+**步骤 4 — 输出摘要**
+
+```text
+📤 Research snapshot updated: .claude/research/<topic>/index.md
+
+Current understanding: <summary>
+Topic notes: N
 Open questions: K
-Ingest candidates: J
+Readiness: <open | ready-for-spec | closed>
 
-下一步建议 (用户决定):
-- 运行 spec skill 起草方案（open questions 会成为决策点）
-- 运行 wiki ingest 沉淀 ingest 候选
-- 或两者都做，按顺序由你决定
+下一步建议（用户决定）:
+- 继续 research
+- 进入 spec
+- 或显式执行 wiki ingest
 ```
 
 ### 边缘情况
 
-**情况：未决问题列表为空**
+**情况：未决歧义仍很多**
 
-质疑："研究结束但没有 open question，是研究确实彻底，还是实际上没发散？" 让用户确认后再关闭。
+完全可以 snapshot，不必强行关闭。`status: open` 即可。
 
-**情况：摄取候选列表为空**
+**情况：用户想稍后回来继续**
 
-没问题——并非每次研究都会产生可复用的知识。在 findings.md 中注明："本次 research 无 wiki ingest 候选（所有发现均为本次决策 scoped）。"
+保持 `status: open`，下次优先读取并续写现有工作区。
 
-**情况：用户想之后重新审视/扩展**
+**情况：本次没有 wiki 候选**
 
-在 frontmatter 中将 `findings.md` 标记为 `status: open`。后续会话可以直接追加而无需重写。
+可以明确写：本轮 research 无长期沉淀候选，所有内容均为当前需求 scoped。

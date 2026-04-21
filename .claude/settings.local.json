@@ -8,7 +8,9 @@
       "Bash(git -C /Users/magician/Personal/Code/claude/claude-plugins diff plugins/autolearn-sdd-kit/commands/meta-maintainer.md)",
       "Bash(git -C /Users/magician/Personal/Code/claude/claude-plugins show HEAD:plugins/autolearn-sdd-kit/commands/index-manager.md)",
       "Bash(git -C /Users/magician/Personal/Code/claude/claude-plugins show HEAD:plugins/autolearn-sdd-kit/skills/detect-context/SKILL.md)",
-      "Bash(git -C /Users/magician/Personal/Code/claude/claude-plugins log --oneline --graph --all -20)"
+      "Bash(git -C /Users/magician/Personal/Code/claude/claude-plugins log --oneline --graph --all -20)",
+      "Bash(git status *)",
+      "mcp__exa__web_search_exa"
     ]
   }
 }

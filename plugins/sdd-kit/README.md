@@ -15,18 +15,18 @@
 
 ```
 research → spec → task → impl → review
-   │        │      │      │        │
+   ↖        │      │      │        │
    │        │      │      │        └─ 独立审计（读 spec + diff + wiki）
    │        │      │      └─ 自运行 acceptance（机械自检，不做语义审计）
    └────────┴──────┴──────┴────────┴──→ 用户主动 ingest → wiki（持久）
 ```
 
-每阶段独立可用，文档之间**无强制跳转**，但允许 `[[wikilink]]` 作为可选导航线索。
+每阶段独立可用，文档之间**无强制跳转**。`research` 允许多轮回到同一工作区继续补资料、提问、修正理解；`spec` 则负责把已经足够收敛的理解冻结为可执行契约。`[[wikilink]]` 仅作为可选导航线索。
 
 | 阶段 | 职责 | 产物位置 |
 |------|------|---------|
-| research | 探索、收集资料、发散思考、整理信息 | `.claude/research/<topic>/` |
-| spec | 解决决策、明确边界、消除模糊、产出可依赖方案 | `.claude/specs/<name>.md` |
+| research | index-first 的需求探索工作区：发散、提问、收集资料、带来源地解释事实、逐步收敛理解，并通过 `index.md` 对外提供统一入口 | `.claude/research/<topic>/` |
+| spec | 将已收敛的理解冻结为明确边界、约束与可依赖方案 | `.claude/specs/<name>.md` |
 | task | 原子化执行计划（执行者不做决策） | `.claude/tasks/<name>.tasks.md` |
 | impl | 按 task 执行代码实现 + 运行自己的 acceptance（SelfCheck） | 代码本身 + `## Status log` |
 | review | 对照 spec + diff + wiki 做独立语义审计（4 态: APPROVED / APPROVED_WITH_NOTES / NEEDS_REWORK / SPEC_DRIFT） | 同一 task 文件的 `## Review log` 段 |
@@ -55,8 +55,8 @@ research → spec → task → impl → review
 ## 当前状态
 
 - [x] wiki skill（知识层宪法 + R1-R5 维护规则含 stale-by-age 新鲜度）
-- [x] research skill（探索 + raw/refined 分层 + 显式 ingest 提议）
-- [x] spec skill（决策门户 + 内容契约 + 无决策史）
+- [x] research skill（index-first 工作区 + raw 证据层 + notes 主题笔记 + log 时间线 + 可多轮续写）
+- [x] spec skill（决策冻结层 + 内容契约 + 无决策史）
 - [x] task skill（原子拆解 + DAG + strict-atomic/lean 双模式 + 无 wikilink）
 - [x] impl skill（四态状态机 + 可验证 acceptance + 不静默决策 + 末尾 wiki-ingest 建议）
 - [x] review skill（独立语义审计 + 4 态 + 读 spec/diff/wiki + 不改代码）
