@@ -1,8 +1,8 @@
 ---
-status: open | ready-for-spec | closed
+status: open | ready-for-brainstorm | closed
 topic: <topic-kebab-case>
 updated: YYYY-MM-DD
-downstream: <spec-name | direct-answer | wiki-ingest>
+downstream: <brainstorm-name | direct-answer | wiki-ingest>
 ---
 
 <!-- 输出语言: 中文 -->
@@ -34,7 +34,7 @@ downstream: <spec-name | direct-answer | wiki-ingest>
 
 - **Decision type**: 选型 / 估工 / 理解现状 / 评估可行性
 - **Success criteria**: <什么样的发现算“有用”？1-3 条具体判断标准>
-- **Downstream**: <spec-name / 直接回答 / wiki 摄取>
+- **Downstream**: <brainstorm-name / 直接回答 / wiki 摄取>
 
 ## 主题导航
 
@@ -48,15 +48,15 @@ downstream: <spec-name | direct-answer | wiki-ingest>
 
 ## 仍未解决的问题
 
-- <尚未解决、且会影响后续 spec 或继续 research 的问题 1>
+- <尚未解决、且会影响后续 brainstorm 或继续 research 的问题 1>
 - <问题 2>
 
-## 当前是否适合进入 spec
+## 当前是否适合进入 brainstorm
 
-<open / ready-for-spec / closed 的当前判断。若 ready-for-spec，说明为什么；若还不够，说明主要缺口。>
+<open / ready-for-brainstorm / closed 的当前判断。若 ready-for-brainstorm，说明为什么；若还不够，说明主要缺口。>
 
 ## 下一步（由用户决定）
 
 - 继续 research：补资料 / 继续澄清 / 新增 notes
-- 进入 `spec`：如果当前理解已经足够收敛
+- 进入 `brainstorm`：如果当前理解已经足够收敛
 - 运行 `wiki`：仅在你明确要沉淀长期知识时

@@ -146,11 +146,11 @@ final_status: unretrievable
 
 ### 5.2 传播至 index.md
 
-在 `index.md` 的“仍未解决的问题”或“当前是否适合进入 spec”章节中披露：
+在 `index.md` 的“仍未解决的问题”或“当前是否适合进入 brainstorm”章节中披露：
 
 ```markdown
 - ⚠️ 无法获取 [<来源名称>](<URL>) — 已尝试 <工具列表>。
-  详见 `raw/ext-<name>-failed.md`。若此输入仍关键，则当前状态不应标记为 `ready-for-spec`。
+  详见 `raw/ext-<name>-failed.md`。若此输入仍关键，则当前状态不应标记为 `ready-for-brainstorm`。
 ```
 
 ### 5.3 永远不要捏造
@@ -165,7 +165,7 @@ final_status: unretrievable
 
 - **Note** — 主题笔记是人工风格的整理与解释，不是重新抓取
 - **Snapshot / Index** — `index.md` 只引用已收集的 raw 资料，不产生新抓取
-- **Spec** — spec 不得抓取；如果 spec 需要数据，应交回 research
+- **Brainstorm** — brainstorm 不得抓取；如果 brainstorm 需要数据，应交回 research
 - **Impl** — impl 读取 task 的交付物/验收标准，不获取外部 URL
 - **非 source 页面的 Wiki 摄取** — 仅 `source-*` 页面遵循此流程
 

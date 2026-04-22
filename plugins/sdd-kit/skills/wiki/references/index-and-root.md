@@ -182,7 +182,7 @@ Brief timeline of major changes.
 
 - YYYY-MM: 初版，仅支持 X
 - YYYY-MM: 接入 Y
-- YYYY-MM: 规划 Z ([[spec-z]])
+- YYYY-MM: 规划 Z ([[brainstorm-z]])
 ```
 
 ### 根页面内容规则

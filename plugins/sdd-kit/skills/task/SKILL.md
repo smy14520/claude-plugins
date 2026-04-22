@@ -1,120 +1,114 @@
 ---
 name: task
-description: "Decompose a spec (or confirmed goal) into an atomic execution plan a downstream executor can consume WITHOUT re-deciding anything. Output: `.claude/tasks/<name>.tasks.md` — atomic tasks with ID, role, dependencies, deliverable, acceptance. Two modes: strict-atomic (≤ 4h per task) and lean (coarser). Task files MUST NOT contain `[[wikilinks]]`. Does NOT auto-advance. Invoke only on explicit user request (e.g. '用 task skill 拆 <spec>')."
+description: "Decompose a brainstorm artifact (or compatible legacy spec) into an execution-ready plan a downstream executor can consume with minimal re-decision. Output: `.claude/tasks/<name>.tasks.md` — milestones, atomic tasks, dependencies, deliverable, acceptance, task-local context, sources, and ready-check. Two modes: strict-atomic (≤ 4h per task) and lean (coarser). Task files MUST NOT contain `[[wikilinks]]`. Does NOT auto-advance. Invoke only on explicit user request (e.g. '用 task skill 拆 <brainstorm>')."
 ---
 
-# Task — 原子化执行计划
+# Task — 执行冻结与任务拆解
 
-将 spec 拆解为执行者无需再做决策即可直接执行的任务。一个任务 = 一个原子化交付物 + 一条可验证的验收标准。
+将 brainstorm（或兼容 legacy spec）拆解为执行者无需再做高层设计决策即可直接推进的任务计划。它不只是原子化任务列表，还负责把大需求冻结成 milestone / child task / DAG / task-local context。
 
-## 在四阶段工作流中的定位
+## 在五阶段工作流中的定位
 
+```text
+research → brainstorm → [task] → impl
+                          ↓
+                          └─── 执行者仅读取此文件
 ```
-research → spec → [task] → impl
-                    ↓
-                    └─── 执行者仅读取此文件
-```
 
-Task 是**拆解与排序**阶段。它：
+Task 是**执行冻结与排序**阶段。它：
 
-- 读取 spec（`.claude/specs/<name>.md`）或会话中的目标
-- 拆解为带有稳定 ID 的原子单元
-- 识别共享/公共模块（防止跨 agent 重复代码）
-- 通过显式 `depends-on` DAG 排序
-- 可选地为每个任务标注角色（backend/frontend/data/devops/shared），为未来的多 agent 分工做准备
-- **不执行**；**不做二次决策**
+- 读取 brainstorm（首选 `.claude/brainstorms/<name>.md`）或兼容 legacy spec（`.claude/specs/<name>.md`）
+- 将整体 change 分成 milestone / slice / executable task
+- 为每个任务补齐 task-local context、sources、ready-check
+- 识别共享模块，避免跨 task 重复代码
+- 构建显式 `depends-on` DAG
+- 可选标注角色，为未来并行 impl 做准备
+- **不执行**；**不重新做高层方案选择**
 
 ## 四个原语
 
-根据用户意图匹配使用；完整流程见 [references/workflow.md](references/workflow.md)。
+### 🔨 Decompose — 从 brainstorm 生成执行计划
 
-### 🔨 Decompose — 拆解为原子任务
+触发："拆任务 X"、"把 brainstorm X 变成任务"、"plan X"。
 
-触发："拆任务 X"、"把 spec X 变成任务"、"plan X"。
-
-> **推理节奏**：🍞 **重型**。颗粒度和边界划分直接决定下游 impl 是轻松还是痛苦。请启用扩展思考。
-
-流程（详见 `references/workflow.md#decompose`）：
-
-1. 确定输入源：`.claude/specs/<name>.md` 或会话中的描述
-2. 询问用户：strict-atomic 还是 lean 模式（见 [references/decomposition.md](references/decomposition.md)）
-3. 将 spec 拆解为单元。每个单元 = 一个交付物
-4. 分配稳定 ID（`T-001`、`T-002`、…）
-5. 为每个单元填写必填字段（见内容契约）
-
-### 🧱 Identify shared — 识别公共模块
-
-触发：在拆解过程中自动识别，或用户明确说"有哪些是公共模块"。
-
-> **推理节奏**：🍞 **重型**。公共模块识别错误是并行 impl 冲突的首要来源。请仔细思考。
+> **推理节奏**：🍞 **重型**。判断切片、上下文边界和里程碑结构时请启用扩展思考。
 
 流程：
 
-1. 扫描任务中的重复关注点（例如 3 个任务都调用同一个 HTTP 客户端）
-2. 为每个公共模块提取一个 `shared-module` 任务
-3. 让消费任务 `depends-on` 该 shared-module 任务
-4. 如果提取数量过多则提醒用户（信号：可能过度拆解）
+1. 确定输入源：
+   - 首选 `.claude/brainstorms/<name>.md`
+   - 兼容 `.claude/specs/<name>.md`
+   - 或用户在会话中确认的目标
+2. 询问用户：strict-atomic 还是 lean 模式
+3. 先判断是否需要 milestone / parent-child 结构：
+   - 小需求：直接平铺任务
+   - 大需求：先分 milestone，再拆 child tasks
+4. 为每个任务填写必填字段：`deliverable / acceptance / context / sources / ready-check`
+5. 产出 `.claude/tasks/<name>.tasks.md`
 
-### 🔗 Order — 构建依赖 DAG
+### 🧱 Identify shared — 识别共享模块与前置切片
 
-触发：在拆解过程中自动构建，或用户明确说"排一下依赖"。
+触发：拆解过程中自动识别，或用户说"有哪些公共模块"。
 
-> **推理节奏**：🍞 **重型**。需要做环路检测和关键路径梳理。当 DAG 包含超过 6 个任务时，请启用扩展思考。
-
-流程：
-
-1. 为每个任务确定 `depends-on: [IDs]`
-2. 检测环路 → 如存在，报告并阻止定稿
-3. 输出依赖图（文本树或 mermaid，不要花哨）
-
-### 🏷️ Assign role — 可选的多 agent 标注
-
-触发：用户说"按角色分"、"tag roles"，或预期将进行多 agent 实施时。
-
-> **推理节奏**：🥐 **轻型**。从固定角色列表中做机械分类即可。
+> **推理节奏**：🍞 **重型**。共享模块识别错误是并行 impl 冲突的首要来源。
 
 流程：
 
-1. 为每个任务建议角色：`backend` | `frontend` | `data` | `devops` | `shared` | `test`
-2. 用户确认/修改
-3. 角色仅供参考，不具约束力——当前 impl 以单 agent 运行
+1. 扫描多个切片之间的重复依赖（例如共享验证器、配置加载、通用客户端）
+2. 为真正独立、可复用的共享能力提取 shared task
+3. 让消费任务显式依赖它
+4. 若 shared 任务比例过高，提示可能过度抽象
+
+### 🔗 Order — 构建 milestone / DAG
+
+触发：拆解过程中自动构建，或用户说"排一下依赖"。
+
+> **推理节奏**：🍞 **重型**。需要同时处理里程碑层级和任务 DAG。
+
+流程：
+
+1. 为每个任务确定 `depends-on`
+2. 检测环路；如存在，阻止定稿
+3. 输出文本依赖图和关键路径
+4. 标注哪些任务 ready，哪些仍被 open question 阻塞
+
+### 🏷️ Assign role — 标注执行角色（可选）
+
+触发：用户说"按角色分"、"tag roles"，或预期并行实施时。
+
+> **推理节奏**：🥐 **轻型**。机械分类即可。
+
+流程：
+
+1. 为每个任务建议 `backend | frontend | data | devops | shared | test`
+2. 用户确认 / 修改
+3. 角色仅供参考，不具约束力
 
 ## 目录结构
 
-```
+```text
 .claude/tasks/
-├── <spec-name>.tasks.md      # 从 spec 派生时，名称与 spec 一致
-└── <ad-hoc-name>.tasks.md    # 无 spec 直接拆解时使用
+├── <brainstorm-name>.tasks.md
+└── <ad-hoc-name>.tasks.md
 ```
-
-文件命名规则：
-
-- 从 spec 派生：与 spec 同名的 kebab-case 名称 + `.tasks.md` 后缀
-- 临时拆解：用户提供或推断的 kebab-case 名称 + `.tasks.md`
 
 ## 核心规则
 
-1. **任务文件中禁止 wikilinks** — 任务执行计划必须自包含。执行者仅读取此文件。Wiki 引用属于 spec，不属于 task。
-2. **任务中禁止决策** — 每个任务有具体的交付物和可验证的验收标准。如果某个任务是"决定如何做 X"，这是 spec 阶段的职责，不是 task 的。应退回 spec。
-3. **稳定 ID** — 一旦分配，任务 ID 永不更改。插入新任务使用新 ID，而非重新编号。
-4. **理想情况一次提交** — strict-atomic 模式：每个任务恰好产出一个交付物（一个文件、一个接口、一个迁移）。Lean 模式：放宽为"一个逻辑单元"，但仍需可验证。
-5. **验收标准必须可验证** — 每个任务必须列出：(a) 将变更的文件，(b) 验证命令（`pnpm test`、`curl …` 等）。
-6. **公共模块优先** — 如果 T-004 依赖公共模块 T-001，T-001 必须排在前面。
-7. **不自动推进** — 任务文件写入后，skill 即停止。Impl 需要单独调用。
-8. **仅使用封闭动词** — 每个任务的交付物使用 `CREATE | ADD | SET | DELETE | REPLACE` 并附带具体目标值。开放动词（`校准 / 保持 / 验证 / 确保 / 适配`）意味着上游存在未解决的值——应作为 `<TODO-DECIDE>` 退回 spec，不要为 impl 编写模糊的任务。
+1. **任务文件中禁止 wikilinks** — 执行者应只读一个文件完成本轮执行。
+2. **任务中禁止高层决策** — 如果某个 task 本质上是"决定怎么做 X"，那是 brainstorm 的职责，不是 task 的。
+3. **稳定 ID** — 一旦分配，永不重排。新增任务只追加。
+4. **任务必须有 task-local context** — 不是把执行者丢回 brainstorm 自己猜。
+5. **任务必须有 sources** — 至少列出和该 task 相关的来源 ID，保证可追溯。
+6. **ready-check 是显式的** — 只有真正阻塞此任务的 open question 才会阻止执行；不是要求上游文档零歧义。
+7. **不自动推进** — 任务文件写完后停止。Impl 需要单独调用。
+8. **仅使用封闭动词** — `CREATE | ADD | SET | DELETE | REPLACE`。开放动词意味着上游冻结不足。
 
 ## 模式选择（strict-atomic vs lean）
 
 需明确询问用户。默认值：
 
-- **Strict-atomic**（多人或多 agent 实施时的默认选择）：
-  - 每个任务 ≤ 4 小时，单次提交，单一交付物
-  - 规范程度更高，更适合并行
-- **Lean**（单人快速实施时的默认选择）：
-  - 任务可跨 1 天，涉及多个文件
-  - 规范程度较低，编写更快，但不太适合并行
-
-详见 [references/decomposition.md](references/decomposition.md)。
+- **Strict-atomic**：每个任务 ≤ 4 小时，单一交付物，适合并行
+- **Lean**：任务可到 1 天，更适合单人快速推进
 
 ## 初始化
 
@@ -122,27 +116,19 @@ Task 是**拆解与排序**阶段。它：
 
 ## 本 skill 不做的事
 
-- 不执行任务 — 使用 `impl` skill
-- 不重新决策设计问题 — 退回 `spec`
-- 不读取 wiki — 任务文件自包含，wiki 上下文留在 spec 中
-- 不跟踪进度/变更任务状态 — 这是 `impl` 通过状态行负责的
+- 不执行任务 —— 使用 `impl` skill
+- 不重新做高层方案选择 —— 退回 `brainstorm`
+- 不读取 wiki 作为执行依赖 —— 如需长期知识，由 brainstorm 显式摘要进 task-local context
 - 不自动触发 impl
 
 ## 何时不应激活
 
-- 用户想修一个一行 bug — 跳过 task，直接进入 impl
-- Spec 不完整（`status: draft`，含有 `TODO-DECIDE`）— 先定稿 spec
-- 用户仍在确定范围 — 使用 `spec` skill
-- 已存在且仍有效的任务文件 — 读取它，不要重做
+- 用户想修一个一行 bug —— 跳过 task，直接 impl
+- 用户仍在发散 / 还没形成可拆解的 brainstorm —— 先 research 或 brainstorm
+- 已存在且仍有效的任务文件 —— 读取并续用，不重做
 
-## 反模式
+## 兼容说明
 
-详见 [references/anti-patterns.md](references/anti-patterns.md)。快速列表：
-
-- 需要执行者去读 spec 的任务
-- 包含 `[[wikilinks]]` 的任务
-- 要求"调查 X"的任务（那是 research）
-- 包含"决定 Y"的任务（那是 spec）
-- 对琐碎工作的过度拆解（一个 30 行 PR 拆出 3 个任务）
-- 缺少 `depends-on` 声明（执行者只能猜测顺序）
-- 不可验证的验收标准（"看起来没问题"）
+- 首选输入：`.claude/brainstorms/<name>.md`
+- 兼容输入：`.claude/specs/<name>.md`
+- 旧 contract-style spec 仍可拆，但新 brainstorm 格式更适合大需求与来源追踪

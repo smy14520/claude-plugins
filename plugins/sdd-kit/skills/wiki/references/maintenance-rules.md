@@ -44,7 +44,7 @@
 
 操作：
 1. 在 `ai-customer-service.md` 的 `## 已接入渠道` 段落下插入 `- [[xhs-api]]`
-2. 在版本演进中追加：`- YYYY-MM: 接入小红书（[[spec-xhs-customer-channel]]）`
+2. 在版本演进中追加：`- YYYY-MM: 接入小红书（[[brainstorm-xhs-customer-channel]]）`
 
 ---
 

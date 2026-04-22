@@ -126,21 +126,21 @@
 |------|------|
 | `.claude/tasks/*.md` | ❌ 不得包含 wikilink |
 | `.claude/research/*.md` | 🟡 最少量，临时性的 |
-| `.claude/specs/*.md` | 🟢 可以链接 wiki 作为背景 |
+| `.claude/brainstorms/*.md` | 🟢 可以链接 wiki 作为背景 |
 | `.claude/wiki/*.md` | ✅ 自由链接 |
 
 ---
 
 ## ❌ AP8 —— 技能间的隐式自动串联
 
-**不要**将 wiki skill 设计为自动调用其他 skill（research / spec / task / impl）。同样，不要让其他 skill 静默调用 wiki 操作。
+**不要**将 wiki skill 设计为自动调用其他 skill（research / brainstorm / task / impl）。同样，不要让其他 skill 静默调用 wiki 操作。
 
 **原因**：用户已明确选择了非流水线式的、用户主导的工作流。每个阶段转换都是用户的决策。
 
 **正确做法**：
 
 - Wiki skill 返回结果。用户决定下一步。
-- 其他 skill 可以*提及* wiki 内容作为输入（例如 spec skill 可以说"如需引用先前方案，请执行 wiki query"），但绝不静默调用 wiki 操作。
+- 其他 skill 可以*提及* wiki 内容作为输入（例如 brainstorm skill 可以说"如需引用先前方案，请执行 wiki query"），但绝不静默调用 wiki 操作。
 
 ---
 

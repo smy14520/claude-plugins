@@ -9,151 +9,85 @@
 | 单任务最大尺寸 | ≤ 4h | ≤ 1 天 |
 | 单任务交付物数 | 恰好 1 个 | 1-3 个相关项 |
 | 单任务涉及文件数 | 通常 1-2 个 | 最多约 5 个 |
-| 提交粒度 | 1 个任务 = 1 次提交 | 1 个任务 = 1 到少量提交 |
 | 适用场景 | 多 agent / 多人；并行 impl；长期工作 | 单人开发；快速原型；有时间盒的工作 |
 | 仪式感 | 高（更多任务，显式 DAG） | 较低（更少任务，隐式顺序） |
-| 风险 | 对小工作过度拆分 | 任务过粗导致无法精确验证 |
+| 大需求处理 | 通过 milestone + child tasks | 通过较粗的 slice task |
 
 ## 如何选择
 
 ### 选 strict-atomic 的场景
 
 - 多个人或 agent 将并行执行
-- 工作跨度 > 1 周（需要稳定的交接点）
+- 工作跨度 > 1 周
 - 关键功能，每个单元需要独立审查
 - 用户明确要求并行
 
 ### 选 lean 的场景
 
-- 单人，1-2 天的工作量
-- 原型/实验，计划可能变化
-- 简单的 CRUD 类工作，切分点很明显
+- 单人，1-2 天工作量
+- 原型 / 实验，计划可能变化
+- 需求已经在 brainstorm 中收敛得较清楚
 - 过度拆分会增加超过价值的仪式感
 
 ### 默认值
 
-如果用户未指定：**strict-atomic**。宁可多拆也不要少拆；过粗的任务比过多的任务更糟。
+如果用户未指定：**strict-atomic**。
+
+## milestone / child task 启发式
+
+以下信号出现时，优先先写 milestone 再拆 task：
+
+- brainstorm 已列出多个独立交付物或切片
+- 需求跨多个表层（backend / frontend / data / docs）
+- 一个总任务很难直接判断 ready / blocked
+- 有明显的先后阶段（基础设施 → 核心行为 → 验证 / 文档）
+
+### 例子
+
+| Brainstorm 区块 | 典型任务种子 |
+|-----------------|-------------|
+| 关键场景 / 用户流 | handler / controller / page / form |
+| 交付物清单 | 文件、端点、模块、迁移 |
+| 拆解线索 / 切片建议 | milestone / shared module / sequence |
+| 风险 / 开放问题 / 假设 | ready-check / blockers |
+| Sources | task-local sources |
 
 ## strict-atomic 规则
 
-1. 每个任务有且仅有**一个** `deliverable:` 条目（不是"三个文件"）
-2. 每个任务有且仅有**一个**可验证的验收标准（可以是一个命令）
+1. 每个任务有且仅有一个 `deliverable:`
+2. 每个任务有显式 `context:` / `sources:` / `ready-check:`
 3. 估算范围 0.5h – 4h
-4. 共享模块始终是独立任务
-5. 测试可以是独立任务，也可以捆绑在功能任务中——两种都可接受；但在同一文件内保持一致
-
-### 示例（strict-atomic）
-
-```markdown
-- id: T-003
-  role: backend
-  title: "Implement POST /webhook/xhs handler"
-  deliverable: "src/webhooks/xhs-handler.ts"
-  depends-on: [T-001, T-002]
-  acceptance: |
-    - file: src/webhooks/xhs-handler.ts exports handleXhsWebhook(req)
-    - handler: returns 200 for signed requests, 401 for unsigned
-    - no tests in this task (T-005 covers tests)
-  estimate: 3h
-
-- id: T-005
-  role: test
-  title: "Tests for /webhook/xhs handler"
-  deliverable: "tests/webhooks/xhs-handler.test.ts"
-  depends-on: [T-003]
-  acceptance: |
-    - run: pnpm test tests/webhooks/xhs-handler.test.ts passes
-    - coverage: happy path + invalid signature + duplicate event_id
-  estimate: 2h
-```
+4. 共享模块优先独立成任务
+5. 如果某个 open question 只阻塞一个任务，只把它写进该任务的 `ready-check`，不要阻塞整个任务文件
 
 ## lean 规则
 
-1. 一个任务可以捆绑相关交付物（"处理器 + 其单元测试"）
-2. 仍然有单一的验收标准，但可以是多步的
+1. 一个任务可以捆绑相关交付物
+2. 仍需 task-local context 与 sources
 3. 估算最高 1 天（约 6-8h）
-4. 共享模块可以内联到第一个消费任务中；当出现第二个消费方时再提取
+4. milestone 可以更少，但仍建议对大 feature 至少分 2-3 个切片
 
-### 示例（lean）
-
-```markdown
-- id: T-003
-  role: backend
-  title: "Implement POST /webhook/xhs (handler + tests)"
-  deliverable: "src/webhooks/xhs-handler.ts + tests/webhooks/xhs-handler.test.ts"
-  depends-on: [T-001, T-002]
-  acceptance: |
-    - file: src/webhooks/xhs-handler.ts exports handleXhsWebhook(req)
-    - run: pnpm test tests/webhooks/xhs-handler.test.ts passes (≥ 3 cases: happy, invalid-sig, replay)
-  estimate: 5h
-```
-
-## 拆分启发式规则（两种模式通用）
+## 共同启发式
 
 ### "我能独立验证什么？" 测试
 
-如果一个交付物必须先验证另一个才能验证自己，那么它依赖于那一个。这个依赖关系就是 `depends-on`。
+如果一个交付物必须先验证另一个才能验证自己，那么它依赖于那一个。这个依赖就是 `depends-on`。
 
-### "单一关注点" 测试
+### "执行者还需要回到 brainstorm 吗？" 测试
 
-一个任务应该只有一个变更理由。如果你能想象同一个任务会产生两个 PR，那就拆分。
+如果某个任务需要执行者回去读 brainstorm 才能知道自己做什么，说明 `context:` 仍不够。
 
-### "太小" 的气味
+### "哪些来源真的和这个任务相关？" 测试
 
-如果一个任务：
-
-- 估算 < 30 分钟
-- 交付物实际上只有一行（"添加功能开关"）
-- 无依赖，也无被依赖
-
-考虑内联到下一个任务中。微型任务会堆积仪式感。
+不要把 brainstorm 的全部来源都搬进任务。只列与本任务有关的 `SRC-*`。
 
 ### "太大" 的气味
 
 如果一个任务：
 
-- 估算超过模式上限（strict-atomic 的 4h / lean 的 1 天）
-- 交付物是一个列表（"迁移 X，重写 Y，添加 Z"）
-- 多条 `notes:` 说"还需要处理……"
+- 估算超过模式上限
+- 同时覆盖多个里程碑目标
+- 有多个互不相干的来源束
+- `context:` 写成了半页文档
 
 拆分。
-
-## 常见拆分分类
-
-从以下 spec 章节推导任务：
-
-| Spec 章节 | 典型任务 |
-|----------|---------|
-| 数据/状态设计 | 迁移、种子数据、模式测试 |
-| 接口契约 | 处理器、控制器、API 客户端、验证器 |
-| 约束条件 | 速率限制器、认证中间件、签名验证器 |
-| 集成点 | 生产者、消费者、适配器 |
-| 测试策略 | 单元/集成/负载测试任务 |
-| 可观测性 | 指标发射器、日志增强器、仪表盘 |
-
-将这些作为种子列表；不是每个 spec 都需要每个分类。
-
-## 如何决定任务顺序
-
-依赖 DAG 从谁消费谁的关系中自然产生：
-
-1. 存储优先（迁移、模式）——下游没有它就无法工作
-2. 共享工具其次（签名验证器、HTTP 客户端等）
-3. 核心逻辑（处理器、领域服务）
-4. 集成（事件生产者/消费者）
-5. 测试（与 #3 并行或之后，按项目惯例）
-6. DevOps 最后（部署配置、功能开关）——除非是阻断性的（如密钥必须在代码运行前存在）
-
-如果你发现自己写了一个引用"待后续添加"内容的任务，那就是一个依赖。显式声明它。
-
-## 重新拆分触发条件
-
-初始任务文件是 lean → impl 遇到阻碍 → 揭示了隐藏依赖 → 对该任务进一步拆分。
-
-允许；做法：
-
-1. 将父任务 `status` 改为 `split`
-2. 添加新的子任务，使用新 ID，depends-on 继承父任务的依赖
-3. Impl 接手新的原子任务
-
-绝不静默编辑父任务；保留操作轨迹。

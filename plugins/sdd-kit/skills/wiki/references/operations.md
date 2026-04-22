@@ -120,7 +120,7 @@ grep -l "tags:.*\b<tag>\b" .claude/wiki/*.md | xargs grep -l "tags:.*\broot\b"
 
 ## Query
 
-为特定任务（例如 spec 起草）检索知识。只读操作。
+为特定任务（例如 brainstorm 起草）检索知识。只读操作。
 
 ### 触发指令
 
