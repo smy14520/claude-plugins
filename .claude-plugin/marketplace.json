@@ -10,8 +10,8 @@
   "plugins": [
     {
       "name": "sdd-kit",
-      "description": "Spec-Driven Development + Karpathy-style persistent wiki. 5 skills: research / spec / task / impl / wiki. Skill-first, no commands/agents. Phases independent; user controls transitions.",
-      "version": "0.3.0",
+      "description": "SDD workflow + deterministic .arbor task packages + Karpathy-style persistent wiki. Skills: research / map / brainstorm / task / impl / review / wiki. Skill-first, no commands/agents. Phases independent; user controls transitions.",
+      "version": "0.4.0",
       "source": "./plugins/sdd-kit",
       "category": "development",
       "author": {

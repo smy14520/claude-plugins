@@ -1,11 +1,11 @@
 ---
 name: research
-description: "Index-first requirement exploration workspace for ambiguous needs before freezing them into brainstorm. Produces `.claude/research/<topic>/` with `index.md`, append-only `log.md`, source-backed `raw/`, and topic notes under `notes/`. Encourages clarifying questions, supports multiple passes, and narrows understanding over time. Does NOT make final design decisions, write project policy, or auto-advance. Invoke only on explicit user request (e.g. '用 research skill 调研 <topic>')."
+description: "Index-first requirement exploration workspace for ambiguous needs before freezing them into a package-local PRD via brainstorm. Produces `.arbor/research/<topic>/` with `index.md`, append-only `log.md`, source-backed `raw/`, and topic notes under `notes/`. Encourages clarifying questions, supports multiple passes, and narrows understanding over time. Does NOT make final design decisions, write project policy, or auto-advance. Invoke only on explicit user request (e.g. '用 research skill 调研 <topic>')."
 ---
 
 # Research — Index-first 需求探索工作区
 
-在 `.claude/research/<topic>/` 下维护一个**带导航、可续写、带来源**的探索工作区。Research 的目标不是一次性收集资料，而是把模糊需求从**发散**逐步推进到“**足够收敛，值得进入 brainstorm**”。
+在 `.arbor/research/<topic>/` 下维护一个**带导航、可续写、带来源**的探索工作区。Research 的目标不是一次性收集资料，而是把模糊需求从**发散**逐步推进到“**足够收敛，值得进入 brainstorm 并写入 `.arbor/tasks/<name>/prd.md`**”。
 
 Research 采用 **index-first** 模式：
 
@@ -32,7 +32,7 @@ Research 是**发散 → 收敛**阶段。它：
 - **不做**最终设计决策
 - **不自动**推进到 `brainstorm`
 
-当研究结果已经足够收敛、适合冻结时，才进入 `brainstorm`。`brainstorm` 负责**收敛 → 形成可拆解 PRD/context artifact**，不是 research 第一次真正搞懂需求的地方。
+当研究结果已经足够收敛、适合冻结时，才进入 `brainstorm`。`brainstorm` 负责**收敛 → 形成 package-local PRD/context artifact（`.arbor/tasks/<name>/prd.md`）**，不是 research 第一次真正搞懂需求的地方。
 
 ## 六个原语
 

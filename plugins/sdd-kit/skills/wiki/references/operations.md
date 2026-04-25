@@ -42,7 +42,7 @@
 **步骤 3 —— 检查是否已存在**
 
 ```bash
-ls .claude/wiki/<filename>.md
+ls .arbor/wiki/<filename>.md
 ```
 
 如果已存在：
@@ -62,7 +62,7 @@ ls .claude/wiki/<filename>.md
 扫描新页面的 `tags:` frontmatter。对每个标签：
 
 ```bash
-grep -l "tags:.*\b<tag>\b" .claude/wiki/*.md | xargs grep -l "tags:.*\broot\b"
+grep -l "tags:.*\b<tag>\b" .arbor/wiki/*.md | xargs grep -l "tags:.*\broot\b"
 ```
 
 候选者是标签有重叠的根页面。
@@ -93,7 +93,7 @@ grep -l "tags:.*\b<tag>\b" .claude/wiki/*.md | xargs grep -l "tags:.*\broot\b"
 ```
 ✅ Ingest 完成
 
-- 新建页面: .claude/wiki/<name>.md (<type>)
+- 新建页面: .arbor/wiki/<name>.md (<type>)
 - 归属 root: [[<root-name>]] (已更新)
 - 待补充段落: <section-a>, <section-b>
 - Log: 已追加
@@ -134,7 +134,7 @@ grep -l "tags:.*\b<tag>\b" .claude/wiki/*.md | xargs grep -l "tags:.*\broot\b"
 **步骤 1 —— 读取 index.md**
 
 ```bash
-cat .claude/wiki/index.md
+cat .arbor/wiki/index.md
 ```
 
 识别五个段落中的相关条目：

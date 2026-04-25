@@ -14,7 +14,7 @@
 
 **症状**：任务对 TTL / 重试次数 / URL 有歧义，执行者自行拍板。
 
-**修复方式**：发出 NEEDS_CONTEXT，并引用具体来源（`brainstorm §X / task <field> / SRC-...`）。
+**修复方式**：发出 NEEDS_CONTEXT，并引用具体来源（`PRD §X / task <field> / SRC-...`）。
 
 ---
 
@@ -48,16 +48,16 @@
 
 ---
 
-## 8. 过度依赖重读 brainstorm
+## 8. 过度依赖重读 PRD
 
-**症状**：每个 task 都重新把整个 brainstorm 当主要输入。
+**症状**：每个 task 都重新把整个 PRD 当主要输入。
 
 **为什么错误**：这会让 task-local 冻结失去意义，重新把高层歧义带回 impl。
 
-**修复方式**：优先信任 task 的 `context + sources + ready-check`。只有在局部背景不足时才回读 brainstorm。
+**修复方式**：优先信任 task 的 `context + sources + ready-check`。只有在局部背景不足时才回读 PRD。
 
 ---
 
-## 9. 重写 brainstorm 以匹配 impl
+## 9. 重写 PRD 以匹配 impl
 
-**修复方式**：impl 不是 brainstorm 的权威。若认为上游文档有误，发 NEEDS_CONTEXT 或留给 review 标记 `BRAINSTORM_DRIFT`。
+**修复方式**：impl 不是 PRD 的权威。若认为上游文档有误，发 NEEDS_CONTEXT 或留给 review 标记 `BRAINSTORM_DRIFT`。

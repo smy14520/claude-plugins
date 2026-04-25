@@ -1,10 +1,10 @@
 # 四态审查状态机
 
-Review 衡量的是：**diff 是否在语义上满足 brainstorm + task**。
+Review 衡量的是：**diff 是否在语义上满足 PRD + task**。
 
 ## APPROVED
 
-**含义**：diff 实现了 brainstorm 的目标，遵守 task 范围，满足关键约束。无保留意见。
+**含义**：diff 实现了 PRD 的目标，遵守 task 范围，满足关键约束。无保留意见。
 
 ## APPROVED_WITH_NOTES
 
@@ -12,8 +12,8 @@ Review 衡量的是：**diff 是否在语义上满足 brainstorm + task**。
 
 ## NEEDS_REWORK
 
-**含义**：diff 与 brainstorm / task 之间存在语义缺口。Impl 必须重新处理。
+**含义**：diff 与 PRD / task 之间存在语义缺口。Impl 必须重新处理。
 
 ## BRAINSTORM_DRIFT
 
-**含义**：diff 看起来合理，但 brainstorm 本身是错误的、失效的或不可行的。退回 brainstorm，而非 impl。
+**含义**：diff 看起来合理，但 PRD 本身是错误的、失效的或不可行的。退回 brainstorm 更新 `prd.md`，而非 impl。

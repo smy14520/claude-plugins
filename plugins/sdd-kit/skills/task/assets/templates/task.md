@@ -1,26 +1,28 @@
 ---
-source: <brainstorm-name | legacy-spec-name | null if ad-hoc>
-source_type: brainstorm | legacy-spec | ad-hoc
+package: <feature-name>
+source: prd.md
+source_type: package-prd | legacy-brainstorm | ad-hoc
 mode: strict-atomic | lean
 date: YYYY-MM-DD
-status: draft | confirmed | in-progress | done
 ---
 
 # 任务: <feature-name>
 
 <!-- 输出语言: 中文 -->
 <!--
-  任务文件约定（强制执行）：
+  任务定义约定（强制执行）：
   - 禁止 wikilinks。本文件应自包含。
   - 禁止高层决策。每个任务仅包含可执行操作。
   - ID 只允许追加，不得重新编号。
   - 每条验收条件必须是可执行命令或二元谓词。
   - 每个任务必须有 task-local context、sources 和 ready-check。
+  - impl 不得修改本文件；执行状态只写入 task.json。
+  - review 不得修改本文件；审计记录追加到 review.md，latest review state 写入 task.json。
 -->
 
 ## 概览
 
-- 来源: <brainstorm-name / legacy-spec-name / ad-hoc>
+- 来源: `prd.md`
 - 模式: <strict-atomic | lean>
 - 总任务数: <N>
 - milestone 数: <N>
@@ -97,14 +99,3 @@ M-02
     - on invalid signature: returns 401
   estimate: 3h
   notes: ""
-
-## 状态日志
-
-（impl 在任务推进时追加。请勿手动编辑。）
-
-<!-- format: `- [x] T-NNN (STATE) — YYYY-MM-DD HH:MM — note` -->
-<!-- STATE ∈ { DONE | DONE_WITH_CONCERNS | NEEDS_CONTEXT | BLOCKED } -->
-
-## Review log
-
-（review 在语义审计时追加。请勿手动编辑。）

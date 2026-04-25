@@ -35,7 +35,7 @@ Impl 报告且仅报告以下四种状态之一。本文件给出定义、退出
 
 ### 何时使用
 
-- task 说 X，brainstorm 背景暗示 Y，二者冲突
+- task 说 X，PRD 背景暗示 Y，二者冲突
 - acceptance 引用了不存在的文件/命令
 - 缺少影响行为的具体值（TTL、重试次数、URL、枚举选择）
 - 存在两种合理实现方案且 task 未冻结选择
@@ -46,8 +46,8 @@ Impl 报告且仅报告以下四种状态之一。本文件给出定义、退出
 
 - **受阻于**：一句话概述歧义所在
 - **所需信息**：能解除阻塞的具体问题
-- **歧义来源**：位于 brainstorm / task / source 的何处
-- **建议解决方案**：对 brainstorm 或 task 做什么变更可解除阻塞
+- **歧义来源**：位于 PRD / task / source 的何处
+- **建议解决方案**：对 PRD 或 task 做什么变更可解除阻塞
 - **代码状态**：no code changes 或 partial
 
 ---
@@ -70,5 +70,5 @@ Impl 报告且仅报告以下四种状态之一。本文件给出定义、退出
 
 如果一个任务经历 NEEDS_CONTEXT / BLOCKED 3 次以上，提示用户：
 - task 可能拆分不当（回 task）
-- 或 brainstorm 仍有关键歧义（回 brainstorm）
+- 或 PRD 仍有关键歧义（回 brainstorm 更新 `prd.md`）
 - 或 research 还不够（回 research）

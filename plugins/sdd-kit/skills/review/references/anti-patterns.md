@@ -18,7 +18,7 @@ APPROVED 不能只是 "LGTM"。至少要说明 goal / scope / constraints / diff
 
 ## 3. 将"验收通过"等同于"上游意图已满足"
 
-验收成功只是必要条件，不是充分条件。Review 仍须检查 brainstorm + task 语义。
+验收成功只是必要条件，不是充分条件。Review 仍须检查 PRD + task 语义。
 
 ---
 
@@ -40,9 +40,9 @@ Review 是只读的。修复属于 impl 的下一轮。
 
 ---
 
-## 7. 用 BRAINSTORM_DRIFT 表示“brainstorm 可以更清晰”
+## 7. 用 BRAINSTORM_DRIFT 表示“PRD 可以更清晰”
 
-只有在 brainstorm 真正错误、失效、不可行时才用 drift。
+只有在 PRD 真正错误、失效、不可行时才用 drift。
 
 ---
 

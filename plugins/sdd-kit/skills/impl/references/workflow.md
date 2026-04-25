@@ -2,7 +2,7 @@
 
 四个原语的详细流程。SKILL.md 给出高层步骤；本文件给出完整工作流，包括边界情况和 ad-hoc 模式。
 
-> **范围提醒**：Impl 的 `SelfCheck` 只运行任务自身的 `acceptance:` 命令。它不对 brainstorm 做语义审计——那是 `review` skill 的职责。
+> **范围提醒**：Impl 的 `SelfCheck` 只运行任务自身的 `acceptance:` 命令。它不对 PRD 做语义审计——那是 `review` skill 的职责。
 
 ---
 
@@ -12,16 +12,17 @@
 
 - "实施 T-003"
 - "执行下一个 task"
-- "run next task for brainstorm X"
+- "run next task for package X"
 - "start impl on <task-file>"
 
 ### 完整流程
 
-1. 定位 task 文件
-2. 读取任务列表 + 状态日志
-3. 查找可执行任务：Pending + `depends-on` 满足 + `ready-check` 无阻塞
+1. 定位 task package：`.arbor/tasks/<name>/task.md`，并读取 `.arbor/tasks/<name>/task.json`、`prd.md`、`context/impl.jsonl`、`context/sources.jsonl`
+2. 读取任务列表 + 结构化状态元数据
+3. 查找可执行任务：`ready` + `depends_on` 满足 + `ready-check` 无阻塞
 4. 如果用户指定具体 ID，但该任务仍被 blockers 阻塞，明确指出 blockers
 5. 选择后向用户确认再执行
+6. 开始执行时用 `tools/arbor.py set-status <name> --task T-xxx --state in_progress --actor impl --note "implementation started"` 记录 active task
 
 ## Execute
 
@@ -29,9 +30,9 @@
 
 1. 读取 `deliverable + acceptance + context + sources + notes`
 2. 规划最小差异：能让所有 acceptance 通过的最小变更
-3. 按需读取 brainstorm 作为背景，但不重新做高层选择
+3. 按需读取 package-local `prd.md` 作为背景，但不重新做高层选择
 4. 处理歧义：
-   - task 说 X，brainstorm 背景暗示 Y，但 task 未冻结 → `NEEDS_CONTEXT`
+   - task 说 X，PRD 背景暗示 Y，但 task 未冻结 → `NEEDS_CONTEXT`
    - acceptance 提到了不存在的命令/文件 → `NEEDS_CONTEXT`
    - ready-check 明确指出 blocker 未解除 → `BLOCKED`
 
@@ -46,6 +47,7 @@
 
 ## Report
 
-- 向 `## Status log` 追加状态行
-- NEEDS_CONTEXT 行可引用：`brainstorm §X / task <field> / SRC-...`
-- 绝不改写既有状态行
+- 使用 `tools/arbor.py set-status` / `set-phase` 更新 `.arbor/tasks/<name>/task.json`：对应 T-xxx 的 `state`、`updated_at`，必要时更新 `active_task`、`current_phase`、`next_action`，并追加 `phase_history`
+- 如需补充实现阶段上下文，用 `tools/arbor.py add-context <name> --type impl ...` 追加到 `context/impl.jsonl`
+- NEEDS_CONTEXT 行可引用：`prd.md §X / task <field> / SRC-...`
+- 绝不修改 `task.md`；不要创建 markdown TODO/status checklist

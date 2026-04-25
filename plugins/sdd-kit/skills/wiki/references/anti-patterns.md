@@ -124,10 +124,11 @@
 
 | 文档 | Wikilink 策略 |
 |------|------|
-| `.claude/tasks/*.md` | ❌ 不得包含 wikilink |
-| `.claude/research/*.md` | 🟡 最少量，临时性的 |
-| `.claude/brainstorms/*.md` | 🟢 可以链接 wiki 作为背景 |
-| `.claude/wiki/*.md` | ✅ 自由链接 |
+| `.arbor/tasks/**/task.md` | ❌ 不得包含 wikilink |
+| `.arbor/tasks/**/prd.md` | 🟢 可以链接 wiki 作为背景，但正文必须自解释 |
+| `.arbor/research/**/*.md` | 🟡 最少量，临时性的 |
+| `.arbor/brainstorms/*.md` | 🟡 legacy fallback only，不再作为新产物 |
+| `.arbor/wiki/*.md` | ✅ 自由链接 |
 
 ---
 

@@ -6,34 +6,36 @@
 
 ## 拆分
 
-将 brainstorm（或兼容 legacy spec）拆解为 milestone + executable task。
+将 package-local PRD 拆解为 milestone + executable task。
 
 ### 触发短语
 
-- "拆任务 X" / "把 brainstorm X 变成任务"
-- "plan X" / "break down brainstorm X"
+- "拆任务 X" / "把 PRD X 变成任务"
+- "plan X" / "break down package X"
 - "生成 task 计划"
 
 ### 完整流程
 
 **步骤 1 — 解析输入**
 
-情况 A：`.claude/brainstorms/<name>.md` 存在
+情况 A：`.arbor/tasks/<name>/prd.md` 存在
 
 - 读取。检查前置元数据：
   - `ready-for-task` → 继续
   - `draft` / `revising` → 允许继续，但只冻结不被其 open question 阻塞的任务
-  - `superseded` → 询问是否改用新文档
+  - `superseded` → 询问是否改用新 package
 
-情况 B：只有 legacy `.claude/specs/<name>.md`
+情况 B：只有 legacy `.arbor/brainstorms/<name>.md` 存在
 
-- 读取并标记 `source_type: legacy-spec`
-- 兼容拆解，但提示用户新格式首选 brainstorm
+- 作为 legacy input 读取
+- 提示迁入 `.arbor/tasks/<name>/prd.md`
+- 将仍然有效的目标、范围、场景、约束、sources 显式摘要进 package-local `prd.md`
+- 后续 task/impl/review 不得依赖旧路径；新建/更新只写 package-local 文件，不再写 `.arbor/brainstorms/<name>.md`
 
 情况 C：无文件，用户给出会话内目标
 
 - 先确认目标与 acceptance
-- 创建 ad-hoc task 文件
+- 创建 ad-hoc task package：`python3 plugins/sdd-kit/tools/arbor.py create <name> --source-type ad-hoc`
 
 **步骤 2 — 询问模式**
 
@@ -46,7 +48,7 @@
 
 **步骤 3 — 先决定是否需要 milestone**
 
-若 brainstorm 中出现以下信号，先分 milestone：
+若 PRD 中出现以下信号，先分 milestone：
 - 多个交付物簇
 - 多个切片 / 阶段
 - 明显的前后顺序
@@ -79,15 +81,56 @@
 
 **步骤 5 — 输出草稿供确认**
 
-在用户确认前先给出任务草稿摘要。确认后再写入最终文件。
+在用户确认前先给出任务草稿摘要。确认后再写入 `.arbor/tasks/<name>/` task package：
+
+```text
+.arbor/tasks/<name>/
+├── prd.md
+├── task.md
+├── task.json
+├── review.md
+└── context/
+    ├── impl.jsonl
+    ├── review.jsonl
+    └── sources.jsonl
+```
+
+- `prd.md`：package-local PRD/context artifact；brainstorm skill 创建/维护
+- `task.md`：稳定任务定义；task skill 创建/追加，impl/review 不改
+- `task.json`：唯一生命周期状态源；由 `tools/arbor.py` 机械维护 ready/blockers/dependencies/lifecycle
+- `review.md`：review 追加四状态语义审计记录；不作为当前 review 状态源
+- `context/*.jsonl`：阶段特定轻量上下文 packet，不做自动注入
+- `status.md`：已废弃，新的 task package 不得创建
+
+**步骤 6 — 同步机器状态**
+
+对每个 T-xxx，调用：
+
+```text
+python3 plugins/sdd-kit/tools/arbor.py add-child <name> --id T-001 --title "ADD ..." --milestone M-01 --role shared --depends-on "" --ready true
+```
+
+对阶段上下文，调用：
+
+```text
+python3 plugins/sdd-kit/tools/arbor.py add-context <name> --type impl --task T-001 --kind constraint --source SRC-LOCAL-001 --summary "..."
+python3 plugins/sdd-kit/tools/arbor.py add-context <name> --type review --task T-001 --kind acceptance --source SRC-RES-001 --summary "..."
+```
+
+最后冻结任务定义并校验：
+
+```text
+python3 plugins/sdd-kit/tools/arbor.py freeze-definition <name> --actor task --note "task definition frozen"
+python3 plugins/sdd-kit/tools/arbor.py validate <name>
+```
 
 ### 边界情况
 
-**情况：brainstorm 仍有开放问题**
+**情况：PRD 仍有开放问题**
 
-不要机械阻断。只要某个问题不阻塞某个具体任务，就允许继续拆解。把阻塞写进该任务的 `ready-check`。
+不要机械阻断。只要某个问题不阻塞某个具体任务，就允许继续拆解。把阻塞写进该任务的 `ready-check`，并用 `add-child --ready false --blocker "..."` 记录到 `task.json`。
 
-**情况：brainstorm 太空，无法拆分**
+**情况：PRD 太空，无法拆分**
 
 提示用户回到 brainstorm 补充：
 - 关键场景
@@ -96,7 +139,7 @@
 
 **情况：来源太多**
 
-只保留和该任务直接相关的 `SRC-*`。不要把整个 brainstorm 附录复制进每个任务。
+只保留和该任务直接相关的 `SRC-*`。不要把整个 PRD 附录复制进每个任务。
 
 ---
 
@@ -124,6 +167,7 @@
 2. 环检测
 3. 输出 ASCII 依赖图
 4. 输出关键路径、可并行分支、当前 ready 任务列表
+5. 使用 `arbor.py validate <name>` 做机械引用和环检测
 
 ---
 
@@ -136,5 +180,7 @@
 - `devops`
 - `shared`
 - `test`
+- `docs`
+- `fullstack`
 
 如用户未指定，可自动建议。

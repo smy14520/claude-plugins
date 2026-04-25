@@ -1,0 +1,59 @@
+{
+  "schema_version": "arbor-task-v1",
+  "name": "<feature-name>",
+  "title": "<feature title>",
+  "package_path": ".arbor/tasks/<feature-name>",
+  "created_at": "YYYY-MM-DDTHH:MM:SSZ",
+  "updated_at": "YYYY-MM-DDTHH:MM:SSZ",
+  "completed_at": null,
+  "prd": {
+    "file": "prd.md",
+    "status": "draft",
+    "source_type": "new | legacy-brainstorm | ad-hoc",
+    "legacy_source": null,
+    "ready_for_task_at": null
+  },
+  "definition": {
+    "task_md": "task.md",
+    "frozen": false,
+    "version": 0,
+    "updated_at": null
+  },
+  "mode": "strict-atomic | lean",
+  "state": "planned",
+  "current_phase": "brainstorm",
+  "active_task": null,
+  "next_action": {
+    "skill": "brainstorm",
+    "task_id": null,
+    "reason": "prd draft created"
+  },
+  "tasks": [
+    {
+      "id": "T-001",
+      "title": "<short title>",
+      "milestone": "M-01",
+      "role": "backend | frontend | data | devops | shared | test | docs | fullstack",
+      "state": "ready",
+      "depends_on": [],
+      "ready": true,
+      "blockers": [],
+      "attempts": 0,
+      "last_impl_result": null,
+      "last_review_result": null,
+      "created_at": "YYYY-MM-DDTHH:MM:SSZ",
+      "updated_at": "YYYY-MM-DDTHH:MM:SSZ"
+    }
+  ],
+  "phase_history": [
+    {
+      "at": "YYYY-MM-DDTHH:MM:SSZ",
+      "phase": "brainstorm",
+      "task_id": null,
+      "from": null,
+      "to": "planned",
+      "actor": "arbor",
+      "note": "task package created"
+    }
+  ]
+}

@@ -1,18 +1,18 @@
 ---
 name: wiki
-description: "Manage the project's persistent knowledge wiki at `.claude/wiki/` — structured pages with wikilinks, Karpathy LLM-Wiki pattern (NOT vector retrieval). Pages carry type=entity|concept|gotcha|decision|source in frontmatter; root pages (tag=root) serve as domain hubs. Three primitives: Ingest (record new knowledge), Query (read index → root → selective follow), Lint (orphans / broken links / stale roots). Invoke only on explicit user request (e.g. '用 wiki skill ingest / query / lint …')."
+description: "Manage the project's persistent knowledge wiki at `.arbor/wiki/` — structured pages with wikilinks, Karpathy LLM-Wiki pattern (NOT vector retrieval). Pages carry type=entity|concept|gotcha|decision|source in frontmatter; root pages (tag=root) serve as domain hubs. Three primitives: Ingest (record new knowledge), Query (read index → root → selective follow), Lint (orphans / broken links / stale roots). Invoke only on explicit user request (e.g. '用 wiki skill ingest / query / lint …')."
 ---
 
 # Wiki — 持久化知识管理
 
-将 `.claude/wiki/` 作为跨迭代的结构化知识图谱来管理。用户提供判断力和原始素材，本 skill 负责簿记工作。
+将 `.arbor/wiki/` 作为跨迭代的结构化知识图谱来管理。用户提供判断力和原始素材，本 skill 负责簿记工作。
 
 ## 定位
 
 本 skill 是 Karpathy 三层 LLM-Wiki 架构中的 **schema 层**：
 
-- 原始素材 → `.claude/research/`、代码、外部文档
-- **Wiki（本 skill 维护）** → `.claude/wiki/`
+- 原始素材 → `.arbor/research/`、代码、外部文档
+- **Wiki（本 skill 维护）** → `.arbor/wiki/`
 - **Schema（本 SKILL.md + references/）** → 告诉 LLM 如何维护 wiki
 
 **核心原则**：知识是*编译产物*，而非实时检索的结果。LLM 扮演图书管理员的角色。
@@ -41,7 +41,7 @@ description: "Manage the project's persistent knowledge wiki at `.claude/wiki/` 
 
 流程：
 
-1. 读取 `.claude/wiki/index.md` → 定位相关的 root 页面或跨领域页面
+1. 读取 `.arbor/wiki/index.md` → 定位相关的 root 页面或跨领域页面
 2. 读取 root 页面 → 扫描其分组 wikilink
 3. 根据用户的实际需求有选择地跟踪 wikilink（不要全部读取）
 4. 返回结构化摘要：已读页面、每页关键发现、相关但未读的线索
@@ -63,7 +63,7 @@ description: "Manage the project's persistent knowledge wiki at `.claude/wiki/` 
 ## 目录结构
 
 ```
-.claude/wiki/
+.arbor/wiki/
 ├── index.md          # 导航（仅包含 root + 跨领域 + source + 孤立页面）
 ├── log.md            # 仅追加的操作日志
 │
@@ -84,17 +84,17 @@ description: "Manage the project's persistent knowledge wiki at `.claude/wiki/` 
 5. **entity 页面是聚合视图，而非代码镜像** — 记录那些需要阅读 5 个以上文件才能还原的信息；不要记录单个文件或 IDE 索引已经提供的信息。参见 [references/page-types.md#entity](references/page-types.md)。
 6. **Wikilink 策略**：
    - ✅ Wiki 页面之间可自由链接
-   - ✅ Spec 文件可以链接到 wiki 页面（作为背景提示）
+   - ✅ package PRD（`.arbor/tasks/**/prd.md`）可以链接到 wiki 页面（作为背景提示）
    - ❌ **Task 文件禁止包含 wikilink**（执行计划必须自包含）
    - ❌ Research 笔记很少需要 wikilink（临时性质）
 
 ## 初始化
 
-若 `.claude/wiki/` 不存在，则从 [assets/templates/](assets/templates/) 创建种子文件：
+若 `.arbor/wiki/` 不存在，则从 [assets/templates/](assets/templates/) 创建种子文件：
 
 ```
-.claude/wiki/index.md    ← 来自 assets/templates/index.md
-.claude/wiki/log.md      ← 来自 assets/templates/log.md
+.arbor/wiki/index.md    ← 来自 assets/templates/index.md
+.arbor/wiki/log.md      ← 来自 assets/templates/log.md
 ```
 
 创建完成后，在 `log.md` 中追加：

@@ -44,7 +44,7 @@
 
 操作：
 1. 在 `ai-customer-service.md` 的 `## 已接入渠道` 段落下插入 `- [[xhs-api]]`
-2. 在版本演进中追加：`- YYYY-MM: 接入小红书（[[brainstorm-xhs-customer-channel]]）`
+2. 在版本演进中追加：`- YYYY-MM: 接入小红书（来源：.arbor/tasks/xhs-customer-channel/prd.md）`
 
 ---
 
@@ -104,7 +104,7 @@ Promotion procedure:
 - 页面 `P` 是孤立页面，当：
   - `P` 不是根页面（没有 `tags: [root]`）
   - `P` 不是 `source-*.md`
-  - `.claude/wiki/` 中没有其他页面包含 `[[P]]`
+  - `.arbor/wiki/` 中没有其他页面包含 `[[P]]`
 
 **操作**：
 

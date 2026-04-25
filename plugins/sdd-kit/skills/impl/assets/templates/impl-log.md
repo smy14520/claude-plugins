@@ -10,7 +10,7 @@
   - 用户明确需要累积记录
   - 跨会话工作并需要上下文延续
 
-  对于单次任务运行，任务文件中的 ## Status log 已足够。
+  对于单次任务运行，task package 的 task.json 已足够。
 -->
 
 ## [YYYY-MM-DD HH:MM] T-001 DONE

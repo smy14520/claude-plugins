@@ -1,21 +1,20 @@
 # Review 工作流：收集 / 判定 / 报告
 
-Review 对 impl 产出执行**语义审计**，依据是 brainstorm + task + diff +（可选）wiki。它绝不修改代码、brainstorm 或任务。
+Review 对 impl 产出执行**语义审计**，依据是 package-local PRD + task package + diff +（可选）wiki。它绝不修改代码、`prd.md` 或任务定义。
 
 ## 收集
 
 1. 解析目标（task ID / 文件 / 最近 DONE）
-2. 解析 brainstorm：
-   - 优先从任务头部的 `source` / `source_type` 找到 `.claude/brainstorms/<name>.md`
-   - 若是 legacy-spec，则读取 `.claude/specs/<name>.md`
-   - 若无上游文档，则退回轻量审查
-3. 读取任务条目 + 状态日志
+2. 读取 package-local PRD：`.arbor/tasks/<name>/prd.md`
+   - 若缺失，可读取 legacy `.arbor/brainstorms/<name>.md` 作为 fallback
+   - fallback 必须在报告中标为迁移风险；新流程应回 brainstorm 迁入 `prd.md`
+3. 读取 task package 的 `task.md` + `task.json` + 可选 `context/review.jsonl`
 4. 检查实际 diff
 5. 可选做 wiki 交叉检查
 
 ## 判定
 
-将 diff 与 brainstorm + task 仔细比对：
+将 diff 与 PRD + task 仔细比对：
 - 目标 / Desired outcomes 是否被覆盖
 - In scope / Out of scope 是否被尊重
 - task 的 deliverable / acceptance / context / ready-check 是否被满足
@@ -31,10 +30,12 @@ Review 对 impl 产出执行**语义审计**，依据是 brainstorm + task + dif
 
 ## 报告
 
-- 追加到 `## Review log`
+- 追加到 `.arbor/tasks/<name>/review.md`
+- 使用 `tools/arbor.py set-status` / `set-phase` 同步更新 `.arbor/tasks/<name>/task.json` 中对应 T-xxx 的 `state`、`updated_at`、顶层 `state/current_phase/next_action`，并追加 `phase_history`
+- `review.md` 是人类可读审计日志；当前 review 状态以 `task.json` 为准
 - 结构化摘要中说明：
   - 审查对象
-  - 依据的 brainstorm / task / diff
+  - 依据的 PRD / task / diff
   - 关键证据
   - 建议下一步
 
@@ -42,4 +43,4 @@ Review 对 impl 产出执行**语义审计**，依据是 brainstorm + task + dif
 - APPROVED → 可继续合并 / 发布
 - APPROVED_WITH_NOTES → 可继续，但建议 follow-up
 - NEEDS_REWORK → 回 `/sdd-kit:impl`
-- BRAINSTORM_DRIFT → 回 `/sdd-kit:brainstorm`
+- BRAINSTORM_DRIFT → 回 `/sdd-kit:brainstorm` 更新 package-local `prd.md`
