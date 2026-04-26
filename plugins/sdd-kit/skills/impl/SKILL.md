@@ -1,6 +1,6 @@
 ---
 name: impl
-description: "Execute a task (or ad-hoc goal) as actual code changes. Picks a task from `.arbor/tasks/<name>/task.md`, reads lifecycle metadata from `.arbor/tasks/<name>/task.json`, consumes package-local `.arbor/tasks/<name>/prd.md` and `context/impl.jsonl` as needed, writes code to meet acceptance, runs its own acceptance commands (self-check, not semantic review), and updates task state through `tools/arbor.py` with a strict 4-state result (DONE / DONE_WITH_CONCERNS / NEEDS_CONTEXT / BLOCKED). Never claims DONE without passing `acceptance:` commands. Semantic audit against PRD + task + diff is the review skill's job. Works without a task file too. Invoke only on explicit user request (e.g. '用 impl skill 执行 <task-id>')."
+description: "Execute a package-local T-xxx task (or ad-hoc goal) as actual code changes inside the package execution boundary. Picks a T-xxx from `.arbor/tasks/<name>/task.md`, reads lifecycle metadata from `.arbor/tasks/<name>/task.json`, consumes package-local PRD/context as needed, writes code to meet acceptance, runs self-check commands, and updates task state through `tools/arbor.py` with DONE / DONE_WITH_CONCERNS / NEEDS_CONTEXT / BLOCKED. Never claims DONE without passing `acceptance:` commands. Does not create per-T-xxx branch/worktree/PR. Semantic audit is review's job. Invoke only on explicit user request (e.g. '用 impl skill 执行 <package> 的 T-001')."
 ---
 
 # Impl — 任务执行器（四状态报告）
@@ -30,13 +30,15 @@ Impl 是**执行**阶段。它：
 
 ### 🎯 Pick — 选择任务
 
-触发："实施 T-003"、"执行下一个 task"、"run next task"。
+触发："实施 <package> 的 T-003"、"执行 <package> 下一个 task"、"run next task for <package>"。
 
-1. 定位 `.arbor/tasks/<name>/task.md`
-2. 读取任务定义 `task.md` + 生命周期元数据 `task.json` + `context/impl.jsonl` + `context/sources.jsonl`
-3. 若 `task.json.active_task` 指向未完成任务，优先恢复该任务；否则选择下一个可执行任务：`depends_on` 已满足，且 `ready-check` 不阻塞
-4. 若 `task.json.next_action.skill` 不是 `impl`，先说明当前推荐动作与原因
-5. 向用户确认后开始，并用 `arbor.py set-status <name> --task T-xxx --state in_progress --actor impl --note "implementation started"` 记录状态
+1. 先确认 package，再确认 package-local T-xxx；不要把裸 `T-001` 当作全局唯一任务
+2. 定位 `.arbor/tasks/<name>/task.md`
+3. 读取任务定义 `task.md` + 生命周期元数据 `task.json` + `context/impl.jsonl` + `context/sources.jsonl`
+4. 检查 `task.json.execution`，确认当前工作区/branch/worktree 属于 package boundary；不为 T-xxx 创建独立 branch/worktree/PR
+5. 若 `task.json.active_task` 指向未完成任务，优先恢复该任务；否则选择下一个可执行任务：`depends_on` 已满足，且 `ready-check` 不阻塞
+6. 若 `task.json.next_action.skill` 不是 `impl`，先说明当前推荐动作与原因
+7. 向用户确认后开始，并用 `arbor.py set-status <name> --task T-xxx --state in_progress --actor impl --note "implementation started"` 记录状态
 
 ### 🔨 Execute — 编写代码
 
@@ -83,10 +85,12 @@ Impl 是**执行**阶段。它：
 2. **禁止静默做高层设计选择** —— 真正影响行为的选择应在 brainstorm / task 冻结。
 3. **优先信任 task-local context** —— 不是每次都回到 PRD 重读全局文档。
 4. **禁止修改任务定义** —— impl 只通过 `arbor.py` 更新 `task.json` 的执行状态元数据。
-5. **一次一个任务** —— 完成 + 报告后再选下一个。
-6. **SelfCheck = 验收** —— 语义审计属于 review。
-7. **禁止自动推进到下一任务** —— 除非用户明确说继续。
-8. **不手写 JSON 状态** —— 除非脚本不可用且用户明确允许手动修复。
+5. **一次一个 T-xxx** —— 完成 + 报告后再选下一个；T-xxx 只在当前 package 内唯一。
+6. **Package 是执行边界** —— 代码变更进入 package branch/worktree；不要为 T-xxx 默认创建独立 PR。
+7. **单个 DONE 不等于 package 完成** —— DONE 只表示当前 T-xxx 自检通过，package readiness 由所有 required T-xxx 的 review 聚合而来。
+8. **SelfCheck = 验收** —— 语义审计属于 review。
+9. **禁止自动推进到下一任务** —— 除非用户明确说继续。
+10. **不手写 JSON 状态** —— 除非脚本不可用且用户明确允许手动修复。
 
 ## 初始化
 

@@ -10,26 +10,27 @@
 
 ### 触发短语
 
-- "实施 T-003"
-- "执行下一个 task"
+- "实施 <package> 的 T-003"
+- "执行 <package> 下一个 task"
 - "run next task for package X"
 - "start impl on <task-file>"
 
 ### 完整流程
 
-1. 定位 task package：`.arbor/tasks/<name>/task.md`，并读取 `.arbor/tasks/<name>/task.json`、`prd.md`、`context/impl.jsonl`、`context/sources.jsonl`
-2. 读取任务列表 + 结构化状态元数据
-3. 查找可执行任务：`ready` + `depends_on` 满足 + `ready-check` 无阻塞
-4. 如果用户指定具体 ID，但该任务仍被 blockers 阻塞，明确指出 blockers
-5. 选择后向用户确认再执行
-6. 开始执行时用 `tools/arbor.py set-status <name> --task T-xxx --state in_progress --actor impl --note "implementation started"` 记录 active task
+1. 先确认 package，再确认 package-local T-xxx；裸 `T-001` 不是全局唯一任务
+2. 定位 task package：`.arbor/tasks/<name>/task.md`，并读取 `.arbor/tasks/<name>/task.json`、`prd.md`、`context/impl.jsonl`、`context/sources.jsonl`
+3. 读取任务列表 + 结构化状态元数据，包括 `execution` package boundary
+4. 查找可执行任务：`ready` + `depends_on` 满足 + `ready-check` 无阻塞
+5. 如果用户指定具体 ID，但该任务仍被 blockers 阻塞，明确指出 blockers
+6. 选择后向用户确认再执行
+7. 开始执行时用 `tools/arbor.py set-status <name> --task T-xxx --state in_progress --actor impl --note "implementation started"` 记录 active task
 
 ## Execute
 
 ### 完整流程
 
 1. 读取 `deliverable + acceptance + context + sources + notes`
-2. 规划最小差异：能让所有 acceptance 通过的最小变更
+2. 规划最小差异：能让当前 T-xxx acceptance 通过的最小变更，并限制在 package boundary 内
 3. 按需读取 package-local `prd.md` 作为背景，但不重新做高层选择
 4. 处理歧义：
    - task 说 X，PRD 背景暗示 Y，但 task 未冻结 → `NEEDS_CONTEXT`
@@ -47,7 +48,7 @@
 
 ## Report
 
-- 使用 `tools/arbor.py set-status` / `set-phase` 更新 `.arbor/tasks/<name>/task.json`：对应 T-xxx 的 `state`、`updated_at`，必要时更新 `active_task`、`current_phase`、`next_action`，并追加 `phase_history`
+- 使用 `tools/arbor.py set-status` / `set-phase` 更新 `.arbor/tasks/<name>/task.json`：对应 package-local T-xxx 的 `state`、`updated_at`，必要时更新 `active_task`、聚合 `current_phase`、`next_action`，并追加 `phase_history`
 - 如需补充实现阶段上下文，用 `tools/arbor.py add-context <name> --type impl ...` 追加到 `context/impl.jsonl`
 - NEEDS_CONTEXT 行可引用：`prd.md §X / task <field> / SRC-...`
 - 绝不修改 `task.md`；不要创建 markdown TODO/status checklist

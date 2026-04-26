@@ -32,7 +32,7 @@ Research 是**发散 → 收敛**阶段。它：
 - **不做**最终设计决策
 - **不自动**推进到 `brainstorm`
 
-当研究结果已经足够收敛、适合冻结时，才进入 `brainstorm`。`brainstorm` 负责**收敛 → 形成 package-local PRD/context artifact（`.arbor/tasks/<name>/prd.md`）**，不是 research 第一次真正搞懂需求的地方。
+当研究结果已经足够收敛、适合冻结时，才进入 `brainstorm`。`brainstorm` 负责**boundary routing → 形成 executable package PRD/context artifact（`.arbor/tasks/<package>/prd.md`）或 large initiative map（`.arbor/maps/<initiative>/map.md` + `map.json`）并 materialize child package stubs**，不是 research 第一次真正搞懂需求的地方。
 
 ## 六个原语
 

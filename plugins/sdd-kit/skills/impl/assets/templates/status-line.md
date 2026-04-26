@@ -1,6 +1,6 @@
 # task.json 状态转换参考
 
-每次报告都通过 `tools/arbor.py` 更新 task package 的 `task.json`。不要创建 `status.md`，不要写 markdown TODO/checklist；`task.json` 是唯一生命周期状态源。
+每次报告都通过 `tools/arbor.py` 更新 task package 的 `task.json`。不要创建 `status.md`，不要写 markdown TODO/checklist；`task.json` 是唯一生命周期状态源。`active_task` 指向 package-local T-xxx；branch/worktree/PR metadata 属于 package-level `execution`。
 
 ## 顶层 lifecycle 字段
 
@@ -65,11 +65,9 @@ Use script state updates for the lifecycle state:
 
 ```text
 python3 plugins/sdd-kit/tools/arbor.py set-status <name> --task T-NNN --state done --actor impl --note "acceptance N/N passed"
-python3 plugins/sdd-kit/tools/arbor.py set-status <name> --state impl_done --actor impl --note "implementation reported DONE; semantic audit pending"
-python3 plugins/sdd-kit/tools/arbor.py set-phase <name> --phase review --actor impl --task T-NNN --note "semantic audit pending"
 ```
 
-Then set `next_action.skill = review` if needed. If the helper lacks a narrow command for `next_action`, update the helper before hand-editing JSON.
+The helper recalculates package aggregate state and should set `next_action.skill = review` for this T-xxx. Do not set package `reviewed` after a single T-xxx implementation.
 
 ## NEEDS_CONTEXT / BLOCKED
 

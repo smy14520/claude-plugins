@@ -49,3 +49,19 @@ Review 是只读的。修复属于 impl 的下一轮。
 ## 8. 静默跳过 wiki 交叉检查
 
 应显式说明检查了哪些 wiki gotcha，或为什么本次跳过。
+
+---
+
+## 9. 单个 T-xxx APPROVED 后宣布 package PR 可合并
+
+**为什么错误**：Review verdict 默认只覆盖当前 package-local T-xxx。Package PR readiness 必须聚合所有 required T-xxx 的 review 状态。
+
+**修正**：报告中明确当前 verdict 的 T-xxx scope，并说明 package 是否仍有未审计/未完成的 T-xxx。
+
+---
+
+## 10. 在 package 累积 diff 中不隔离当前 T-xxx scope
+
+**症状**：package branch 已包含多个 T-xxx 的改动，但 review 没说明当前审计对应哪些 diff。
+
+**修正**：列出 diff files reviewed，并把结论绑定到当前 T-xxx 的 deliverable / acceptance / context。

@@ -1,6 +1,6 @@
 # 四状态机
 
-Impl 报告且仅报告以下四种状态之一。本文件给出定义、退出标准和转换规则。
+Impl 对单个 package-local T-xxx 报告且仅报告以下四种状态之一。本文件给出定义、退出标准和转换规则。Package 顶层状态由 `task.json` 聚合多个 T-xxx 得出；单个 DONE 不等于 package branch/worktree/PR 完成。
 
 ---
 

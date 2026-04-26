@@ -13,7 +13,9 @@ date: YYYY-MM-DD
   任务定义约定（强制执行）：
   - 禁止 wikilinks。本文件应自包含。
   - 禁止高层决策。每个任务仅包含可执行操作。
-  - ID 只允许追加，不得重新编号。
+  - ID 只允许追加，不得重新编号；T-xxx 只在本 package 内唯一。
+  - Package 是 branch/worktree/PR 执行边界；T-xxx 是 package-local control / acceptance / review 单元。
+  - 不要为每个 T-xxx 默认创建独立 branch/worktree/PR；如需独立 PR，应拆成新的 package。
   - 每条验收条件必须是可执行命令或二元谓词。
   - 每个任务必须有 task-local context、sources 和 ready-check。
   - impl 不得修改本文件；执行状态只写入 task.json。
@@ -24,6 +26,11 @@ date: YYYY-MM-DD
 
 - 来源: `prd.md`
 - 模式: <strict-atomic | lean>
+- Package execution boundary: `.arbor/tasks/<feature-name>/`（一个 package 默认对应一个 branch/worktree/PR）
+- T-xxx scope: package-local control / acceptance / review，不是默认 PR 单元
+- Boundary sizing decision from brainstorm/map: <fits_package | split_applied> — <为什么当前 package 边界成立；若拆过，列出来源/去向 package>
+- Parent map / initiative: <.arbor/maps/<initiative>/map.md | none>
+- Package PR readiness: 所有 required T-xxx 通过 review，且无 package-level blocker
 - 总任务数: <N>
 - milestone 数: <N>
 - 总预估工时: <hours>

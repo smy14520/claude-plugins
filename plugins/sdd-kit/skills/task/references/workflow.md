@@ -6,7 +6,7 @@
 
 ## 拆分
 
-将 package-local PRD 拆解为 milestone + executable task。
+将 package-local PRD 拆解为 milestone + package-local executable T-xxx。Package 是 branch/worktree/PR 执行边界；T-xxx 是 control / acceptance / review 边界。
 
 ### 触发短语
 
@@ -34,29 +34,55 @@
 
 情况 C：无文件，用户给出会话内目标
 
-- 先确认目标与 acceptance
-- 创建 ad-hoc task package：`python3 plugins/sdd-kit/tools/arbor.py create <name> --source-type ad-hoc`
+- 先回到 brainstorm 做 boundary routing，确认它不是 large initiative
+- 仅当会话目标已被确认是 executable package，且目标与 acceptance 足够明确时，才可创建 ad-hoc task package：`python3 plugins/sdd-kit/tools/arbor.py create <name> --source-type ad-hoc`
+- ad-hoc package 仍必须先记录 `fits_package` 或 `split_applied`，再进入 T-xxx
 
-**步骤 2 — 询问模式**
+**步骤 2 — Package sizing secondary guard**
+
+先读取 `task.json.package_sizing.status`，验证 brainstorm/map 是否已经确认当前 PRD 是 executable package boundary（一个 branch/worktree/PR/agent ownership 单元）。
+
+继续条件：
+
+- `fits_package`：当前 package 可作为一个 branch/worktree/PR。
+- `split_applied`：当前 package 是 `.arbor/maps/<initiative>/map.md` 拆出的 child package。
+
+停止条件：
+
+- `unchecked`：停止，不写 T-xxx；回到 brainstorm/map 记录 boundary decision。
+- `split_recommended`：停止，不写 T-xxx；回到 `.arbor/maps/<initiative>/map.md`，materialize child package stubs，再分别做 package-local brainstorm。
+
+若 task 阶段发现以下信号，说明上游 boundary sizing 可能 stale，应停止并路由回 brainstorm/map：
+
+- 覆盖多个可独立 review / merge 的业务域
+- 某个 slice 自然需要独立 branch/worktree/PR 或独立发布节奏
+- 多个 agent 可以长期并行而非只在同一 package 内短暂协作
+- T-xxx 会超过约 8-10 个，或关键路径很长且旁路模块明显独立
+- 涉及前台 / 后台 / 交易 / 营销 / 权限等多个子系统
+- 某些 slice 可以单独上线、回滚或验收
+
+**步骤 3 — 询问模式**
 
 ```text
 📋 拆任务模式:
-  (a) strict-atomic — 每个任务 ≤ 4h, 单一 deliverable, 适合并行 / 多 agent
+  (a) strict-atomic — 每个 T-xxx ≤ 4h, 单一 deliverable, 适合同一 package boundary 内的并行 / 多 agent
   (b) lean          — 任务可到 1 天, 适合单人快速推进
   默认: (a) strict-atomic
 ```
 
-**步骤 3 — 先决定是否需要 milestone**
+**步骤 4 — 决定是否需要 milestone**
+
+仅在 package 边界成立后判断 milestone。
 
 若 PRD 中出现以下信号，先分 milestone：
 - 多个交付物簇
 - 多个切片 / 阶段
 - 明显的前后顺序
-- 跨 backend / frontend / data / docs
+- 跨 backend / frontend / data / docs，但仍属于同一个 PR/worktree 边界
 
 否则，直接生成平铺任务列表。
 
-**步骤 4 — 生成任务草稿**
+**步骤 5 — 生成任务草稿**
 
 从以下区块推导：
 - 关键场景 / 用户流
@@ -79,7 +105,7 @@
 - `estimate`
 - `notes`
 
-**步骤 5 — 输出草稿供确认**
+**步骤 6 — 输出草稿供确认**
 
 在用户确认前先给出任务草稿摘要。确认后再写入 `.arbor/tasks/<name>/` task package：
 
@@ -95,14 +121,14 @@
     └── sources.jsonl
 ```
 
-- `prd.md`：package-local PRD/context artifact；brainstorm skill 创建/维护
+- `prd.md`：executable package PRD/context artifact；brainstorm skill 创建/维护
 - `task.md`：稳定任务定义；task skill 创建/追加，impl/review 不改
-- `task.json`：唯一生命周期状态源；由 `tools/arbor.py` 机械维护 ready/blockers/dependencies/lifecycle
+- `task.json`：package-local 生命周期状态源；由 `tools/arbor.py` 机械维护 ready/blockers/dependencies/lifecycle/package execution metadata；large initiative 统筹状态由 `.arbor/maps/<initiative>/map.json` 读取这些 child `task.json` 聚合
 - `review.md`：review 追加四状态语义审计记录；不作为当前 review 状态源
-- `context/*.jsonl`：阶段特定轻量上下文 packet，不做自动注入
+- `context/*.jsonl`：阶段特定轻量上下文 packet；跨 package 多 agent 时由 `map-plan-agents` 显式列入 context injection packet
 - `status.md`：已废弃，新的 task package 不得创建
 
-**步骤 6 — 同步机器状态**
+**步骤 7 — 同步机器状态**
 
 对每个 T-xxx，调用：
 
@@ -115,6 +141,12 @@ python3 plugins/sdd-kit/tools/arbor.py add-child <name> --id T-001 --title "ADD 
 ```text
 python3 plugins/sdd-kit/tools/arbor.py add-context <name> --type impl --task T-001 --kind constraint --source SRC-LOCAL-001 --summary "..."
 python3 plugins/sdd-kit/tools/arbor.py add-context <name> --type review --task T-001 --kind acceptance --source SRC-RES-001 --summary "..."
+```
+
+如已规划 package branch/worktree/PR，可记录 package-level execution metadata（不创建资源）：
+
+```text
+python3 plugins/sdd-kit/tools/arbor.py set-execution <name> --status unclaimed --base-branch main --branch arbor/<name> --actor task --note "package execution boundary planned"
 ```
 
 最后冻结任务定义并校验：

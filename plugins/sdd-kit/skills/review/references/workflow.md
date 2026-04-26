@@ -1,15 +1,15 @@
 # Review 工作流：收集 / 判定 / 报告
 
-Review 对 impl 产出执行**语义审计**，依据是 package-local PRD + task package + diff +（可选）wiki。它绝不修改代码、`prd.md` 或任务定义。
+Review 对 impl 产出执行**语义审计**，依据是 package-local PRD + package-local T-xxx task + package branch/worktree diff +（可选）wiki。它绝不修改代码、`prd.md` 或任务定义。单个 T-xxx verdict 不等于 package PR approval。
 
 ## 收集
 
-1. 解析目标（task ID / 文件 / 最近 DONE）
+1. 解析目标（package + package-local T-xxx / 最近 DONE）；裸 `T-001` 不是全局唯一任务
 2. 读取 package-local PRD：`.arbor/tasks/<name>/prd.md`
    - 若缺失，可读取 legacy `.arbor/brainstorms/<name>.md` 作为 fallback
    - fallback 必须在报告中标为迁移风险；新流程应回 brainstorm 迁入 `prd.md`
 3. 读取 task package 的 `task.md` + `task.json` + 可选 `context/review.jsonl`
-4. 检查实际 diff
+4. 检查实际 package branch/worktree diff，并明确当前 T-xxx 的 diff scope
 5. 可选做 wiki 交叉检查
 
 ## 判定
@@ -40,7 +40,7 @@ Review 对 impl 产出执行**语义审计**，依据是 package-local PRD + tas
   - 建议下一步
 
 下一步指引：
-- APPROVED → 可继续合并 / 发布
-- APPROVED_WITH_NOTES → 可继续，但建议 follow-up
-- NEEDS_REWORK → 回 `/sdd-kit:impl`
-- BRAINSTORM_DRIFT → 回 `/sdd-kit:brainstorm` 更新 package-local `prd.md`
+- APPROVED → 当前 T-xxx 通过；若所有 required T-xxx 都通过 review，package 可进入 PR/final review
+- APPROVED_WITH_NOTES → 当前 T-xxx 可计入 package readiness，但建议 follow-up
+- NEEDS_REWORK → 回 `/sdd-kit:impl` 处理当前 T-xxx
+- BRAINSTORM_DRIFT → 回 `/sdd-kit:brainstorm` 更新 package-local `prd.md`，可能影响多个 T-xxx

@@ -1,16 +1,16 @@
 ---
-name: <feature-name>
+name: <package-name>
 status: draft            # draft | ready-for-task | revising | superseded
 date: YYYY-MM-DD
-package: .arbor/tasks/<feature-name>/
+package: .arbor/tasks/<package-name>/
 tags: []                 # optional
 supersedes:              # optional, remove if N/A
 ---
 
-# <feature-name>
+# <package-name>
 
 <!-- 输出语言: 中文 -->
-<!-- Package-local PRD/context artifact. Brainstorm skill owns this file. -->
+<!-- Executable package PRD/context artifact. Brainstorm skill owns this file after boundary routing. -->
 <!-- 正文中的关键判断、场景、风险可用 [SRC-XXX] 标注来源 -->
 
 ## 背景与问题
@@ -19,20 +19,20 @@ supersedes:              # optional, remove if N/A
 
 ## 目标 / Desired outcomes
 
-- <本次 change 交付的结果 1>
+- <本 package 交付的结果 1>
 - <结果 2>
 
 ## 本次范围
 
 ### In scope
 
-- <本次明确要做的内容 1>
+- <本 package 明确要做的内容 1>
 - <内容 2>
 - <内容 3>
 
 ### Out of scope
 
-- <看起来相近，但本次明确不做的内容 1>
+- <看起来相近，但本 package 明确不做的内容 1>
 - <内容 2>
 
 ## 关键场景 / 用户流 / 系统流
@@ -66,12 +66,23 @@ supersedes:              # optional, remove if N/A
 
 <高层方案。强调如何满足场景与交付物，不写实现步骤流水账。>
 
+## Boundary sizing decision
+
+- Boundary status: <fits_package | split_applied>
+- Parent map / initiative: <.arbor/maps/<initiative>/map.md | none>
+- Why this is one executable package: <为什么当前范围可以用一个 branch/worktree/PR review 和回滚>
+- Expected branch/worktree/PR: one
+- Rejected split candidates: <哪些 slice 被考虑过但不需要独立 package；原因是什么>
+- T-xxx 语义: package-local control / acceptance / review 单元，不默认创建独立 branch/worktree/PR
+- 多 agent 使用: <是否允许多个 agent 在同一 package boundary 内协作；如需要跨 package 并行，交给 map 管理>
+
 ## 拆解线索 / 实现切片建议
 
 - Slice A:
 - Slice B:
 - Slice C:
 - 依赖顺序 / 并行性提示:
+- 注意: 这些 slice 后续会变成 package-local T-xxx；不是独立 PR 单元
 
 ## 关键约束（仅保留承重约束）
 
@@ -121,10 +132,13 @@ supersedes:              # optional, remove if N/A
 <!--
 ═══ 自检清单 (Finalize 前逐项确认, 确认后删除本块) ═══
 - [ ] 背景说明了“为什么现在做”
-- [ ] In scope / Out of scope 足够明确
+- [ ] In scope / Out of scope 足够明确，且是 package-local 范围
 - [ ] 至少写出 2 个关键场景（如适用）
 - [ ] 交付物清单可被 task 直接拿来拆
-- [ ] 拆解线索给出了切片或顺序提示
+- [ ] Boundary sizing decision 已明确为 fits_package 或 split_applied
+- [ ] Package 可作为一个 branch/worktree/PR 执行边界；若不能，未 finalize 本文件，已路由到 `.arbor/maps/<initiative>/map.md`
+- [ ] 若来自 map，Parent map / initiative 已写明
+- [ ] 拆解线索给出了切片或顺序提示，且 slice 只是 package-local T-xxx 候选
 - [ ] Open questions / Assumptions / Risks 已分开
 - [ ] Sources 能覆盖关键判断，不只是装饰附录
 - [ ] 若进入 task，不会因缺少关键信息而立刻卡住

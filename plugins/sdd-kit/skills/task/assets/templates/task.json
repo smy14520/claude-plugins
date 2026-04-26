@@ -19,6 +19,15 @@
     "version": 0,
     "updated_at": null
   },
+  "package_sizing": {
+    "status": "unchecked",
+    "decision": null,
+    "signals": [],
+    "recommended_packages": [],
+    "decided_at": null,
+    "decided_by": null,
+    "note": null
+  },
   "mode": "strict-atomic | lean",
   "state": "planned",
   "current_phase": "brainstorm",
@@ -27,6 +36,34 @@
     "skill": "brainstorm",
     "task_id": null,
     "reason": "prd draft created"
+  },
+  "execution": {
+    "boundary": "package",
+    "unit_path": ".arbor/tasks/<feature-name>",
+    "child_task_scope": "control_acceptance_review",
+    "status": "unclaimed",
+    "owner": null,
+    "claimed_at": null,
+    "released_at": null,
+    "branch": {
+      "base": null,
+      "name": null,
+      "upstream": null
+    },
+    "worktree": {
+      "path": null,
+      "created_by": null
+    },
+    "session": null,
+    "pr": {
+      "url": null,
+      "number": null,
+      "state": "none"
+    },
+    "agents": [],
+    "updated_at": null,
+    "updated_by": null,
+    "note": null
   },
   "tasks": [
     {

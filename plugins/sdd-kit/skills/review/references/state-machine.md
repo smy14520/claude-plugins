@@ -1,10 +1,10 @@
 # 四态审查状态机
 
-Review 衡量的是：**diff 是否在语义上满足 PRD + task**。
+Review 衡量的是：**package branch/worktree diff 中当前 T-xxx 对应部分，是否在语义上满足 package-local PRD slice + task**。单个 T-xxx verdict 不等于 package PR approval；package readiness 由所有 required T-xxx 的 review 状态聚合得出。
 
 ## APPROVED
 
-**含义**：diff 实现了 PRD 的目标，遵守 task 范围，满足关键约束。无保留意见。
+**含义**：当前 T-xxx 对应的 diff 实现了相关 PRD slice，遵守 task 范围，满足关键约束。无保留意见。
 
 ## APPROVED_WITH_NOTES
 

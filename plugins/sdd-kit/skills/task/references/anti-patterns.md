@@ -99,3 +99,53 @@
 **症状**：把所有 open question 都写进 every task 的 blockers，导致整个任务文件无人可做。
 
 **修正**：只记录真正阻塞该任务的未决项。不要用全局未决项瘫痪所有任务。
+
+---
+
+## 14. 把 T-xxx 当成独立 PR / worktree / branch
+
+**症状**：为 `T-001`、`T-002` 各自创建 branch/worktree/PR，导致一个 package 的语义边界被拆散。
+
+**为什么错误**：sdd-kit 中 package 是执行边界；T-xxx 是 package-local control / acceptance / review 单元。
+
+**修正**：如果某个 T-xxx 真的需要独立 PR，把它提升为新的 `.arbor/tasks/<package>/`，并在 map 中记录 package 依赖。
+
+---
+
+## 15. 一个 package 塞入多个应独立交付的目标
+
+**症状**：一个 `prd.md` 里包含多个可以独立 branch/worktree/PR 的目标。
+
+**为什么错误**：package 是执行边界。把多个可独立交付目标塞进一个 package，会让多 agent、worktree、review 和 PR 都变粗，只剩 T-xxx 在内部硬控。
+
+**修正**：拆成多个 package，用 map 维护它们之间的 dependency / contract；不要只靠 T-xxx 硬塞。
+
+---
+
+## 16. 跳过 upstream package sizing 直接生成长 T-xxx 列表
+
+**症状**：PRD 覆盖多个业务域，task 阶段直接产出 15-20 个 T-xxx，并宣称可以多 agent 执行。
+
+**为什么错误**：T-xxx 是 package-local 控制单元，不是并行执行边界。长列表会掩盖真正应该拆 package 的事实。
+
+**修正**：brainstorm/map 先输出 package graph，并用 `create-split-packages` materialize child package stubs（记录 `split_applied`）；用户确认后，对每个 child package 走 package-local brainstorm/PRD，再分别拆 T-xxx。
+
+---
+
+## 17. 为 large initiative 创建 `.arbor/tasks/<initiative>/`
+
+**症状**：brainstorm 一开始就为上位主题创建 task package，之后 task 又发现它应该拆成多个 package。
+
+**为什么错误**：`.arbor/tasks/<package>/` 本身宣称自己是 branch/worktree/PR 执行边界；用它承载 initiative 会让后续拆包和执行边界对冲。
+
+**修正**：先 route。large initiative 创建 `.arbor/maps/<initiative>/map.md` + `map.json`，并立即把 map 中确认的 executable packages materialize 为 `.arbor/tasks/<package>/` stubs；不要创建 parent initiative task package。后续用 `map-check` / `map-plan-agents` 统筹 ready/blocked 与 agent context。
+
+---
+
+## 18. Task 忽略 missing/stale boundary sizing
+
+**症状**：`package_sizing.status=unchecked` 或明显 stale，task 仍继续拆 T-xxx。
+
+**为什么错误**：task 只是 secondary guard。它不能靠一个长任务列表修复错误的 package boundary。
+
+**修正**：停止，回到 brainstorm/map 更新 boundary decision；只有 `fits_package` 或 `split_applied` 才进入 T-xxx decomposition。

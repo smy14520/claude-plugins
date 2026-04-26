@@ -61,3 +61,19 @@
 ## 9. 重写 PRD 以匹配 impl
 
 **修复方式**：impl 不是 PRD 的权威。若认为上游文档有误，发 NEEDS_CONTEXT 或留给 review 标记 `BRAINSTORM_DRIFT`。
+
+---
+
+## 10. 把 T-xxx DONE 当成 package 完成
+
+**症状**：当前 T-xxx acceptance 通过后，声称整个 package branch/worktree/PR 已完成。
+
+**修复方式**：DONE 只覆盖当前 package-local T-xxx。Package readiness 必须由所有 required T-xxx 的 review 聚合得出。
+
+---
+
+## 11. 在 package branch 中夹带另一个 package 的工作
+
+**症状**：实现当前 T-xxx 时顺手修改另一个 bounded package 的范围。
+
+**修复方式**：停止并返回 NEEDS_CONTEXT / task；若确实需要跨 package 工作，更新 map 或拆出新的 package。

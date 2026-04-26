@@ -1,5 +1,6 @@
 <!--
 Review entry format. Append to task package `review.md` for human-readable audit history.
+Each entry is for a package-local T-xxx control unit, not whole-package PR approval.
 
 `review.md` is NOT the latest review state source. After appending an entry, also update
 `task.json.tasks[].last_review_result`, task state, top-level lifecycle fields, and
@@ -61,11 +62,11 @@ Checkbox semantics:
 }
 ```
 
-顶层 lifecycle：
+顶层 lifecycle 是 package aggregate，不是单个 T-xxx verdict 的简单镜像。只有所有 required T-xxx 都是 `approved | approved_with_notes | skipped` 时，package 才进入 `reviewed` + `next_action.skill=none`。
 
 ```json
 {
-  "state": "reviewed | needs_rework | brainstorm_drift | completed",
+  "state": "ready | reviewed | needs_rework | brainstorm_drift",
   "current_phase": "review",
   "active_task": null,
   "next_action": {

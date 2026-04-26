@@ -10,7 +10,7 @@
   "plugins": [
     {
       "name": "sdd-kit",
-      "description": "SDD workflow + deterministic .arbor task packages + Karpathy-style persistent wiki. Skills: research / map / brainstorm / task / impl / review / wiki. Skill-first, no commands/agents. Phases independent; user controls transitions.",
+      "description": "SDD workflow + brainstorm/map boundary routing + Trellis-like child package materialization + map.json coordination + first-class parallel autonomous package pipeline/context injection + deterministic .arbor executable packages + Karpathy-style persistent wiki. Skills: research / map / parallel / brainstorm / task / impl / review / wiki. Skill-first, no commands/agents. Phases independent; user controls transitions.",
       "version": "0.4.0",
       "source": "./plugins/sdd-kit",
       "category": "development",
