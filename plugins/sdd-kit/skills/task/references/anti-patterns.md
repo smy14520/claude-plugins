@@ -138,7 +138,7 @@
 
 **为什么错误**：`.arbor/tasks/<package>/` 本身宣称自己是 branch/worktree/PR 执行边界；用它承载 initiative 会让后续拆包和执行边界对冲。
 
-**修正**：先 route。large initiative 创建 `.arbor/maps/<initiative>/map.md` + `map.json`，并立即把 map 中确认的 executable packages materialize 为 `.arbor/tasks/<package>/` stubs；不要创建 parent initiative task package。后续用 `map-check` / `map-plan-agents` 统筹 ready/blocked 与 agent context。
+**修正**：先 route。large initiative 创建 `.arbor/maps/<initiative>/map.md` + `map.json`，并立即把 map 中确认的 executable packages materialize 为 `.arbor/tasks/<package>/` stubs；不要创建 parent initiative task package。后续用 `map-check` / `map-plan-agents` 统筹 execution_ready / prep_ready / blocked 与 worker context。
 
 ---
 

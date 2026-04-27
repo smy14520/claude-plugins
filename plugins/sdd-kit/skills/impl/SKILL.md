@@ -19,6 +19,7 @@ research → brainstorm → task → [impl] → review
 Impl 是**执行**阶段。它：
 
 - 读取任务 package（`prd.md` / `task.md` / `task.json` / `context/impl.jsonl`）
+- 遵循当前 repo 的实际实现结构，以及 package PRD/task 中已明确的局部约束
 - 以 `deliverable + acceptance + context + sources + ready-check` 为主执行
 - 在需要时仅读取 package-local `prd.md` 作为背景，而不是重新做高层方案判断
 - 运行任务自身的验收命令（**自检**，机械性）
@@ -46,8 +47,11 @@ Impl 是**执行**阶段。它：
 
 1. 读取任务的 `deliverable + acceptance + context + sources + notes`
 2. 如 task-local context 仍不足以解释局部背景，可读取同 package 的 `prd.md` 作为背景
-3. 编写最小变更，以通过 acceptance 为目标
-4. 若遇到歧义，区分：
+3. 按当前 repo 的源码/测试结构写代码；若 package PRD/task 明确了落点，优先遵循
+4. 编写最小变更，以通过 acceptance 为目标；产品源码/测试必须写到 repo implementation tree，不得写入 `.arbor/tasks/<package>/`
+5. 若 task/PRD 未明确源码落点且当前 repo 也无法推断（例如空仓库且当前 task 不是建立项目基线），停止为 `NEEDS_CONTEXT`，不要创建孤立 demo 文件
+6. 若任务带 `source_amendment`，读取对应 AMD，只实现该增量修正，不改写旧 PRD/task
+7. 若遇到歧义，区分：
    - task-local 信息缺失 / 冲突 → `NEEDS_CONTEXT`
    - 环境阻塞 → `BLOCKED`
 
@@ -56,9 +60,11 @@ Impl 是**执行**阶段。它：
 触发：Execute 之后，始终在报告 DONE 之前执行。
 
 1. 运行任务 `acceptance:` 中的每一条命令 / 谓词
-2. 捕获退出码 + 相关输出
-3. 任一失败 → 不得声称 DONE
-4. SelfCheck 范围严格等于 `acceptance:`
+2. amendment-linked task 必须覆盖 increment acceptance + regression acceptance
+3. 捕获退出码 + 相关输出
+4. 任一失败 → 不得声称 DONE
+5. SelfCheck 范围严格等于 `acceptance:`
+6. 若 acceptance 缺失、不可运行，或与当前 repo 实际命令冲突，停止为 `NEEDS_CONTEXT` / `BLOCKED`；不要自造替代验收后声称 DONE
 
 ### 📤 Report — 发出状态
 
@@ -89,8 +95,9 @@ Impl 是**执行**阶段。它：
 6. **Package 是执行边界** —— 代码变更进入 package branch/worktree；不要为 T-xxx 默认创建独立 PR。
 7. **单个 DONE 不等于 package 完成** —— DONE 只表示当前 T-xxx 自检通过，package readiness 由所有 required T-xxx 的 review 聚合而来。
 8. **SelfCheck = 验收** —— 语义审计属于 review。
-9. **禁止自动推进到下一任务** —— 除非用户明确说继续。
-10. **不手写 JSON 状态** —— 除非脚本不可用且用户明确允许手动修复。
+9. **Amendment 是增量实现** —— 不为了“看起来一致”去改旧 PRD/task；只实现新 T-xxx。
+10. **禁止自动推进到下一任务** —— 除非用户明确说继续。
+11. **不手写 JSON 状态** —— 除非脚本不可用且用户明确允许手动修复。
 
 ## 初始化
 

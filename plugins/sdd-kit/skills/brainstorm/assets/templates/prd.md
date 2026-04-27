@@ -8,8 +8,6 @@ supersedes:              # optional, remove if N/A
 ---
 
 # <package-name>
-
-<!-- 输出语言: 中文 -->
 <!-- Executable package PRD/context artifact. Brainstorm skill owns this file after boundary routing. -->
 <!-- 正文中的关键判断、场景、风险可用 [SRC-XXX] 标注来源 -->
 
@@ -121,6 +119,18 @@ supersedes:              # optional, remove if N/A
 
 - <继续推进时必须显式暴露的风险>
 
+## Amendments / Forward-only corrections
+
+<!--
+Append-only after task/impl/review has started.
+Use AMD-001, AMD-002, ...
+Do not rewrite old requirements or renumber existing T-xxx.
+Task appends new T-xxx linked by source_amendment/corrects.
+-->
+
+| ID | Date | Wrong / obsolete requirement | Correct rule | Affects | Source |
+|----|------|------------------------------|--------------|---------|--------|
+
 ## Sources
 
 | ID | Type | Location | Title | Why it matters |
@@ -141,5 +151,6 @@ supersedes:              # optional, remove if N/A
 - [ ] 拆解线索给出了切片或顺序提示，且 slice 只是 package-local T-xxx 候选
 - [ ] Open questions / Assumptions / Risks 已分开
 - [ ] Sources 能覆盖关键判断，不只是装饰附录
+- [ ] 若这是 amendment，旧需求没有被静默改写，AMD-xxx 写清 wrong/correct/affects
 - [ ] 若进入 task，不会因缺少关键信息而立刻卡住
 ════════════════════════════════════════════════════ -->

@@ -11,7 +11,8 @@
     "status": "draft",
     "source_type": "new | legacy-brainstorm | ad-hoc",
     "legacy_source": null,
-    "ready_for_task_at": null
+    "ready_for_task_at": null,
+    "amendments": []
   },
   "definition": {
     "task_md": "task.md",
@@ -78,6 +79,8 @@
       "attempts": 0,
       "last_impl_result": null,
       "last_review_result": null,
+      "source_amendment": "AMD-001",
+      "corrects": ["T-003"],
       "created_at": "YYYY-MM-DDTHH:MM:SSZ",
       "updated_at": "YYYY-MM-DDTHH:MM:SSZ"
     }

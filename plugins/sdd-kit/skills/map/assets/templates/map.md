@@ -6,8 +6,6 @@ source_research: <research-topic | null>
 ---
 
 # <initiative-name> map
-
-<!-- 输出语言: 中文 -->
 <!--
   Map 是 large initiative 的 package graph / execution waves 导航，不是 PRD，也不是 task。
   不要创建 `.arbor/tasks/<initiative-name>/`。
@@ -22,44 +20,34 @@ source_research: <research-topic | null>
 - Machine state: `.arbor/maps/<initiative-name>/map.json`
 - Agent assignment log: `.arbor/maps/<initiative-name>/context/agent-assignments.jsonl`
 - Readiness check: `python3 plugins/sdd-kit/tools/arbor.py map-check <initiative-name>`
-- Context injection plan: `python3 plugins/sdd-kit/tools/arbor.py map-plan-agents <initiative-name> --max-parallel 2`
+- Agent Team assignment plan: `python3 plugins/sdd-kit/tools/arbor.py map-plan-agents <initiative-name> --max-parallel 3`
 
-`map-plan-agents` only emits assignments for ready packages whose dependencies are reviewed/completed/merged. The user-facing orchestration entry is `/sdd-kit:parallel` or `并行推进 <initiative>`; it runs check + plan and may dispatch autonomous package pipeline workers for those assignments.
+`map-plan-agents` emits assignments for `execution_ready` packages and `prep_ready` packages allowed by map-time `parallel_policy`. The user-facing orchestration entry is `/sdd-kit:parallel` or `并行推进 <initiative>`; the main session stays lead, creates an Agent Team worker pool, and dispatches worktree-isolated package workers for those assignments. Parallel uses Team messages for coordination and local checkpoint commits for code synchronization.
 
-## Project framing
+## Current framing
 
-<当前对这个大项目/上位主题的一句话理解。>
+<当前对这个大项目/上位主题的一句话理解；为什么需要多个 executable packages。>
+
+## Implementation framing
+
+<Brainstorm 已确认的项目级实现前提：技术栈、源码/测试布局、运行命令、共享约束。全局约定应由用户确认后沉淀到 CLAUDE.md 或 `.claude/rules`；当前 initiative 特有约束写在这里或 package PRD 中。>
 
 ## Package graph
 
 Package 是 branch/worktree/PR 执行边界；T-xxx 明细留在 package 内，不在 map 中展开。
 
-| Domain | Package | Materialized | Boundary reason | Depends on | Execution wave | Contract inputs | Contract outputs | PRD status | Task aggregate | Execution owner/status | Notes |
-|---|---|---|---|---|---|---|---|---|---|---|---|
-| <domain-name> | `.arbor/tasks/<package>/` | yes/no | <why this is one executable package> | [] | W1 | <inputs> | <outputs> | draft | not-started | unclaimed | <notes> |
+| Package | Control path | Materialized | Boundary reason | Depends on | Parallel policy | Max phase before deps | Dependency gate | Wave | Contract inputs | Contract outputs | PRD status | Execution status | Notes |
+|---|---|---|---|---|---|---|---|---|---|---|---|---|---|
+| <package> | `.arbor/tasks/<package>/` | yes/no | <why this is one executable package> | [] | independent / contract_dependent / hard_dependent | review/task/none | none/impl/review | W1 | <inputs> | <outputs> | draft | unclaimed | <notes> |
 
 Materialized values:
 - `yes` — `.arbor/tasks/<package>/` exists with `source_type=map-split` and `package_sizing=split_applied`
 - `no` — map row exists but package stub has not been created yet; run `create-split-packages`
 
-PRD status values:
-- `draft`
-- `ready-for-task`
-- `revising`
-- `blocked`
-
-T-xxx aggregate values:
-- `not-started`
-- `in-task`
-- `ready`
-- `in-impl`
-- `in-review`
-- `reviewed`
-- `blocked`
-
-Execution values are package-level only:
-- branch/worktree/PR belong to `.arbor/tasks/<package>/`
-- if a T-xxx needs its own PR, split a new package and reference it here
+Parallel policy values:
+- `independent` — no sibling dependency; can run through review.
+- `contract_dependent` — can prepare without dependencies, but must stop before `dependency_gate`.
+- `hard_dependent` — must wait for dependencies before even preparing.
 
 ## Execution waves
 
@@ -79,10 +67,6 @@ Status values:
 - `draft`
 - `stable`
 - `blocked`
-
-## Shared capabilities
-
-- <shared capability and owning package>
 
 ## Dependency graph
 
@@ -108,19 +92,21 @@ python3 plugins/sdd-kit/tools/arbor.py create-split-packages <initiative-name> \
 ## Orchestration / agent assignment
 
 Default recommendation:
-- User says: `/sdd-kit:parallel <initiative-name>` or `并行推进 <initiative-name>` to authorize autonomous package pipeline execution.
+- User says: `/sdd-kit:parallel <initiative-name>` or `并行推进 <initiative-name>` to authorize main-session-led Agent Team worker-pool execution.
 - Omit initiative only when there is a single `.arbor/maps/*/map.json`.
 - Use explicit `/sdd-kit:brainstorm` / `/sdd-kit:task` / `/sdd-kit:impl` / `/sdd-kit:review` when the user wants manual review gates.
-- `--plan-only` generates assignments without starting workers.
-- Start with default max parallelism 2.
-- Increase to 3 only when packages are independent and contracts are stable.
+- `--plan-only` generates worker assignments without starting workers.
+- Default and max parallelism are both 3.
+- Dispatch `execution_ready` first, then `prep_ready`; `prep_ready` must stop before its dependency gate.
 - Do not assign packages listed as blocked by `map-check`.
 
 Context injection packet contains:
 - this `map.md`
 - `map.json`
+- target package `context/worker-dispatch.md`
 - target package `prd.md`, `task.md`, `task.json`, `context/*.jsonl`
 - summaries of dependency packages
+- lead/team runtime/worker/branch/worktree assignment metadata
 
 ## Recommended next move
 

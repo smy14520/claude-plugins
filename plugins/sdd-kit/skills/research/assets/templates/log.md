@@ -1,5 +1,3 @@
-<!-- 输出语言: 中文 -->
-
 # Research log
 
 ## [YYYY-MM-DD HH:MM] <clarify | collect | note | reframe | snapshot>

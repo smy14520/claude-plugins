@@ -7,8 +7,6 @@ date: YYYY-MM-DD
 ---
 
 # 任务: <feature-name>
-
-<!-- 输出语言: 中文 -->
 <!--
   任务定义约定（强制执行）：
   - 禁止 wikilinks。本文件应自包含。
@@ -20,6 +18,8 @@ date: YYYY-MM-DD
   - 每个任务必须有 task-local context、sources 和 ready-check。
   - impl 不得修改本文件；执行状态只写入 task.json。
   - review 不得修改本文件；审计记录追加到 review.md，latest review state 写入 task.json。
+  - Definition frozen 表示已有 T-xxx 不可改写；task skill 仍可为 AMD-xxx 追加新 T-xxx。
+  - Amendment task 必须写 source-amendment/corrects，并包含 increment + regression acceptance。
 -->
 
 ## 概览
@@ -66,6 +66,8 @@ M-02
 - id: T-001
   milestone: M-01
   role: shared
+  source-amendment: AMD-001        # optional; only for forward-only correction tasks
+  corrects: [T-003]               # optional; old T-xxx this task amends/replaces
   title: "ADD signature verifier utility"
   deliverable: "src/lib/signature-verifier.ts"
   depends-on: []
@@ -79,8 +81,8 @@ M-02
     - ready: true
     - blockers: []
   acceptance: |
-    - file: src/lib/signature-verifier.ts exports verifyHmac(payload, sig, secret, maxSkewMs)
-    - run: `pnpm test src/lib/signature-verifier.test.ts` passes
+    - increment: file src/lib/signature-verifier.ts exports verifyHmac(payload, sig, secret, maxSkewMs)
+    - regression: run `pnpm test src/lib/signature-verifier.test.ts` passes
   estimate: 2h
   notes: ""
 
@@ -101,8 +103,8 @@ M-02
     - blockers:
       - replay window 尚未冻结；需在上游确认 24h 或 7d
   acceptance: |
-    - file: src/webhooks/xhs-handler.ts exports handleXhsWebhook(req)
-    - on valid signed request: returns 200
-    - on invalid signature: returns 401
+    - increment: src/webhooks/xhs-handler.ts exports handleXhsWebhook(req)
+    - increment: on valid signed request returns 200
+    - regression: on invalid signature returns 401
   estimate: 3h
   notes: ""

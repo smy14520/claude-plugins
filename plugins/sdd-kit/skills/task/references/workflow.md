@@ -125,7 +125,8 @@
 - `task.md`：稳定任务定义；task skill 创建/追加，impl/review 不改
 - `task.json`：package-local 生命周期状态源；由 `tools/arbor.py` 机械维护 ready/blockers/dependencies/lifecycle/package execution metadata；large initiative 统筹状态由 `.arbor/maps/<initiative>/map.json` 读取这些 child `task.json` 聚合
 - `review.md`：review 追加四状态语义审计记录；不作为当前 review 状态源
-- `context/*.jsonl`：阶段特定轻量上下文 packet；跨 package 多 agent 时由 `map-plan-agents` 显式列入 context injection packet
+- `context/*.jsonl`：阶段特定轻量上下文 packet；跨 package 多 agent 时由 `map-plan-agents` 显式列入主会话 lead / Agent Team worker context injection packet
+- `context/worker-dispatch.md`：`parallel` 为当前 package worker 生成的 Trellis-like dispatch/context packet
 - `status.md`：已废弃，新的 task package 不得创建
 
 **步骤 7 — 同步机器状态**

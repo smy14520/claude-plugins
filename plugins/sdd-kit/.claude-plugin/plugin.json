@@ -1,7 +1,7 @@
 {
   "name": "sdd-kit",
   "version": "0.4.0",
-  "description": "SDD Kit: research → map → parallel? → brainstorm → task → impl → review 流程 + brainstorm/map boundary routing + Trellis-like child package materialization + map.json 统筹状态 + parallel 一等 autonomous package pipeline/context injection + .arbor executable packages（package=branch/worktree/PR boundary, T-xxx=control/review unit）+ Karpathy LLM-Wiki 知识层",
+  "description": "SDD Kit: research → map → parallel? → brainstorm → task → impl → review 流程 + brainstorm/map boundary routing + Trellis-like child package materialization + map.json 统筹状态 + parallel 一等主会话 lead / Agent Team rolling worker pool / worktree context injection + .arbor executable packages（package=branch/worktree/PR boundary, T-xxx=control/review unit）+ Karpathy LLM-Wiki 知识层",
   "author": {
     "name": "camellia",
     "email": "camellia@gmail.com"

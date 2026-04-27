@@ -4,7 +4,6 @@ confidence: low | medium | high
 date: YYYY-MM-DD
 ---
 
-<!-- 输出语言: 中文 -->
 
 # <主题标题 — 具体且自描述>
 

@@ -5,7 +5,6 @@ updated: YYYY-MM-DD
 downstream: <brainstorm-name | direct-answer | wiki-ingest>
 ---
 
-<!-- 输出语言: 中文 -->
 
 # <topic>
 

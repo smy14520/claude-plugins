@@ -41,7 +41,8 @@ Review 是**语义安全网**。它：
 2. 检查 task 的 deliverable / acceptance / context / ready-check 是否被尊重
 3. 检查 diff 是否出现范围蔓延、遗漏关键路径、违背来源支持的约束
 4. 检查 wiki gotcha 是否被违反
-5. 将发现归类为一个状态
+5. 若任务带 `source_amendment`，确认 AMD corrected rule 被实现，且 regression checks 覆盖未受影响旧行为
+6. 将发现归类为一个状态
 
 ### 📤 Report — 输出审计状态
 
@@ -50,7 +51,7 @@ Review 是**语义安全网**。它：
 3. 使用 `tools/arbor.py` 更新 `.arbor/tasks/<name>/task.json` 中对应 T-xxx 的 `state`、`updated_at`、顶层聚合 `state/current_phase/next_action` 与 `phase_history`
 4. 输出结构化摘要，并说明此 verdict 是否只覆盖当前 T-xxx
 5. 若所有 required T-xxx 都已通过 review，说明 package 可进入 PR/final review；否则继续处理下一个 T-xxx
-6. 若状态为 `BRAINSTORM_DRIFT`：建议回到 brainstorm 更新 package-local `prd.md`，而非重新运行 impl
+6. 若状态为 `BRAINSTORM_DRIFT`：建议回到 brainstorm 追加 package-local `AMD-xxx`，再由 task 追加新的 T-xxx；不要让 impl 背锅
 
 ## 四种审计状态
 
@@ -70,6 +71,7 @@ Review 是**语义安全网**。它：
 5. **优先使用全新上下文** —— 如有可能，在新会话 / 子代理中执行 review。
 6. **范围：PRD + task + diff + wiki** —— research 是上游背景，不是审查主要对象。
 7. **未经列举检查项不得批准** —— APPROVED 必须至少说明 goal / scope / constraints / diff scope。
-8. **BRAINSTORM_DRIFT 退回 brainstorm，而非 impl** —— 上游 PRD 错误时，不能让 impl 背锅。
-9. **不自动重复触发** —— 报告一次后即停止。
-10. **不手写 JSON 状态** —— 优先使用 `tools/arbor.py set-status` / `set-phase`；如 helper 不足，先扩展 helper。
+8. **BRAINSTORM_DRIFT 退回 brainstorm，而非 impl** —— 上游 PRD 错误时，追加 AMD-xxx，再 task append 新 T-xxx。
+9. **Amendment review 要看回归** —— 审 amendment-linked T-xxx 时必须确认 corrected rule + regression evidence。
+10. **不自动重复触发** —— 报告一次后即停止。
+11. **不手写 JSON 状态** —— 优先使用 `tools/arbor.py set-status` / `set-phase`；如 helper 不足，先扩展 helper。

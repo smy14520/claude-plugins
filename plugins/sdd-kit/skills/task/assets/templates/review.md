@@ -4,8 +4,6 @@ updated: YYYY-MM-DD
 ---
 
 # Review log: <feature-name>
-
-<!-- 输出语言: 中文 -->
 <!--
   review 在本文件追加 package-local T-xxx 语义审计记录。
   当前 lifecycle / latest review state 属于 task.json。

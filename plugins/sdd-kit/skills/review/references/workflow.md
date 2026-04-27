@@ -43,4 +43,4 @@ Review 对 impl 产出执行**语义审计**，依据是 package-local PRD + pac
 - APPROVED → 当前 T-xxx 通过；若所有 required T-xxx 都通过 review，package 可进入 PR/final review
 - APPROVED_WITH_NOTES → 当前 T-xxx 可计入 package readiness，但建议 follow-up
 - NEEDS_REWORK → 回 `/sdd-kit:impl` 处理当前 T-xxx
-- BRAINSTORM_DRIFT → 回 `/sdd-kit:brainstorm` 更新 package-local `prd.md`，可能影响多个 T-xxx
+- BRAINSTORM_DRIFT → 回 `/sdd-kit:brainstorm` 追加 package-local `AMD-xxx`；再由 task 追加新 T-xxx。若边界变化，回 map/user。
