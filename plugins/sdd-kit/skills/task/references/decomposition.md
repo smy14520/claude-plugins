@@ -11,7 +11,7 @@
 | 单任务涉及文件数 | 通常 1-2 个 | 最多约 5 个 |
 | 适用场景 | 同一 package boundary 内的多 agent / 多人；并行 impl；长期工作 | 单人开发；快速原型；有时间盒的工作 |
 | 仪式感 | 高（更多任务，显式 DAG） | 较低（更少任务，隐式顺序） |
-| 大需求处理 | 先验证 brainstorm/map 的 package sizing；若仍是单 package，再通过 milestone + T-xxx | 先验证 brainstorm/map 的 package sizing；若仍是单 package，再通过较粗的 slice task |
+| 大需求处理 | 先验证 brainstorm 的需求澄清与 map 的 package sizing；若仍是单 package，再通过 milestone + T-xxx | 先验证 brainstorm 的需求澄清与 map 的 package sizing；若仍是单 package，再通过较粗的 slice task |
 
 ## 如何选择
 
@@ -35,7 +35,7 @@
 
 ## Package sizing secondary guard
 
-Brainstorm/map 应先判断 PRD 是否适合作为单个 package execution boundary。Task 在选择 strict-atomic / lean 和拆 T-xxx 前，只验证这个上游判断是否存在且仍可信。
+Brainstorm 应先澄清需求并形成 package PRD，map 应先完成 split 后 child package 的 boundary sizing。Task 在选择 strict-atomic / lean 和拆 T-xxx 前，只验证这个上游判断是否存在且仍可信。
 
 ### 判定为 fits_package
 
@@ -48,7 +48,7 @@ Brainstorm/map 应先判断 PRD 是否适合作为单个 package execution bound
 
 ### 判定为 split_recommended
 
-出现以下信号时，说明上游应路由到 map/package graph；task 应停止，不要继续生成长 T-xxx 列表：
+出现以下信号时，说明上游应回到 map/package graph；task 应停止，不要继续生成长 T-xxx 列表：
 
 - 一个 PRD 覆盖多个可独立 PR 的业务域
 - 某个 slice 需要独立 worktree/branch/PR 或独立发布节奏

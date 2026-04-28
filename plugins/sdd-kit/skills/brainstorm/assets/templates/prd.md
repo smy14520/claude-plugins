@@ -8,7 +8,7 @@ supersedes:              # optional, remove if N/A
 ---
 
 # <package-name>
-<!-- Executable package PRD/context artifact. Brainstorm skill owns this file after boundary routing. -->
+<!-- Executable package PRD/context artifact. Brainstorm skill owns this file after clarified package framing. -->
 <!-- 正文中的关键判断、场景、风险可用 [SRC-XXX] 标注来源 -->
 
 ## 背景与问题
@@ -146,7 +146,7 @@ Task appends new T-xxx linked by source_amendment/corrects.
 - [ ] 至少写出 2 个关键场景（如适用）
 - [ ] 交付物清单可被 task 直接拿来拆
 - [ ] Boundary sizing decision 已明确为 fits_package 或 split_applied
-- [ ] Package 可作为一个 branch/worktree/PR 执行边界；若不能，未 finalize 本文件，已路由到 `.arbor/maps/<initiative>/map.md`
+- [ ] Package 可作为一个 branch/worktree/PR 执行边界；若其实是 large initiative，未 finalize 本文件，已输出 clarified framing 并交给 `map`
 - [ ] 若来自 map，Parent map / initiative 已写明
 - [ ] 拆解线索给出了切片或顺序提示，且 slice 只是 package-local T-xxx 候选
 - [ ] Open questions / Assumptions / Risks 已分开

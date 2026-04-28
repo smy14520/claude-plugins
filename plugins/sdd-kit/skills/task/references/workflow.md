@@ -34,8 +34,8 @@
 
 情况 C：无文件，用户给出会话内目标
 
-- 先回到 brainstorm 做 boundary routing，确认它不是 large initiative
-- 仅当会话目标已被确认是 executable package，且目标与 acceptance 足够明确时，才可创建 ad-hoc task package：`python3 plugins/sdd-kit/tools/arbor.py create <name> --source-type ad-hoc`
+- 先回到 brainstorm 澄清为 single executable package PRD；若是 large initiative，先进入 map 拆 package graph
+- 仅当会话目标已被确认是 executable package，且目标与 acceptance 足够明确时，才可用 arbor helper `create` 创建 ad-hoc task package
 - ad-hoc package 仍必须先记录 `fits_package` 或 `split_applied`，再进入 T-xxx
 
 **步骤 2 — Package sizing secondary guard**
@@ -49,8 +49,8 @@
 
 停止条件：
 
-- `unchecked`：停止，不写 T-xxx；回到 brainstorm/map 记录 boundary decision。
-- `split_recommended`：停止，不写 T-xxx；回到 `.arbor/maps/<initiative>/map.md`，materialize child package stubs，再分别做 package-local brainstorm。
+- `unchecked`：停止，不写 T-xxx；回到 brainstorm 澄清 package PRD，或回到 map 记录已澄清后的 boundary decision。
+- `split_recommended`：停止，不写 T-xxx；回到 map 维护 `.arbor/maps/<initiative>/map.md` 并 materialize child package stubs，再分别做 package-local brainstorm。
 
 若 task 阶段发现以下信号，说明上游 boundary sizing 可能 stale，应停止并路由回 brainstorm/map：
 
@@ -131,31 +131,14 @@
 
 **步骤 7 — 同步机器状态**
 
-对每个 T-xxx，调用：
+用 arbor helper 维护机械状态，语义内容仍以 `task.md` 为准：
 
-```text
-python3 plugins/sdd-kit/tools/arbor.py add-child <name> --id T-001 --title "ADD ..." --milestone M-01 --role shared --depends-on "" --ready true
-```
+- 对每个 T-xxx：`add-child`
+- 对阶段上下文：`add-context`
+- 如已规划 package branch/worktree/PR：`set-execution` 记录 package-level metadata（不创建资源）
+- 最后：`freeze-definition` 并 `validate`
 
-对阶段上下文，调用：
-
-```text
-python3 plugins/sdd-kit/tools/arbor.py add-context <name> --type impl --task T-001 --kind constraint --source SRC-LOCAL-001 --summary "..."
-python3 plugins/sdd-kit/tools/arbor.py add-context <name> --type review --task T-001 --kind acceptance --source SRC-RES-001 --summary "..."
-```
-
-如已规划 package branch/worktree/PR，可记录 package-level execution metadata（不创建资源）：
-
-```text
-python3 plugins/sdd-kit/tools/arbor.py set-execution <name> --status unclaimed --base-branch main --branch arbor/<name> --actor task --note "package execution boundary planned"
-```
-
-最后冻结任务定义并校验：
-
-```text
-python3 plugins/sdd-kit/tools/arbor.py freeze-definition <name> --actor task --note "task definition frozen"
-python3 plugins/sdd-kit/tools/arbor.py validate <name>
-```
+精确参数以 `python3 plugins/sdd-kit/tools/arbor.py <subcommand> --help` 为准。
 
 ### 边界情况
 

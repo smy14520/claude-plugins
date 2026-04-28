@@ -13,7 +13,7 @@ supersedes:
 
 # {title}
 
-<!-- Executable package PRD/context artifact. Brainstorm skill owns this file after boundary routing. -->
+<!-- Executable package PRD/context artifact. Brainstorm skill owns this file after clarified package framing. -->
 
 ## 背景与问题
 
@@ -119,7 +119,7 @@ Task appends new T-xxx linked by source_amendment/corrects.
 - [ ] 至少写出 2 个关键场景（如适用）
 - [ ] 交付物清单可被 task 直接拿来拆
 - [ ] Boundary sizing decision 已明确为 fits_package 或 split_applied
-- [ ] Package 可作为一个 branch/worktree/PR 执行边界；若不能，未 finalize 本文件，已路由到 `.arbor/maps/<initiative>/map.md`
+- [ ] Package 可作为一个 branch/worktree/PR 执行边界；若其实是 large initiative，未 finalize 本文件，已输出 clarified framing 并交给 `map`
 - [ ] 拆解线索给出了切片或顺序提示，且 slice 只是 package-local T-xxx 候选
 - [ ] Open questions / Assumptions / Risks 已分开
 - [ ] Sources 能覆盖关键判断，不只是装饰附录
@@ -243,7 +243,7 @@ map_json: map.json
 
 ## Implementation framing
 
-<Brainstorm 阶段已经明确的项目级实现前提：技术栈、源码/测试布局、运行命令、共享约束。全局约定应由用户确认后沉淀到 CLAUDE.md 或 `.claude/rules`；当前 initiative 特有约束写在这里或 package PRD 中。>
+<Brainstorm 阶段已经明确的项目级实现前提：技术栈、项目形态、前后端关系、repo baseline/scaffold、数据/权限/测试策略、源码/测试布局、运行命令、共享约束。全局约定应由用户确认后沉淀到 CLAUDE.md 或 `.claude/rules`；当前 initiative 特有约束写在这里或 package PRD 中。若这些前提缺失，map 不应 materialize child package stubs，应回 brainstorm/user 澄清。>
 
 ## Package graph
 

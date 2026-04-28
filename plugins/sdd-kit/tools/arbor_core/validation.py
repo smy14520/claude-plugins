@@ -247,7 +247,9 @@ def validate_execution(data: dict[str, Any], task_ids: set[str], errors: list[st
             if task_id is not None and task_id not in task_ids:
                 errors.append(f"execution.agents[{index}] references unknown task_id: {task_id}")
 
-    checkpoints = execution.get("checkpoints")
+    checkpoints = execution.get("checkpoints", [])
+    if checkpoints is None:
+        checkpoints = []
     if not isinstance(checkpoints, list):
         errors.append("execution.checkpoints must be an array")
     else:

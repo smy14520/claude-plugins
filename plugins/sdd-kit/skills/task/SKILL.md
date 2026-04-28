@@ -8,10 +8,10 @@ description: "Decompose an already boundary-sized executable package PRD `.arbor
 Task 将已确认的 executable package PRD 拆成执行者可直接推进的 package-local T-xxx。它不决定 package 边界，不写代码，不做审计。
 
 ```text
-research → map? → brainstorm → [task] → impl → review
-                    │           │
-                    │           └─ task.md + task.json + context/*.jsonl
-                    └─ .arbor/tasks/<package>/prd.md
+research? → brainstorm → map? → package brainstorm → [task] → impl → review
+                                           │           │
+                                           │           └─ task.md + task.json + context/*.jsonl
+                                           └─ .arbor/tasks/<package>/prd.md
 ```
 
 ## 职责边界
@@ -47,8 +47,8 @@ package_sizing.status
 
 停止条件：
 
-- `unchecked`：先回 brainstorm/map 做 boundary sizing。
-- `split_recommended`：先回 `.arbor/maps/<initiative>/map.md` + `map.json`，materialize child packages。
+- `unchecked`：先回 brainstorm 澄清为 package PRD，或回 map 记录已澄清后的 boundary decision。
+- `split_recommended`：先回 map，维护 `.arbor/maps/<initiative>/map.md` + `map.json` 并 materialize child packages。
 - PRD 仍有阻塞 task 拆解的 open questions。
 - 当前输入明显仍是 large initiative。
 
@@ -57,10 +57,7 @@ package_sizing.status
 ## 执行流程
 
 1. 确定 package name 和输入源：首选 `.arbor/tasks/<package>/prd.md`；legacy `.arbor/brainstorms/<name>.md` 只可读取并摘要迁入 PRD。
-2. 运行/读取：
-   ```text
-   python3 plugins/sdd-kit/tools/arbor.py show <package>
-   ```
+2. 运行/读取 arbor helper 的 package summary（`show`）。
 3. 通过 secondary guard 后，选择模式：
    - `strict-atomic`：默认，每个 T-xxx 尽量 ≤ 4h，单一交付物。
    - `lean`：更粗，适合单人快速推进。
@@ -75,13 +72,7 @@ package_sizing.status
    - `ready-check`
    - 可执行 acceptance（二元谓词或命令）
 6. 写实 `.arbor/tasks/<package>/task.md`，不要留下模板占位。
-7. 用 helper 维护机械状态：
-   ```text
-   python3 plugins/sdd-kit/tools/arbor.py add-child <package> --id T-001 --title "ADD ..." --milestone M-01 --role shared --ready true
-   python3 plugins/sdd-kit/tools/arbor.py add-context <package> --type impl --task T-001 --kind constraint --summary "..."
-   python3 plugins/sdd-kit/tools/arbor.py freeze-definition <package> --actor task --note "task definition frozen"
-   python3 plugins/sdd-kit/tools/arbor.py validate <package>
-   ```
+7. 用 arbor helper 维护机械状态：`add-child`、`add-context`、`freeze-definition`、`validate`；参数以 `<subcommand> --help` 为准。
 8. 如果 validation 失败，修 `task.md` / helper 状态后再交付。
 
 ## Amendment append mode
@@ -90,10 +81,7 @@ package_sizing.status
 
 1. 只追加下一个未使用的 T-xxx，不重排、不改写旧 T-xxx。
 2. 新任务必须写明 `source-amendment: AMD-xxx`，必要时写 `corrects: [T-003]`。
-3. 用 helper 追加机器状态：
-   ```text
-   python3 plugins/sdd-kit/tools/arbor.py add-child <package> --id T-006 --title "UPDATE ..." --milestone M-AMEND --role backend --source-amendment AMD-001 --corrects T-003 --ready true
-   ```
+3. 用 arbor helper 追加机器状态（`add-child`，带 `source-amendment` / `corrects`）。
 4. 若旧 T-xxx 因 AMD 失效，先追加修正任务，再把旧任务标记为 `skipped` 并说明原因。
 5. 新任务 acceptance 必须包含 corrected increment + regression checks。
 

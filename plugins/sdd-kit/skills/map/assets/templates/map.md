@@ -19,8 +19,8 @@ source_research: <research-topic | null>
 - Human map: `.arbor/maps/<initiative-name>/map.md`
 - Machine state: `.arbor/maps/<initiative-name>/map.json`
 - Agent assignment log: `.arbor/maps/<initiative-name>/context/agent-assignments.jsonl`
-- Readiness check: `python3 plugins/sdd-kit/tools/arbor.py map-check <initiative-name>`
-- Agent Team assignment plan: `python3 plugins/sdd-kit/tools/arbor.py map-plan-agents <initiative-name> --max-parallel 3`
+- Readiness check: arbor helper `map-check`
+- Agent Team assignment plan: arbor helper `map-plan-agents`
 
 `map-plan-agents` emits assignments for `execution_ready` packages and `prep_ready` packages allowed by map-time `parallel_policy`. The user-facing orchestration entry is `/sdd-kit:parallel` or `并行推进 <initiative>`; the main session stays lead, creates an Agent Team worker pool, and dispatches worktree-isolated package workers for those assignments. Parallel uses Team messages for coordination and local checkpoint commits for code synchronization.
 
@@ -30,7 +30,7 @@ source_research: <research-topic | null>
 
 ## Implementation framing
 
-<Brainstorm 已确认的项目级实现前提：技术栈、源码/测试布局、运行命令、共享约束。全局约定应由用户确认后沉淀到 CLAUDE.md 或 `.claude/rules`；当前 initiative 特有约束写在这里或 package PRD 中。>
+<Brainstorm 已确认的项目级实现前提：技术栈、项目形态、前后端关系、repo baseline/scaffold、数据/权限/测试策略、源码/测试布局、运行命令、共享约束。全局约定应由用户确认后沉淀到 CLAUDE.md 或 `.claude/rules`；当前 initiative 特有约束写在这里或 package PRD 中。若这些前提缺失，map 不应 materialize child package stubs，应回 brainstorm/user 澄清。>
 
 ## Package graph
 
@@ -80,14 +80,9 @@ Status values:
 
 - <blocker>
 
-## Materialization command
+## Materialization
 
-```text
-python3 plugins/sdd-kit/tools/arbor.py create-split-packages <initiative-name> \
-  --package "<package>::<title>::<dep1,dep2>::<boundary reason>" \
-  --actor map \
-  --decision "package graph materialized from .arbor/maps/<initiative-name>/map.md"
-```
+Use arbor helper `create-split-packages` after the package graph is confirmed. Check exact flags with `python3 plugins/sdd-kit/tools/arbor.py create-split-packages --help`.
 
 ## Orchestration / agent assignment
 

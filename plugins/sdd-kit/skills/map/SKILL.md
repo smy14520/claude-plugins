@@ -8,9 +8,9 @@ description: "Maintain `.arbor/maps/<initiative>/` as the canonical coordination
 Map 是 large initiative 的导航和状态层。它维护多个 executable packages 之间的结构、依赖、execution waves 和 cross-package contracts。
 
 ```text
-research? → brainstorm/map → brainstorm package → task → impl → review
-                         ↑                         │
-                         └── package status / blocker 回写到 map.json
+research? → brainstorm → [map] → package-local brainstorm → task → impl → review
+                              ↑                              │
+                              └── package status / blocker 回写到 map.json
 ```
 
 ## 职责边界
@@ -45,35 +45,23 @@ Map 不写详细 package PRD，不拆 T-xxx，不写代码，不审计。Package
 
 ### Create — 创建 initiative map
 
-触发：用户要给大项目建 map，或 brainstorm 判断当前需求过大。
+触发：brainstorm 已输出 clarified initiative framing，或用户明确要求为已经清楚的大需求建 map。
 
 流程：
 
 1. 命名 initiative（kebab-case）。
-2. 基于用户输入、当前 repo 上下文和必要澄清，写清为什么需要多个 executable packages。
-3. 创建/更新：
-   ```text
-   python3 plugins/sdd-kit/tools/arbor.py create-map <initiative> --title "<title>"
-   ```
-4. 在 `map.md` 中写：当前 framing / implementation framing / package graph / execution waves / cross-package contracts / blockers / next orchestration check。
-5. 在 `map.json` 中维护 packages、depends_on、path、prd/task/execution status、orchestration strategy，以及每个 package 的 `parallel_policy`。
-6. 对每个 package 判断并记录并行策略：
+2. 读取 brainstorm framing、research notes、当前 repo 上下文和用户补充，确认需求与 implementation framing 已经清楚到可以拆 package graph。
+3. 写清为什么需要多个 executable packages；若仍缺少会影响拆包的整体选择（例如项目形态、技术栈、前后端关系、repo baseline、数据/权限/测试策略），先回 brainstorm/user 澄清，不创建 child stubs。
+4. 用 arbor helper 创建/更新 initiative map（`create-map`；参数以 `--help` 为准）。
+5. 在 `map.md` 中写：当前 framing / implementation framing / package graph / execution waves / cross-package contracts / blockers / next orchestration check。
+6. 在 `map.json` 中维护 packages、depends_on、path、prd/task/execution status、orchestration strategy，以及每个 package 的 `parallel_policy`。
+7. 对每个 package 判断并记录并行策略：
    - `independent`：不依赖 sibling，可推进到 review。
    - `contract_dependent`：依赖未完成时可先 brainstorm/task，但 impl/review 要等 dependency gate。
    - `hard_dependent`：依赖未完成前不应准备或执行。
-7. materialize child package stubs：
-   ```text
-   python3 plugins/sdd-kit/tools/arbor.py create-split-packages <initiative> \
-     --package "<package>::<title>::<dep1,dep2>::<boundary reason>" \
-     --actor map \
-     --decision "package graph materialized from .arbor/maps/<initiative>/map.md"
-   ```
-   如需显式覆盖默认策略，可用 8 段格式：
-   ```text
-   <package>::<title>::<dep1,dep2>::<boundary reason>::<independence>::<max_phase_before_dependencies>::<dependency_gate_phase>::<parallel_reason>
-   ```
-8. 运行 `map-check`，输出 execution_ready / prep_ready / blocked / active / complete / missing。
-9. 如需执行，提示 `/sdd-kit:parallel <initiative>`。
+8. 用 arbor helper materialize child package stubs（`create-split-packages`；Map 是唯一负责该动作的阶段）。
+9. 运行 `map-check`，输出 execution_ready / prep_ready / blocked / active / complete / missing。
+10. 如需执行，提示 `/sdd-kit:parallel <initiative>`。
 
 ### Update — 更新 map
 
@@ -91,9 +79,7 @@ Map 不写详细 package PRD，不拆 T-xxx，不写代码，不审计。Package
 
 触发：用户问“现在下一步是什么 / 哪些 package blocked”。
 
-```text
-python3 plugins/sdd-kit/tools/arbor.py map-check <initiative>
-```
+运行 arbor helper 的 `map-check`。
 
 输出：execution_ready / prep_ready / blocked / active / complete / missing、当前 wave、最小下一步。不自动推进。
 

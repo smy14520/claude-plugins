@@ -60,15 +60,8 @@ map writes package graph + parallel_policy
 
 1. Resolve initiative。
 2. 记录 original base commit，供最终人工审计 reset 使用。
-3. 运行：
-   ```text
-   python3 plugins/sdd-kit/tools/arbor.py map-check <initiative> --json
-   ```
-4. 运行：
-   ```text
-   python3 plugins/sdd-kit/tools/arbor.py map-plan-agents <initiative> --max-parallel <N> --json
-   ```
-   assignment 包含：`assignment_kind`、`allowed_until`、`stop_before`、`team_name`、`worker_name`、`branch`、`worktree_hint`、`context_files`、`worker-dispatch.md`、`worker_prompt`。
+3. 运行 arbor helper 的 `map-check --json`。
+4. 运行 arbor helper 的 `map-plan-agents --json`（并传入并发上限）。assignment 包含：`assignment_kind`、`allowed_until`、`stop_before`、`team_name`、`worker_name`、`branch`、`worktree_hint`、`context_files`、`worker-dispatch.md`、`worker_prompt`。
 5. 创建 runtime Team：`TeamCreate(team_name="arbor-<initiative>")`。这不是另一个统筹 agent；统筹始终是主会话。
 6. 为每个 assignment 创建 Team runtime task：`TaskCreate`，再用 `TaskUpdate(owner=<worker_name>)` 设 owner。
 7. 为每个 assignment 启动 worker teammate：
@@ -78,16 +71,7 @@ map writes package graph + parallel_policy
    - prompt 注入 `worker_prompt` + `context_files`
 8. worker 在自己的 worktree/branch 内执行，并通过 `claim-package` / `set-execution` 记录 package-level branch/worktree/owner。
 9. worker 使用 `TaskUpdate` + `SendMessage` 回报 start / completion / blocker / contract question。
-10. 对 reviewed package，lead 合回主会话分支、解决冲突、运行 validation/tests、创建本地 checkpoint commit，并记录：
-    ```text
-    python3 plugins/sdd-kit/tools/arbor.py record-checkpoint <package> \
-      --kind lead-integration \
-      --sha <sha> \
-      --branch arbor/<initiative>/<package> \
-      --base-sha <base> \
-      --actor parallel \
-      --note "integrated after validation"
-    ```
+10. 对 reviewed package，lead 合回主会话分支、解决冲突、运行 validation/tests、创建本地 checkpoint commit，并用 arbor helper 的 `record-checkpoint` 记录集成 checkpoint。
 11. lead 重新 `map-check` / `map-plan-agents`；有新 runnable package 就从更新后的 base 启动新 worker/worktree，避免下游沿用 stale worktree。
 12. 若 consumer 发现 producer contract 不足：consumer message producer + lead 并暂停；producer 负责 amendment/patch/checkpoint；lead 报告更新 checkpoint/base 后 consumer 再恢复。
 13. 最终人工审计时保留 `.arbor` 状态；如用户要求，把 checkpoint commits 软复位回 uncommitted diff：`git reset --soft <original-base>` 后再 `git reset`。
@@ -210,7 +194,7 @@ Next: <continue if new runnable package exists, otherwise final blockers>
 
 ## 本 skill 不做
 
-- 不创建 package graph（map / brainstorm）。
+- 不创建 package graph（map 负责）。
 - 不重判 package boundary。
 - 不把 blocked package 强行并行。
 - 不绕过用户授权自动 push / merge / deploy。

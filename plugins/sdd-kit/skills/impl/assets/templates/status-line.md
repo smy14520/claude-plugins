@@ -19,12 +19,7 @@
 
 ## Pick 转换
 
-开始执行某个 ready task 时：
-
-```text
-python3 plugins/sdd-kit/tools/arbor.py set-phase <name> --phase impl --actor impl --task T-NNN --note "implementation started"
-python3 plugins/sdd-kit/tools/arbor.py set-status <name> --task T-NNN --state in_progress --actor impl --note "implementation started"
-```
+开始执行某个 ready task 时，用 arbor helper 记录 `set-phase` 和 `set-status`。
 
 机械结果应等价于：
 
@@ -61,27 +56,11 @@ python3 plugins/sdd-kit/tools/arbor.py set-status <name> --task T-NNN --state in
 }
 ```
 
-Use script state updates for the lifecycle state:
-
-```text
-python3 plugins/sdd-kit/tools/arbor.py set-status <name> --task T-NNN --state done --actor impl --note "acceptance N/N passed"
-```
-
-The helper recalculates package aggregate state and should set `next_action.skill = review` for this T-xxx. Do not set package `reviewed` after a single T-xxx implementation.
+Use arbor helper `set-status` for the lifecycle state. The helper recalculates package aggregate state and should set `next_action.skill = review` for this T-xxx. Do not set package `reviewed` after a single T-xxx implementation.
 
 ## NEEDS_CONTEXT / BLOCKED
 
-无法继续时：
-
-```text
-python3 plugins/sdd-kit/tools/arbor.py set-status <name> --task T-NNN --state needs_context --actor impl --note "<specific missing context>"
-```
-
-or:
-
-```text
-python3 plugins/sdd-kit/tools/arbor.py set-status <name> --task T-NNN --state blocked --actor impl --note "<specific environment blocker>"
-```
+无法继续时，用 arbor helper `set-status` 将当前 T-xxx 标为 `needs_context` 或 `blocked`，并写清具体原因。
 
 顶层 `next_action.skill` 应指向真正解除阻塞的阶段：`task`、`brainstorm` 或 `user`。
 

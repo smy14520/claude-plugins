@@ -128,7 +128,11 @@
 
 **为什么错误**：T-xxx 是 package-local 控制单元，不是并行执行边界。长列表会掩盖真正应该拆 package 的事实。
 
-**修正**：brainstorm/map 先输出 package graph，并用 `create-split-packages` materialize child package stubs（记录 `split_applied`）；用户确认后，对每个 child package 走 package-local brainstorm/PRD，再分别拆 T-xxx。
+**修正**：先回 brainstorm 澄清需求与 design framing。
+
+确认是 large initiative 后，由 map 输出 package graph，并用 `create-split-packages` materialize child package stubs（记录 `split_applied`）。
+
+用户确认后，对每个 child package 走 package-local brainstorm/PRD，再分别拆 T-xxx。
 
 ---
 
@@ -138,7 +142,9 @@
 
 **为什么错误**：`.arbor/tasks/<package>/` 本身宣称自己是 branch/worktree/PR 执行边界；用它承载 initiative 会让后续拆包和执行边界对冲。
 
-**修正**：先 route。large initiative 创建 `.arbor/maps/<initiative>/map.md` + `map.json`，并立即把 map 中确认的 executable packages materialize 为 `.arbor/tasks/<package>/` stubs；不要创建 parent initiative task package。后续用 `map-check` / `map-plan-agents` 统筹 execution_ready / prep_ready / blocked 与 worker context。
+**修正**：先用 brainstorm 澄清 large initiative framing。
+
+再由 map 创建 `.arbor/maps/<initiative>/map.md` + `map.json`，并把 map 中确认的 executable packages materialize 为 `.arbor/tasks/<package>/` stubs；不要创建 parent initiative task package。后续用 `map-check` / `map-plan-agents` 统筹 execution_ready / prep_ready / blocked 与 worker context。
 
 ---
 
@@ -148,4 +154,4 @@
 
 **为什么错误**：task 只是 secondary guard。它不能靠一个长任务列表修复错误的 package boundary。
 
-**修正**：停止，回到 brainstorm/map 更新 boundary decision；只有 `fits_package` 或 `split_applied` 才进入 T-xxx decomposition。
+**修正**：停止，回到 brainstorm 澄清 package PRD，或回到 map 更新已澄清后的 boundary decision；只有 `fits_package` 或 `split_applied` 才进入 T-xxx decomposition。

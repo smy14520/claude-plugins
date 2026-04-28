@@ -268,7 +268,7 @@ class ArborCliTests(unittest.TestCase):
 
     def test_split_applied_from_map_allows_task_decomposition(self):
         self.run_cli("create", "demo-task")
-        self.assertEqual(self.run_cli("set-package-sizing", "demo-task", "--status", "split_applied", "--actor", "brainstorm", "--phase", "brainstorm", "--decision", "child package from .arbor/maps/demo/map.md"), 0)
+        self.assertEqual(self.run_cli("set-package-sizing", "demo-task", "--status", "split_applied", "--actor", "map", "--phase", "map", "--decision", "child package from .arbor/maps/demo/map.md"), 0)
         self.assertEqual(self.run_cli("set-prd-status", "demo-task", "--status", "ready-for-task", "--actor", "brainstorm", "--note", "ready"), 0)
         self.assertEqual(self.run_cli("add-child", "demo-task", "--id", "T-001", "--title", "ADD first", "--milestone", "M-01", "--role", "shared"), 0)
         (self.package_dir() / "task.md").write_text("# 任务: demo-task\n\n- id: T-001\n  title: ADD first\n", encoding="utf-8")
@@ -735,6 +735,13 @@ class ArborCliTests(unittest.TestCase):
         data["execution"]["status"] = "bad"
         (self.package_dir() / "task.json").write_text(json.dumps(data), encoding="utf-8")
         self.assertEqual(self.run_cli("validate", "demo-task"), 1)
+
+    def test_validate_allows_legacy_missing_execution_checkpoints(self):
+        self.run_cli("create", "demo-task")
+        data = self.task_json()
+        del data["execution"]["checkpoints"]
+        (self.package_dir() / "task.json").write_text(json.dumps(data), encoding="utf-8")
+        self.assertEqual(self.run_cli("validate", "demo-task"), 0)
 
     def test_validate_rejects_child_task_execution_boundary_fields(self):
         self.run_cli("create", "demo-task")
