@@ -102,3 +102,79 @@ def add_context(root: Path, name: str, context_type: str, task_id: str | None, k
     data["updated_at"] = timestamp
     save_package(pkg, data)
     return entry
+
+
+def _validate_context_entry(context_type: str, entry: dict[str, Any]) -> None:
+    if context_type not in CONTEXT_TYPES:
+        raise ArborError(f"Invalid context type '{context_type}'.")
+    if context_type == "sources":
+        required = ["id", "type", "location", "title", "why_it_matters"]
+        missing = [field for field in required if not entry.get(field)]
+        if missing:
+            raise ArborError("sources context entry missing required fields: " + ", ".join(missing))
+        if entry.get("type") not in SOURCE_TYPES:
+            raise ArborError(f"Invalid source type '{entry.get('type')}'.")
+    else:
+        if not entry.get("summary"):
+            raise ArborError("impl/review context entry requires summary.")
+        if entry.get("kind") is not None and entry.get("kind") not in CONTEXT_KINDS:
+            raise ArborError(f"Invalid context kind '{entry.get('kind')}'.")
+
+
+def add_context_batch(root: Path, name: str, context_type: str, entries: list[dict[str, Any]], actor: str, timestamp: str) -> dict[str, Any]:
+    validate_name(name)
+    if not entries:
+        raise ArborError("At least one context entry is required.")
+    pkg, data = load_package(root, name)
+    for entry in entries:
+        if not isinstance(entry, dict):
+            raise ArborError("Context batch entries must be JSON objects.")
+        task_id = entry.get("task_id")
+        if task_id:
+            find_task(data, task_id)
+        _validate_context_entry(context_type, entry)
+    path = pkg / "context" / f"{context_type}.jsonl"
+    written: list[dict[str, Any]] = []
+    for entry in entries:
+        if context_type == "sources":
+            normalized = {
+                "id": entry["id"],
+                "type": entry["type"],
+                "location": entry["location"],
+                "title": entry["title"],
+                "why_it_matters": entry["why_it_matters"],
+            }
+        else:
+            normalized = {
+                "at": entry.get("at") or timestamp,
+                "actor": entry.get("actor") or actor,
+                "task_id": entry.get("task_id"),
+                "kind": entry.get("kind") or "note",
+                "source": entry.get("source"),
+                "summary": entry["summary"],
+            }
+        append_jsonl(path, normalized)
+        written.append(normalized)
+    data["updated_at"] = timestamp
+    save_package(pkg, data)
+    return {"package": name, "type": context_type, "count": len(written), "entries": written}
+
+
+def parse_entry_json(raw: str) -> dict[str, Any]:
+    try:
+        value = json.loads(raw)
+    except json.JSONDecodeError as exc:
+        raise ArborError(f"Invalid entry JSON: {exc.msg}") from exc
+    if not isinstance(value, dict):
+        raise ArborError("Entry JSON must be an object.")
+    return value
+
+
+def parse_entries_json(raw: str) -> list[dict[str, Any]]:
+    try:
+        value = json.loads(raw)
+    except json.JSONDecodeError as exc:
+        raise ArborError(f"Invalid entries JSON: {exc.msg}") from exc
+    if not isinstance(value, list) or not all(isinstance(item, dict) for item in value):
+        raise ArborError("Entries JSON must be an array of objects.")
+    return value

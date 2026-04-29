@@ -1,6 +1,6 @@
 # task.json 状态转换参考
 
-每次报告都通过 `sdd-arbor` 更新 task package 的 `task.json`。不要创建 `status.md`，不要写 markdown TODO/checklist；`task.json` 是唯一生命周期状态源。`active_task` 指向 package-local T-xxx；branch/worktree/PR metadata 属于 package-level `execution`。
+每次报告都通过 `sdd-arbor` 更新 task package 的 `task.json`。不要创建 `status.md`，不要写 markdown TODO/checklist；`task.json` 是唯一生命周期状态源。`active_task` 指向 package-local T-xxx；branch/PR metadata 可记录在 package-level `execution` / `pr`。
 
 ## 顶层 lifecycle 字段
 

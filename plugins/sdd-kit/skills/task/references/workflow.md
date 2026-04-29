@@ -6,7 +6,7 @@
 
 ## 拆分
 
-将 package-local PRD 拆解为 milestone + package-local executable T-xxx。Package 是 branch/worktree/PR 执行边界；T-xxx 是 control / acceptance / review 边界。
+将 package-local PRD 拆解为 milestone + package-local executable T-xxx。Package 是需求/评审/回滚边界；T-xxx 是 control / acceptance / review 边界。
 
 ### 触发短语
 
@@ -40,11 +40,11 @@
 
 **步骤 2 — Package sizing secondary guard**
 
-先读取 `task.json.package_sizing.status`，验证 brainstorm/map 是否已经确认当前 PRD 是 executable package boundary（一个 branch/worktree/PR/agent ownership 单元）。
+先读取 `task.json.package_sizing.status`，验证 brainstorm/map 是否已经确认当前 PRD 是 executable package boundary。
 
 继续条件：
 
-- `fits_package`：当前 package 可作为一个 branch/worktree/PR。
+- `fits_package`：当前 PRD 可作为一个 package 边界。
 - `split_applied`：当前 package 是 `.arbor/maps/<initiative>/map.md` 拆出的 child package。
 
 停止条件：
@@ -55,8 +55,7 @@
 若 task 阶段发现以下信号，说明上游 boundary sizing 可能 stale，应停止并路由回 brainstorm/map：
 
 - 覆盖多个可独立 review / merge 的业务域
-- 某个 slice 自然需要独立 branch/worktree/PR 或独立发布节奏
-- 多个 agent 可以长期并行而非只在同一 package 内短暂协作
+- 某个 slice 自然需要独立交付或独立发布节奏
 - T-xxx 会超过约 8-10 个，或关键路径很长且旁路模块明显独立
 - 涉及前台 / 后台 / 交易 / 营销 / 权限等多个子系统
 - 某些 slice 可以单独上线、回滚或验收
@@ -65,7 +64,7 @@
 
 ```text
 📋 拆任务模式:
-  (a) strict-atomic — 每个 T-xxx ≤ 4h, 单一 deliverable, 适合同一 package boundary 内的并行 / 多 agent
+  (a) strict-atomic — 每个 T-xxx ≤ 4h, 单一 deliverable
   (b) lean          — 任务可到 1 天, 适合单人快速推进
   默认: (a) strict-atomic
 ```
@@ -78,7 +77,7 @@
 - 多个交付物簇
 - 多个切片 / 阶段
 - 明显的前后顺序
-- 跨 backend / frontend / data / docs，但仍属于同一个 PR/worktree 边界
+- 跨 backend / frontend / data / docs，但仍属于同一个 package 边界
 
 否则，直接生成平铺任务列表。
 
@@ -125,8 +124,7 @@
 - `task.md`：稳定任务定义；task skill 创建/追加，impl/review 不改
 - `task.json`：package-local 生命周期状态源；由 `sdd-arbor` 机械维护 ready/blockers/dependencies/lifecycle/package execution metadata；large initiative 统筹状态由 `.arbor/maps/<initiative>/map.json` 读取这些 child `task.json` 聚合
 - `review.md`：review 追加四状态语义审计记录；不作为当前 review 状态源
-- `context/*.jsonl`：阶段特定轻量上下文 packet；通过 `add-context` / `add-context-batch` 写入；跨 package 多 agent 时由 `parallel-schedule` / `export-worker-context` 显式列入主会话 lead / Agent Team worker context injection packet
-- `context/worker-dispatch.md`：`parallel` 为当前 package worker 生成的 dispatch/context packet
+- `context/*.jsonl`：阶段特定轻量上下文 packet；通过 `add-context` / `add-context-batch` 写入
 - `status.md`：已废弃，新的 task package 不得创建
 
 **步骤 7 — 同步机器状态**
@@ -135,7 +133,7 @@
 
 - 对每个 T-xxx：`add-child`
 - 对阶段上下文：`add-context`
-- 如已规划 package branch/worktree/PR：`set-execution` 记录 package-level metadata（不创建资源）
+- 如已规划 package branch/PR：`set-execution` / `set-pr` 记录 package-level metadata（不创建资源）
 - 最后：`freeze-definition` 并 `validate`
 
 精确参数以 `sdd-arbor <subcommand> --help` 为准。

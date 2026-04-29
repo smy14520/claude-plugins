@@ -113,7 +113,7 @@ def recalculate_package_state(data: dict[str, Any]) -> None:
             data["next_action"] = {"skill": skill, "task_id": task_id, "reason": reason}
             if package_state in {"impl_done", "reviewed"}:
                 execution = ensure_execution(data)
-                if execution.get("status") not in {"claimed", "worktree_ready", "pr_open", "merged"}:
+                if execution.get("status") not in {"in_progress", "pr_open", "merged"}:
                     execution["status"] = package_state
             return
 
@@ -124,7 +124,7 @@ def recalculate_package_state(data: dict[str, Any]) -> None:
         data["active_task"] = None
         data["next_action"] = {"skill": "none", "task_id": None, "reason": "所有 required package-local tasks 已通过 review"}
         execution = ensure_execution(data)
-        if execution.get("status") not in {"claimed", "worktree_ready", "pr_open", "merged"}:
+        if execution.get("status") not in {"in_progress", "pr_open", "merged"}:
             execution["status"] = "reviewed"
         return
 

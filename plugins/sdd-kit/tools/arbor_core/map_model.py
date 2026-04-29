@@ -21,17 +21,9 @@ def base_map_json(initiative: str, title: str, timestamp: str) -> dict[str, Any]
         "packages": [],
         "contract_requests": [],
         "orchestration": {
-            "default_max_parallel": 3,
-            "strategy": "lead-owned-rolling-worker-pool",
-            "runtime": "claude-code-agent-team",
-            "dependency_gate": "由 map-time parallel_policy 决定依赖未完成时是否允许先做准备；impl/review 必须等 dependency gate 满足",
-            "execution_isolation": "Agent Team teammate 必须先 EnterWorktree 到 package worktree 并验证 cwd/git root/branch，WORKTREE_READY 前不得读写",
-            "context_injection": "注入 map.md、map.json、worker-dispatch.md、package task.json/prd/task/context 以及依赖摘要",
-            "write_permission_boundary": "package worker 只能修改声明的 modification_scope；shared/global 路径属于 serial integration worker scope，不由 lead session 直接实现",
-            "contract_boundary": "跨 package 需求通过 contract_outputs/contract_inputs/contract_requests 表达，不互改 sibling internals",
-            "mainline_boundary": "worker 只通过 lead mainline checkpoint 同步，不读取或合并 sibling branches/worktrees",
-            "integration_boundary": "shared center files/global wiring/DI/routes/migrations/E2E 进入 lead-owned serial integration worker lane；lead 只审查/checkpoint",
-            "manual_review_mode": "需要人工 gate 时显式使用 brainstorm/task/impl/review skills，而不是 parallel",
+            "strategy": "serial-package-map",
+            "dependency_gate": "下游 package 只依赖明确完成或 merged 的上游 package；map-check 只报告串行下一步和 blocker。",
+            "execution_model": "map 负责 package graph / dependency navigation，不自动创建 Team、不派 worker。",
         },
         "history": [
             {
@@ -50,8 +42,7 @@ def create_map(root: Path, initiative: str, title: str | None, timestamp: str, s
         raise ArborError(f"Invalid map status '{status}'.")
     title = title or initiative
     directory = map_dir(root, initiative)
-    context_dir = map_context_dir(root, initiative)
-    context_dir.mkdir(parents=True, exist_ok=True)
+    directory.mkdir(parents=True, exist_ok=True)
     created: list[str] = []
 
     md_path = map_path(root, initiative)
@@ -71,17 +62,16 @@ def create_map(root: Path, initiative: str, title: str | None, timestamp: str, s
         data.setdefault("title", title)
         data.setdefault("map_path", parent_map_ref(initiative))
         data.setdefault("packages", [])
-        orchestration = data.setdefault("orchestration", base_map_json(initiative, title, timestamp)["orchestration"])
-        if isinstance(orchestration, dict):
-            defaults = base_map_json(initiative, title, timestamp)["orchestration"]
-            for key, value in defaults.items():
-                orchestration.setdefault(key, value)
-            if orchestration.get("strategy") in {"ready-packages-only", "autonomous-package-pipeline", "agent-team-worktree-pipeline"}:
-                orchestration["strategy"] = "lead-owned-rolling-worker-pool"
-            if orchestration.get("default_max_parallel") == 2:
-                orchestration["default_max_parallel"] = 3
-            orchestration.setdefault("runtime", "claude-code-agent-team")
-            orchestration.setdefault("execution_isolation", "Agent Team teammate must explicitly EnterWorktree and verify before touching files")
+        defaults = base_map_json(initiative, title, timestamp)["orchestration"]
+        orchestration = data.setdefault("orchestration", {})
+        if not isinstance(orchestration, dict):
+            orchestration = {}
+            data["orchestration"] = orchestration
+        orchestration["strategy"] = "serial-package-map"
+        for key, value in defaults.items():
+            orchestration.setdefault(key, value)
+        for legacy_key in ["runtime", "default_max_parallel", "execution_isolation", "context_injection", "write_permission_boundary", "contract_boundary", "mainline_boundary", "integration_boundary", "manual_review_mode"]:
+            orchestration.pop(legacy_key, None)
         if not isinstance(data.get("contract_requests"), list):
             data["contract_requests"] = []
         else:
@@ -97,10 +87,6 @@ def create_map(root: Path, initiative: str, title: str | None, timestamp: str, s
         data["status"] = status
         created.append("map.json")
     write_json(json_path, data)
-
-    assignments_path = context_dir / "agent-assignments.jsonl"
-    if write_if_missing(assignments_path, ""):
-        created.append("context/agent-assignments.jsonl")
 
     return {"initiative": initiative, "map": parent_map_ref(initiative), "map_json": f".arbor/maps/{initiative}/map.json", "created": created}
 

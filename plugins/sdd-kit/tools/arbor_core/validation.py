@@ -104,48 +104,6 @@ def validate_parent_map_pair(parent_map: Any, parent_initiative: Any, label: str
         errors.append(f"{label}.parent_map must be {expected}")
 
 
-def validate_parallel_policy(value: Any, label: str, errors: list[str]) -> None:
-    if value is None:
-        return
-    if not isinstance(value, dict):
-        errors.append(f"{label} must be an object")
-        return
-    independence = value.get("independence")
-    if independence not in PARALLEL_INDEPENDENCE:
-        errors.append(f"Invalid {label}.independence: {independence}")
-    for field in ["can_prepare_without_dependencies", "can_implement_without_dependencies"]:
-        if not isinstance(value.get(field), bool):
-            errors.append(f"{label}.{field} must be boolean")
-    max_phase = value.get("max_phase_before_dependencies")
-    if max_phase not in PARALLEL_MAX_PHASES:
-        errors.append(f"Invalid {label}.max_phase_before_dependencies: {max_phase}")
-    gate_phase = value.get("dependency_gate_phase")
-    if gate_phase not in PARALLEL_GATE_PHASES:
-        errors.append(f"Invalid {label}.dependency_gate_phase: {gate_phase}")
-    reason = value.get("reason")
-    if not isinstance(reason, str) or not reason:
-        errors.append(f"{label}.reason must be a non-empty string")
-
-
-def validate_modification_scope(value: Any, label: str, errors: list[str]) -> None:
-    if value is None:
-        return
-    if not isinstance(value, dict):
-        errors.append(f"{label} must be an object")
-        return
-    for field in ["summary", "reason"]:
-        field_value = value.get(field)
-        if field_value is not None and not isinstance(field_value, str):
-            errors.append(f"{label}.{field} must be a string")
-    for field in ["owned_paths", "shared_paths"]:
-        field_value = value.get(field, [])
-        if not isinstance(field_value, list) or not all(isinstance(item, str) for item in field_value):
-            errors.append(f"{label}.{field} must be a string array")
-    role = value.get("integration_role", "package")
-    if role not in INTEGRATION_ROLES:
-        errors.append(f"Invalid {label}.integration_role: {role}")
-
-
 def validate_package_sizing(data: dict[str, Any], errors: list[str]) -> None:
     sizing = data.get("package_sizing")
     if sizing is None:
@@ -197,10 +155,9 @@ def validate_package_sizing(data: dict[str, Any], errors: list[str]) -> None:
             if dep == package_name:
                 errors.append("package_sizing.depends_on_packages must not include self")
     validate_optional_string(sizing.get("boundary_reason"), "package_sizing.boundary_reason", errors)
-    validate_parallel_policy(sizing.get("parallel_policy"), "package_sizing.parallel_policy", errors)
 
 
-def validate_execution(data: dict[str, Any], task_ids: set[str], errors: list[str]) -> None:
+def validate_execution(data: dict[str, Any], errors: list[str]) -> None:
     execution = data.get("execution")
     if execution is None:
         return
@@ -219,11 +176,6 @@ def validate_execution(data: dict[str, Any], task_ids: set[str], errors: list[st
         errors.append(f"Invalid execution.status: {execution.get('status')}")
     for field in ["owner", "claimed_at", "released_at", "session", "updated_at", "updated_by", "note"]:
         validate_optional_string(execution.get(field), f"execution.{field}", errors)
-    validate_modification_scope(execution.get("modification_scope"), "execution.modification_scope", errors)
-    if "contract_inputs" in execution:
-        validate_string_array(execution.get("contract_inputs"), "execution.contract_inputs", errors)
-    if "contract_outputs" in execution:
-        validate_string_array(execution.get("contract_outputs"), "execution.contract_outputs", errors)
 
     branch = execution.get("branch")
     if not isinstance(branch, dict):
@@ -250,46 +202,10 @@ def validate_execution(data: dict[str, Any], task_ids: set[str], errors: list[st
         if pr.get("state") not in PR_STATES:
             errors.append(f"Invalid execution.pr.state: {pr.get('state')}")
 
-    agents = execution.get("agents")
-    if not isinstance(agents, list):
-        errors.append("execution.agents must be an array")
-    else:
-        for index, agent in enumerate(agents):
-            if not isinstance(agent, dict):
-                errors.append(f"execution.agents[{index}] must be an object")
-                continue
-            for field in ["role", "name", "status", "at", "summary"]:
-                if field not in agent:
-                    errors.append(f"execution.agents[{index}] missing field: {field}")
-            if agent.get("role") not in AGENT_RECORD_ROLES:
-                errors.append(f"execution.agents[{index}] has invalid role: {agent.get('role')}")
-            if agent.get("status") not in AGENT_RECORD_STATUSES:
-                errors.append(f"execution.agents[{index}] has invalid status: {agent.get('status')}")
-            for field in ["name", "at", "summary", "actor", "note"]:
-                validate_optional_string(agent.get(field), f"execution.agents[{index}].{field}", errors)
-            task_id = agent.get("task_id")
-            if task_id is not None and task_id not in task_ids:
-                errors.append(f"execution.agents[{index}] references unknown task_id: {task_id}")
-
-    checkpoints = execution.get("checkpoints", [])
-    if checkpoints is None:
-        checkpoints = []
-    if not isinstance(checkpoints, list):
-        errors.append("execution.checkpoints must be an array")
-    else:
-        for index, checkpoint in enumerate(checkpoints):
-            label = f"execution.checkpoints[{index}]"
-            if not isinstance(checkpoint, dict):
-                errors.append(f"{label} must be an object")
-                continue
-            if checkpoint.get("kind") not in CHECKPOINT_KINDS:
-                errors.append(f"Invalid {label}.kind: {checkpoint.get('kind')}")
-            for field in ["sha", "at", "actor"]:
-                value = checkpoint.get(field)
-                if not isinstance(value, str) or not value:
-                    errors.append(f"{label}.{field} must be a non-empty string")
-            for field in ["branch", "base_sha", "note"]:
-                validate_optional_string(checkpoint.get(field), f"{label}.{field}", errors)
+    if "agents" in execution and not isinstance(execution.get("agents"), list):
+        errors.append("execution.agents must be an array when present")
+    if "checkpoints" in execution and not isinstance(execution.get("checkpoints"), list):
+        errors.append("execution.checkpoints must be an array when present")
 
 
 def validate_package(root: Path, name: str) -> list[str]:
@@ -422,9 +338,6 @@ def validate_package(root: Path, name: str) -> list[str]:
                 errors.append(f"Task {task_id} cannot correct itself")
             for corrected in corrects:
                 pending_amendment_task_refs.append((f"Task {task_id} corrects", task_id, corrected))
-        for field in CHILD_TASK_EXECUTION_FIELDS:
-            if field in task:
-                errors.append(f"Task {task_id} must not define {field}; execution boundary is package-level")
         dependencies[task_id] = depends_on
 
     if isinstance(prd, dict):
@@ -439,7 +352,7 @@ def validate_package(root: Path, name: str) -> list[str]:
             errors.append(f"{label} references unknown task: {referenced}")
 
     validate_package_sizing(data, errors)
-    validate_execution(data, task_ids, errors)
+    validate_execution(data, errors)
 
     if tasks:
         sizing = data.get("package_sizing") if isinstance(data.get("package_sizing"), dict) else {}

@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+
 def prd_template(name: str, title: str, timestamp: str) -> str:
     date = timestamp[:10]
     return f"""---
@@ -59,18 +60,16 @@ supersedes:
 
 - Boundary status: <fits_package | split_applied>
 - Parent map / initiative: <.arbor/maps/<initiative>/map.md | none>
-- Why this is one executable package: <为什么当前范围可以用一个 branch/worktree/PR review 和回滚>
-- Expected branch/worktree/PR: one
+- Why this is one executable package: <为什么当前范围可以作为一个需求/评审/回滚边界>
 - Rejected split candidates: <哪些 slice 被考虑过但不需要独立 package；原因是什么>
-- T-xxx 语义: package-local control / acceptance / review 单元，不默认创建独立 branch/worktree/PR
-- 多 agent 使用: <是否允许多个 agent 在同一 package boundary 内协作；如需要跨 package 并行，交给 map 管理>
+- T-xxx 语义: package-local control / acceptance / review 单元
 
 ## 拆解线索 / 实现切片建议
 
 - Slice A:
 - Slice B:
-- 依赖顺序 / 并行性提示:
-- 注意: 这些 slice 后续会变成 package-local T-xxx；不是独立 PR 单元
+- 依赖顺序提示:
+- 注意: 这些 slice 后续会变成 package-local T-xxx
 
 ## 关键约束（仅保留承重约束）
 
@@ -119,7 +118,7 @@ Task appends new T-xxx linked by source_amendment/corrects.
 - [ ] 至少写出 2 个关键场景（如适用）
 - [ ] 交付物清单可被 task 直接拿来拆
 - [ ] Boundary sizing decision 已明确为 fits_package 或 split_applied
-- [ ] Package 可作为一个 branch/worktree/PR 执行边界；若其实是 large initiative，未 finalize 本文件，已输出 clarified framing 并交给 `map`
+- [ ] Package 可作为一个需求/评审/回滚边界；若其实是 large initiative，未 finalize 本文件，已输出 clarified framing 并交给 `map`
 - [ ] 拆解线索给出了切片或顺序提示，且 slice 只是 package-local T-xxx 候选
 - [ ] Open questions / Assumptions / Risks 已分开
 - [ ] Sources 能覆盖关键判断，不只是装饰附录
@@ -145,8 +144,7 @@ date: {date}
   - 禁止 wikilinks。本文件应自包含。
   - 禁止高层决策。每个任务仅包含可执行操作。
   - ID 只允许追加，不得重新编号；T-xxx 只在本 package 内唯一。
-  - Package 是 branch/worktree/PR 执行边界；T-xxx 是 package-local control / acceptance / review 单元。
-  - 不要为每个 T-xxx 默认创建独立 branch/worktree/PR；如需独立 PR，应拆成新的 package。
+  - Package 是需求/评审/回滚边界；T-xxx 是 package-local control / acceptance / review 单元。
   - 每条验收条件必须是可执行命令或二元谓词。
   - 每个任务必须有 task-local context、sources 和 ready-check。
   - impl 不得修改本文件；执行状态只写入 task.json。
@@ -159,11 +157,11 @@ date: {date}
 
 - 来源: `prd.md`
 - 模式: {mode}
-- Package execution boundary: `.arbor/tasks/{name}/`（一个 package 默认对应一个 branch/worktree/PR）
-- T-xxx scope: package-local control / acceptance / review，不是默认 PR 单元
+- Package boundary: `.arbor/tasks/{name}/`
+- T-xxx scope: package-local control / acceptance / review
 - Boundary sizing decision from brainstorm/map: <fits_package | split_applied> — <为什么当前 package 边界成立；若拆过，列出来源/去向 package>
 - Parent map / initiative: <.arbor/maps/<initiative>/map.md | none>
-- Package PR readiness: 所有 required T-xxx 通过 review，且无 package-level blocker
+- Package readiness: 所有 required T-xxx 通过 review，且无 package-level blocker
 - 总任务数: <N>
 - milestone 数: <N>
 - 总预估工时: <hours>
@@ -220,7 +218,7 @@ updated: {date}
 
 Append-only semantic audit entries for package-local T-xxx control units.
 Current lifecycle state lives in `task.json`.
-A single T-xxx approval does not mean the package branch/worktree/PR is ready; package readiness is aggregated from all required child tasks.
+A single T-xxx approval does not mean the package is ready; package readiness is aggregated from all required child tasks.
 """
 
 
@@ -247,18 +245,11 @@ map_json: map.json
 
 ## Package graph
 
-> `Boundary reason`、`Write scope`、`Shared integration scope`、`Notes` 等人读内容默认写中文；字段名、enum、路径、命令保持英文。
+> 人读内容默认写中文；字段名、enum、路径、命令保持英文。
 
-| Package | Materialized | Depends on | Parallel policy | Max phase before deps | Dependency gate | Wave | Boundary reason | Write scope | Shared integration scope | Integration role | Contract inputs | Contract outputs | PRD status | Execution status | Notes |
-|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|
-| `.arbor/tasks/<package>/` | no | [] | independent / contract_dependent / hard_dependent | review/task | none/impl/review | W1 | <中文说明为什么这是一个 executable package> | <owned paths / package-local scope；中文说明范围> | <shared/global paths if any；中文说明集成敏感点> | package / lead_serial | <inputs> | <outputs> | draft | unclaimed | <中文备注> |
-
-## Parallel boundaries
-
-- 写权限: package workers 只拥有声明的 write scope。
-- Contract: 跨 package 缺口写成 contract requests，不互改 sibling internals。
-- 主干: downstream implementation 只依赖 completed/merged packages 或 lead checkpoints；reviewed alone 不是稳定依赖。
-- 集成: shared center files/global wiring/DI/routes/migrations/E2E/repo-wide config 默认进入 lead_serial serial integration worker lane；main-session lead 只审查/checkpoint，不直接实现。
+| Package | Materialized | Depends on | Wave | Boundary reason | PRD status | Execution status | Notes |
+|---|---|---|---|---|---|---|---|
+| `.arbor/tasks/<package>/` | no | [] | W1 | <中文说明为什么这是一个 executable package> | draft | unclaimed | <中文备注> |
 
 ## Cross-package contracts
 
@@ -273,7 +264,7 @@ map_json: map.json
 ## Execution waves
 
 - W1: <packages with no package dependency blockers>
-- W2: <packages unlocked after W1 lead-integration/contract-update checkpoint>
+- W2: <packages unlocked after W1 packages are completed or merged>
 
 ## Current blockers
 
@@ -281,7 +272,7 @@ map_json: map.json
 
 ## Orchestration note
 
-Parallel 用 Team messages 协调 runtime work，用 contract requests 表达跨 package 缺口，用 lead/mainline checkpoint commits 同步代码事实。`integration_ready` packages 一次只派给一个 serial integration worker；main-session lead 只协调、审查、checkpoint 并回收 worker，不直接实现 package diff。
+Map 只负责 package graph、依赖和 blocker 导航，不自动创建 Team、不派 worker。需要推进时，按 `map-check` 输出逐个进入对应 package 的 brainstorm/task/impl/review。
 
 ## Next orchestration check
 
@@ -289,6 +280,5 @@ Run:
 
 ```text
 sdd-arbor map-check {initiative}
-sdd-arbor parallel-step {initiative} --max-parallel 5 --json
 ```
 """

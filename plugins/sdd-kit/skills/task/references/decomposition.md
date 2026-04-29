@@ -9,7 +9,7 @@
 | 单任务最大尺寸 | ≤ 4h | ≤ 1 天 |
 | 单任务交付物数 | 恰好 1 个 | 1-3 个相关项 |
 | 单任务涉及文件数 | 通常 1-2 个 | 最多约 5 个 |
-| 适用场景 | 同一 package boundary 内的多 agent / 多人；并行 impl；长期工作 | 单人开发；快速原型；有时间盒的工作 |
+| 适用场景 | 关键功能；每个单元需要独立审查；长期工作 | 单人开发；快速原型；有时间盒的工作 |
 | 仪式感 | 高（更多任务，显式 DAG） | 较低（更少任务，隐式顺序） |
 | 大需求处理 | 先验证 brainstorm 的需求澄清与 map 的 package sizing；若仍是单 package，再通过 milestone + T-xxx | 先验证 brainstorm 的需求澄清与 map 的 package sizing；若仍是单 package，再通过较粗的 slice task |
 
@@ -17,10 +17,9 @@
 
 ### 选 strict-atomic 的场景
 
-- 多个人或 agent 将并行执行
 - 工作跨度 > 1 周
 - 关键功能，每个单元需要独立审查
-- 用户明确要求并行
+- 任务依赖关系需要显式 DAG 管理
 
 ### 选 lean 的场景
 
@@ -41,8 +40,7 @@ Brainstorm 应先澄清需求并形成 package PRD，map 应先完成 split 后 
 
 满足以下条件时，继续在当前 package 内拆 T-xxx：
 
-- 交付物可以在一个 branch/worktree/PR 中 review
-- 多 agent 并行主要是同一边界内的短期协作
+- 交付物可以作为一个需求/评审/回滚边界
 - slice 共享同一发布/回滚节奏
 - package-local T-xxx 数量不会膨胀到难以 review
 
@@ -50,9 +48,8 @@ Brainstorm 应先澄清需求并形成 package PRD，map 应先完成 split 后 
 
 出现以下信号时，说明上游应回到 map/package graph；task 应停止，不要继续生成长 T-xxx 列表：
 
-- 一个 PRD 覆盖多个可独立 PR 的业务域
-- 某个 slice 需要独立 worktree/branch/PR 或独立发布节奏
-- 多个 agent 可以长期并行，不应挤在同一 worktree/branch
+- 一个 PRD 覆盖多个可独立 review / merge 的业务域
+- 某个 slice 需要独立交付或独立发布节奏
 - T-xxx 会超过约 8-10 个
 - 关键路径很长，但旁路模块明显独立
 - 涉及前台 / 后台 / 交易 / 营销 / 权限等多个子系统
@@ -117,13 +114,13 @@ knowledge-paid-system
 
 不要把 PRD 的全部来源都搬进任务。只列与本任务有关的 `SRC-*`。
 
-### "需要独立 PR / worktree 吗？" 测试
+### "需要独立交付边界吗？" 测试
 
-如果一个 slice 需要独立 branch/worktree/PR 或独立发布节奏，它不应只是 T-xxx，应提升为新的 package 并由 map 维护依赖。如果它只是同一 package 内的验收/review 切片，保留为 T-xxx。
+如果一个 slice 需要独立 review / merge / rollback 或独立发布节奏，它不应只是 T-xxx，应提升为新的 package 并由 map 维护依赖。如果它只是同一 package 内的验收/review 切片，保留为 T-xxx。
 
 ### "T-xxx 太多是不是问题？" 测试
 
-T-xxx 多不必然错误，但如果数量超过约 8-10 个，必须重新检查 package boundary。若这些任务分属多个可独立 review / merge / rollback 的业务域，应拆 package；只有当它们确实共享同一个 PR/worktree 边界时，才保留为一个 package 内的 milestone + T-xxx。
+T-xxx 多不必然错误，但如果数量超过约 8-10 个，必须重新检查 package boundary。若这些任务分属多个可独立 review / merge / rollback 的业务域，应拆 package；只有当它们确实共享同一个需求/评审/回滚边界时，才保留为一个 package 内的 milestone + T-xxx。
 
 ### "太大" 的气味
 

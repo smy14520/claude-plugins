@@ -1,6 +1,6 @@
 # 四态审查状态机
 
-Review 衡量的是：**package branch/worktree diff 中当前 T-xxx 对应部分，是否在语义上满足 package-local PRD slice + task**。单个 T-xxx verdict 不等于 package PR approval；package readiness 由所有 required T-xxx 的 review 状态聚合得出。
+Review 衡量的是：**actual diff 中当前 T-xxx 对应部分，是否在语义上满足 package-local PRD slice + task**。单个 T-xxx verdict 不等于 package PR approval；package readiness 由所有 required T-xxx 的 review 状态聚合得出。
 
 ## APPROVED
 

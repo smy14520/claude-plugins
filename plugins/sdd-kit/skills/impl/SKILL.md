@@ -36,7 +36,7 @@ Impl 是**执行**阶段。它：
 1. 先确认 package，再确认 package-local T-xxx；不要把裸 `T-001` 当作全局唯一任务
 2. 定位 `.arbor/tasks/<name>/task.md`
 3. 读取任务定义 `task.md` + 生命周期元数据 `task.json` + `context/impl.jsonl` + `context/sources.jsonl`
-4. 检查 `task.json.execution`，确认当前工作区/branch/worktree 属于 package boundary；不为 T-xxx 创建独立 branch/worktree/PR
+4. 检查 `task.json.execution` 中的轻量 metadata（如有）；不为 T-xxx 创建独立 branch/PR
 5. 若 `task.json.active_task` 指向未完成任务，优先恢复该任务；否则选择下一个可执行任务：`depends_on` 已满足，且 `ready-check` 不阻塞
 6. 若 `task.json.next_action.skill` 不是 `impl`，先说明当前推荐动作与原因
 7. 向用户确认后开始，并用 `sdd-arbor set-status <name> --task T-xxx --state in_progress --actor impl --note "implementation started"` 记录状态
@@ -93,7 +93,7 @@ Impl 是**执行**阶段。它：
 3. **优先信任 task-local context** —— 不是每次都回到 PRD 重读全局文档。
 4. **禁止修改任务定义** —— impl 只通过 `arbor.py` 更新 `task.json` 的执行状态元数据。
 5. **一次一个 T-xxx** —— 完成 + 报告后再选下一个；T-xxx 只在当前 package 内唯一。
-6. **Package 是执行边界** —— 代码变更进入 package branch/worktree；不要为 T-xxx 默认创建独立 PR。
+6. **Package 是执行边界** —— 代码变更服务于当前 package；不要为 T-xxx 默认创建独立 PR。
 7. **单个 DONE 不等于 package 完成** —— DONE 只表示当前 T-xxx 自检通过，package readiness 由所有 required T-xxx 的 review 聚合而来。
 8. **SelfCheck = 验收** —— 语义审计属于 review。
 9. **Amendment 是增量实现** —— 不为了“看起来一致”去改旧 PRD/task；只实现新 T-xxx。

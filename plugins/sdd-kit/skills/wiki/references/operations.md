@@ -58,15 +58,13 @@ package 到达稳定 milestone 后发布模块卡片。
 
 触发建议：
 
-- `lead-integration` checkpoint
-- `contract-update` checkpoint
 - package completed / merged
 - PRD amendment accepted 后需要更新已有模块 note
 
 流程：
 
 1. 运行：`sdd-arbor module-summary <package> --json`。
-2. 读取 packet 中 package、contracts、owned/shared paths、checkpoints、tests、related packages。
+2. 读取 packet 中 package、contracts、tests、related packages。
 3. 写/更新 `.wiki/Modules/<Title>.md`。
 4. 保留人工补充内容，更新来自 arbor 的 summary/contract/verification sections。
 5. 不写行号；locator 使用 path + symbol/route/table/config/test/contract id。

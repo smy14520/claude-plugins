@@ -1,6 +1,6 @@
 ---
 name: task
-description: "Decompose an already boundary-sized executable package PRD `.arbor/tasks/<package>/prd.md` into package-local T-xxx control/acceptance/review units. Task is a secondary guard: it refuses unchecked or split_recommended package sizing and only proceeds for fits_package/split_applied. `.arbor/tasks/<package>/` is the execution boundary; T-xxx tasks are not default branch/worktree/PR units. Invoke only on explicit user request."
+description: "Decompose an already boundary-sized executable package PRD `.arbor/tasks/<package>/prd.md` into package-local T-xxx control/acceptance/review units. Task is a secondary guard: it refuses unchecked or split_recommended package sizing and only proceeds for fits_package/split_applied. `.arbor/tasks/<package>/` is the package boundary; T-xxx tasks are not default branch/PR units. Invoke only on explicit user request."
 ---
 
 # Task — Secondary Guard + T-xxx Decomposition
@@ -20,9 +20,9 @@ Task 只处理 `.arbor/tasks/<package>/`：
 
 - 输入：`prd.md` + `task.json` + 已记录的 `package_sizing`。
 - 输出：写实 `task.md`、结构化 `task.json.tasks[]`、`context/*.jsonl`、冻结 definition。
-- Package 是 branch/worktree/PR/agent ownership 边界。
+- Package 是需求/评审/回滚边界。
 - T-xxx 是 package-local control / acceptance / dependency / review 单元。
-- 如果某个 T-xxx 需要独立 PR/worktree，应回 map 拆成新 package。
+- 如果某个 T-xxx 需要独立交付边界，应回 map 拆成新 package。
 
 详细拆解准则按需读：
 
@@ -52,7 +52,7 @@ package_sizing.status
 - PRD 仍有阻塞 task 拆解的 open questions。
 - 当前输入明显仍是 large initiative。
 
-若 task 阶段发现上游 sizing stale（多业务域、多 PR/worktree、T-xxx 预计超过约 8-10 个、前台/后台/交易/营销等明显分域），停止并回 map，不要硬拆长任务列表。
+若 task 阶段发现上游 sizing stale（多业务域、T-xxx 预计超过约 8-10 个、前台/后台/交易/营销等明显分域），停止并回 map，不要硬拆长任务列表。
 
 ## 执行流程
 
@@ -104,7 +104,7 @@ package_sizing.status
 - wiki 页面作为未验证 source of truth；可以作为背景提示，但 `task.md` 必须自包含。
 - “决定/调研/设计某方案”这类开放任务。
 - 重排已有 T-xxx 编号。
-- 为 T-xxx 默认写 branch/worktree/PR。
+- 为 T-xxx 默认写 branch/PR。
 - 只调用 `sdd-arbor add-child` 而不把真实任务写入 `task.md`。
 
 ## 状态源规则
@@ -132,5 +132,5 @@ Task 完成时应满足：
 - 不创建 large initiative 的 `.arbor/tasks/<initiative>/`。
 - 不重新做 package boundary 判断。
 - 不写代码、不运行 impl、不 review。
-- 不创建 branch/worktree/PR；只可记录 package-level metadata。
-- 不自动推进到下一个 skill；若用户需要自主推进，用 `/sdd-kit:parallel`。
+- 不创建 branch/PR；只可记录 package-level metadata。
+- 不自动推进到下一个 skill。

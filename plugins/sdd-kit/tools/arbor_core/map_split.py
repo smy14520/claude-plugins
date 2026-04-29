@@ -6,18 +6,17 @@ from typing import Any
 from .errors import ArborError
 from .fs import *
 from .schema import *
-from .state import add_phase_history, ensure_execution
+from .state import add_phase_history
 from .package_model import create_package
 from .map_model import create_map, ensure_map_workspace
-from .map_policy import default_parallel_policy, normalize_modification_scope, normalize_parallel_policy, normalize_string_list
 from .map_sync import sync_map_from_packages
 
 
 def parse_split_package_spec(raw: str) -> dict[str, Any]:
     parts = raw.split("::")
-    if len(parts) not in {4, 8}:
-        raise ArborError("Split package spec must use format name::title::dep1,dep2::boundary_reason or name::title::dep1,dep2::boundary_reason::independence::max_phase::gate_phase::parallel_reason.")
-    name, title, deps_raw, boundary_reason = [part.strip() for part in parts[:4]]
+    if len(parts) != 4:
+        raise ArborError("Split package spec must use format name::title::dep1,dep2::boundary_reason.")
+    name, title, deps_raw, boundary_reason = [part.strip() for part in parts]
     validate_name(name)
     if not title:
         raise ArborError(f"Split package '{name}' requires a title.")
@@ -28,25 +27,7 @@ def parse_split_package_spec(raw: str) -> dict[str, Any]:
         validate_name(dep)
         if dep == name:
             raise ArborError(f"Split package '{name}' cannot depend on itself.")
-    policy = default_parallel_policy(depends_on, boundary_reason)
-    if len(parts) == 8:
-        independence, max_phase, gate_phase, parallel_reason = [part.strip() for part in parts[4:]]
-        if independence:
-            if independence not in PARALLEL_INDEPENDENCE:
-                raise ArborError(f"Split package '{name}' has invalid independence: {independence}.")
-            policy["independence"] = independence
-        if max_phase:
-            if max_phase not in PARALLEL_MAX_PHASES:
-                raise ArborError(f"Split package '{name}' has invalid max phase: {max_phase}.")
-            policy["max_phase_before_dependencies"] = max_phase
-        if gate_phase:
-            if gate_phase not in PARALLEL_GATE_PHASES:
-                raise ArborError(f"Split package '{name}' has invalid dependency gate phase: {gate_phase}.")
-            policy["dependency_gate_phase"] = gate_phase
-        if parallel_reason:
-            policy["reason"] = parallel_reason
-        policy = normalize_parallel_policy(policy, depends_on, boundary_reason)
-    return {"name": name, "title": title, "depends_on_packages": depends_on, "boundary_reason": boundary_reason, "parallel_policy": policy}
+    return {"name": name, "title": title, "depends_on_packages": depends_on, "boundary_reason": boundary_reason}
 
 
 def ensure_same_or_empty(value: Any, expected: str, label: str, package_name: str) -> None:
@@ -71,10 +52,6 @@ def package_map_entry(spec: dict[str, Any], timestamp: str) -> dict[str, Any]:
         "depends_on": spec["depends_on_packages"],
         "wave": spec.get("wave") or None,
         "boundary_reason": spec["boundary_reason"],
-        "parallel_policy": normalize_parallel_policy(spec.get("parallel_policy"), spec["depends_on_packages"], spec["boundary_reason"]),
-        "modification_scope": normalize_modification_scope(spec.get("modification_scope"), name, spec["boundary_reason"]),
-        "contract_inputs": [],
-        "contract_outputs": [],
         "prd_status": "draft",
         "task_state": "planned",
         "execution_status": "unclaimed",
@@ -94,17 +71,9 @@ def upsert_map_packages(root: Path, initiative: str, specs: list[dict[str, Any]]
     for spec in specs:
         name = spec["name"]
         entry = by_name.get(name, {})
-        preserved_scope = entry.get("modification_scope")
-        preserved_inputs = entry.get("contract_inputs")
-        preserved_outputs = entry.get("contract_outputs")
-        new_entry = package_map_entry(spec, timestamp)
-        if preserved_scope is not None:
-            new_entry["modification_scope"] = normalize_modification_scope(preserved_scope, name, spec["boundary_reason"])
-        if preserved_inputs is not None:
-            new_entry["contract_inputs"] = normalize_string_list(preserved_inputs)
-        if preserved_outputs is not None:
-            new_entry["contract_outputs"] = normalize_string_list(preserved_outputs)
-        entry.update(new_entry)
+        for legacy_key in ["parallel_policy", "modification_scope", "contract_inputs", "contract_outputs"]:
+            entry.pop(legacy_key, None)
+        entry.update(package_map_entry(spec, timestamp))
         by_name[name] = entry
         if name not in ordered_names:
             ordered_names.append(name)
@@ -175,7 +144,6 @@ def create_split_packages(root: Path, initiative: str, package_specs: list[str],
             "parent_initiative": initiative,
             "depends_on_packages": spec["depends_on_packages"],
             "boundary_reason": spec["boundary_reason"],
-            "parallel_policy": normalize_parallel_policy(spec.get("parallel_policy"), spec["depends_on_packages"], spec["boundary_reason"]),
             "decided_at": timestamp,
             "decided_by": actor,
             "note": f"由 {parent_map} 拆包 materialize",
@@ -184,10 +152,6 @@ def create_split_packages(root: Path, initiative: str, package_specs: list[str],
         data["current_phase"] = "brainstorm"
         data["active_task"] = None
         data["next_action"] = {"skill": "brainstorm", "task_id": None, "reason": "map 已拆出 child package，下一步由 brainstorm 补齐 package-local PRD"}
-        execution = ensure_execution(data)
-        execution["modification_scope"] = normalize_modification_scope(execution.get("modification_scope") or spec.get("modification_scope"), name, spec["boundary_reason"])
-        execution["contract_inputs"] = normalize_string_list(execution.get("contract_inputs"))
-        execution["contract_outputs"] = normalize_string_list(execution.get("contract_outputs"))
         data["updated_at"] = timestamp
         add_phase_history(data, timestamp, "map", None, old, "package_sizing:split_applied", actor, f"由 {parent_map} 拆包 materialize")
         save_package(pkg, data)

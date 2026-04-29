@@ -68,11 +68,9 @@ supersedes:              # optional, remove if N/A
 
 - Boundary status: <fits_package | split_applied>
 - Parent map / initiative: <.arbor/maps/<initiative>/map.md | none>
-- Why this is one executable package: <为什么当前范围可以用一个 branch/worktree/PR review 和回滚>
-- Expected branch/worktree/PR: one
+- Why this is one executable package: <为什么当前范围可以作为一个需求/评审/回滚边界>
 - Rejected split candidates: <哪些 slice 被考虑过但不需要独立 package；原因是什么>
-- T-xxx 语义: package-local control / acceptance / review 单元，不默认创建独立 branch/worktree/PR
-- 多 agent 使用: <是否允许多个 agent 在同一 package boundary 内协作；如需要跨 package 并行，交给 map 管理>
+- T-xxx 语义: package-local control / acceptance / review 单元，不默认创建独立 branch/PR
 
 ## 拆解线索 / 实现切片建议
 
@@ -146,7 +144,7 @@ Task appends new T-xxx linked by source_amendment/corrects.
 - [ ] 至少写出 2 个关键场景（如适用）
 - [ ] 交付物清单可被 task 直接拿来拆
 - [ ] Boundary sizing decision 已明确为 fits_package 或 split_applied
-- [ ] Package 可作为一个 branch/worktree/PR 执行边界；若其实是 large initiative，未 finalize 本文件，已输出 clarified framing 并交给 `map`
+- [ ] Package 可作为一个需求/评审/回滚边界；若其实是 large initiative，未 finalize 本文件，已输出 clarified framing 并交给 `map`
 - [ ] 若来自 map，Parent map / initiative 已写明
 - [ ] 拆解线索给出了切片或顺序提示，且 slice 只是 package-local T-xxx 候选
 - [ ] Open questions / Assumptions / Risks 已分开

@@ -1,6 +1,6 @@
 ---
 name: wiki
-description: "Manage the project's persistent knowledge wiki at `.wiki/` — project-local Obsidian-style markdown with wikilinks, frontmatter descriptions, and deterministic arbor wiki-index/wiki-search/wiki-collect retrieval. Also publishes completed sdd-kit module-summary packets into module notes. Invoke only on explicit user request (e.g. '用 wiki skill ingest/query/lint/module-summary …') or when parallel lead explicitly asks a wiki subagent to publish/retrieve summaries."
+description: "Manage the project's persistent knowledge wiki at `.wiki/` — project-local Obsidian-style markdown with wikilinks, frontmatter descriptions, and deterministic arbor wiki-index/wiki-search/wiki-collect retrieval. Also publishes completed sdd-kit module-summary packets into module notes. Invoke only on explicit user request (e.g. '用 wiki skill ingest/query/lint/module-summary …')."
 ---
 
 # Wiki — project-local knowledge layer
@@ -58,7 +58,7 @@ sdd-arbor wiki-collect --query "balance refund" --limit 5 --json
 
 ### Module summary publish — 发布完成模块卡片
 
-当 package 到达稳定 milestone（例如 `lead-integration`、`contract-update`、completed/merged）后，lead 可请求 wiki subagent：
+当 package 到达稳定 milestone（例如 completed/merged）后，可请求 wiki skill/subagent：
 
 ```text
 sdd-arbor module-summary <package> --json

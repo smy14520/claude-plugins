@@ -2,7 +2,6 @@ from __future__ import annotations
 
 import argparse
 import json
-import os
 import sys
 from pathlib import Path
 
@@ -12,7 +11,6 @@ from .map_state import *
 from .package_state import *
 from .printing import *
 from .schema import *
-from .self_healing import *
 from .validation import validate_package
 from .wiki_state import *
 
@@ -45,32 +43,9 @@ def build_parser() -> argparse.ArgumentParser:
     split.add_argument("--actor", default="map")
     split.add_argument("--json", dest="json_output", action="store_true", help="Emit JSON output.")
 
-    map_check_parser = sub.add_parser("map-check", help="Check package readiness and blockers for an initiative map.")
+    map_check_parser = sub.add_parser("map-check", help="Check serial package readiness and blockers for an initiative map.")
     map_check_parser.add_argument("initiative")
     map_check_parser.add_argument("--json", dest="json_output", action="store_true", help="Emit JSON output.")
-
-    map_plan_agents_parser = sub.add_parser("map-plan-agents", help="Create lead-owned rolling Agent Team/worktree worker assignment/context plan.")
-    map_plan_agents_parser.add_argument("initiative")
-    map_plan_agents_parser.add_argument("--max-parallel", type=int, default=5)
-    map_plan_agents_parser.add_argument("--worktree-root", help="Portable project-root-relative worktree root ref; defaults to ../arbor-worktrees/<project> or ARBOR_WORKTREE_ROOT.")
-    map_plan_agents_parser.add_argument("--actor", default="map")
-    map_plan_agents_parser.add_argument("--json", dest="json_output", action="store_true", help="Emit JSON output.")
-
-    parallel_schedule_parser = sub.add_parser("parallel-schedule", help="Choose the next automatic dynamic parallel lane and worker assignments.")
-    parallel_schedule_parser.add_argument("initiative")
-    parallel_schedule_parser.add_argument("--max-parallel", type=int, default=5)
-    parallel_schedule_parser.add_argument("--worktree-root", help="Portable project-root-relative worktree root ref; defaults to ../arbor-worktrees/<project> or ARBOR_WORKTREE_ROOT.")
-    parallel_schedule_parser.add_argument("--actor", default="parallel")
-    parallel_schedule_parser.add_argument("--json", dest="json_output", action="store_true", help="Emit JSON output.")
-
-    parallel_step_parser = sub.add_parser("parallel-step", help="Return one deterministic lead orchestration action plan.")
-    parallel_step_parser.add_argument("initiative")
-    parallel_step_parser.add_argument("--max-parallel", type=int, default=5)
-    parallel_step_parser.add_argument("--worktree-root", help="Portable project-root-relative worktree root ref; defaults to ../arbor-worktrees/<project> or ARBOR_WORKTREE_ROOT.")
-    parallel_step_parser.add_argument("--live-worker", action="append", default=[], help="Team worker name observed as live in this lead loop; repeatable.")
-    parallel_step_parser.add_argument("--no-live-workers", action="store_true", help="Tell the step planner that no Team workers are currently live.")
-    parallel_step_parser.add_argument("--actor", default="parallel")
-    parallel_step_parser.add_argument("--json", dest="json_output", action="store_true", help="Emit JSON output.")
 
     validate = sub.add_parser("validate", help="Validate one or all task packages.")
     target = validate.add_mutually_exclusive_group(required=True)
@@ -122,32 +97,7 @@ def build_parser() -> argparse.ArgumentParser:
     freeze.add_argument("--actor", required=True)
     freeze.add_argument("--note", default="")
 
-    claim = sub.add_parser("claim-package", help="Record a package-level execution claim.")
-    claim.add_argument("name")
-    claim.add_argument("--owner", required=True)
-    claim.add_argument("--branch")
-    claim.add_argument("--base-branch")
-    claim.add_argument("--worktree")
-    claim.add_argument("--session")
-    claim.add_argument("--force", action="store_true")
-    claim.add_argument("--actor", default="arbor")
-    claim.add_argument("--note", default="")
-
-    release = sub.add_parser("release-package", help="Release a package-level execution claim.")
-    release.add_argument("name")
-    release.add_argument("--owner")
-    release.add_argument("--force", action="store_true")
-    release.add_argument("--actor", default="arbor")
-    release.add_argument("--note", default="")
-
-    import_artifacts_parser = sub.add_parser("import-package-artifacts", help="Import worker package artifacts from a worktree without overwriting task.json control state.")
-    import_artifacts_parser.add_argument("name")
-    import_artifacts_parser.add_argument("--from-worktree", required=True)
-    import_artifacts_parser.add_argument("--artifact", action="append", default=[])
-    import_artifacts_parser.add_argument("--actor", default="parallel")
-    import_artifacts_parser.add_argument("--json", dest="json_output", action="store_true", help="Emit JSON output.")
-
-    set_execution_parser = sub.add_parser("set-execution", help="Record package-level branch/worktree execution metadata.")
+    set_execution_parser = sub.add_parser("set-execution", help="Record lightweight package execution metadata.")
     set_execution_parser.add_argument("name")
     set_execution_parser.add_argument("--status", choices=sorted(EXECUTION_STATUSES))
     set_execution_parser.add_argument("--base-branch")
@@ -166,15 +116,6 @@ def build_parser() -> argparse.ArgumentParser:
     set_pr_parser.add_argument("--actor", default="arbor")
     set_pr_parser.add_argument("--note", default="")
 
-    record_checkpoint_parser = sub.add_parser("record-checkpoint", help="Record a local git checkpoint used for parallel code synchronization.")
-    record_checkpoint_parser.add_argument("name")
-    record_checkpoint_parser.add_argument("--kind", required=True, choices=sorted(CHECKPOINT_KINDS))
-    record_checkpoint_parser.add_argument("--sha", required=True)
-    record_checkpoint_parser.add_argument("--branch")
-    record_checkpoint_parser.add_argument("--base-sha")
-    record_checkpoint_parser.add_argument("--actor", default="parallel")
-    record_checkpoint_parser.add_argument("--note", default="")
-
     contract_request_parser = sub.add_parser("record-contract-request", help="Record or update a cross-package contract request on an initiative map.")
     contract_request_parser.add_argument("initiative")
     contract_request_parser.add_argument("--consumer", required=True)
@@ -183,73 +124,8 @@ def build_parser() -> argparse.ArgumentParser:
     contract_request_parser.add_argument("--status", required=True, choices=sorted(CONTRACT_REQUEST_STATUSES))
     contract_request_parser.add_argument("--id")
     contract_request_parser.add_argument("--resolution")
-    contract_request_parser.add_argument("--actor", default="parallel")
+    contract_request_parser.add_argument("--actor", default="map")
     contract_request_parser.add_argument("--json", dest="json_output", action="store_true", help="Emit JSON output.")
-
-    runtime_event_parser = sub.add_parser("record-runtime-event", help="Append a lightweight parallel runtime event to the initiative assignment log.")
-    runtime_event_parser.add_argument("initiative")
-    runtime_event_parser.add_argument("--event", required=True, choices=sorted(PARALLEL_RUNTIME_EVENTS))
-    runtime_event_parser.add_argument("--package")
-    runtime_event_parser.add_argument("--assignment-id")
-    runtime_event_parser.add_argument("--worker")
-    runtime_event_parser.add_argument("--reason")
-    runtime_event_parser.add_argument("--detail-json")
-    runtime_event_parser.add_argument("--actor", default="parallel")
-    runtime_event_parser.add_argument("--json", dest="json_output", action="store_true", help="Emit JSON output.")
-
-    record_agent_parser = sub.add_parser("record-agent", help="Record explicit external agent validation metadata.")
-    record_agent_parser.add_argument("name")
-    record_agent_parser.add_argument("--role", required=True, choices=sorted(AGENT_RECORD_ROLES))
-    record_agent_parser.add_argument("--agent", required=True)
-    record_agent_parser.add_argument("--status", required=True, choices=sorted(AGENT_RECORD_STATUSES))
-    record_agent_parser.add_argument("--task")
-    record_agent_parser.add_argument("--summary", required=True)
-    record_agent_parser.add_argument("--actor", default="arbor")
-    record_agent_parser.add_argument("--note", default="")
-
-    export_worker_context_parser = sub.add_parser("export-worker-context", help="Regenerate a worker dispatch/context packet for an assignment.")
-    export_worker_context_parser.add_argument("initiative")
-    export_worker_context_parser.add_argument("package")
-    export_worker_context_parser.add_argument("--assignment-id", required=True)
-    export_worker_context_parser.add_argument("--worktree-root")
-    export_worker_context_parser.add_argument("--actor", default="parallel")
-    export_worker_context_parser.add_argument("--json", dest="json_output", action="store_true", help="Emit JSON output.")
-
-    reconcile_package_parser = sub.add_parser("reconcile-package", help="Reconcile recoverable package runtime/blocker state.")
-    reconcile_package_parser.add_argument("initiative")
-    reconcile_package_parser.add_argument("package")
-    reconcile_package_parser.add_argument("--assignment-id")
-    reconcile_package_parser.add_argument("--worker")
-    reconcile_package_parser.add_argument("--release-stale-claim", action="store_true")
-    reconcile_package_parser.add_argument("--actor", default="parallel")
-    reconcile_package_parser.add_argument("--json", dest="json_output", action="store_true", help="Emit JSON output.")
-
-    finish_worker_parser = sub.add_parser("finish-worker", help="Import worker artifacts, validate, record finish event, and return next schedule.")
-    finish_worker_parser.add_argument("initiative")
-    finish_worker_parser.add_argument("package")
-    finish_worker_parser.add_argument("--assignment-id", required=True)
-    finish_worker_parser.add_argument("--from-worktree", required=True)
-    finish_worker_parser.add_argument("--review-state", required=True, choices=["not_started", "ready_for_review", "reviewed"])
-    finish_worker_parser.add_argument("--changed-artifact", action="append", default=[])
-    finish_worker_parser.add_argument("--checkpoint-kind", choices=sorted(CHECKPOINT_KINDS))
-    finish_worker_parser.add_argument("--sha")
-    finish_worker_parser.add_argument("--base-sha")
-    finish_worker_parser.add_argument("--branch")
-    finish_worker_parser.add_argument("--release", action="store_true")
-    finish_worker_parser.add_argument("--worktree-root")
-    finish_worker_parser.add_argument("--actor", default="parallel")
-    finish_worker_parser.add_argument("--json", dest="json_output", action="store_true", help="Emit JSON output.")
-
-    upsert_contract_parser = sub.add_parser("upsert-contract", help="Create or update a contract request idempotently.")
-    upsert_contract_parser.add_argument("initiative")
-    upsert_contract_parser.add_argument("--consumer", required=True)
-    upsert_contract_parser.add_argument("--producer", required=True)
-    upsert_contract_parser.add_argument("--request", required=True)
-    upsert_contract_parser.add_argument("--status", required=True, choices=sorted(CONTRACT_REQUEST_STATUSES))
-    upsert_contract_parser.add_argument("--id")
-    upsert_contract_parser.add_argument("--resolution")
-    upsert_contract_parser.add_argument("--actor", default="parallel")
-    upsert_contract_parser.add_argument("--json", dest="json_output", action="store_true", help="Emit JSON output.")
 
     add_child_parser = sub.add_parser("add-child", help="Add a task lifecycle record.")
     add_child_parser.add_argument("name")
@@ -376,35 +252,6 @@ def main(argv: list[str] | None = None) -> int:
                 print_human_map_check(result)
             return 0
 
-        if args.command == "map-plan-agents":
-            result = map_plan_agents(root, args.initiative, args.max_parallel, args.actor, timestamp, args.worktree_root or os.environ.get("ARBOR_WORKTREE_ROOT"))
-            if json_output:
-                print(json.dumps(result, ensure_ascii=False, indent=2))
-            else:
-                print_human_agent_plan(result)
-            return 0
-
-        if args.command == "parallel-schedule":
-            result = parallel_schedule(root, args.initiative, args.max_parallel, args.actor, timestamp, args.worktree_root or os.environ.get("ARBOR_WORKTREE_ROOT"))
-            if json_output:
-                print(json.dumps(result, ensure_ascii=False, indent=2))
-            else:
-                print(f"mode: {result['mode']}")
-                for item in result["lane_switches"]:
-                    print(f"lane: {item['lane']} — {item['reason']}")
-            return 0
-
-        if args.command == "parallel-step":
-            live_workers = [] if args.no_live_workers else (args.live_worker or None)
-            result = parallel_step(root, args.initiative, args.max_parallel, args.actor, timestamp, args.worktree_root or os.environ.get("ARBOR_WORKTREE_ROOT"), live_workers)
-            if json_output:
-                print(json.dumps(result, ensure_ascii=False, indent=2))
-            else:
-                print(f"{result['mode']}:{result['phase']}")
-                for action in result["safe_actions"] + result["dispatch"]:
-                    print(f"- {action['type']} {action.get('package') or action.get('team_name')}")
-            return 0
-
         if args.command == "validate":
             targets = [item["name"] for item in list_packages(root)] if args.all else [args.name]
             all_errors: dict[str, list[str]] = {}
@@ -453,25 +300,6 @@ def main(argv: list[str] | None = None) -> int:
             print("ok")
             return 0
 
-        if args.command == "claim-package":
-            claim_package(root, args.name, args.owner, args.actor, args.note, timestamp, args.force, args.branch, args.base_branch, args.worktree, args.session)
-            print("ok")
-            return 0
-
-        if args.command == "release-package":
-            release_package(root, args.name, args.owner, args.actor, args.note, timestamp, args.force)
-            print("ok")
-            return 0
-
-        if args.command == "import-package-artifacts":
-            result = import_package_artifacts(root, args.name, args.from_worktree, args.artifact, args.actor, timestamp)
-            if json_output:
-                print(json.dumps(result, ensure_ascii=False, indent=2))
-            else:
-                imported = ", ".join(result["imported"]) if result["imported"] else "none"
-                print(f"imported: {imported}; task.json not overwritten")
-            return 0
-
         if args.command == "set-execution":
             set_execution(root, args.name, args.status, args.actor, args.note, timestamp, args.base_branch, args.branch, args.upstream, args.worktree, args.worktree_created_by)
             print("ok")
@@ -482,66 +310,8 @@ def main(argv: list[str] | None = None) -> int:
             print("ok")
             return 0
 
-        if args.command == "record-checkpoint":
-            record_checkpoint(root, args.name, args.kind, args.sha, args.branch, args.base_sha, args.actor, args.note, timestamp)
-            print("ok")
-            return 0
-
         if args.command == "record-contract-request":
             result = record_contract_request(root, args.initiative, args.consumer, args.producer, args.request, args.status, args.id, args.resolution, args.actor, timestamp)
-            if json_output:
-                print(json.dumps(result, ensure_ascii=False, indent=2))
-            else:
-                item = result["contract_request"]
-                print(f"{item['id']} {item['consumer']} -> {item['producer']} status={item['status']}")
-            return 0
-
-        if args.command == "record-runtime-event":
-            detail = None
-            if args.detail_json is not None:
-                try:
-                    detail = json.loads(args.detail_json)
-                except json.JSONDecodeError as exc:
-                    raise ArborError(f"Invalid --detail-json: {exc.msg}") from exc
-            result = append_parallel_runtime_event(root, args.initiative, args.event, args.actor, timestamp, args.package, args.assignment_id, args.worker, args.reason, detail)
-            if json_output:
-                print(json.dumps(result, ensure_ascii=False, indent=2))
-            else:
-                package = f" package={result['package']}" if "package" in result else ""
-                print(f"{result['event']}{package}")
-            return 0
-
-        if args.command == "record-agent":
-            record_agent(root, args.name, args.role, args.agent, args.status, args.summary, args.actor, args.note, timestamp, args.task)
-            print("ok")
-            return 0
-
-        if args.command == "export-worker-context":
-            result = export_worker_context(root, args.initiative, args.package, args.assignment_id, args.worktree_root or os.environ.get("ARBOR_WORKTREE_ROOT"), args.actor, timestamp)
-            if json_output:
-                print(json.dumps(result, ensure_ascii=False, indent=2))
-            else:
-                print(f"dispatch: {result['assignment']['context_files'][2]}")
-            return 0
-
-        if args.command == "reconcile-package":
-            result = reconcile_package(root, args.initiative, args.package, args.assignment_id, args.worker, args.actor, timestamp, args.release_stale_claim)
-            if json_output:
-                print(json.dumps(result, ensure_ascii=False, indent=2))
-            else:
-                print(result["status"])
-            return 0
-
-        if args.command == "finish-worker":
-            result = finish_worker(root, args.initiative, args.package, args.assignment_id, args.from_worktree, args.review_state, args.changed_artifact, args.actor, timestamp, args.checkpoint_kind, args.sha, args.base_sha, args.branch, args.release, args.worktree_root or os.environ.get("ARBOR_WORKTREE_ROOT"))
-            if json_output:
-                print(json.dumps(result, ensure_ascii=False, indent=2))
-            else:
-                print(f"finished: {result['package']}; imported={len(result['import']['imported'])}")
-            return 0
-
-        if args.command == "upsert-contract":
-            result = upsert_contract(root, args.initiative, args.consumer, args.producer, args.request, args.status, args.id, args.resolution, args.actor, timestamp)
             if json_output:
                 print(json.dumps(result, ensure_ascii=False, indent=2))
             else:

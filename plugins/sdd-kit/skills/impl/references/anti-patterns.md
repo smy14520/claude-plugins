@@ -66,7 +66,7 @@
 
 ## 10. 把 T-xxx DONE 当成 package 完成
 
-**症状**：当前 T-xxx acceptance 通过后，声称整个 package branch/worktree/PR 已完成。
+**症状**：当前 T-xxx acceptance 通过后，声称整个 package 已完成。
 
 **修复方式**：DONE 只覆盖当前 package-local T-xxx。Package readiness 必须由所有 required T-xxx 的 review 聚合得出。
 

@@ -8,7 +8,6 @@ from .fs import *
 from .state import ensure_execution
 from .validation import validate_package
 from .map_model import ensure_map_workspace
-from .map_policy import normalize_modification_scope, normalize_parallel_policy, normalize_string_list
 
 
 def read_package_summary(root: Path, name: str) -> dict[str, Any]:
@@ -24,13 +23,8 @@ def read_package_summary(root: Path, name: str) -> dict[str, Any]:
     errors = validate_package(root, name)
     tasks = data.get("tasks", []) if isinstance(data.get("tasks"), list) else []
     execution = ensure_execution(data)
-    checkpoints = execution.get("checkpoints") if isinstance(execution.get("checkpoints"), list) else []
-    latest_checkpoint = checkpoints[-1] if checkpoints and isinstance(checkpoints[-1], dict) else None
-    lead_checkpoints = [checkpoint for checkpoint in checkpoints if isinstance(checkpoint, dict) and checkpoint.get("kind") in {"lead-integration", "contract-update"}]
-    latest_lead_checkpoint = lead_checkpoints[-1] if lead_checkpoints else None
     prd = data.get("prd") if isinstance(data.get("prd"), dict) else {}
     sizing = data.get("package_sizing") if isinstance(data.get("package_sizing"), dict) else {}
-    boundary_reason = sizing.get("boundary_reason") if isinstance(sizing.get("boundary_reason"), str) else ""
     next_action = data.get("next_action") if isinstance(data.get("next_action"), dict) else {}
     return {
         "name": name,
@@ -42,16 +36,10 @@ def read_package_summary(root: Path, name: str) -> dict[str, Any]:
         "prd_status": prd.get("status"),
         "package_sizing": sizing.get("status"),
         "depends_on": sizing.get("depends_on_packages", []) if isinstance(sizing.get("depends_on_packages", []), list) else [],
-        "parallel_policy": normalize_parallel_policy(sizing.get("parallel_policy"), sizing.get("depends_on_packages", []) if isinstance(sizing.get("depends_on_packages", []), list) else [], boundary_reason),
-        "modification_scope": normalize_modification_scope(execution.get("modification_scope"), name, boundary_reason),
-        "contract_inputs": normalize_string_list(execution.get("contract_inputs")),
-        "contract_outputs": normalize_string_list(execution.get("contract_outputs")),
         "parent_initiative": prd.get("parent_initiative") or sizing.get("parent_initiative"),
         "next_action": {"skill": next_action.get("skill"), "task_id": next_action.get("task_id"), "reason": next_action.get("reason")},
         "execution_status": execution.get("status"),
         "execution_owner": execution.get("owner"),
-        "latest_checkpoint": latest_checkpoint,
-        "latest_lead_checkpoint": latest_lead_checkpoint,
         "pr_state": execution.get("pr", {}).get("state") if isinstance(execution.get("pr"), dict) else None,
         "task_count": len(tasks),
         "ready_count": sum(1 for task in tasks if task.get("state") == "ready"),
@@ -93,22 +81,18 @@ def sync_map_from_packages(root: Path, initiative: str, timestamp: str) -> dict[
     for name in names:
         entry = by_name.get(name, {"name": name, "path": f".arbor/tasks/{name}"})
         summary = read_package_summary(root, name)
+        for legacy_key in ["parallel_policy", "modification_scope", "contract_inputs", "contract_outputs", "latest_checkpoint", "latest_lead_checkpoint"]:
+            entry.pop(legacy_key, None)
         if summary.get("exists"):
             entry["title"] = summary.get("title") or entry.get("title") or name
             entry["path"] = summary.get("path")
             entry["materialized"] = True
             entry["depends_on"] = summary.get("depends_on", entry.get("depends_on", []))
-            entry["parallel_policy"] = normalize_parallel_policy(entry.get("parallel_policy") or summary.get("parallel_policy"), entry.get("depends_on", []), entry.get("boundary_reason") or "")
-            entry["modification_scope"] = normalize_modification_scope(entry.get("modification_scope") or summary.get("modification_scope"), name, entry.get("boundary_reason"))
-            entry["contract_inputs"] = normalize_string_list(entry.get("contract_inputs") or summary.get("contract_inputs"))
-            entry["contract_outputs"] = normalize_string_list(entry.get("contract_outputs") or summary.get("contract_outputs"))
             entry["prd_status"] = summary.get("prd_status")
             entry["task_state"] = summary.get("state")
             entry["current_phase"] = summary.get("current_phase")
             entry["execution_status"] = summary.get("execution_status")
             entry["execution_owner"] = summary.get("execution_owner")
-            entry["latest_checkpoint"] = summary.get("latest_checkpoint")
-            entry["latest_lead_checkpoint"] = summary.get("latest_lead_checkpoint")
             entry["next_action"] = summary.get("next_action")
             entry["task_count"] = summary.get("task_count")
             entry["ready_count"] = summary.get("ready_count")
@@ -120,10 +104,6 @@ def sync_map_from_packages(root: Path, initiative: str, timestamp: str) -> dict[
             entry["validation"] = summary.get("validation")
         entry.setdefault("wave", None)
         entry.setdefault("boundary_reason", None)
-        entry["parallel_policy"] = normalize_parallel_policy(entry.get("parallel_policy"), entry.get("depends_on", []) if isinstance(entry.get("depends_on"), list) else [], entry.get("boundary_reason") or "")
-        entry["modification_scope"] = normalize_modification_scope(entry.get("modification_scope"), name, entry.get("boundary_reason"))
-        entry["contract_inputs"] = normalize_string_list(entry.get("contract_inputs"))
-        entry["contract_outputs"] = normalize_string_list(entry.get("contract_outputs"))
         entry["updated_at"] = timestamp
         synced.append(entry)
     data["packages"] = synced

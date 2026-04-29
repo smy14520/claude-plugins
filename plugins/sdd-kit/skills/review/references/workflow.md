@@ -1,6 +1,6 @@
 # Review 工作流：收集 / 判定 / 报告
 
-Review 对 impl 产出执行**语义审计**，依据是 package-local PRD + package-local T-xxx task + package branch/worktree diff +（可选）wiki。它绝不修改代码、`prd.md` 或任务定义。单个 T-xxx verdict 不等于 package PR approval。
+Review 对 impl 产出执行**语义审计**，依据是 package-local PRD + package-local T-xxx task + actual diff +（可选）wiki。它绝不修改代码、`prd.md` 或任务定义。单个 T-xxx verdict 不等于 package PR approval。
 
 ## 收集
 
@@ -9,7 +9,7 @@ Review 对 impl 产出执行**语义审计**，依据是 package-local PRD + pac
    - 若缺失，可读取 legacy `.arbor/brainstorms/<name>.md` 作为 fallback
    - fallback 必须在报告中标为迁移风险；新流程应回 brainstorm 迁入 `prd.md`
 3. 读取 task package 的 `task.md` + `task.json` + 可选 `context/review.jsonl`
-4. 检查实际 package branch/worktree diff，并明确当前 T-xxx 的 diff scope
+4. 检查实际 git diff，并明确当前 T-xxx 的 diff scope
 5. 可选做 wiki 交叉检查
 
 ## 判定

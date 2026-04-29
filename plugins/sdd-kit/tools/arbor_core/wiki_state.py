@@ -9,7 +9,6 @@ from .fs import *
 from .map_contracts import contract_requests_list
 from .map_model import ensure_map_workspace
 from .map_sync import read_package_summary, sync_map_from_packages
-from .schema import CHECKPOINT_KINDS
 from .state import ensure_execution
 from .validation import validate_package
 
@@ -233,10 +232,9 @@ def module_summary(root: Path, package: str, initiative: str | None = None, time
     pkg, data = load_package(root, package)
     summary = read_package_summary(root, package)
     execution = ensure_execution(data)
-    checkpoints = execution.get("checkpoints") if isinstance(execution.get("checkpoints"), list) else []
     sizing = data.get("package_sizing") if isinstance(data.get("package_sizing"), dict) else {}
     parent = initiative or sizing.get("parent_initiative")
-    contracts = {"inputs": summary.get("contract_inputs", []), "outputs": summary.get("contract_outputs", []), "requests": []}
+    contracts = {"requests": []}
     if isinstance(parent, str) and parent:
         try:
             map_data = sync_map_from_packages(root, parent, timestamp or data.get("updated_at") or data.get("created_at") or "")
@@ -244,17 +242,14 @@ def module_summary(root: Path, package: str, initiative: str | None = None, time
         except ArborError:
             contracts["requests"] = []
     tasks = data.get("tasks", []) if isinstance(data.get("tasks"), list) else []
-    scope = summary.get("modification_scope") if isinstance(summary.get("modification_scope"), dict) else {}
     return {
         "kind": "module-summary",
         "schema_version": "sdd-module-summary-v1",
         "package": package,
         "title": summary.get("title") or data.get("title") or package,
         "status": summary.get("state"),
-        "checkpoints": checkpoints,
+        "execution_status": execution.get("status"),
         "contracts": contracts,
-        "owned_paths": scope.get("owned_paths", []),
-        "shared_paths": scope.get("shared_paths", []),
         "important_files": [],
         "invariants": [],
         "tests": [task.get("title") for task in tasks if isinstance(task, dict) and isinstance(task.get("title"), str) and "test" in task.get("title", "").casefold()],

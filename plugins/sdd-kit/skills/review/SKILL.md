@@ -31,7 +31,7 @@ Review 是**语义安全网**。它：
 
 1. 确定审计目标：package + package-local T-xxx；裸 `T-001` 不可视为全局唯一任务
 2. 读取 task package 的 `prd.md`、`task.md`、`task.json` 与可选 `context/review.jsonl`
-3. 运行 `git diff` 查看 package branch/worktree 的实际变更，并说明当前 T-xxx 对应的 diff scope
+3. 运行 `git diff` 查看实际变更，并说明当前 T-xxx 对应的 diff scope
 4. 可选用 `sdd-arbor wiki-collect --query "<query>" --limit 5 --json` 查阅相关 wiki 页面；wiki 只作 orientation，结论必须回到 diff / PRD / task / `.arbor` 验证
 5. 若 package 内缺少 `prd.md`，可读取 legacy `.arbor/brainstorms/<name>.md` 作为 fallback，但必须报告这是迁移风险
 
@@ -67,7 +67,7 @@ Review 是**语义安全网**。它：
 
 1. **只读代码和任务定义** —— review 绝不编辑代码、`prd.md`、`task.md` 或验收条件；只可追加 `review.md`，并必须通过 helper 更新 `task.json` 的 review 元数据。
 2. **`task.json` 是当前状态源** —— `review.md` 是审计日志，latest review result 以 `task.json` 为准。
-3. **必须读取实际 diff** —— 只看 task 的 DONE 状态不构成审查；diff 是 package branch/worktree diff，结论要聚焦当前 T-xxx。
+3. **必须读取实际 diff** —— 只看 task 的 DONE 状态不构成审查；diff 是 package diff，结论要聚焦当前 T-xxx。
 4. **单个 T-xxx 批准不等于 package PR 批准** —— package readiness 由所有 required T-xxx review 聚合而来。
 5. **优先使用全新上下文** —— 如有可能，在新会话 / 子代理中执行 review。
 6. **范围：PRD + task + diff + wiki** —— research 是上游背景，不是审查主要对象。

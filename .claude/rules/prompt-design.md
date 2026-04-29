@@ -1,10 +1,10 @@
 ---
-description: Prompt design principles for plugin and skill authoring in this repository.
+description: Prompt and skill-writing principles for this repository.
 ---
 
 # Prompt design
 
-本文件是本仓库提示词设计技巧的长期沉淀入口，不隶属于某一个具体原则。后续新增的 prompt/skill 写法、留白技巧、表达模式、反模式和示例，优先追加到这里；只有具体 workflow 执行步骤才放进对应 `SKILL.md`。
+本文件只沉淀提示词和 `SKILL.md` 的表达技巧：如何写得更短、更清楚、更能引导模型判断。workflow 机制、helper/hook 取舍和工程治理规则放在 `.claude/rules/workflow-design.md` 或 `CLAUDE.md`。
 
 ## 少即是多
 
@@ -26,7 +26,7 @@ description: Prompt design principles for plugin and skill authoring in this rep
 
 ## 留白不是含糊
 
-可以留白的是模型能根据上下文稳定判断的常识；不能留白的是会影响安全、状态一致性或工作流边界的事实。
+可以留白的是模型能根据上下文稳定判断的常识；不能留白的是会影响权限、状态一致性、source of truth 或阶段边界的事实。
 
 适合留白：
 
@@ -37,12 +37,10 @@ description: Prompt design principles for plugin and skill authoring in this rep
 
 不适合留白：
 
-- 是否能修改文件。
-- 是否能执行 destructive action。
-- worker 是否必须进入 worktree。
-- package worker 的写权限范围。
-- contract/mainline/integration 边界。
-- 哪些 helper 会修改 durable `.arbor` state。
+- 是否能修改文件或执行 destructive action。
+- 是否自动推进下一阶段。
+- 当前阶段的读写边界。
+- 哪个 artifact / helper 是 durable state 的 source of truth。
 
 ## 规则应该写成方向，不是补丁列表
 
@@ -60,21 +58,7 @@ skill 负责流程，arbor helper 负责机械动作，hook 只守底线。
 skill 不要 copy 文件；skill 不要 patch；skill 不要自己 diff；skill 不要直接写 task.json；skill 不要……
 ```
 
-如果某个动作应该被稳定执行，优先提供 helper；如果某个动作必须被阻止，再考虑 hook。
-
-## 具体命令优于长篇提醒
-
-如果 lead/worker 需要记住一串机械步骤，不要继续加 prompt 规则；把它做成命令。
-
-例如：
-
-```text
-arbor.py import-package-artifacts <package> --from-worktree <worktree_ref>
-arbor.py finish-worker <initiative> <package> --assignment-id <id> --from-worktree <worktree_ref>
-arbor.py wiki-collect --query "<query>" --limit 5 --json
-```
-
-比“不要手工 patch；只复制这些 artifact；不要覆盖 task.json；记得记录 artifact_imports……”更稳定。重复上下文交接也一样：优先做成 dispatch packet / module-summary packet / collect JSON，而不是在 prompt 里反复提醒。
+方向性规则适合放在提示词里；需要稳定执行或强制阻止的动作，应下沉为 helper / hook，而不是继续堆 prompt 补丁。
 
 ## Skill prompt 要短而有边界
 
@@ -123,18 +107,6 @@ arbor.py wiki-collect --query "<query>" --limit 5 --json
 ```
 
 前者定义了交互循环；后者只是检查清单，模型容易问得散、浅、早停。
-
-## 不要为外部偶发问题膨胀规则
-
-发现问题先判断归属：项目 workflow/helper 的稳定缺口才沉淀规则或 helper；外部环境的一次性干扰（例如 shell 更新提示、临时终端状态、用户本地工具交互）修复环境即可，不要把它包装成 workflow 兜底。
-
-优先问：这是 sdd-kit 应负责的可重复状态问题，还是运行环境刚好打断了本次执行？只有前者值得进入规则、hook 或 helper。
-
-## 直指核心，而不是局部补丁
-
-遇到 workflow 失败时，先追问“为什么系统会允许这个错误发生”，不要只补当前场景的提示词规则。局部规则只适合表达已经确认的系统边界；如果问题来自职责断层、状态机缺失、helper 粒度不对或信息没有结构化传递，应优先修 helper / state / pipeline。
-
-优先问：这个错误是模型忘记了一条规则，还是 workflow 没有把正确下一步做成确定性动作？如果是后者，继续加 prompt 只会让规则膨胀，应该把机制补上。
 
 ## 面向 AI 的表达要避免过度指定实现
 

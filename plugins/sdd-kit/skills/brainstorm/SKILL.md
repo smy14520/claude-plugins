@@ -59,7 +59,7 @@ Large initiative handoff 前，必须确认足以支撑 package graph 的 implem
 
 ### 2. Single executable package
 
-当前 change 可用一个 branch/worktree/PR review、回滚和交付时：
+当前 change 可作为一个需求/评审/回滚边界时：
 
 - 创建或更新 `.arbor/tasks/<package>/prd.md`。
 - 记录 package sizing 为 `fits_package`，actor/phase 为 `brainstorm`。
@@ -67,7 +67,7 @@ Large initiative handoff 前，必须确认足以支撑 package graph 的 implem
 
 ### 3. Large initiative → map
 
-需求和 implementation framing 都清楚，且自然包含多个 executable packages / PR / worktree / 发布节奏时：
+需求和 implementation framing 都清楚，且自然包含多个 executable packages / 独立交付节奏时：
 
 - 只输出 clarified initiative framing。
 - 不运行 map 创建命令。

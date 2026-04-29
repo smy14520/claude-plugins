@@ -102,11 +102,11 @@
 
 ---
 
-## 14. 把 T-xxx 当成独立 PR / worktree / branch
+## 14. 把 T-xxx 当成独立 PR / branch
 
-**症状**：为 `T-001`、`T-002` 各自创建 branch/worktree/PR，导致一个 package 的语义边界被拆散。
+**症状**：为 `T-001`、`T-002` 各自创建 branch/PR，导致一个 package 的语义边界被拆散。
 
-**为什么错误**：sdd-kit 中 package 是执行边界；T-xxx 是 package-local control / acceptance / review 单元。
+**为什么错误**：sdd-kit 中 package 是需求/评审/回滚边界；T-xxx 是 package-local control / acceptance / review 单元。
 
 **修正**：如果某个 T-xxx 真的需要独立 PR，把它提升为新的 `.arbor/tasks/<package>/`，并在 map 中记录 package 依赖。
 
@@ -114,9 +114,9 @@
 
 ## 15. 一个 package 塞入多个应独立交付的目标
 
-**症状**：一个 `prd.md` 里包含多个可以独立 branch/worktree/PR 的目标。
+**症状**：一个 `prd.md` 里包含多个可以独立交付、review 或回滚的目标。
 
-**为什么错误**：package 是执行边界。把多个可独立交付目标塞进一个 package，会让多 agent、worktree、review 和 PR 都变粗，只剩 T-xxx 在内部硬控。
+**为什么错误**：package 是需求/评审/回滚边界。把多个可独立交付目标塞进一个 package，会让 review 和 PR 都变粗，只剩 T-xxx 在内部硬控。
 
 **修正**：拆成多个 package，用 map 维护它们之间的 dependency / contract；不要只靠 T-xxx 硬塞。
 
@@ -124,7 +124,7 @@
 
 ## 16. 跳过 upstream package sizing 直接生成长 T-xxx 列表
 
-**症状**：PRD 覆盖多个业务域，task 阶段直接产出 15-20 个 T-xxx，并宣称可以多 agent 执行。
+**症状**：PRD 覆盖多个业务域，task 阶段直接产出 15-20 个 T-xxx，并宣称仍是一个 package。
 
 **为什么错误**：T-xxx 是 package-local 控制单元，不是并行执行边界。长列表会掩盖真正应该拆 package 的事实。
 
@@ -140,11 +140,11 @@
 
 **症状**：brainstorm 一开始就为上位主题创建 task package，之后 task 又发现它应该拆成多个 package。
 
-**为什么错误**：`.arbor/tasks/<package>/` 本身宣称自己是 branch/worktree/PR 执行边界；用它承载 initiative 会让后续拆包和执行边界对冲。
+**为什么错误**：`.arbor/tasks/<package>/` 本身宣称自己是 executable package 边界；用它承载 initiative 会让后续拆包和执行边界对冲。
 
 **修正**：先用 brainstorm 澄清 large initiative framing。
 
-再由 map 创建 `.arbor/maps/<initiative>/map.md` + `map.json`，并把 map 中确认的 executable packages materialize 为 `.arbor/tasks/<package>/` stubs；不要创建 parent initiative task package。后续用 `parallel-schedule` 统筹 execution_ready / prep_ready / blocked 与 worker context。
+再由 map 创建 `.arbor/maps/<initiative>/map.md` + `map.json`，并把 map 中确认的 executable packages materialize 为 `.arbor/tasks/<package>/` stubs；不要创建 parent initiative task package。后续用 `map-check` 查看 ready / blocked / active / complete / missing。
 
 ---
 
