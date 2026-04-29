@@ -289,6 +289,6 @@ Run:
 
 ```text
 sdd-arbor map-check {initiative}
-sdd-arbor parallel-schedule {initiative} --max-parallel 5 --json
+sdd-arbor parallel-step {initiative} --max-parallel 5 --json
 ```
 """

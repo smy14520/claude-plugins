@@ -797,6 +797,56 @@ class ArborCliTests(unittest.TestCase):
         self.create_map_file("big-init")
         self.assertEqual(self.run_cli("map-plan-agents", "big-init", "--max-parallel", "6"), 1)
         self.assertEqual(self.run_cli("parallel-schedule", "big-init", "--max-parallel", "6"), 1)
+        self.assertEqual(self.run_cli("parallel-step", "big-init", "--max-parallel", "6"), 1)
+
+    def test_parallel_step_returns_dispatch_action_plan(self):
+        self.create_map_file("big-init")
+        self.assertEqual(self.run_cli("create-split-packages", "big-init", "--package", "big-core::Big core::::core boundary", "--decision", "from map"), 0)
+        step = arbor.parallel_step(self.root, "big-init", 5, "parallel", NOW)
+        self.assertEqual(step["mode"], "continue")
+        self.assertEqual(step["phase"], "dispatch")
+        self.assertEqual(step["safe_actions"], [])
+        self.assertEqual(len(step["dispatch"]), 1)
+        action = step["dispatch"][0]
+        self.assertEqual(action["type"], "dispatch_worker")
+        self.assertEqual(action["package"], "big-core")
+        self.assertEqual(action["command"][:4], ["sdd-arbor", "claim-package", "big-core", "--owner"])
+        self.assertIn("worker_prompt", action)
+        self.assertEqual(self.run_cli("parallel-step", "big-init", "--json"), 0)
+
+    def test_parallel_step_returns_self_heal_before_user_stop(self):
+        self.create_map_file("big-init")
+        self.assertEqual(self.run_cli("create-split-packages", "big-init", "--package", "big-core::Big core::::core boundary", "--package", "big-order::Big order::big-core::order boundary", "--decision", "from map"), 0)
+        core = self.task_json("big-core")
+        core["state"] = "reviewed"
+        core["execution"]["status"] = "reviewed"
+        (self.package_dir("big-core") / "task.json").write_text(json.dumps(core), encoding="utf-8")
+        self.assertEqual(self.run_cli("record-checkpoint", "big-core", "--kind", "lead-integration", "--sha", "abc123", "--branch", "arbor/big-init/big-core", "--base-sha", "base123"), 0)
+        self.assertEqual(self.run_cli("add-child", "big-order", "--id", "T-001", "--title", "ADD blocked order", "--milestone", "M-01", "--role", "shared", "--ready", "false", "--blocker", "waiting for clarified ledger context"), 0)
+        self.mark_task_md_defined("big-order")
+        step = arbor.parallel_step(self.root, "big-init", 5, "parallel", NOW)
+        self.assertEqual(step["mode"], "continue")
+        self.assertEqual(step["phase"], "self_heal")
+        self.assertEqual(step["dispatch"], [])
+        self.assertEqual(step["safe_actions"][0]["type"], "reconcile_package")
+        self.assertEqual(step["safe_actions"][0]["command"], ["sdd-arbor", "reconcile-package", "big-init", "big-order", "--json"])
+
+    def test_parallel_step_releases_clean_claim_without_live_worker(self):
+        self.create_map_file("big-init")
+        self.assertEqual(self.run_cli("create-split-packages", "big-init", "--package", "big-core::Big core::::core boundary", "--decision", "from map"), 0)
+        schedule = arbor.parallel_schedule(self.root, "big-init", 5, "parallel", NOW)
+        assignment = schedule["serial_critical_path"][0]
+        worktree_path = self.root / assignment["worktree_ref"]
+        self.assertEqual(subprocess.run(["git", "init", str(worktree_path)], stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True, check=False).returncode, 0)
+        self.assertEqual(self.run_cli("claim-package", "big-core", "--owner", "pipeline-big-core", "--branch", assignment["branch"], "--worktree", assignment["worktree_ref"], "--session", assignment["assignment_id"]), 0)
+        step = arbor.parallel_step(self.root, "big-init", 5, "parallel", NOW, None, [])
+        self.assertEqual(step["mode"], "continue")
+        self.assertEqual(step["phase"], "self_heal")
+        self.assertEqual(step["dispatch"], [])
+        action = step["safe_actions"][0]
+        self.assertEqual(action["type"], "release_stale_claim")
+        self.assertEqual(action["command"][:5], ["sdd-arbor", "release-package", "big-core", "--owner", "pipeline-big-core"])
+        self.assertEqual(self.run_cli("parallel-step", "big-init", "--no-live-workers", "--json"), 0)
 
     def test_export_worker_context_regenerates_dispatch(self):
         self.create_map_file("big-init")
@@ -850,6 +900,41 @@ class ArborCliTests(unittest.TestCase):
         before = (self.package_dir("demo-task") / "context" / "review.jsonl").read_text(encoding="utf-8")
         self.assertEqual(self.run_cli("add-context-batch", "demo-task", "--type", "review", "--entry-json", '{"task_id":"T-999","kind":"note","summary":"bad"}'), 1)
         self.assertEqual((self.package_dir("demo-task") / "context" / "review.jsonl").read_text(encoding="utf-8"), before)
+
+    def test_repair_context_jsonl_adds_missing_schema_fields(self):
+        self.run_cli("create", "demo-task")
+        self.run_cli("set-package-sizing", "demo-task", "--status", "fits_package", "--actor", "brainstorm", "--phase", "brainstorm", "--decision", "single package")
+        self.run_cli("add-child", "demo-task", "--id", "T-001", "--title", "ADD first", "--milestone", "M-01", "--role", "shared")
+        path = self.package_dir("demo-task") / "context" / "review.jsonl"
+        path.write_text('{"summary":"review note","task_id":"T-001"}\n', encoding="utf-8")
+        self.assertEqual(self.run_cli("validate", "demo-task"), 1)
+        self.assertEqual(self.run_cli("repair-context", "demo-task", "--type", "review", "--json"), 0)
+        entry = json.loads(path.read_text(encoding="utf-8").strip())
+        self.assertEqual(entry["kind"], "note")
+        self.assertEqual(entry["actor"], "arbor")
+        self.assertEqual(entry["at"], NOW)
+        errors = arbor.validate_package(self.root, "demo-task")
+        self.assertFalse([error for error in errors if "context/review.jsonl" in error])
+
+    def test_finish_worker_repairs_imported_context_schema_drift(self):
+        self.create_map_file("big-init")
+        self.assertEqual(self.run_cli("create-split-packages", "big-init", "--package", "big-core::Big core::::core boundary", "--decision", "from map"), 0)
+        self.assertEqual(self.run_cli("add-child", "big-core", "--id", "T-001", "--title", "ADD first", "--milestone", "M-01", "--role", "shared"), 0)
+        self.mark_task_md_defined("big-core")
+        data = self.task_json("big-core")
+        data["prd"]["status"] = "ready-for-task"
+        (self.package_dir("big-core") / "task.json").write_text(json.dumps(data), encoding="utf-8")
+        schedule = arbor.parallel_schedule(self.root, "big-init", 3, "parallel", NOW)
+        assignment_id = schedule["serial_critical_path"][0]["assignment_id"]
+        source = self.root / ".." / "arbor-worktrees" / self.root.name / "big-init" / "big-core"
+        source_pkg = source / ".arbor" / "tasks" / "big-core"
+        source_pkg.mkdir(parents=True)
+        (source_pkg / "context").mkdir()
+        (source_pkg / "context" / "review.jsonl").write_text('{"at":"2026-04-25T00:00:00Z","actor":"worker","task_id":"T-001","summary":"worker review"}\n', encoding="utf-8")
+        self.assertEqual(self.run_cli("finish-worker", "big-init", "big-core", "--assignment-id", assignment_id, "--from-worktree", f"../arbor-worktrees/{self.root.name}/big-init/big-core", "--review-state", "ready_for_review", "--changed-artifact", "review-context", "--json"), 0)
+        entry = json.loads((self.package_dir("big-core") / "context" / "review.jsonl").read_text(encoding="utf-8").strip())
+        self.assertEqual(entry["kind"], "note")
+        self.assertEqual(self.run_cli("validate", "big-core"), 0)
 
     def test_upsert_contract_is_idempotent(self):
         self.create_map_file("big-init")

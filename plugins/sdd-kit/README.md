@@ -32,7 +32,7 @@ research? → brainstorm
 - `research` 负责发散与澄清。
 - `brainstorm` 必须先完成需求澄清与整体 design framing：小需求形成 single executable package PRD，大需求在业务范围和 implementation framing 都清楚后，才输出 clarified initiative framing 并交给 `map`。
 - `map` 负责大项目 package graph / execution waves / parallel policy / modification scope / contracts，并 materialize child package stubs。
-- `parallel` 是自动动态吞吐优化入口，由主会话作为 lead 调用 `parallel-schedule` 在 serial critical-path、Team worker pool、parallel prep、serial integration lane 间切换；即使当前只能串行，也派 single worker 推进，主会话只协调、审查和 checkpoint，不直接实现 package/product diff。
+- `parallel` 是自动动态吞吐优化入口，由主会话作为 lead 调用 `parallel-step` 获取确定性 action plan，在 serial critical-path、Team worker pool、parallel prep、serial integration lane 间切换；即使当前只能串行，也派 single worker 推进，主会话只协调、审查和 checkpoint，不直接实现 package/product diff。
 - `task` 负责 secondary sizing guard、执行冻结与 T-xxx 拆解。
 - `impl` 负责消费 task-local context 交付代码。
 - `review` 负责独立语义审计。
@@ -44,7 +44,7 @@ research? → brainstorm
 | research | index-first 的需求探索工作区：发散、提问、收集资料、带来源地解释事实、逐步收敛理解，并通过 `index.md` 对外提供统一入口 | `.arbor/research/<topic>/` |
 | map | 大项目统筹层：`map.md` 维护 executable packages、execution waves、跨 package 契约、写权限 scope、integration lane 与导航；`map.json` 维护机器可读 dependency/status/agent assignment context；并 materialize child package stubs | `.arbor/maps/<initiative>/map.md` + `.arbor/maps/<initiative>/map.json` + `.arbor/tasks/<package>/` stubs |
 | brainstorm | 需求澄清 + design framing：小需求写 single package PRD；大需求在业务与 implementation framing 都清楚后，只输出 clarified initiative framing / map handoff，不创建 child stubs | `.arbor/tasks/<package>/prd.md` 或 clarified framing / map handoff |
-| parallel | 自动动态吞吐优化入口：主会话作为 lead 运行 `parallel-schedule`，按依赖图状态在 serial critical-path single worker、最多 5 个 Team package workers、dependency-safe prep、serial integration worker 间切换；lane switch 只汇报，recoverable friction 先走 self-healing helper，true blocker 才停 | `.arbor/maps/<initiative>/context/agent-assignments.jsonl` + `.arbor/tasks/<package>/context/worker-dispatch.md` + worker team sessions/worktrees |
+| parallel | 自动动态吞吐优化入口：主会话作为 lead 运行 `parallel-step`，按 action plan 在 serial critical-path single worker、最多 5 个 Team package workers、dependency-safe prep、serial integration worker 间切换；lane switch 只汇报，recoverable friction 先走 self-healing helper，true blocker 才停 | `.arbor/maps/<initiative>/context/agent-assignments.jsonl` + `.arbor/tasks/<package>/context/worker-dispatch.md` + worker team sessions/worktrees |
 | task | Secondary sizing guard + 执行冻结 + package-local T-xxx 拆解：只处理 `fits_package` / `split_applied` 的 executable package | `.arbor/tasks/<package>/task.md` + `task.json` + `context/*.jsonl` |
 | impl | 按 task 执行代码实现 + 运行自己的 acceptance（SelfCheck） | 代码本身 + `.arbor/tasks/<package>/task.json` |
 | review | 对照 PRD + task + diff + wiki 做独立语义审计（4 态: APPROVED / APPROVED_WITH_NOTES / NEEDS_REWORK / BRAINSTORM_DRIFT） | `.arbor/tasks/<package>/review.md` |
@@ -59,7 +59,7 @@ research? → brainstorm
 - Map 确认 package graph 后，应立即 materialize child package stubs：`.arbor/tasks/<package>/`，并记录 `package_sizing=split_applied`。
 - `T-xxx` 是 package-local control / acceptance / dependency / review 单元，不是默认 branch/worktree/PR 单元；如果某个 T-xxx 需要独立 PR，应拆成新的 package 并由 map 维护依赖。
 - Brainstorm/map 必须先完成 package boundary sizing：brainstorm 负责 single package 的 `fits_package`，map 负责 split 后 child package 的 `split_applied`；task 只验证 sizing 状态并阻止 `unchecked` / `split_recommended` 进入 T-xxx。
-- `parallel` skill 是用户级一等入口，内部执行 `parallel-schedule` 动态选择 lane；只把依赖已 completed/merged 或已有 `lead-integration` / `contract-update` checkpoint 的 package 作为 downstream implementation 可依赖事实，`reviewed` alone 不解锁下游实现。Recoverable friction 优先走 `export-worker-context` / `reconcile-package` / `finish-worker` / `add-context-batch` / `upsert-contract`，只有 product decision、permission/destructive risk、external context、unrecoverable state 才停给用户。Parallel 创建 runtime Agent Team，并分发 package workers；Team spawn-time cwd/isolation 不可信，worker 必须先 `EnterWorktree(path=<resolved_worktree_path>)`、验证 git root/branch，并汇报 `WORKTREE_READY` 后才能读写。默认 worktree root 是 project sibling `../arbor-worktrees/<project-name>`，不是 `.claude/`；`.arbor` 中持久记录 portable `worktree_ref`，runtime prompt 才包含本机 absolute resolved path。worker 只改 declared modification scope，跨 package 缺口走 contract request，不能同步 sibling branch/worktree；shared/global integration 由 `lead_serial` package 的 serial integration worker 串行处理，主会话 lead 不直接实现产品/package diff。Team runtime 完成后应 shutdown/delete；branch/worktree cleanup 仍需用户显式授权。
+- `parallel` skill 是用户级一等入口，内部执行 `parallel-step` 获取 lead action plan；只把依赖已 completed/merged 或已有 `lead-integration` / `contract-update` checkpoint 的 package 作为 downstream implementation 可依赖事实，`reviewed` alone 不解锁下游实现。Recoverable friction 优先走 `export-worker-context` / `reconcile-package` / `finish-worker` / `add-context-batch` / `upsert-contract`；live Team worker 观察通过 `parallel-step --live-worker` / `--no-live-workers` 结构化传入 helper，只有 product decision、permission/destructive risk、external context、unrecoverable state 才停给用户。Parallel 创建 runtime Agent Team，并分发 package workers；Team spawn-time cwd/isolation 不可信，worker 必须先 `EnterWorktree(path=<resolved_worktree_path>)`、验证 git root/branch，并汇报 `WORKTREE_READY` 后才能读写。默认 worktree root 是 project sibling `../arbor-worktrees/<project-name>`，不是 `.claude/`；`.arbor` 中持久记录 portable `worktree_ref`，runtime prompt 才包含本机 absolute resolved path。worker 只改 declared modification scope，跨 package 缺口走 contract request，不能同步 sibling branch/worktree；shared/global integration 由 `lead_serial` package 的 serial integration worker 串行处理，主会话 lead 不直接实现产品/package diff。Team runtime 完成后应 shutdown/delete；branch/worktree cleanup 仍需用户显式授权。
 
 **为什么 impl 和 review 分开？** impl 严格只看 task-local context，无法可靠地做语义审计（会污染 "translator" 角色）。review 在新上下文里独立读 PRD + `git diff` + wiki，才能真正交叉验证。详见 [skills/review/SKILL.md](./skills/review/SKILL.md)。
 
@@ -80,7 +80,7 @@ research? → brainstorm
         └── sources.jsonl   # machine-readable source index
 ```
 
-`sdd-arbor` 是 plugin `bin/` 暴露的轻量 deterministic state layer。它会从已安装插件位置定位 `sdd-arbor`，但命令仍在当前业务项目 cwd 中读写 `.arbor` / `.wiki`：
+`sdd-arbor` 是 plugin `bin/` 暴露的轻量 deterministic state layer。它会从已安装插件位置定位 `tools/arbor.py`，但命令仍在当前业务项目 cwd 中读写 `.arbor` / `.wiki`：
 
 ```text
 sdd-arbor create <package> --mode strict-atomic --title "<title>"
@@ -88,6 +88,7 @@ sdd-arbor create-map <initiative> --title "<title>"
 sdd-arbor set-package-sizing <package> --status fits_package --actor brainstorm --phase brainstorm --decision "这是一个可用单 branch/worktree/PR 执行的 package 边界"
 sdd-arbor create-split-packages <initiative> --package "<package>::<title>::<dep1,dep2>::<中文 boundary reason>" --actor map --decision "package graph 已从 .arbor/maps/<initiative>/map.md materialize"
 sdd-arbor map-check <initiative>
+sdd-arbor parallel-step <initiative> --max-parallel 5 --worktree-root ../arbor-worktrees/<project-name> --json
 sdd-arbor parallel-schedule <initiative> --max-parallel 5 --worktree-root ../arbor-worktrees/<project-name> --json
 sdd-arbor export-worker-context <initiative> <package> --assignment-id <id> --json
 sdd-arbor reconcile-package <initiative> <package> --assignment-id <id> --worker <worker-name> --json

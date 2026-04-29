@@ -14,7 +14,7 @@ from .map_readiness import map_check, package_dependency_complete
 from .map_runtime import append_parallel_runtime_event
 from .map_sync import read_package_summary, sync_map_from_packages
 from .package_artifacts import import_package_artifacts, safe_artifact_ref
-from .package_context import add_context
+from .package_context import add_context, repair_context_jsonl
 from .package_execution import record_checkpoint, release_package
 from .package_lifecycle import find_task
 from .parallel_scheduler import parallel_schedule
@@ -183,6 +183,11 @@ def finish_worker(
         raise ArborError("Invalid review state.")
     artifacts = [safe_artifact_ref(item) for item in changed_artifacts] if changed_artifacts else []
     imported = import_package_artifacts(root, package, from_worktree, artifacts, actor, timestamp)
+    repaired_context: list[dict[str, Any]] = []
+    for context_type in ["impl", "review"]:
+        repair = repair_context_jsonl(root, package, context_type, actor, timestamp)
+        if repair["changed"]:
+            repaired_context.append(repair)
     errors = validate_package(root, package)
     if errors:
         raise ArborError("Package validation failed after worker finish: " + "; ".join(errors))
@@ -205,10 +210,10 @@ def finish_worker(
         assignment_id=assignment_id,
         worker=worker_name_for_package(package),
         reason=f"worker finished with review_state={review_state}",
-        detail={"review_state": review_state, "changed_artifacts": imported["checked"], "imported": imported["imported"], "missing": imported["missing"], "checkpoint_kind": checkpoint_kind},
+        detail={"review_state": review_state, "changed_artifacts": imported["checked"], "imported": imported["imported"], "missing": imported["missing"], "repaired_context": repaired_context, "checkpoint_kind": checkpoint_kind},
     )
-    schedule = parallel_schedule(root, initiative, 3, actor, timestamp, worktree_root_ref)
-    return {"initiative": initiative, "package": package, "import": imported, "checkpoint": checkpoint, "runtime_event": event, "next_schedule": schedule}
+    schedule = parallel_schedule(root, initiative, 5, actor, timestamp, worktree_root_ref)
+    return {"initiative": initiative, "package": package, "import": imported, "repaired_context": repaired_context, "checkpoint": checkpoint, "runtime_event": event, "next_schedule": schedule}
 
 
 def _validate_context_entry(context_type: str, entry: dict[str, Any]) -> None:

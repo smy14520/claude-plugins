@@ -63,6 +63,15 @@ def build_parser() -> argparse.ArgumentParser:
     parallel_schedule_parser.add_argument("--actor", default="parallel")
     parallel_schedule_parser.add_argument("--json", dest="json_output", action="store_true", help="Emit JSON output.")
 
+    parallel_step_parser = sub.add_parser("parallel-step", help="Return one deterministic lead orchestration action plan.")
+    parallel_step_parser.add_argument("initiative")
+    parallel_step_parser.add_argument("--max-parallel", type=int, default=5)
+    parallel_step_parser.add_argument("--worktree-root", help="Portable project-root-relative worktree root ref; defaults to ../arbor-worktrees/<project> or ARBOR_WORKTREE_ROOT.")
+    parallel_step_parser.add_argument("--live-worker", action="append", default=[], help="Team worker name observed as live in this lead loop; repeatable.")
+    parallel_step_parser.add_argument("--no-live-workers", action="store_true", help="Tell the step planner that no Team workers are currently live.")
+    parallel_step_parser.add_argument("--actor", default="parallel")
+    parallel_step_parser.add_argument("--json", dest="json_output", action="store_true", help="Emit JSON output.")
+
     validate = sub.add_parser("validate", help="Validate one or all task packages.")
     target = validate.add_mutually_exclusive_group(required=True)
     target.add_argument("name", nargs="?")
@@ -254,6 +263,12 @@ def build_parser() -> argparse.ArgumentParser:
     add_child_parser.add_argument("--source-amendment")
     add_child_parser.add_argument("--corrects", default="")
 
+    repair_context_parser = sub.add_parser("repair-context", help="Normalize recoverable impl/review context JSONL schema drift.")
+    repair_context_parser.add_argument("name")
+    repair_context_parser.add_argument("--type", required=True, choices=["impl", "review"])
+    repair_context_parser.add_argument("--actor", default="arbor")
+    repair_context_parser.add_argument("--json", dest="json_output", action="store_true", help="Emit JSON output.")
+
     add_ctx = sub.add_parser("add-context", help="Append context JSONL.")
     add_ctx.add_argument("name")
     add_ctx.add_argument("--type", required=True, choices=sorted(CONTEXT_TYPES))
@@ -377,6 +392,17 @@ def main(argv: list[str] | None = None) -> int:
                 print(f"mode: {result['mode']}")
                 for item in result["lane_switches"]:
                     print(f"lane: {item['lane']} — {item['reason']}")
+            return 0
+
+        if args.command == "parallel-step":
+            live_workers = [] if args.no_live_workers else (args.live_worker or None)
+            result = parallel_step(root, args.initiative, args.max_parallel, args.actor, timestamp, args.worktree_root or os.environ.get("ARBOR_WORKTREE_ROOT"), live_workers)
+            if json_output:
+                print(json.dumps(result, ensure_ascii=False, indent=2))
+            else:
+                print(f"{result['mode']}:{result['phase']}")
+                for action in result["safe_actions"] + result["dispatch"]:
+                    print(f"- {action['type']} {action.get('package') or action.get('team_name')}")
             return 0
 
         if args.command == "validate":
@@ -529,6 +555,14 @@ def main(argv: list[str] | None = None) -> int:
             ready = args.ready == "true"
             add_child(root, args.name, args.id, args.title, args.milestone, args.role, deps, ready, args.blocker, timestamp, args.source_amendment, corrects)
             print("ok")
+            return 0
+
+        if args.command == "repair-context":
+            result = repair_context_jsonl(root, args.name, args.type, args.actor, timestamp)
+            if json_output:
+                print(json.dumps(result, ensure_ascii=False, indent=2))
+            else:
+                print(f"repaired: {result['count']}")
             return 0
 
         if args.command == "add-context":
