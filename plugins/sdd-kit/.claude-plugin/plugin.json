@@ -1,7 +1,7 @@
 {
   "name": "sdd-kit",
   "version": "0.4.0",
-  "description": "SDD Kit: research → brainstorm → map? → task → impl → review 流程 + brainstorm 需求澄清/design framing + map package graph + .arbor executable packages（package=需求/评审/回滚边界，T-xxx=control/review unit）+ project-local .wiki module knowledge retrieval",
+  "description": "SDD Kit: research → brainstorm → map? → task → impl → review 流程 + brainstorm 需求澄清/design framing + map package graph + .arbor executable packages（package=需求/评审/回滚边界，T-xxx=control/review unit）+ project-local .wiki module knowledge retrieval + optional session-layer Agent Team collaboration",
   "author": {
     "name": "camellia",
     "email": "camellia@gmail.com"
