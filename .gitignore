@@ -3,3 +3,5 @@
 .claude/settings.local.json
 .windsurf/
 .windsurfrules
+__pycache__/
+*.py[cod]
