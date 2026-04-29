@@ -39,12 +39,13 @@ Research 是**发散 → 收敛**阶段。它：
 ### ❓ Clarify — 澄清问题与当前理解
 
 流程：
-1. 暂定性重述需求
-2. 列出已知、未知、待验证假设、潜在歧义
-3. 必要时提出 1-3 个最高杠杆问题
-4. 更新 `index.md`
-5. 若理解显著变化，在 `log.md` 追加记录
-6. 输出当前 framing，并决定继续 collect 还是继续 clarify
+1. 暂定性重述需求，并先判断原始提法背后更像用户痛点、工作流问题、技术约束、采用阻力还是方案假设
+2. 将模糊需求改写成 research question；适合时补一条 `How might we ...` 式机会问题
+3. 列出已知、未知、候选理解、潜在歧义；只暴露待澄清点，不做假设分级或最终取舍
+4. 必要时提出 1-3 个最高杠杆问题，优先询问会影响 downstream brainstorm 的问题
+5. 更新 `index.md`
+6. 若理解显著变化，在 `log.md` 追加记录
+7. 输出当前 framing，并决定继续 collect 还是继续 clarify
 
 ### 📥 Collect — 收集原始素材
 
@@ -70,13 +71,15 @@ Research 是**发散 → 收敛**阶段。它：
 触发：整理出一批主题 notes 之后，或用户问"现在够不够进入 brainstorm"。
 
 流程：
-1. 回答三个问题：
+1. 回答四个问题：
    - 现在已经明确了什么？
-   - 还有哪些未解歧义真正会影响后续 task/impl？
-   - 当前是否足够收敛，可以进入 brainstorm？
-2. 将结论更新到 `index.md` 的 `## 当前是否适合进入 brainstorm`
-3. 若答案是“还不够” → 明确下一轮应做的是继续 Collect 还是继续 Clarify
-4. 若答案是“已经足够” → 可将 `status` 置为 `ready-for-brainstorm`，但不自动推进
+   - 有哪些候选理解仍然并存？
+   - 还有哪些未解歧义会影响 brainstorm 开始有效澄清？
+   - 当前资料是否足够让 brainstorm 接手继续收敛？
+2. 检查 `当前范围 / 暂不纳入` 是否有理由，避免 research 扩散
+3. 将结论更新到 `index.md` 的 `## 当前是否适合进入 brainstorm`
+4. 若答案是“还不够” → 明确下一轮应做的是继续 Collect 还是继续 Clarify
+5. 若答案是“已经足够” → 可将 `status` 置为 `ready-for-brainstorm`，但不自动推进
 
 ### 📐 Reframe — 更新理解与研究边界
 
@@ -96,22 +99,47 @@ Research 是**发散 → 收敛**阶段。它：
 5. 若用户明确认可本轮 research 已足够完成 → `status: closed`
 6. 输出状态摘要；**不调用** brainstorm skill，也**不自动** ingest wiki
 
+## Subagent fan-out（可选）
+
+Research 可以在 Collect 阶段使用 subagent 做并行资料收集、代码扫描或竞争性假设调查，但它不是默认路径。
+
+只有当 research intent 已经明确，且调查可以拆成多个互不依赖的分支时，才使用 subagent。若问题仍处于需求澄清阶段，或需要连续重构理解，优先由主会话直接推进 Clarify / Reframe。
+
+subagent 只返回 source-backed packet，不直接写 `.arbor/research/<topic>/`，不判断 readiness，不做最终设计决策。主 research 会话必须审计 packet 的来源、相关性、遗漏和冲突，再决定是否写入 `raw/` / `notes/` / `index.md` / `log.md`。
+
+使用目标是隔离 noisy exploration、扩大覆盖面，而不是引入新的 runtime 编排。若 fan-out 带来的整合成本高于信息收益，应避免使用。
+
+推荐 packet：
+
+```text
+## Scope
+## Sources checked
+## Findings
+## What this means for the requirement
+## Open questions
+## Confidence / gaps
+## Suggested raw/note placement
+```
+
 ## 核心规则
 
 1. **Research 负责发散 → 收敛** —— 它帮助用户把问题问清楚、把理解收窄；最终冻结由 brainstorm 完成。
-2. **`index.md` 是 research 的统一入口**。
-3. **`log.md` 记录理解变化**。
-4. **`raw/` 保持 raw** —— 不写解释与决策。
-5. **`notes/` 是带来源的解释层**。
-6. **允许提问并鼓励提问**。
-7. **未解歧义是一等公民**。
-8. **用户提供的 URL 是强制性的**。
-9. **Research 支持多轮进入与增量更新**。
-10. **不删除 raw 文件**。
-11. **不做最终设计决策**。
-12. **不自动推进、不自动入库**。
-13. **项目策略不属于 research**。
-14. **Research 借用 wiki 的导航方式，不复制 wiki 的治理体系**。
+2. **先 framing 再 collect** —— 模糊需求先转成 research question / HMW / 候选理解，再决定搜什么。
+3. **Research 提出候选理解，不审计假设** —— assumption 分级、方向取舍和 PRD/package 前风险判断属于 brainstorm。
+4. **`index.md` 是 research 的统一入口**。
+5. **`log.md` 记录理解变化**。
+6. **`raw/` 保持 raw** —— 不写解释与决策。
+7. **`notes/` 是带来源的解释层**。
+8. **允许提问并鼓励提问**。
+9. **未解歧义是一等公民**。
+10. **暂不纳入要写原因** —— exclusions 是防止 research 扩散的工具。
+11. **用户提供的 URL 是强制性的**。
+12. **Research 支持多轮进入与增量更新**。
+13. **不删除 raw 文件**。
+14. **不做最终设计决策**。
+15. **不自动推进、不自动入库**。
+16. **项目策略不属于 research**。
+17. **Research 借用 wiki 的导航方式，不复制 wiki 的治理体系**。
 
 ## 本 skill 不做的事
 

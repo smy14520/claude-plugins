@@ -28,9 +28,26 @@ research? → [brainstorm]
 
 1. **Context first**：先读 repo、已有 research、用户输入、相关 PRD/map；能从上下文确认的不要问。
 2. **State understanding**：简要说明已知事实、当前理解、真正会影响方向的缺口。
-3. **One useful question**：normal 只问最高价值阻塞问题；grill 沿 decision tree 一次问一个问题，并给推荐答案与理由。使用 `AskUserQuestion` 时，question/header/options/description 必须写中文，避免出现英文访谈 UI。
-4. **Right place**：全局项目约定经用户同意后沉淀到 `CLAUDE.md` / `.claude/rules`；initiative/package-local 约束写入 framing 或 PRD。
-5. **No silent split**：需求和 implementation framing 都清楚后，才进入出口判断。
+3. **Assumption audit**：把 research 候选理解转成 blocking / important / optional assumptions，审计来源、影响和是否必须在定稿前解决。
+4. **One useful question**：normal 只问最高价值阻塞问题；grill 沿 decision tree 一次问一个问题，并给推荐答案与理由。使用 `AskUserQuestion` 时，question/header/options/description 必须写中文，避免出现英文访谈 UI。
+5. **Right place**：全局项目约定经用户同意后沉淀到 `CLAUDE.md` / `.claude/rules`；initiative/package-local 约束写入 framing 或 PRD。
+6. **No silent split**：需求和 implementation framing 都清楚后，才进入出口判断。
+
+## Assumption audit
+
+Brainstorm 负责把 research 的候选理解收敛成可执行 framing。进入 PRD / map handoff 前，要显式审计会影响方向、package 边界或验收标准的假设。
+
+假设分级：
+
+- **blocking**：如果为假，当前需求解释或 package / initiative 方向不成立；定稿前必须解决或明确改向。
+- **important**：如果为假，会改变 package 边界、方案、交付物或验收标准；定稿前至少要记录处理策略。
+- **optional**：如果为假，只影响细节、文案、polish 或后续优化；不阻塞定稿，但应留在 open questions / risks。
+
+审计时回答：
+
+- 这个假设来自哪个 research note、用户输入、代码事实或外部来源？
+- 如果它为假，会影响目标、scope、boundary sizing、验证重点中的哪一项？
+- 它是否必须在写 PRD / map handoff 前解决？如果不解决，如何在 open questions / risks 中暴露？
 
 ## Map readiness gate
 

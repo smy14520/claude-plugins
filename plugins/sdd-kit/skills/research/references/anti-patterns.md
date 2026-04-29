@@ -65,3 +65,15 @@ wiki 摄取必须由用户触发。
 ## 16. 抓取后放弃
 
 穷尽工具后仍失败，就记录 `raw/ext-<name>-failed.md` 并在 `index.md` 中披露。
+
+## 17. 未 framing 就并行收集
+
+Research intent 还不明确时不要启动 subagent fan-out；否则只会并行制造噪音。
+
+## 18. subagent 直接写 research workspace
+
+`.arbor/research/<topic>/` 只能由主 research 会话写入。subagent 输出是候选 evidence packet，不是 source of truth。
+
+## 19. 把 idea refinement 变成 brainstorm 决策
+
+Research 可以记录候选理解、来源和 not-doing，但不能做 assumption audit、最终推荐方向或 MVP scope；这些属于 brainstorm。

@@ -111,7 +111,9 @@ supersedes:              # optional, remove if N/A
 
 ### Assumptions
 
-- <当前暂时成立的前提>
+| Assumption | Level | Source | If false | Resolution / handling |
+|---|---|---|---|---|
+| <当前暂时成立的前提> | blocking / important / optional | <SRC-... / 用户确认 / 代码事实> | <会影响什么> | <定稿前解决 / 记录为风险 / 后续确认> |
 
 ### Risks
 
@@ -147,7 +149,7 @@ Task appends new T-xxx linked by source_amendment/corrects.
 - [ ] Package 可作为一个需求/评审/回滚边界；若其实是 large initiative，未 finalize 本文件，已输出 clarified framing 并交给 `map`
 - [ ] 若来自 map，Parent map / initiative 已写明
 - [ ] 拆解线索给出了切片或顺序提示，且 slice 只是 package-local T-xxx 候选
-- [ ] Open questions / Assumptions / Risks 已分开
+- [ ] Open questions / Assumptions / Risks 已分开；blocking / important assumptions 已审计来源、影响和处理方式
 - [ ] Sources 能覆盖关键判断，不只是装饰附录
 - [ ] 若这是 amendment，旧需求没有被静默改写，AMD-xxx 写清 wrong/correct/affects
 - [ ] 若进入 task，不会因缺少关键信息而立刻卡住

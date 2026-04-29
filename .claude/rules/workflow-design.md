@@ -50,6 +50,14 @@ arbor.py wiki-collect --query "<query>" --limit 5 --json
 - 哪些 helper 会修改 durable `.arbor` state。
 - 哪个 artifact 是 source of truth，哪个只是导航层。
 
+## Agent Team 与 subagent 使用边界
+
+Claude Code 的 Agent Team 用于需要多 agent 协同的任务：teammates 是独立 Claude Code session，可以共享 task list、claim/complete tasks，并通过消息机制直接沟通、互相挑战和协调。适合并行 research/review、竞争性假设排查、跨模块协作等需要持续沟通的场景。
+
+subagent 通过 `Agent` tool 在单个会话内派生，拥有独立 context window，适合自包含、无需与其他 worker 沟通、只需要把结果或摘要回传给主会话的任务。可用于隔离高噪音搜索、测试输出、局部审查或独立研究；多个 subagent 可并行，但由主会话管理和汇总，不应假定 subagent 之间会直接协作。
+
+选择原则：需要 worker 之间直接沟通、共享任务状态或相互挑战时，用 Agent Team；只需要委派执行并回传结果时，用 subagent / `Agent` tool。
+
 ## 不让 workflow 层级膨胀
 
 保持 workflow 骨架轻。新增阶段、固定 agent、runtime 编排和长期规则前，先问：
