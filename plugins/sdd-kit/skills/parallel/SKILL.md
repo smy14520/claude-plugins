@@ -1,201 +1,182 @@
 ---
 name: parallel
-description: "Trellis-like main-session-led Agent Team worker pool for sdd-kit large initiatives. Runs map-check/map-plan-agents, uses map-time parallel_policy to classify execution_ready vs prep_ready packages, injects package-local context, and dispatches up to 3 worktree-isolated worker teammates. Invoke only on explicit user request such as `/sdd-kit:parallel`, '用 parallel skill', or '并行推进'."
+description: "Automatic dynamic throughput optimizer for sdd-kit large initiatives. The main session stays lead/orchestrator and never implements package/product diff; it uses arbor parallel-schedule to switch between serial critical-path worker, bounded Agent Team worker pool, dependency-safe prep, and one serial integration worker. Applies safe self-healing helpers before asking the user. Invoke only on explicit user request such as `/sdd-kit:parallel`, '用 parallel skill', or '并行推进'."
 ---
 
-# Parallel — Main-session lead + Agent Team worker pool
+# Parallel — dynamic lead + visible workers
 
-`parallel` 是 sdd-kit 的 Trellis-like 自主推进入口。用户执行它，表示授权**主会话作为 lead/orchestrator**，创建一个 runtime Agent Team 作为共享任务队列和 worker namespace，然后滚动派发最多 3 个 package worker。
+`parallel` 是 sdd-kit 的自动吞吐优化入口。用户调用它表示希望提效；这不是一次性的“串行/并行”选择，而是运行中持续切换 lane 的能力。
 
-如果用户想逐阶段人工审计，直接使用 `/sdd-kit:brainstorm`、`/sdd-kit:task`、`/sdd-kit:impl`、`/sdd-kit:review`。
+主会话始终是 lead/orchestrator：协调、审查、checkpoint、回收 artifact、清理 runtime；不直接实现 package/product diff。即使当前只有一个 critical-path package 可做，也派发一个 single worker，保留 lead/worker 边界。Agent Team 是默认 runtime，因为它提供 iTerm 可见窗口和可直接交互的 worker；worktree isolation 由显式 `EnterWorktree` gate 保证。
 
 ```text
-map writes package graph + parallel_policy
-→ [parallel] main session records original base and creates Team runtime
-→ each runnable package becomes one Team task + one worker teammate + one worktree/branch
-→ workers use TaskUpdate/SendMessage for runtime coordination
-→ reviewed package integrates to the main/session branch, validates, and becomes a local checkpoint commit
-→ lead records the checkpoint, reruns map-check, and dispatches next runnable package from the updated base
-→ final human review can soft-reset checkpoint commits back into an uncommitted diff
+parallel-schedule
+→ apply safe self-healing helpers
+→ report lane switches, without waiting for confirmation
+→ dispatch serial critical-path worker if only one package is runnable
+→ dispatch Team worker pool when multiple independent packages open
+→ dispatch one serial integration worker for lead_serial shared/global work
+→ finish-worker / reconcile-package on worker reports
+→ repeat until complete or true blocker
 ```
 
 ## 用户入口
 
 ```text
 /sdd-kit:parallel
-/sdd-kit:parallel knowledge-paid-system
+/sdd-kit:parallel <initiative>
 /sdd-kit:parallel -j 3
 /sdd-kit:parallel --plan-only
 用 parallel skill
-并行推进 knowledge-paid-system
+并行推进 <initiative>
 ```
 
-- 默认并行度：3。
-- 最大并行度：3。
-- `--plan-only`：只输出 worker assignment，不启动 worker。
+- 默认并行度：5；最大并行度：5。
+- `--plan-only`：只输出 schedule/assignment，不启动 worker。
 - 未指定 initiative 时，若只有一个 `.arbor/maps/*/map.json` 则自动使用；多个则要求用户指定。
 
-## Readiness model
+## Lane model
 
-`map` 在生成 package graph 时就写入每个 package 的 `parallel_policy`：
+`parallel` 每轮先运行：
 
-```json
-{
-  "independence": "independent | contract_dependent | hard_dependent",
-  "can_prepare_without_dependencies": true,
-  "can_implement_without_dependencies": false,
-  "max_phase_before_dependencies": "brainstorm | task | impl | review",
-  "dependency_gate_phase": "none | impl | review",
-  "reason": "..."
-}
+```text
+sdd-arbor parallel-schedule <initiative> --max-parallel 5 --json
 ```
 
-`parallel` 不重新猜需求是否独立，只执行 `map-check` 的分类：
+`sdd-arbor` 是 plugin `bin/` 中的 wrapper。不要假设业务项目根目录存在 `tools/arbor.py`。
 
-- `execution_ready`：可以推进到 review；通常是独立 package，或依赖已 reviewed/completed/merged。
-- `prep_ready`：依赖未完成，但允许先做 package-local brainstorm/task/context；worker 必须在 `stop_before` 前停下。
-- `blocked`：自身缺上下文、validation failed、hard dependency 未满足、或当前 next_action 超过 policy 限制。
+可能 lane：
 
-## 执行流程
+- `serial_critical_path`：只有一个 execution-ready package，派一个 worker；lead 不实现。
+- `parallel_execution`：多个独立 `execution_ready`，启动/扩充 Agent Team worker pool，最多 5。
+- `parallel_prep`：execution lane 有空位且存在 dependency-safe prep work，自动填充 brainstorm/task prep worker。
+- `serial_integration`：`lead_serial` shared/global integration，一次只派一个 integration worker。
+- `blocked`：没有可派发 work；先看 self-healing，只有 true blocker 才停。
+- `complete`：所有已知 package 已有稳定完成事实。
+
+Lane switch 只汇报，不等待确认。只有这些 true blockers 才停下来问用户：product decision、permission/destructive-risk、missing external context、unrecoverable state。
+
+## Four boundaries
+
+1. **Write permission boundary**：worker 只改 `modification_scope.owned_paths` 或 package PRD/task 明确归属的实现范围；shared/global paths 不归普通 worker。
+2. **Contract boundary**：跨 package 缺口通过 `contract_requests`，consumer 不 patch producer internals。
+3. **Mainline boundary**：worker 不读、不 merge、不 copy sibling branch/worktree；downstream implementation 只依赖 completed/merged/`lead-integration`/`contract-update` checkpoint。
+4. **Integration boundary**：global wiring、DI、routes、migration ordering、repo-wide config、E2E assembly 进入 `lead_serial` serial integration worker lane；主会话 lead 只审查/checkpoint。
+
+## Self-healing helpers
+
+Recoverable friction 先走 helper，不升级给用户：
+
+```text
+parallel-schedule        # 选择 lane / assignments / true blockers
+export-worker-context    # 修复 missing worker-dispatch/context packet
+reconcile-package        # 清理 stale blocker / stale assignment / recoverable package state
+finish-worker            # import artifacts + validate + runtime event + next schedule
+add-context-batch        # 原子追加 context JSONL，避免 worker 手写文件
+upsert-contract          # 幂等创建/更新 contract request
+```
+
+`WAITING_INPUT` 先路由到这些 helper；只有 helper 返回不可恢复、需要产品判断、权限或外部上下文时才问用户。
+
+## Lead loop
+
+每次 worker start / completion / blocker / idle 都执行同一套 loop：
+
+```text
+record runtime event when useful
+→ run parallel-schedule
+→ apply recommended self-healing when safe
+→ verify assignment_id against package execution.session
+→ route WAITING_INPUT / BLOCKER / CONTRACT_REQUEST
+→ finish-worker when a worker reports changed artifacts
+→ if reviewed: inspect output and record lead-integration / contract-update checkpoint if accepted
+→ rerun parallel-schedule
+→ dispatch next lane assignment(s)
+→ if complete/no active runtime: shutdown workers + TeamDelete
+```
+
+关键规则：
+
+- `map-check` / `parallel-schedule` 是调度事实源；Team idle 不是 durable truth。
+- `reviewed` without lead checkpoint 不解锁 downstream implementation。
+- `finish-worker` 默认回收 `prd.md`、`task.md`、`review.md`、`context/*.jsonl`，不覆盖 worker `task.json`。
+- 直接追加 machine-readable context 时用 `add-context` / `add-context-batch`，不要手写 `context/*.jsonl`。
+- contract gap 用 `upsert-contract`，避免重复 CR 或错误 ID。
+
+## Bootstrap
 
 1. Resolve initiative。
 2. 记录 original base commit，供最终人工审计 reset 使用。
-3. 运行 arbor helper 的 `map-check --json`。
-4. 运行 arbor helper 的 `map-plan-agents --json`（并传入并发上限）。assignment 包含：`assignment_kind`、`allowed_until`、`stop_before`、`team_name`、`worker_name`、`branch`、`worktree_hint`、`context_files`、`worker-dispatch.md`、`worker_prompt`。
-5. 创建 runtime Team：`TeamCreate(team_name="arbor-<initiative>")`。这不是另一个统筹 agent；统筹始终是主会话。
-6. 为每个 assignment 创建 Team runtime task：`TaskCreate`，再用 `TaskUpdate(owner=<worker_name>)` 设 owner。
-7. 为每个 assignment 启动 worker teammate：
-   - `team_name=<team_name>`
-   - `name=<worker_name>`
-   - `isolation=worktree`
-   - prompt 注入 `worker_prompt` + `context_files`
-8. worker 在自己的 worktree/branch 内执行，并通过 `claim-package` / `set-execution` 记录 package-level branch/worktree/owner。
-9. worker 使用 `TaskUpdate` + `SendMessage` 回报 start / completion / blocker / contract question。
-10. 对 reviewed package，lead 合回主会话分支、解决冲突、运行 validation/tests、创建本地 checkpoint commit，并用 arbor helper 的 `record-checkpoint` 记录集成 checkpoint。
-11. lead 重新 `map-check` / `map-plan-agents`；有新 runnable package 就从更新后的 base 启动新 worker/worktree，避免下游沿用 stale worktree。
-12. 若 consumer 发现 producer contract 不足：consumer message producer + lead 并暂停；producer 负责 amendment/patch/checkpoint；lead 报告更新 checkpoint/base 后 consumer 再恢复。
-13. 最终人工审计时保留 `.arbor` 状态；如用户要求，把 checkpoint commits 软复位回 uncommitted diff：`git reset --soft <original-base>` 后再 `git reset`。
-14. 若无新 runnable package，报告 complete / blocked / active / missing。
+3. 运行 `sdd-arbor parallel-schedule <initiative> --max-parallel 5 --json`。
+4. 如需创建 Team：`TeamCreate(team_name="arbor-<initiative>")`。不要创建 nested orchestrator teammate。
+5. 对 schedule 里的 assignments：先 `claim-package` 写 owner/branch/worktree/session；再确保 package worktree/branch；然后 spawn worker。
+6. `worktree_root` 默认 project sibling：`../arbor-worktrees/<project-name>`。`.arbor` 中只持久记录 portable ref，不写本机 absolute path。
 
-## 状态源分层
+## Dispatch
 
-```text
-Team message / TaskList = runtime coordination
-.arbor                  = durable package/map state
-git checkpoint commits  = code synchronization
-```
+对每个 selected assignment：
 
-Team TaskList 不能替代 `.arbor`；Team message 不能替代 git checkpoint。
+1. **Pre-claim before spawn**：`claim-package <package> --owner <worker_name> --branch arbor/<initiative>/<package> --worktree <worktree_ref> --session <assignment_id>`。
+2. 确保 package worktree 位于 `resolved_worktree_path`，branch 为 assignment branch。
+3. 创建/更新 Team task owner。
+4. 启动 worker teammate，prompt 注入 `worker_prompt`。
+5. Worker 第一动作必须 `EnterWorktree(path=<resolved_worktree_path>)` 并汇报 `WORKTREE_READY`；此前禁止读写或实现动作。
+
+`serial_integration` 使用同一流程，但一次最多派一个 integration worker。
 
 ## Worker contract
 
-每个 worker 只处理自己的 package boundary：
-
-```text
-.arbor/tasks/<package>/
-```
-
 Worker 必须：
 
+- 第一动作进入并验证 package worktree；`WORKTREE_READY` 前不读写。
 - 先读 `.arbor/tasks/<package>/context/worker-dispatch.md`。
-- 在自己的 worktree/branch 内执行；不要在 lead/orchestrator worktree 混写 diff。
-- 使用 `TaskUpdate` 更新 Team task，用 `SendMessage` 向 lead/teammate 沟通。
-- 不修改 sibling package 的 `task.json`。
-- 不 patch producer package；发现 producer contract 缺口时 message producer + lead 后暂停。
-- 不启动 downstream packages。
-- reviewed 后请求 lead integration/checkpoint，不自行合并到主会话分支。
+- 每条 report 带当前 `assignment_id`。
+- 用结构化 block：`WORKTREE_READY`、`WORKER_DONE`、`CONTRACT_REQUEST`、`WAITING_INPUT`、`BLOCKER`、`READY_FOR_INTEGRATION`、`SHUTDOWN_ACK`。
+- 只改 declared modification scope；不改 sibling package state；不 patch producer internals。
+- 不读/merge/copy sibling branch/worktree。
 - 遵守 `assignment_kind` / `allowed_until` / `stop_before`。
-- 不自动创建 PR / push / deploy。
-- 不做破坏性动作。
-- 遇到 ambiguity / blocker / boundary drift / unsafe action 时停止并回报。
+- reviewed 后请求 lead integration/checkpoint，不自行合并到主会话分支。
+- 不自动 PR/push/deploy，不做破坏性动作。
 
-Worker 在 package 内循环，但不能超过 assignment limit：
-
-```text
-read worker-dispatch.md + task.json
-inspect next_action.skill
-run corresponding skill behavior:
-  brainstorm → finalize package PRD/context
-  task       → decompose T-xxx and freeze task definition
-  impl       → implement next ready T-xxx and run SelfCheck
-  review     → independent semantic review
-  amendment  → if clear package-local drift: append AMD-xxx + linked T-xxx
-run arbor.py validate <package>
-stop on reviewed/completed, blocked, needs_context, needs_rework,
-        brainstorm_drift, stop_before, user decision, or unsafe external action
-```
-
-`prep_ready` worker 的典型行为是：依赖还没完成时可以先把 PRD/task/context 准备好，但在 `impl` 前停止，等待 dependency gate。依赖合回主会话分支并记录 checkpoint 后，下游实现应从更新后的 base 重新派发 worker/worktree，不沿用 stale worktree。
+Package-local 清晰 drift 可走 forward-only amendment；语义不清或跨边界 drift 则停止。
 
 ## Contract gap protocol
 
-1. Consumer message producer worker and lead.
-2. Consumer pauses before implementing against missing behavior.
-3. Producer owns its amendment/patch and checkpoint.
-4. Lead reports updated checkpoint/base; consumer resumes from that base.
+1. Consumer sends `CONTRACT_REQUEST` to producer worker and lead, then pauses.
+2. Lead runs `upsert-contract` to write durable `contract_requests[]`.
+3. Producer owns its amendment/patch if the gap is in producer scope.
+4. Lead reviews producer result and records `contract-update` or `lead-integration` checkpoint.
+5. Consumer resumes only from updated mainline base.
 
-## Worktree / branch isolation
+## Runtime cleanup protocol
 
-Package 是执行隔离边界：
+Team 是 runtime，不是 durable state：
 
-```text
-package = Agent Team worker teammate + branch + worktree + diff boundary
-```
-
-Recommended naming from `map-plan-agents`：
-
-```text
-team runtime: arbor-<initiative>
-worker:       pipeline-<package>
-branch:       arbor/<initiative>/<package>
-worktree:     .claude/worktrees/arbor-<initiative>/<package>
-```
-
-## Stop / escalate conditions
-
-Autonomous 不等于静默猜测。Worker 必须停止并回报：
-
-1. 需求歧义：权限、金额、订单、退款、状态流转、角色边界、验收口径无法判断。
-2. Acceptance 不可验证：无法写成命令或二元谓词。
-3. Package 边界漂移：需要修改 sibling state，或某 T-xxx 应提升为独立 package。
-4. Dependency contract 不足：依赖 package 已完成但未提供当前 package 需要的 contract。
-5. 技术阻塞：测试环境、依赖服务、迁移风险、不可恢复失败。
-6. 安全/外部副作用：push、PR、部署、删除数据、共享 infra、支付/认证/权限核心风险。
-7. Review 语义漂移：清晰 package-local 修正走 AMD-xxx + 新 T-xxx；语义不明确或边界漂移则停止回报。
+- stale/duplicate/completed worker：send stand down / shutdown request。
+- 本轮无 dispatchable work 且无 active worker：shutdown all teammates, then `TeamDelete`。
+- 保留 `.arbor` state、git checkpoints、branches/worktrees；不隐式删除 worktree/branch，除非用户明确授权。
 
 ## 输出格式
 
 ```text
 Initiative: <initiative>
-Mode: main-session lead + rolling Agent Team worker pool
+Mode: automatic dynamic parallel
+Lane: <serial_critical_path | parallel_execution | parallel_prep | serial_integration | blocked | complete>
 Team runtime: arbor-<initiative>
-Dispatched execution_ready: <package-a>, <package-b>
-Dispatched prep_ready: <package-c> stop_before=impl
-Completed this round: <package-a>
-Blocked / needs decision: <package-d> reason=<reason>
-Active: <package-e>
-Complete overall: <package-f>
-Next: <continue if new runnable package exists, otherwise final blockers>
+Round: <round_id>
+Dispatched: <package assignment_id=... lane=...>
+Self-healing: <applied/recommended/none>
+Checkpointed: <package | none>
+Blocked / needs decision: <package reason=... | none>
+Active: <package | none>
+Cleanup: <shutdown complete | kept because active/blocked | blocked reason>
+Next: <continue / waiting for decision / complete>
 ```
-
-## 核心规则
-
-1. **主会话是统筹层**；不要再创建一个 orchestrator teammate。
-2. **Agent Team 是 runtime worker pool**；只在确实有并发 package 时使用。
-3. **最多 3 个并发 worker**；某个 worker reviewed 后，lead 集成、验证、checkpoint，再从更新后的 base 派发下一个 runnable package。
-4. **Package-level only**；并行单位是 `.arbor/tasks/<package>/`，不是 T-xxx。
-5. **Map-time policy**；是否能提前 prepare/implement 由 `parallel_policy` 决定。
-6. **Context injection, not global context**；`worker-dispatch.md` 是 worker 的 `.current-task` 等价物。
-7. **No sibling mutation**。
-8. **Stop on uncertainty**。
-9. **Forward-only amendment**；不重写旧 PRD/task，只追加 AMD-xxx 与新 T-xxx。
-10. **No implicit PR/worktree cleanup/push/deploy**，除非用户或项目指令明确要求。
-11. **Review independence**；review 必须独立上下文，不能自我背书。
 
 ## 本 skill 不做
 
 - 不创建 package graph（map 负责）。
-- 不重判 package boundary。
+- 不重判 package boundary（map-time policy/scope 负责）。
 - 不把 blocked package 强行并行。
-- 不绕过用户授权自动 push / merge / deploy。
-- 不在不确定时静默猜测。
+- 不绕过用户授权 push / merge / deploy / destructive cleanup。
+- 不把 Team runtime 当 durable state。

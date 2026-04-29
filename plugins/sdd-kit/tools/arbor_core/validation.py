@@ -127,6 +127,25 @@ def validate_parallel_policy(value: Any, label: str, errors: list[str]) -> None:
         errors.append(f"{label}.reason must be a non-empty string")
 
 
+def validate_modification_scope(value: Any, label: str, errors: list[str]) -> None:
+    if value is None:
+        return
+    if not isinstance(value, dict):
+        errors.append(f"{label} must be an object")
+        return
+    for field in ["summary", "reason"]:
+        field_value = value.get(field)
+        if field_value is not None and not isinstance(field_value, str):
+            errors.append(f"{label}.{field} must be a string")
+    for field in ["owned_paths", "shared_paths"]:
+        field_value = value.get(field, [])
+        if not isinstance(field_value, list) or not all(isinstance(item, str) for item in field_value):
+            errors.append(f"{label}.{field} must be a string array")
+    role = value.get("integration_role", "package")
+    if role not in INTEGRATION_ROLES:
+        errors.append(f"Invalid {label}.integration_role: {role}")
+
+
 def validate_package_sizing(data: dict[str, Any], errors: list[str]) -> None:
     sizing = data.get("package_sizing")
     if sizing is None:
@@ -200,6 +219,11 @@ def validate_execution(data: dict[str, Any], task_ids: set[str], errors: list[st
         errors.append(f"Invalid execution.status: {execution.get('status')}")
     for field in ["owner", "claimed_at", "released_at", "session", "updated_at", "updated_by", "note"]:
         validate_optional_string(execution.get(field), f"execution.{field}", errors)
+    validate_modification_scope(execution.get("modification_scope"), "execution.modification_scope", errors)
+    if "contract_inputs" in execution:
+        validate_string_array(execution.get("contract_inputs"), "execution.contract_inputs", errors)
+    if "contract_outputs" in execution:
+        validate_string_array(execution.get("contract_outputs"), "execution.contract_outputs", errors)
 
     branch = execution.get("branch")
     if not isinstance(branch, dict):

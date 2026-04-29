@@ -123,10 +123,10 @@
 
 - `prd.md`：executable package PRD/context artifact；brainstorm skill 创建/维护
 - `task.md`：稳定任务定义；task skill 创建/追加，impl/review 不改
-- `task.json`：package-local 生命周期状态源；由 `tools/arbor.py` 机械维护 ready/blockers/dependencies/lifecycle/package execution metadata；large initiative 统筹状态由 `.arbor/maps/<initiative>/map.json` 读取这些 child `task.json` 聚合
+- `task.json`：package-local 生命周期状态源；由 `sdd-arbor` 机械维护 ready/blockers/dependencies/lifecycle/package execution metadata；large initiative 统筹状态由 `.arbor/maps/<initiative>/map.json` 读取这些 child `task.json` 聚合
 - `review.md`：review 追加四状态语义审计记录；不作为当前 review 状态源
-- `context/*.jsonl`：阶段特定轻量上下文 packet；跨 package 多 agent 时由 `map-plan-agents` 显式列入主会话 lead / Agent Team worker context injection packet
-- `context/worker-dispatch.md`：`parallel` 为当前 package worker 生成的 Trellis-like dispatch/context packet
+- `context/*.jsonl`：阶段特定轻量上下文 packet；通过 `add-context` / `add-context-batch` 写入；跨 package 多 agent 时由 `parallel-schedule` / `export-worker-context` 显式列入主会话 lead / Agent Team worker context injection packet
+- `context/worker-dispatch.md`：`parallel` 为当前 package worker 生成的 dispatch/context packet
 - `status.md`：已废弃，新的 task package 不得创建
 
 **步骤 7 — 同步机器状态**
@@ -138,7 +138,7 @@
 - 如已规划 package branch/worktree/PR：`set-execution` 记录 package-level metadata（不创建资源）
 - 最后：`freeze-definition` 并 `validate`
 
-精确参数以 `python3 plugins/sdd-kit/tools/arbor.py <subcommand> --help` 为准。
+精确参数以 `sdd-arbor <subcommand> --help` 为准。
 
 ### 边界情况
 
@@ -183,7 +183,7 @@
 2. 环检测
 3. 输出 ASCII 依赖图
 4. 输出关键路径、可并行分支、当前 ready 任务列表
-5. 使用 `arbor.py validate <name>` 做机械引用和环检测
+5. 使用 `sdd-arbor validate <name>` 做机械引用和环检测
 
 ---
 

@@ -5,6 +5,8 @@ description: "仅当用户显式请求 /sdd-kit:brainstorm、用 brainstorm skil
 
 # Brainstorm — 需求澄清 / Design Framing
 
+使用语言：中文。面向用户的访谈问题、选项、推荐理由、缺口说明和阶段输出默认都用中文；保留代码标识符、文件路径、命令、英文术语原文即可。
+
 Brainstorm 把用户目标、repo 现实和已有 research 收敛成可执行前的需求与设计 framing。需求或实现前提不清楚时，不能拆包。
 
 ```text
@@ -15,7 +17,7 @@ research? → [brainstorm]
 
 ## 入口模式
 
-如果用户显式指定 `normal`、`grill` 或 `grill-me`，直接使用该模式。否则在开始前用 `AskUserQuestion` 让用户选择：
+如果用户显式指定 `normal`、`grill` 或 `grill-me`，直接使用该模式。否则在开始前用 `AskUserQuestion` 让用户选择，问题、header、选项 label 和 description 都用中文：
 
 - `normal`：默认模式，高效收敛；只问当前最影响设计、package boundary、task 拆解或 map handoff 的问题。
 - `grill`：压力测试模式；沿 plan/design decision tree 逐支追问，解决决策依赖，直到 shared understanding；每个问题都给推荐答案。
@@ -26,7 +28,7 @@ research? → [brainstorm]
 
 1. **Context first**：先读 repo、已有 research、用户输入、相关 PRD/map；能从上下文确认的不要问。
 2. **State understanding**：简要说明已知事实、当前理解、真正会影响方向的缺口。
-3. **One useful question**：normal 只问最高价值阻塞问题；grill 沿 decision tree 一次问一个问题，并给推荐答案与理由。
+3. **One useful question**：normal 只问最高价值阻塞问题；grill 沿 decision tree 一次问一个问题，并给推荐答案与理由。使用 `AskUserQuestion` 时，question/header/options/description 必须写中文，避免出现英文访谈 UI。
 4. **Right place**：全局项目约定经用户同意后沉淀到 `CLAUDE.md` / `.claude/rules`；initiative/package-local 约束写入 framing 或 PRD。
 5. **No silent split**：需求和 implementation framing 都清楚后，才进入出口判断。
 
@@ -90,7 +92,7 @@ Handoff 写清：目标/MVP、repo 现实与实现前提、已确认的项目级
 `arbor.py` 只做机械状态维护；语义判断写在 PRD/framing 中。需要精确参数时运行：
 
 ```text
-python3 plugins/sdd-kit/tools/arbor.py <subcommand> --help
+sdd-arbor <subcommand> --help
 ```
 
 Brainstorm 常用 subcommands：

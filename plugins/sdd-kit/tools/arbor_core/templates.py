@@ -247,18 +247,33 @@ map_json: map.json
 
 ## Package graph
 
-| Package | Materialized | Depends on | Parallel policy | Max phase before deps | Dependency gate | Wave | Boundary reason | PRD status | Execution status | Notes |
-|---|---|---|---|---|---|---|---|---|---|---|
-| `.arbor/tasks/<package>/` | no | [] | independent / contract_dependent / hard_dependent | review/task | none/impl/review | W1 | <why this is one executable package> | draft | unclaimed | <notes> |
+> `Boundary reason`、`Write scope`、`Shared integration scope`、`Notes` 等人读内容默认写中文；字段名、enum、路径、命令保持英文。
+
+| Package | Materialized | Depends on | Parallel policy | Max phase before deps | Dependency gate | Wave | Boundary reason | Write scope | Shared integration scope | Integration role | Contract inputs | Contract outputs | PRD status | Execution status | Notes |
+|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|
+| `.arbor/tasks/<package>/` | no | [] | independent / contract_dependent / hard_dependent | review/task | none/impl/review | W1 | <中文说明为什么这是一个 executable package> | <owned paths / package-local scope；中文说明范围> | <shared/global paths if any；中文说明集成敏感点> | package / lead_serial | <inputs> | <outputs> | draft | unclaimed | <中文备注> |
+
+## Parallel boundaries
+
+- 写权限: package workers 只拥有声明的 write scope。
+- Contract: 跨 package 缺口写成 contract requests，不互改 sibling internals。
+- 主干: downstream implementation 只依赖 completed/merged packages 或 lead checkpoints；reviewed alone 不是稳定依赖。
+- 集成: shared center files/global wiring/DI/routes/migrations/E2E/repo-wide config 默认进入 lead_serial serial integration worker lane；main-session lead 只审查/checkpoint，不直接实现。
 
 ## Cross-package contracts
 
 - <package-a> → <package-b>: <contract / dependency>
 
+## Contract requests
+
+| ID | Consumer | Producer | Status | Request | Resolution |
+|---|---|---|---|---|---|
+| CR-001 | <package-b> | <package-a> | open | <needed stable output/capability> | <optional> |
+
 ## Execution waves
 
 - W1: <packages with no package dependency blockers>
-- W2: <packages unlocked after W1 package review/completion>
+- W2: <packages unlocked after W1 lead-integration/contract-update checkpoint>
 
 ## Current blockers
 
@@ -266,14 +281,14 @@ map_json: map.json
 
 ## Orchestration note
 
-Parallel uses Team messages for coordination and local checkpoint commits for code synchronization.
+Parallel 用 Team messages 协调 runtime work，用 contract requests 表达跨 package 缺口，用 lead/mainline checkpoint commits 同步代码事实。`integration_ready` packages 一次只派给一个 serial integration worker；main-session lead 只协调、审查、checkpoint 并回收 worker，不直接实现 package diff。
 
 ## Next orchestration check
 
 Run:
 
 ```text
-python3 plugins/sdd-kit/tools/arbor.py map-check {initiative}
-python3 plugins/sdd-kit/tools/arbor.py map-plan-agents {initiative} --max-parallel 3
+sdd-arbor map-check {initiative}
+sdd-arbor parallel-schedule {initiative} --max-parallel 5 --json
 ```
 """

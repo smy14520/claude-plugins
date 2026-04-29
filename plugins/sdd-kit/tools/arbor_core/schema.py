@@ -7,6 +7,7 @@ MAP_SCHEMA_VERSION = "arbor-map-v1"
 NAME_RE = re.compile(r"^[a-z0-9]+(?:-[a-z0-9]+)*$")
 TASK_ID_RE = re.compile(r"^T-\d{3}$")
 AMENDMENT_ID_RE = re.compile(r"^AMD-\d{3}$")
+CONTRACT_REQUEST_ID_RE = re.compile(r"^CR-\d{3}$")
 
 MODES = {"strict-atomic", "lean"}
 TOP_LEVEL_STATES = {
@@ -40,6 +41,58 @@ PHASES = {"brainstorm", "map", "task", "impl", "self_check", "review", "complete
 PARALLEL_INDEPENDENCE = {"independent", "contract_dependent", "hard_dependent"}
 PARALLEL_MAX_PHASES = {"brainstorm", "task", "impl", "review"}
 PARALLEL_GATE_PHASES = {"none", "impl", "review"}
+CONTRACT_REQUEST_STATUSES = {"open", "accepted", "fulfilled", "rejected", "superseded"}
+INTEGRATION_ROLES = {"package", "lead_serial"}
+PARALLEL_LANES = {
+    "serial_critical_path",
+    "parallel_execution",
+    "parallel_prep",
+    "serial_integration",
+    "checkpoint_review",
+    "blocked",
+    "complete",
+}
+PARALLEL_STOP_REASONS = {
+    "product_decision",
+    "permission_required",
+    "destructive_action",
+    "external_context",
+    "unrecoverable_state",
+}
+PARALLEL_SELF_HEAL_ACTIONS = {
+    "export_worker_context",
+    "reconcile_package",
+    "finish_worker",
+    "add_context_batch",
+    "upsert_contract",
+    "release_stale_claim",
+    "regenerate_dispatch",
+}
+PARALLEL_RUNTIME_EVENTS = {
+    "worker_dispatched",
+    "worker_worktree_ready",
+    "worker_wrong_workspace",
+    "worker_waiting_input",
+    "worker_blocked",
+    "contract_request_proposed",
+    "worker_done",
+    "worker_stale",
+    "worker_shutdown_requested",
+    "worker_shutdown_ack",
+    "team_cleanup_started",
+    "team_cleanup_done",
+    "lead_reconcile",
+    "lane_switch",
+    "self_heal_started",
+    "self_heal_done",
+    "self_heal_failed",
+    "package_reconciled",
+    "worker_finished",
+    "contract_upserted",
+    "stale_claim_released",
+    "scheduler_stop",
+    "scheduler_continue",
+}
 NEXT_ACTION_SKILLS = {"brainstorm", "map", "task", "impl", "review", "user", "none"}
 CONTEXT_TYPES = {"impl", "review", "sources"}
 CONTEXT_KINDS = {"constraint", "source", "note", "acceptance", "risk", "decision", "file", "command"}

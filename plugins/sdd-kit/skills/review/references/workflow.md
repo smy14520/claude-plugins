@@ -31,7 +31,7 @@ Review 对 impl 产出执行**语义审计**，依据是 package-local PRD + pac
 ## 报告
 
 - 追加到 `.arbor/tasks/<name>/review.md`
-- 使用 `tools/arbor.py set-status` / `set-phase` 同步更新 `.arbor/tasks/<name>/task.json` 中对应 T-xxx 的 `state`、`updated_at`、顶层 `state/current_phase/next_action`，并追加 `phase_history`
+- 使用 `sdd-arbor set-status` / `set-phase` 同步更新 `.arbor/tasks/<name>/task.json` 中对应 T-xxx 的 `state`、`updated_at`、顶层 `state/current_phase/next_action`，并追加 `phase_history`
 - `review.md` 是人类可读审计日志；当前 review 状态以 `task.json` 为准
 - 结构化摘要中说明：
   - 审查对象

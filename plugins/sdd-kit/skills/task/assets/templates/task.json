@@ -36,7 +36,7 @@
   "next_action": {
     "skill": "brainstorm",
     "task_id": null,
-    "reason": "prd draft created"
+    "reason": "PRD 草稿已创建，下一步由 brainstorm 补齐 package-local 需求与方案 framing"
   },
   "execution": {
     "boundary": "package",
@@ -93,7 +93,7 @@
       "from": null,
       "to": "planned",
       "actor": "arbor",
-      "note": "task package created"
+      "note": "task package 已创建"
     }
   ]
 }

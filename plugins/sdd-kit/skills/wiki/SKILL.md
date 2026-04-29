@@ -1,121 +1,142 @@
 ---
 name: wiki
-description: "Manage the project's persistent knowledge wiki at `.arbor/wiki/` — structured pages with wikilinks, Karpathy LLM-Wiki pattern (NOT vector retrieval). Pages carry type=entity|concept|gotcha|decision|source in frontmatter; root pages (tag=root) serve as domain hubs. Three primitives: Ingest (record new knowledge), Query (read index → root → selective follow), Lint (orphans / broken links / stale roots). Invoke only on explicit user request (e.g. '用 wiki skill ingest / query / lint …')."
+description: "Manage the project's persistent knowledge wiki at `.wiki/` — project-local Obsidian-style markdown with wikilinks, frontmatter descriptions, and deterministic arbor wiki-index/wiki-search/wiki-collect retrieval. Also publishes completed sdd-kit module-summary packets into module notes. Invoke only on explicit user request (e.g. '用 wiki skill ingest/query/lint/module-summary …') or when parallel lead explicitly asks a wiki subagent to publish/retrieve summaries."
 ---
 
-# Wiki — 持久化知识管理
+# Wiki — project-local knowledge layer
 
-将 `.arbor/wiki/` 作为跨迭代的结构化知识图谱来管理。用户提供判断力和原始素材，本 skill 负责簿记工作。
+将项目根目录下的 `.wiki/` 作为持久化知识库。它是 orientation/index layer，不是 source of truth：用来快速定位模块事实、契约、关键文件和历史决定；真正改代码前仍要验证当前代码和 `.arbor` 状态。
+
+sdd-kit 不耦合 Obsidian。它只产出 deterministic packets 和 retrieval JSON；wiki skill/subagent 负责把这些信息写成 Obsidian-style markdown note。
 
 ## 定位
 
-本 skill 是 Karpathy 三层 LLM-Wiki 架构中的 **schema 层**：
+```text
+.arbor/                    # workflow/source-of-truth state
+.wiki/                     # project-local knowledge/navigation layer
+code...                    # implementation source of truth
+```
 
-- 原始素材 → `.arbor/research/`、代码、外部文档
-- **Wiki（本 skill 维护）** → `.arbor/wiki/`
-- **Schema（本 SKILL.md + references/）** → 告诉 LLM 如何维护 wiki
-
-**核心原则**：知识是*编译产物*，而非实时检索的结果。LLM 扮演图书管理员的角色。
+- `.arbor/tasks/<package>`：package lifecycle、PRD、task、review、context。
+- `sdd-arbor module-summary <package> --json`：稳定 module summary packet。
+- `.wiki/**/*.md`：面向后续 AI/人类的摘要、链接、stable locators。
+- `sdd-arbor wiki-index/search/collect`：低上下文检索入口。
 
 ## 三个原语
 
-根据用户意图匹配对应原语。详细流程见 [references/operations.md](references/operations.md)。
+### Ingest — 提炼新知识
 
-### 🟢 Ingest — 提炼新知识
+用户显式要求“记一下/沉淀/wiki ingest”时执行。页面默认写到 `.wiki/`，frontmatter 至少包含：
 
-触发短语："记一下这个坑/经验/决定"、"sink into wiki"、"record this"。
+```yaml
+---
+title: <Title>
+description: <one-line hook for retrieval>
+tags: [<domain>, ...]
+type: entity | concept | gotcha | decision | source | module
+summary: <compact summary>
+---
+```
 
-流程（详见 `references/operations.md#ingest`）：
+已有页面优先追加/合并；不为了分类创建空壳页面。
 
-1. 分类类型（entity | concept | gotcha | decision | source）
-2. 确定文件名（主题名称，kebab-case，不加类型前缀）
-3. 检查页面是否已存在 → 若存在则提示用户选择合并还是新建
-4. 从 [references/page-types.md](references/page-types.md) 应用模板
-5. 按 [references/maintenance-rules.md](references/maintenance-rules.md#r1) 更新所属 root 页面
-6. 在 `log.md` 追加一行记录
-7. 输出摘要
+### Query — 检索已有知识
 
-### 🔵 Query — 回忆已有知识
+优先使用 arbor retrieval，而不是逐页 blind read：
 
-触发短语："参考 wiki 里的 X"、"wiki 里有没有 X"、"have we done similar"。
-
-流程：
-
-1. 读取 `.arbor/wiki/index.md` → 定位相关的 root 页面或跨领域页面
-2. 读取 root 页面 → 扫描其分组 wikilink
-3. 根据用户的实际需求有选择地跟踪 wikilink（不要全部读取）
-4. 返回结构化摘要：已读页面、每页关键发现、相关但未读的线索
-
-### 🟡 Lint — 审计 wiki 健康状况
-
-触发短语："wiki 体检"、"wiki lint"、"clean up wiki"。
+```text
+sdd-arbor wiki-collect --query "balance refund" --limit 5 --json
+```
 
 流程：
 
-1. 扫描孤立页面（未被任何页面引用的非 root 页面）
-2. 扫描失效 wikilink（指向不存在页面的链接）
-3. 扫描过期 root 页面（root 页面最后更新时间早于某子页面的创建时间）
-4. 扫描重复候选（文件名 Levenshtein 距离低于阈值）
-5. 扫描**按年龄需要复查的页面**（超过 180 天的页面，参见 [R5-freshness](references/maintenance-rules.md#r5)）
-6. 按 [references/maintenance-rules.md](references/maintenance-rules.md#r4) 更新 `index.md` 的孤立页面区段
-7. 输出 markdown 格式报告，包含**两个严重级别**：⚠️ 复查候选（信号，非错误）vs ❌ 真正的问题（失效 / 孤立 / 重复）
+1. `wiki-index` 或 `wiki-collect` 生成 JSON：title/path/tags/description/summary/links/backlinks/locators。
+2. 选择 1-5 个真正相关页面读取。
+3. 返回已读页面、关键发现、仍需验证的源文件/`.arbor` 状态。
+
+检索/写 note 通常交给 subagent，避免污染主会话上下文；subagent 只返回 selected summaries 和路径。
+
+### Module summary publish — 发布完成模块卡片
+
+当 package 到达稳定 milestone（例如 `lead-integration`、`contract-update`、completed/merged）后，lead 可请求 wiki subagent：
+
+```text
+sdd-arbor module-summary <package> --json
+```
+
+subagent 根据 packet 写/更新 `.wiki/Modules/<Title>.md`。推荐结构：
+
+```markdown
+---
+title: Balance Ledger
+description: 余额账户、流水、充值、扣款、退款和幂等 contract
+tags: [module, backend, ledger]
+type: module
+package: balance-ledger
+source: arbor
+source_checkpoint: <sha>
+summary: <compact summary>
+---
+
+# Balance Ledger
+
+## Summary
+## Public contracts
+## Key files and stable locators
+## Invariants
+## Tests
+## Related modules
+## Verification notes
+```
+
+不要写行号。定位使用 stable locators：file path + class/function/method/route/table/index/config key/test name/contract id。
+
+### Lint — 审计 wiki 健康状况
+
+Lint 可结合 `wiki-index` 检查：broken links、orphan pages、缺失 description/summary、过期 notes、重复主题。Lint 可以报告和建议，但不要擅自删除页面。
 
 ## 目录结构
 
-```
-.arbor/wiki/
-├── index.md          # 导航（仅包含 root + 跨领域 + source + 孤立页面）
-├── log.md            # 仅追加的操作日志
-│
-├── <root-topic>.md   # tag: [root] — 领域枢纽（如 ai-customer-service.md）
-├── <topic>.md        # 以主题命名的页面（如 xhs-api.md、idempotent-webhook.md）
-│
-└── source-<name>.md  # 原始素材摘要（唯一允许的前缀）
-```
-
-## 核心规则（速查）
-
-详细的设计理由和操作流程请参阅下方链接的 `references/` 文件。
-
-1. **命名** — 文件名 = 主题名称，kebab-case 格式。**不加类型前缀**，`source-` 除外。参见 [references/page-types.md#naming](references/page-types.md)。
-2. **类型写在 frontmatter 中，而非文件名** — 每个页面在 frontmatter 中都有 `type:` 字段（entity | concept | gotcha | decision | source）。
-3. **root 页面负责聚合** — 带有 `tags: [root]` 的页面作为领域入口，按角色分组列出子页面的 wikilink。参见 [references/index-and-root.md](references/index-and-root.md)。
-4. **index.md 保持精简** — 仅列出 root 页面、跨领域概念/决策、source 摘要和孤立页面。**禁止列出 root 的子页面**。参见 [references/index-and-root.md#index-rules](references/index-and-root.md)。
-5. **entity 页面是聚合视图，而非代码镜像** — 记录那些需要阅读 5 个以上文件才能还原的信息；不要记录单个文件或 IDE 索引已经提供的信息。参见 [references/page-types.md#entity](references/page-types.md)。
-6. **Wikilink 策略**：
-   - ✅ Wiki 页面之间可自由链接
-   - ✅ package PRD（`.arbor/tasks/**/prd.md`）可以链接到 wiki 页面（作为背景提示）
-   - ❌ **Task 文件禁止包含 wikilink**（执行计划必须自包含）
-   - ❌ Research 笔记很少需要 wikilink（临时性质）
-
-## 初始化
-
-若 `.arbor/wiki/` 不存在，则从 [assets/templates/](assets/templates/) 创建种子文件：
-
-```
-.arbor/wiki/index.md    ← 来自 assets/templates/index.md
-.arbor/wiki/log.md      ← 来自 assets/templates/log.md
+```text
+.wiki/
+├── index.md
+├── log.md
+├── Modules/
+│   └── <Module Title>.md
+├── Decisions/
+├── Concepts/
+├── Gotchas/
+└── Sources/
 ```
 
-创建完成后，在 `log.md` 中追加：
+目录可按项目自然演化；retrieval 会扫描 `.wiki/**/*.md`，所以不要求扁平结构。
 
+## Retrieval helpers
+
+```text
+sdd-arbor wiki-index --json
+sdd-arbor wiki-index --tag module --json
+sdd-arbor wiki-search "balance refund" --json
+sdd-arbor wiki-collect --query "balance refund" --limit 5 --json
 ```
-## [YYYY-MM-DD HH:MM] init | wiki initialized
-```
 
-## 本 skill 不做的事
+- `wiki-index`：列出 metadata + links/backlinks + locators。
+- `wiki-search`：确定性 token scoring，不用 embedding。
+- `wiki-collect`：给 AI 的 compact selected summaries。
 
-- 不执行向量搜索或基于嵌入的检索（这是有意为之 — 参见 Karpathy LLM-Wiki 设计思路）
-- 不自动 ingest（每次 ingest 必须由用户触发）
-- 不存储规则/风格指南/PSR 标准（那些属于 `CLAUDE.md` 或其他 skill）
-- 不创建以 `experience-*`、`module-*`、`rule-*` 为分类名称的页面（这些都是反模式 — 参见 [references/anti-patterns.md](references/anti-patterns.md)）
+## 核心规则
 
-## 何时不激活
+1. `.wiki` 是导航层，不是 source of truth。
+2. 每页必须有 `description`；最好也有 `summary` 和 `tags`。
+3. 模块 note 不用行号；使用 stable locators。
+4. 子页面和 nested wikilinks 可以自由存在；retrieval helper 负责索引，不要让主会话逐页盲读。
+5. Module summary 由 `.arbor` milestone 触发更可靠；hook 最多提醒，不承担语义发布。
+6. 写 wiki 通常用 subagent；主会话只消费结果摘要和路径。
 
-当用户出现以下情况时，不要运行本 skill：
+## 本 skill 不做
 
-- 提问的问题无需 wiki 上下文即可直接回答
-- 正在进行与结构化知识无关的小范围本地编辑（bug 修复、样式调整）
-- 明确选择退出（"don't touch the wiki"、"skip wiki"）
-
-拿不准时，运行 **Query**（只读、成本低），而非 **Ingest**。
+- 不自动改代码。
+- 不把 wiki 内容当成未验证事实直接用于实现。
+- 不执行向量搜索或 embedding 检索。
+- 不在每次文件修改后自动重写 wiki。
+- 不把 `.wiki` 写到 `.arbor/wiki`，除非用户显式覆盖。

@@ -1,6 +1,6 @@
 ---
 name: review
-description: "Independent semantic audit of impl output for a package-local T-xxx against package-local PRD, task, wiki, and actual package diff. Runs AFTER impl reports DONE/DONE_WITH_CONCERNS. Read-only — never edits code, `prd.md`, or task definition. Reports APPROVED / APPROVED_WITH_NOTES / NEEDS_REWORK / BRAINSTORM_DRIFT. Appends to `.arbor/tasks/<name>/review.md` and updates lifecycle through `tools/arbor.py`. A single T-xxx approval is not package PR approval. Must consult git diff. Invoke only on explicit user request (e.g. '用 review skill 审计 <package> 的 T-001')."
+description: "Independent semantic audit of impl output for a package-local T-xxx against package-local PRD, task, wiki, and actual package diff. Runs AFTER impl reports DONE/DONE_WITH_CONCERNS. Read-only — never edits code, `prd.md`, or task definition. Reports APPROVED / APPROVED_WITH_NOTES / NEEDS_REWORK / BRAINSTORM_DRIFT. Appends to `.arbor/tasks/<name>/review.md` and updates lifecycle through `sdd-arbor`. A single T-xxx approval is not package PR approval. Must consult git diff. Invoke only on explicit user request (e.g. '用 review skill 审计 <package> 的 T-001')."
 ---
 
 # Review — 独立语义审计
@@ -32,7 +32,7 @@ Review 是**语义安全网**。它：
 1. 确定审计目标：package + package-local T-xxx；裸 `T-001` 不可视为全局唯一任务
 2. 读取 task package 的 `prd.md`、`task.md`、`task.json` 与可选 `context/review.jsonl`
 3. 运行 `git diff` 查看 package branch/worktree 的实际变更，并说明当前 T-xxx 对应的 diff scope
-4. 可选查阅相关 wiki 页面
+4. 可选用 `sdd-arbor wiki-collect --query "<query>" --limit 5 --json` 查阅相关 wiki 页面；wiki 只作 orientation，结论必须回到 diff / PRD / task / `.arbor` 验证
 5. 若 package 内缺少 `prd.md`，可读取 legacy `.arbor/brainstorms/<name>.md` 作为 fallback，但必须报告这是迁移风险
 
 ### ⚖️ Judge — 将 diff 与上游语义进行比对
@@ -48,10 +48,11 @@ Review 是**语义安全网**。它：
 
 1. 分类为：APPROVED / APPROVED_WITH_NOTES / NEEDS_REWORK / BRAINSTORM_DRIFT
 2. 追加到 `.arbor/tasks/<name>/review.md`
-3. 使用 `tools/arbor.py` 更新 `.arbor/tasks/<name>/task.json` 中对应 T-xxx 的 `state`、`updated_at`、顶层聚合 `state/current_phase/next_action` 与 `phase_history`
+3. 使用 `sdd-arbor` 更新 `.arbor/tasks/<name>/task.json` 中对应 T-xxx 的 `state`、`updated_at`、顶层聚合 `state/current_phase/next_action` 与 `phase_history`
 4. 输出结构化摘要，并说明此 verdict 是否只覆盖当前 T-xxx
 5. 若所有 required T-xxx 都已通过 review，说明 package 可进入 PR/final review；否则继续处理下一个 T-xxx
-6. 若状态为 `BRAINSTORM_DRIFT`：建议回到 brainstorm 追加 package-local `AMD-xxx`，再由 task 追加新的 T-xxx；不要让 impl 背锅
+6. 若有新的 review context，使用 `sdd-arbor add-context` / `sdd-arbor add-context-batch --type review` 追加，不手写 `context/*.jsonl`
+7. 若状态为 `BRAINSTORM_DRIFT`：建议回到 brainstorm 追加 package-local `AMD-xxx`，再由 task 追加新的 T-xxx；不要让 impl 背锅
 
 ## 四种审计状态
 
@@ -74,4 +75,4 @@ Review 是**语义安全网**。它：
 8. **BRAINSTORM_DRIFT 退回 brainstorm，而非 impl** —— 上游 PRD 错误时，追加 AMD-xxx，再 task append 新 T-xxx。
 9. **Amendment review 要看回归** —— 审 amendment-linked T-xxx 时必须确认 corrected rule + regression evidence。
 10. **不自动重复触发** —— 报告一次后即停止。
-11. **不手写 JSON 状态** —— 优先使用 `tools/arbor.py set-status` / `set-phase`；如 helper 不足，先扩展 helper。
+11. **不手写 JSON 状态或 context JSONL** —— 状态用 helper；context 用 `add-context` / `add-context-batch`；如 helper 不足，先扩展 helper。

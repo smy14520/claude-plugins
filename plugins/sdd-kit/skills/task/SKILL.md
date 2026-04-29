@@ -72,7 +72,7 @@ package_sizing.status
    - `ready-check`
    - 可执行 acceptance（二元谓词或命令）
 6. 写实 `.arbor/tasks/<package>/task.md`，不要留下模板占位。
-7. 用 arbor helper 维护机械状态：`add-child`、`add-context`、`freeze-definition`、`validate`；参数以 `<subcommand> --help` 为准。
+7. 用 arbor helper 维护机械状态：`add-child`、`add-context` / `add-context-batch`、`freeze-definition`、`validate`；参数以 `<subcommand> --help` 为准。
 8. 如果 validation 失败，修 `task.md` / helper 状态后再交付。
 
 ## Amendment append mode
@@ -101,19 +101,20 @@ package_sizing.status
 禁止：
 
 - wikilinks 作为执行依赖。
+- wiki 页面作为未验证 source of truth；可以作为背景提示，但 `task.md` 必须自包含。
 - “决定/调研/设计某方案”这类开放任务。
 - 重排已有 T-xxx 编号。
 - 为 T-xxx 默认写 branch/worktree/PR。
-- 只调用 `arbor.py add-child` 而不把真实任务写入 `task.md`。
+- 只调用 `sdd-arbor add-child` 而不把真实任务写入 `task.md`。
 
 ## 状态源规则
 
 - `task.json` 是 lifecycle source of truth。
-- `arbor.py add-child` 只更新 `task.json`，不会同步 Markdown。
+- `sdd-arbor add-child` 只更新 `task.json`，不会同步 Markdown。
 - `task.md` 是稳定任务定义，impl/review 不修改；task skill 只可 append AMD 对应的新 T-xxx。
 - `review.md` 是追加审计日志，不是当前状态源。
 - 不创建 `status.md`。
-- context JSONL 是索引，不是长文档。
+- context JSONL 是索引，不是长文档；通过 `add-context` / `add-context-batch` 写入，不手写文件。
 
 ## 完成条件
 
@@ -123,7 +124,7 @@ Task 完成时应满足：
 - `task.json.tasks[]` 与 `task.md` 的 T-xxx 对齐。
 - amendment task 已和 `source_amendment/corrects` 对齐（如适用）。
 - definition frozen。
-- `arbor.py validate <package>` 通过。
+- `sdd-arbor validate <package>` 通过。
 - `next_action.skill` 指向 `impl` 或在阻塞时明确指向 `user` / `brainstorm` / `task`。
 
 ## 本 skill 不做

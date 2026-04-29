@@ -96,13 +96,13 @@ def recalculate_package_state(data: dict[str, Any]) -> None:
     states_by_id = {task.get("id"): task.get("state") for task in tasks if isinstance(task.get("id"), str)}
 
     for state, package_state, phase, skill, reason in [
-        ("brainstorm_drift", "brainstorm_drift", "review", "brainstorm", "package PRD is stale or incorrect"),
-        ("needs_rework", "needs_rework", "review", "impl", "review found rework required"),
-        ("in_progress", "in_progress", "impl", "impl", "implementation in progress"),
-        ("done", "impl_done", "impl", "review", "implementation reported done; semantic audit pending"),
-        ("done_with_concerns", "impl_done", "impl", "review", "implementation reported done with concerns; semantic audit pending"),
-        ("needs_context", "needs_context", "task", "task", "task-local context is missing or conflicting"),
-        ("blocked", "blocked", data.get("current_phase", "task"), "user", "external blocker requires user action"),
+        ("brainstorm_drift", "brainstorm_drift", "review", "brainstorm", "package PRD 已过期或需求不正确"),
+        ("needs_rework", "needs_rework", "review", "impl", "review 发现需要返工"),
+        ("in_progress", "in_progress", "impl", "impl", "implementation 正在执行"),
+        ("done", "impl_done", "impl", "review", "implementation 已完成，等待 semantic audit"),
+        ("done_with_concerns", "impl_done", "impl", "review", "implementation 已完成但有 concerns，等待 semantic audit"),
+        ("needs_context", "needs_context", "task", "task", "task-local context 缺失或冲突"),
+        ("blocked", "blocked", data.get("current_phase", "task"), "user", "external blocker 需要用户处理"),
     ]:
         matches = sorted_tasks(data, {state})
         if matches:
@@ -122,7 +122,7 @@ def recalculate_package_state(data: dict[str, Any]) -> None:
         data["state"] = "reviewed"
         data["current_phase"] = "review"
         data["active_task"] = None
-        data["next_action"] = {"skill": "none", "task_id": None, "reason": "all required package-local tasks passed review"}
+        data["next_action"] = {"skill": "none", "task_id": None, "reason": "所有 required package-local tasks 已通过 review"}
         execution = ensure_execution(data)
         if execution.get("status") not in {"claimed", "worktree_ready", "pr_open", "merged"}:
             execution["status"] = "reviewed"
@@ -134,5 +134,5 @@ def recalculate_package_state(data: dict[str, Any]) -> None:
         data["state"] = "ready"
         data["current_phase"] = "task"
         data["active_task"] = None
-        data["next_action"] = {"skill": "impl", "task_id": task_id, "reason": "next package-local ready task"}
+        data["next_action"] = {"skill": "impl", "task_id": task_id, "reason": "下一个 package-local ready task"}
         return

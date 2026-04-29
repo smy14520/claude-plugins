@@ -1,0 +1,263 @@
+from __future__ import annotations
+
+import re
+from pathlib import Path
+from typing import Any
+
+from .errors import ArborError
+from .fs import *
+from .map_contracts import contract_requests_list
+from .map_model import ensure_map_workspace
+from .map_sync import read_package_summary, sync_map_from_packages
+from .schema import CHECKPOINT_KINDS
+from .state import ensure_execution
+from .validation import validate_package
+
+WIKILINK_RE = re.compile(r"\[\[([^\]|#]+)(?:#[^\]|]+)?(?:\|[^\]]+)?\]\]")
+TOKEN_RE = re.compile(r"[\w]+", re.IGNORECASE)
+HEADING_RE = re.compile(r"^(#{1,6})\s+(.+?)\s*$")
+SYMBOL_RE = re.compile(r"`([A-Za-z_][A-Za-z0-9_:.#/-]*)`")
+
+
+def wiki_root_path(root: Path, wiki_root: str | None = None) -> Path:
+    value = wiki_root.strip() if isinstance(wiki_root, str) and wiki_root.strip() else ".wiki"
+    path = Path(value)
+    if path.is_absolute():
+        return path
+    return root / path
+
+
+def _parse_frontmatter(text: str) -> tuple[dict[str, Any], str]:
+    if not text.startswith("---\n"):
+        return {}, text
+    end = text.find("\n---", 4)
+    if end == -1:
+        return {}, text
+    raw = text[4:end].strip().splitlines()
+    body = text[end + 4 :].lstrip("\n")
+    meta: dict[str, Any] = {}
+    for line in raw:
+        if not line.strip() or line.lstrip().startswith("#") or ":" not in line:
+            continue
+        key, value = line.split(":", 1)
+        key = key.strip()
+        value = value.strip()
+        if value.startswith("[") and value.endswith("]"):
+            items = [item.strip().strip('"\'') for item in value[1:-1].split(",") if item.strip()]
+            meta[key] = items
+        else:
+            meta[key] = value.strip('"\'')
+    return meta, body
+
+
+def _first_paragraph(body: str) -> str:
+    lines: list[str] = []
+    for line in body.splitlines():
+        stripped = line.strip()
+        if not stripped:
+            if lines:
+                break
+            continue
+        if stripped.startswith("#"):
+            continue
+        lines.append(stripped)
+    return " ".join(lines)
+
+
+def _page_title(path: Path, meta: dict[str, Any], body: str) -> str:
+    title = meta.get("title")
+    if isinstance(title, str) and title.strip():
+        return title.strip()
+    for line in body.splitlines():
+        match = HEADING_RE.match(line)
+        if match:
+            return match.group(2).strip()
+    return path.stem
+
+
+def _tags(meta: dict[str, Any]) -> list[str]:
+    tags = meta.get("tags")
+    if isinstance(tags, list):
+        return [item for item in tags if isinstance(item, str) and item]
+    if isinstance(tags, str):
+        return [item.strip() for item in tags.split(",") if item.strip()]
+    return []
+
+
+def _links(body: str) -> list[str]:
+    result: list[str] = []
+    for match in WIKILINK_RE.finditer(body):
+        target = match.group(1).strip()
+        if target and target not in result:
+            result.append(target)
+    return result
+
+
+def _locators(body: str) -> list[dict[str, str]]:
+    locators: list[dict[str, str]] = []
+    for line in body.splitlines():
+        heading = HEADING_RE.match(line)
+        if heading:
+            level = len(heading.group(1))
+            title = heading.group(2).strip()
+            locators.append({"kind": "heading", "level": str(level), "name": title})
+        for symbol in SYMBOL_RE.findall(line):
+            locators.append({"kind": "symbol", "name": symbol})
+    seen: set[tuple[str, str]] = set()
+    unique: list[dict[str, str]] = []
+    for item in locators:
+        key = (item.get("kind", ""), item.get("name", ""))
+        if key not in seen:
+            seen.add(key)
+            unique.append(item)
+    return unique
+
+
+def _page_entry(root: Path, path: Path, include_content: bool) -> dict[str, Any]:
+    text = path.read_text(encoding="utf-8")
+    meta, body = _parse_frontmatter(text)
+    rel = path.relative_to(root).as_posix()
+    summary = meta.get("summary") if isinstance(meta.get("summary"), str) else _first_paragraph(body)
+    entry: dict[str, Any] = {
+        "path": rel,
+        "title": _page_title(path, meta, body),
+        "description": meta.get("description") if isinstance(meta.get("description"), str) else "",
+        "summary": summary,
+        "tags": _tags(meta),
+        "type": meta.get("type") if isinstance(meta.get("type"), str) else None,
+        "package": meta.get("package") if isinstance(meta.get("package"), str) else None,
+        "source_checkpoint": meta.get("source_checkpoint") if isinstance(meta.get("source_checkpoint"), str) else None,
+        "links": _links(body),
+        "backlinks": [],
+        "locators": _locators(body),
+    }
+    if include_content:
+        entry["content"] = body
+    return entry
+
+
+def wiki_index(root: Path, wiki_root: str | None = None, tag: str | None = None, include_content: bool = False) -> dict[str, Any]:
+    directory = wiki_root_path(root, wiki_root)
+    if not directory.exists():
+        return {"wiki_root": str(directory.relative_to(root)) if directory.is_relative_to(root) else str(directory), "pages": []}
+    pages = [_page_entry(root, path, include_content) for path in sorted(directory.rglob("*.md")) if path.is_file()]
+    by_title = {page["title"]: page for page in pages}
+    by_stem = {Path(page["path"]).stem: page for page in pages}
+    for page in pages:
+        for link in page["links"]:
+            target = by_title.get(link) or by_stem.get(Path(link).stem)
+            if target is not None and page["title"] not in target["backlinks"]:
+                target["backlinks"].append(page["title"])
+    if tag:
+        pages = [page for page in pages if tag in page.get("tags", [])]
+    wiki_root_value = directory.relative_to(root).as_posix() if directory.is_relative_to(root) else str(directory)
+    return {"wiki_root": wiki_root_value, "pages": pages}
+
+
+def _tokens(value: Any) -> set[str]:
+    if isinstance(value, list):
+        return set().union(*(_tokens(item) for item in value)) if value else set()
+    if not isinstance(value, str):
+        return set()
+    return {item.casefold() for item in TOKEN_RE.findall(value)}
+
+
+def wiki_search(root: Path, query: str, wiki_root: str | None = None, limit: int | None = None) -> dict[str, Any]:
+    query_tokens = _tokens(query)
+    if not query_tokens:
+        raise ArborError("wiki-search query must contain at least one token.")
+    indexed = wiki_index(root, wiki_root, include_content=True)
+    results: list[dict[str, Any]] = []
+    weights = {
+        "title": 8,
+        "tags": 6,
+        "description": 5,
+        "summary": 4,
+        "path": 2,
+        "locators": 2,
+        "content": 1,
+    }
+    for page in indexed["pages"]:
+        score = 0
+        matched_fields: list[str] = []
+        locator_text = " ".join(item.get("name", "") for item in page.get("locators", []) if isinstance(item, dict))
+        fields = {
+            "title": page.get("title"),
+            "tags": page.get("tags"),
+            "description": page.get("description"),
+            "summary": page.get("summary"),
+            "path": page.get("path"),
+            "locators": locator_text,
+            "content": page.get("content"),
+        }
+        for field, value in fields.items():
+            matches = query_tokens.intersection(_tokens(value))
+            if matches:
+                matched_fields.append(field)
+                score += len(matches) * weights[field]
+        if score:
+            page_result = {key: value for key, value in page.items() if key != "content"}
+            page_result["score"] = score
+            page_result["matched_fields"] = matched_fields
+            page_result["reason"] = "matched " + ", ".join(matched_fields)
+            results.append(page_result)
+    results.sort(key=lambda item: (-item["score"], item["path"]))
+    if limit is not None:
+        results = results[:limit]
+    return {"wiki_root": indexed["wiki_root"], "query": query, "results": results}
+
+
+def wiki_collect(root: Path, query: str, wiki_root: str | None = None, limit: int = 5) -> dict[str, Any]:
+    search = wiki_search(root, query, wiki_root, limit)
+    selected = []
+    for item in search["results"]:
+        selected.append(
+            {
+                "path": item["path"],
+                "title": item["title"],
+                "description": item.get("description"),
+                "summary": item.get("summary"),
+                "tags": item.get("tags", []),
+                "links": item.get("links", []),
+                "backlinks": item.get("backlinks", []),
+                "locators": item.get("locators", []),
+                "score": item.get("score"),
+                "reason": item.get("reason"),
+            }
+        )
+    return {"wiki_root": search["wiki_root"], "query": query, "selected": selected}
+
+
+def module_summary(root: Path, package: str, initiative: str | None = None, timestamp: str | None = None) -> dict[str, Any]:
+    validate_name(package)
+    pkg, data = load_package(root, package)
+    summary = read_package_summary(root, package)
+    execution = ensure_execution(data)
+    checkpoints = execution.get("checkpoints") if isinstance(execution.get("checkpoints"), list) else []
+    sizing = data.get("package_sizing") if isinstance(data.get("package_sizing"), dict) else {}
+    parent = initiative or sizing.get("parent_initiative")
+    contracts = {"inputs": summary.get("contract_inputs", []), "outputs": summary.get("contract_outputs", []), "requests": []}
+    if isinstance(parent, str) and parent:
+        try:
+            map_data = sync_map_from_packages(root, parent, timestamp or data.get("updated_at") or data.get("created_at") or "")
+            contracts["requests"] = [item for item in contract_requests_list(map_data) if package in {item.get("consumer"), item.get("producer")}]
+        except ArborError:
+            contracts["requests"] = []
+    tasks = data.get("tasks", []) if isinstance(data.get("tasks"), list) else []
+    scope = summary.get("modification_scope") if isinstance(summary.get("modification_scope"), dict) else {}
+    return {
+        "kind": "module-summary",
+        "schema_version": "sdd-module-summary-v1",
+        "package": package,
+        "title": summary.get("title") or data.get("title") or package,
+        "status": summary.get("state"),
+        "checkpoints": checkpoints,
+        "contracts": contracts,
+        "owned_paths": scope.get("owned_paths", []),
+        "shared_paths": scope.get("shared_paths", []),
+        "important_files": [],
+        "invariants": [],
+        "tests": [task.get("title") for task in tasks if isinstance(task, dict) and isinstance(task.get("title"), str) and "test" in task.get("title", "").casefold()],
+        "verification": [{"ok": not validate_package(root, package), "source": "validate_package"}],
+        "related_packages": summary.get("depends_on", []),
+    }

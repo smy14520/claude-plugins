@@ -144,7 +144,7 @@
 
 **修正**：先用 brainstorm 澄清 large initiative framing。
 
-再由 map 创建 `.arbor/maps/<initiative>/map.md` + `map.json`，并把 map 中确认的 executable packages materialize 为 `.arbor/tasks/<package>/` stubs；不要创建 parent initiative task package。后续用 `map-check` / `map-plan-agents` 统筹 execution_ready / prep_ready / blocked 与 worker context。
+再由 map 创建 `.arbor/maps/<initiative>/map.md` + `map.json`，并把 map 中确认的 executable packages materialize 为 `.arbor/tasks/<package>/` stubs；不要创建 parent initiative task package。后续用 `parallel-schedule` 统筹 execution_ready / prep_ready / blocked 与 worker context。
 
 ---
 

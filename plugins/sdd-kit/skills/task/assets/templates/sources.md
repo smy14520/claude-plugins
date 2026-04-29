@@ -8,4 +8,4 @@ Each source entry should be one JSON object:
 {"id":"SRC-LOCAL-001","type":"local-file","location":"src/...:12-48","title":"<title>","why_it_matters":"<why this source matters for the package>"}
 ```
 
-Use `tools/arbor.py add-context <name> --type sources ...` to append entries.
+Use `sdd-arbor add-context <name> --type sources ...` to append entries.

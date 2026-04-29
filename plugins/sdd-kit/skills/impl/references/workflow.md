@@ -23,7 +23,7 @@
 4. 查找可执行任务：`ready` + `depends_on` 满足 + `ready-check` 无阻塞
 5. 如果用户指定具体 ID，但该任务仍被 blockers 阻塞，明确指出 blockers
 6. 选择后向用户确认再执行
-7. 开始执行时用 `tools/arbor.py set-status <name> --task T-xxx --state in_progress --actor impl --note "implementation started"` 记录 active task
+7. 开始执行时用 `sdd-arbor set-status <name> --task T-xxx --state in_progress --actor impl --note "implementation started"` 记录 active task
 
 ## Execute
 
@@ -48,7 +48,7 @@
 
 ## Report
 
-- 使用 `tools/arbor.py set-status` / `set-phase` 更新 `.arbor/tasks/<name>/task.json`：对应 package-local T-xxx 的 `state`、`updated_at`，必要时更新 `active_task`、聚合 `current_phase`、`next_action`，并追加 `phase_history`
-- 如需补充实现阶段上下文，用 `tools/arbor.py add-context <name> --type impl ...` 追加到 `context/impl.jsonl`
+- 使用 `sdd-arbor set-status` / `set-phase` 更新 `.arbor/tasks/<name>/task.json`：对应 package-local T-xxx 的 `state`、`updated_at`，必要时更新 `active_task`、聚合 `current_phase`、`next_action`，并追加 `phase_history`
+- 如需补充实现阶段上下文，用 `sdd-arbor add-context <name> --type impl ...` 追加到 `context/impl.jsonl`
 - NEEDS_CONTEXT 行可引用：`prd.md §X / task <field> / SRC-...`
 - 绝不修改 `task.md`；不要创建 markdown TODO/status checklist

@@ -8,4 +8,4 @@ Review still reads package-local `prd.md`, `task.md`, `task.json`, and actual `g
 {"at":"YYYY-MM-DDTHH:MM:SSZ","actor":"task","task_id":"T-001","kind":"constraint","source":"SRC-LOCAL-001","summary":"<review-only context packet; what semantic auditor must check against prd/task/diff>"}
 ```
 
-Use `tools/arbor.py add-context <name> --type review ...` to append entries.
+Use `sdd-arbor add-context <name> --type review ...` to append entries.
