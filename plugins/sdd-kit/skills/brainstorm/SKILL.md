@@ -22,11 +22,11 @@ research? → [brainstorm]
 - `normal`：默认模式，高效收敛；只问当前最影响设计、package boundary、task 拆解或 map handoff 的问题。不使用 grill-me turn shape；assumption audit 可作为内部简短判断，不必外显成压力式拷问。
 - `grill` / `grill-me`：高强度需求拷问模式；使用 `skills/brainstorm/references/grill-me.md` 的访谈姿态和 turn shape，先暴露薄弱假设、边界误解和未说清的实现前提，不急着写 PRD 或判断 package。自然收敛后，再回到 normal 的出口判断。
 
-两种模式都必须先读 repo / research / 相关 PRD/map；能由代码或已有材料回答的问题不要问用户。
+两种模式都必须先读 repo / research / 相关 PRD/map；能由代码或已有材料回答的问题不要问用户。需要拿关联信息时，可用 `.wiki/index.md` 作为人工导航入口，或用 `sdd-arbor wiki-index --json` / `wiki-collect --query "<query>" --limit 5 --json` 先看 metadata / description / summary / locators，再只读取真正相关页面。wiki 只作 orientation，关键结论回到代码和 `.arbor` 验证。
 
 ## 工作循环
 
-1. **Context first**：先读 repo、已有 research、用户输入、相关 PRD/map；能从上下文确认的不要问。
+1. **Context first**：先读 repo、已有 research、用户输入、相关 PRD/map；需要关联知识时再检索 wiki metadata；能从上下文确认的不要问。
 2. **State understanding**：简要说明已知事实、当前理解、真正会影响方向的缺口。
 3. **Assumption audit**：把 research 候选理解转成 blocking / important / optional assumptions，审计来源、影响和是否必须在定稿前解决。
 4. **One useful question**：normal 只问最高价值阻塞问题；grill-me 使用模式卡的 turn shape，一次只问一个最高价值问题，并给推荐答案与理由。使用 `AskUserQuestion` 时，question/header/options/description 必须写中文，避免出现英文访谈 UI。

@@ -4,6 +4,6 @@
 > 快速查看最近 5 次操作：`grep "^## \[" log.md | tail -5`
 
 <!-- 日志格式：
-## [YYYY-MM-DD HH:MM] <operation> | <type>: <name>
-<optional one-line note>
+## [YYYY-MM-DD HH:MM] <操作> | <类型>: <名称>
+<可选一行备注>
 -->

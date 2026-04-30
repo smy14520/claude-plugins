@@ -8,15 +8,17 @@
 
 ```yaml
 ---
-title: <Title>
-description: <one-line retrieval hook>
+title: <中文标题>
+description: <中文一行检索提示>
 tags: [<domain>, ...]
 type: entity | concept | gotcha | decision | source | module
-summary: <compact summary>
+summary: <中文紧凑摘要>
 ---
 ```
 
 `description` 用来让 `wiki-index/search/collect` 快速判断相关性；`summary` 用来减少主会话盲读。
+
+不要把隐藏目录（如 `.arbor/`、`.claude/`、`.git/`）里的原始文件、workflow 状态快照或规则配置整理成 wiki 页面；这些目录本身是 source of truth 或工具配置。明确 helper 输出（如 `sdd-arbor module-summary <package> --json`）除外。
 
 ## R2 — index.md 只做入口
 
@@ -38,7 +40,7 @@ summary: <compact summary>
 
 ## R4 — Module note 不写行号
 
-Module note 来自 `sdd-arbor module-summary <package> --json` 的稳定 packet，再由 wiki skill/subagent 写入 `.wiki/Modules/<Title>.md`。
+Module note 来自 `sdd-arbor module-summary <package> --json` 的稳定 packet，再由 wiki skill/subagent 写入 `.wiki/Modules/<中文标题>.md`。
 
 定位使用 stable locators：
 

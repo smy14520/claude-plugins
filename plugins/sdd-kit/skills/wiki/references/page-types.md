@@ -6,11 +6,11 @@
 
 ```yaml
 ---
-title: <Title>
-description: <one-line retrieval hook>
+title: <中文标题>
+description: <中文一行检索提示>
 tags: [<domain>, ...]
 type: entity | concept | gotcha | decision | source | module
-summary: <compact summary>
+summary: <中文紧凑摘要>
 ---
 ```
 
@@ -18,35 +18,35 @@ summary: <compact summary>
 
 来自 sdd-kit package 的稳定模块卡片。通常由 `sdd-arbor module-summary <package> --json` 生成 packet 后写入。
 
-推荐位置：`.wiki/Modules/<Title>.md`。
+推荐位置：`.wiki/Modules/<中文标题>.md`。
 
 必需 frontmatter：
 
 ```yaml
 ---
-title: Balance Ledger
+title: 余额账本
 description: 余额账户、流水、充值、扣款、退款和幂等 contract
 tags: [module, backend, ledger]
 type: module
 package: balance-ledger
 source: arbor
 source_checkpoint: <sha>
-summary: <compact summary>
+summary: <中文紧凑摘要>
 ---
 ```
 
 推荐结构：
 
 ```markdown
-# Balance Ledger
+# 余额账本
 
-## Summary
-## Public contracts
-## Key files and stable locators
-## Invariants
-## Tests
-## Related modules
-## Verification notes
+## 摘要
+## 对外契约
+## 关键文件与稳定定位
+## 不变量
+## 测试
+## 相关模块
+## 验证记录
 ```
 
 Module note 不写 line numbers。定位用：

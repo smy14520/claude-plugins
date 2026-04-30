@@ -48,11 +48,12 @@ Impl 是**执行**阶段。它：
 1. 读取任务的 `deliverable + acceptance + context + sources + notes`
 2. 如 task-local context 仍不足以解释局部背景，可读取同 package 的 `prd.md` 作为背景
 3. 若依赖模块已有 wiki/module summary，可先用 `sdd-arbor wiki-collect --query "<query>" --limit 5 --json` 定位，再验证当前代码和 `.arbor`；wiki 只作 orientation
-4. 按当前 repo 的源码/测试结构写代码；若 package PRD/task 明确了落点，优先遵循
-5. 编写最小变更，以通过 acceptance 为目标；产品源码/测试必须写到 repo implementation tree，不得写入 `.arbor/tasks/<package>/`
-6. 若 task/PRD 未明确源码落点且当前 repo 也无法推断（例如空仓库且当前 task 不是建立项目基线），停止为 `NEEDS_CONTEXT`，不要创建孤立 demo 文件
-7. 若任务带 `source_amendment`，读取对应 AMD，只实现该增量修正，不改写旧 PRD/task
-8. 若遇到歧义，区分：
+4. 若用户明确要求 TDD，或当前 T-xxx 的主要风险是行为正确性，按 `references/tdd.md` 作为执行模式；TDD 不替代 impl lifecycle
+5. 按当前 repo 的源码/测试结构写代码；若 package PRD/task 明确了落点，优先遵循
+6. 编写最小变更，以通过 acceptance 为目标；产品源码/测试必须写到 repo implementation tree，不得写入 `.arbor/tasks/<package>/`
+7. 若 task/PRD 未明确源码落点且当前 repo 也无法推断（例如空仓库且当前 task 不是建立项目基线），停止为 `NEEDS_CONTEXT`，不要创建孤立 demo 文件
+8. 若任务带 `source_amendment`，读取对应 AMD，只实现该增量修正，不改写旧 PRD/task
+9. 若遇到歧义，区分：
    - task-local 信息缺失 / 冲突 → `NEEDS_CONTEXT`
    - 环境阻塞 → `BLOCKED`
 

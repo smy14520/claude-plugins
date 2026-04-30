@@ -63,7 +63,8 @@ package_sizing.status
    - `lean`：更粗，适合单人快速推进。
 4. 设计 milestone / DAG：共享能力先行，消费任务显式 `depends-on`，不得有环。
 5. 输出轻量并行提示：按 `role` 聚合 lane，给出 suggested waves、shared/contract 前置任务和 ownership notes；这些只服务人工 / Team Auto / 多会话分工，不是 scheduler runtime。
-6. 为每个 T-xxx 写入：
+6. 必要时写明 test strategy / test seam：observable behavior、适合的测试层级、外部边界 fake/sandbox、UI browser verification；task 只铺路，不执行 TDD。
+7. 为每个 T-xxx 写入：
    - `id` / `milestone` / `role`
    - `title` 使用封闭动词：`CREATE | ADD | SET | DELETE | REPLACE`
    - `deliverable`
@@ -98,6 +99,7 @@ package_sizing.status
 - 并行执行提示：role lanes、suggested waves、shared/contract 任务、ownership notes。
 - T-xxx 列表，字段齐全。
 - 每个 T-xxx 的 acceptance 可执行。
+- 必要时说明 test strategy / test seam，但不把 TDD 变成独立阶段。
 - sources 可追溯。
 
 禁止：

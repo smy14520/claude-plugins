@@ -12,6 +12,10 @@ Ask the questions one at a time.
 
 If a question can be answered by exploring the codebase, explore the codebase instead.
 
+## With project context
+
+上下文查证按 `SKILL.md` 的 Context first 执行；grill-me 只改变访谈强度和 turn shape。随后继续按原始 grill-me 循环一次只问一个最高价值问题。
+
 ## Turn shape
 
 每轮保持短而有压力：

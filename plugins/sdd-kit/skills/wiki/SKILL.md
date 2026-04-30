@@ -5,6 +5,8 @@ description: "Manage the project's persistent knowledge wiki at `.wiki/` — pro
 
 # Wiki — project-local knowledge layer
 
+使用语言：中文。写入 `.wiki/**/*.md` 的正文、标题、章节标题、`description` 和 `summary` 默认中文；代码标识符、文件路径、命令和 schema 字段保持原样。
+
 将项目根目录下的 `.wiki/` 作为持久化知识库。它是 orientation/index layer，不是 source of truth：用来快速定位模块事实、契约、关键文件和历史决定；真正改代码前仍要验证当前代码和 `.arbor` 状态。
 
 sdd-kit 不耦合 Obsidian。它只产出 deterministic packets 和 retrieval JSON；wiki skill/subagent 负责把这些信息写成 Obsidian-style markdown note。
@@ -30,15 +32,17 @@ code...                    # implementation source of truth
 
 ```yaml
 ---
-title: <Title>
-description: <one-line hook for retrieval>
+title: <中文标题>
+description: <中文一行检索提示>
 tags: [<domain>, ...]
 type: entity | concept | gotcha | decision | source | module
-summary: <compact summary>
+summary: <中文紧凑摘要>
 ---
 ```
 
 已有页面优先追加/合并；不为了分类创建空壳页面。
+
+不把隐藏目录（如 `.arbor/`、`.claude/`、`.git/`）里的原始文件、workflow 状态快照或规则配置整理成 wiki 页面；需要查询时直接读 source of truth。例外是明确的 helper 输出，例如 `sdd-arbor module-summary <package> --json` 生成的稳定 packet。
 
 ### Query — 检索已有知识
 
@@ -64,29 +68,29 @@ sdd-arbor wiki-collect --query "balance refund" --limit 5 --json
 sdd-arbor module-summary <package> --json
 ```
 
-subagent 根据 packet 写/更新 `.wiki/Modules/<Title>.md`。推荐结构：
+subagent 根据 packet 写/更新 `.wiki/Modules/<中文标题>.md`。推荐结构：
 
 ```markdown
 ---
-title: Balance Ledger
+title: 余额账本
 description: 余额账户、流水、充值、扣款、退款和幂等 contract
 tags: [module, backend, ledger]
 type: module
 package: balance-ledger
 source: arbor
 source_checkpoint: <sha>
-summary: <compact summary>
+summary: <中文紧凑摘要>
 ---
 
-# Balance Ledger
+# 余额账本
 
-## Summary
-## Public contracts
-## Key files and stable locators
-## Invariants
-## Tests
-## Related modules
-## Verification notes
+## 摘要
+## 对外契约
+## 关键文件与稳定定位
+## 不变量
+## 测试
+## 相关模块
+## 验证记录
 ```
 
 不要写行号。定位使用 stable locators：file path + class/function/method/route/table/index/config key/test name/contract id。
@@ -102,7 +106,7 @@ Lint 可结合 `wiki-index` 检查：broken links、orphan pages、缺失 descri
 ├── index.md
 ├── log.md
 ├── Modules/
-│   └── <Module Title>.md
+│   └── <模块标题>.md
 ├── Decisions/
 ├── Concepts/
 ├── Gotchas/

@@ -22,28 +22,28 @@
 
 ```yaml
 ---
-title: <Domain>
-description: <one-line retrieval hook>
+title: <领域名>
+description: <中文一行检索提示>
 tags: [root, <domain>]
 type: entity
-summary: <compact summary>
+summary: <中文紧凑摘要>
 ---
 ```
 
 根页面应按使用意图组织 links：模块、关键决策、常见坑、外部资料、相关 source。
 
-## Modules root
+## Modules 根页面
 
 项目有多个完成 package 后，可创建 `.wiki/Modules.md` 或 `.wiki/Modules/index.md`：
 
 ```markdown
-# Modules
+# 模块
 
-- [[Balance Ledger]] — 余额账户、充值、扣款、退款 contract
-- [[User Role Access]] — 用户/讲师/管理员权限边界
+- [[余额账本]] — 余额账户、充值、扣款、退款 contract
+- [[用户角色访问]] — 用户/讲师/管理员权限边界
 ```
 
-Module note 的真实内容在 `.wiki/Modules/<Title>.md`；retrieval helper 会扫描嵌套页面，所以目录结构不需要额外配置。
+Module note 的真实内容在 `.wiki/Modules/<中文标题>.md`；retrieval helper 会扫描嵌套页面，所以目录结构不需要额外配置。
 
 ## 链接规则
 

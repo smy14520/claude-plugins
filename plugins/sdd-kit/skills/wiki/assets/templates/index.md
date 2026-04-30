@@ -1,4 +1,4 @@
-# Wiki Index
+# Wiki 索引
 
 > 导航目录。进入某个领域的所有内容，请打开该领域的 root 页面。
 > 维护规则见 [SKILL.md](../../SKILL.md#core-rules-quick-reference) 和 [index-and-root.md](../../references/index-and-root.md).
