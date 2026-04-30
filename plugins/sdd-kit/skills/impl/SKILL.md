@@ -93,12 +93,13 @@ Impl 是**执行**阶段。它：
 3. **优先信任 task-local context** —— 不是每次都回到 PRD 重读全局文档。
 4. **禁止修改任务定义** —— impl 只通过 `arbor.py` 更新 `task.json` 的执行状态元数据。
 5. **一次一个 T-xxx** —— 完成 + 报告后再选下一个；T-xxx 只在当前 package 内唯一。
-6. **Package 是执行边界** —— 代码变更服务于当前 package；不要为 T-xxx 默认创建独立 PR。
-7. **单个 DONE 不等于 package 完成** —— DONE 只表示当前 T-xxx 自检通过，package readiness 由所有 required T-xxx 的 review 聚合而来。
-8. **SelfCheck = 验收** —— 语义审计属于 review。
-9. **Amendment 是增量实现** —— 不为了“看起来一致”去改旧 PRD/task；只实现新 T-xxx。
-10. **禁止自动推进到下一任务** —— 除非用户明确说继续。
-11. **不手写 JSON 状态或 context JSONL** —— 状态用 helper；context 用 `add-context` / `add-context-batch`。
+6. **Role lane 不越界** —— 若用户用 Team Auto / 多会话按 lane 分工，当前执行者只处理自己 lane 的 T-xxx 和可修改范围；contract 不清或需要跨 lane 写入时停止问 lead。
+7. **Package 是执行边界** —— 代码变更服务于当前 package；不要为 T-xxx 默认创建独立 PR。
+8. **单个 DONE 不等于 package 完成** —— DONE 只表示当前 T-xxx 自检通过，package readiness 由所有 required T-xxx 的 review 聚合而来。
+9. **SelfCheck = 验收** —— 语义审计属于 review。
+10. **Amendment 是增量实现** —— 不为了“看起来一致”去改旧 PRD/task；只实现新 T-xxx。
+11. **禁止自动推进到下一任务** —— 除非用户明确说继续。
+12. **不手写 JSON 状态或 context JSONL** —— 状态用 helper；context 用 `add-context` / `add-context-batch`。
 
 ## 初始化
 

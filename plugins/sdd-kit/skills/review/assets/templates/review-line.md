@@ -18,25 +18,25 @@ Checkbox semantics:
 ### APPROVED（通过）
 
 ```
-- [✓] T-003 (APPROVED) — 2026-04-24 16:40 — PRD goal met; task scope respected; diff clean
+- [✓] T-003 (APPROVED) — 2026-04-24 16:40 — PRD 目标已覆盖；task 范围被遵守；diff 未发现阻塞问题
 ```
 
 ### APPROVED_WITH_NOTES（有轻微问题）
 
 ```
-- [~] T-004 (APPROVED_WITH_NOTES) — 2026-04-24 16:55 — core correct; timeout hard-coded 5s though task notes imply configurable; src/webhooks/xhs-handler.ts:34
+- [~] T-004 (APPROVED_WITH_NOTES) — 2026-04-24 16:55 — 核心语义正确；但 timeout 固定为 5s，而 task 备注暗示应可配置；src/webhooks/xhs-handler.ts:34
 ```
 
 ### NEEDS_REWORK（存在具体缺陷）
 
 ```
-- [✗] T-005 (NEEDS_REWORK) — 2026-04-24 17:10 — task acceptance requires burst scenario; diff lacks rate-limit handling; scanned src/webhooks/ and src/mw/
+- [✗] T-005 (NEEDS_REWORK) — 2026-04-24 17:10 — task acceptance 要求 burst 场景；diff 缺少 rate-limit 处理；已检查 src/webhooks/ 与 src/mw/
 ```
 
 ### BRAINSTORM_DRIFT（上游收敛文档有误）
 
 ```
-- [!] T-006 (BRAINSTORM_DRIFT) — 2026-04-24 17:30 — PRD mandates redis for idempotency; no redis dep in package.json; current codebase uses in-memory Map
+- [!] T-006 (BRAINSTORM_DRIFT) — 2026-04-24 17:30 — PRD 要求使用 redis 做幂等；package.json 没有 redis 依赖；当前代码库使用 in-memory Map
 ```
 
 ## task.json 更新示例

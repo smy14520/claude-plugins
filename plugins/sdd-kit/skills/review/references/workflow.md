@@ -1,46 +1,46 @@
-# Review 工作流：收集 / 判定 / 报告
+# Review workflow notes
 
-Review 对 impl 产出执行**语义审计**，依据是 package-local PRD + package-local T-xxx task + actual diff +（可选）wiki。它绝不修改代码、`prd.md` 或任务定义。单个 T-xxx verdict 不等于 package PR approval。
+Review 是 package/T-xxx semantic audit，不是普通 code review。主文件 `SKILL.md` 是权威说明；本文件只保留执行时容易漏的细节。
 
 ## 收集
 
-1. 解析目标（package + package-local T-xxx / 最近 DONE）；裸 `T-001` 不是全局唯一任务
-2. 读取 package-local PRD：`.arbor/tasks/<name>/prd.md`
-   - 若缺失，可读取 legacy `.arbor/brainstorms/<name>.md` 作为 fallback
-   - fallback 必须在报告中标为迁移风险；新流程应回 brainstorm 迁入 `prd.md`
-3. 读取 task package 的 `task.md` + `task.json` + 可选 `context/review.jsonl`
-4. 检查实际 git diff，并明确当前 T-xxx 的 diff scope
-5. 可选做 wiki 交叉检查
+- 解析目标：package + package-local T-xxx / 最近 DONE；裸 `T-001` 不是全局唯一任务。
+- 读取 `.arbor/tasks/<name>/prd.md`、`task.md`、`task.json`、可选 `context/review.jsonl`。
+- 必须检查 actual `git diff`，并明确当前 T-xxx 对应的 diff scope。
+- 可选查 `.wiki` / `sdd-arbor wiki-collect`，但 wiki 只作 orientation。
+- 若缺 `prd.md`，legacy `.arbor/brainstorms/<name>.md` 只能作为 fallback，并在报告中标为迁移风险。
 
 ## 判定
 
-将 diff 与 PRD + task 仔细比对：
-- 目标 / Desired outcomes 是否被覆盖
-- In scope / Out of scope 是否被尊重
-- task 的 deliverable / acceptance / context / ready-check 是否被满足
-- 关键约束 / 来源支持的假设是否被违背
-- wiki gotcha 是否被违反
-- diff 是否有范围蔓延或关键路径缺口
+按 `SKILL.md` 的 review lenses 选择重点，不机械逐项输出。APPROVED 必须至少说明：
 
-状态：
-- APPROVED
-- APPROVED_WITH_NOTES
-- NEEDS_REWORK
-- BRAINSTORM_DRIFT
+- goal / scope 已对齐；
+- task acceptance / context 已检查；
+- diff scope 清楚且无阻塞越界；
+- 关键测试 / 回归证据足够或说明为何不需要。
 
 ## 报告
 
-- 追加到 `.arbor/tasks/<name>/review.md`
-- 使用 `sdd-arbor set-status` / `set-phase` 同步更新 `.arbor/tasks/<name>/task.json` 中对应 T-xxx 的 `state`、`updated_at`、顶层 `state/current_phase/next_action`，并追加 `phase_history`
-- `review.md` 是人类可读审计日志；当前 review 状态以 `task.json` 为准
-- 结构化摘要中说明：
-  - 审查对象
-  - 依据的 PRD / task / diff
-  - 关键证据
-  - 建议下一步
+审计正文默认中文，不使用 `Verdict` / `Findings` / `Evidence` 等英文 rubric。推荐结构：
+
+```md
+结论：NEEDS_REWORK。<一句话说明>
+
+问题清单：
+
+1. 中等 — <问题>
+   - 证据：<文件路径 / 命令 / diff 事实>
+   - 影响：<为什么影响 package / T-xxx / 验收>
+   - 建议处理：<下一步>
+
+通过检查：
+
+- <已确认通过的关键点>
+```
 
 下一步指引：
-- APPROVED → 当前 T-xxx 通过；若所有 required T-xxx 都通过 review，package 可进入 PR/final review
-- APPROVED_WITH_NOTES → 当前 T-xxx 可计入 package readiness，但建议 follow-up
-- NEEDS_REWORK → 回 `/sdd-kit:impl` 处理当前 T-xxx
-- BRAINSTORM_DRIFT → 回 `/sdd-kit:brainstorm` 追加 package-local `AMD-xxx`；再由 task 追加新 T-xxx。若边界变化，回 map/user。
+
+- APPROVED → 当前 T-xxx 通过；若所有 required T-xxx 都通过 review，package 可进入 PR/final review。
+- APPROVED_WITH_NOTES → 当前 T-xxx 可计入 package readiness，但建议 follow-up。
+- NEEDS_REWORK → 回 `/sdd-kit:impl` 处理当前 T-xxx。
+- BRAINSTORM_DRIFT → 回 `/sdd-kit:brainstorm` 追加 package-local `AMD-xxx`；若边界变化，回 map/user。

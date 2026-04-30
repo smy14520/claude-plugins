@@ -62,7 +62,8 @@ package_sizing.status
    - `strict-atomic`：默认，每个 T-xxx 尽量 ≤ 4h，单一交付物。
    - `lean`：更粗，适合单人快速推进。
 4. 设计 milestone / DAG：共享能力先行，消费任务显式 `depends-on`，不得有环。
-5. 为每个 T-xxx 写入：
+5. 输出轻量并行提示：按 `role` 聚合 lane，给出 suggested waves、shared/contract 前置任务和 ownership notes；这些只服务人工 / Team Auto / 多会话分工，不是 scheduler runtime。
+6. 为每个 T-xxx 写入：
    - `id` / `milestone` / `role`
    - `title` 使用封闭动词：`CREATE | ADD | SET | DELETE | REPLACE`
    - `deliverable`
@@ -71,9 +72,9 @@ package_sizing.status
    - `sources`
    - `ready-check`
    - 可执行 acceptance（二元谓词或命令）
-6. 写实 `.arbor/tasks/<package>/task.md`，不要留下模板占位。
-7. 用 arbor helper 维护机械状态：`add-child`、`add-context` / `add-context-batch`、`freeze-definition`、`validate`；参数以 `<subcommand> --help` 为准。
-8. 如果 validation 失败，修 `task.md` / helper 状态后再交付。
+7. 写实 `.arbor/tasks/<package>/task.md`，不要留下模板占位。
+8. 用 arbor helper 维护机械状态：`add-child`、`add-context` / `add-context-batch`、`freeze-definition`、`validate`；参数以 `<subcommand> --help` 为准。
+9. 如果 validation 失败，修 `task.md` / helper 状态后再交付。
 
 ## Amendment append mode
 
@@ -94,6 +95,7 @@ package_sizing.status
 - package 概览、boundary sizing decision、parent map（如有）。
 - milestone 列表。
 - 依赖图 / 关键路径。
+- 并行执行提示：role lanes、suggested waves、shared/contract 任务、ownership notes。
 - T-xxx 列表，字段齐全。
 - 每个 T-xxx 的 acceptance 可执行。
 - sources 可追溯。

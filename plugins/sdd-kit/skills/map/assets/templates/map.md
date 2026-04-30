@@ -7,9 +7,10 @@ source_research: <research-topic | null>
 
 # <initiative-name> map
 <!--
-  Map 是 large initiative 的 package graph / execution waves 导航，不是 PRD，也不是 task。
+  Map 先做 boundary routing；只有 split 后才维护 package graph / execution waves。
   不要创建 `.arbor/tasks/<initiative-name>/`。
-  只有下方列出的 executable packages 才应该成为 `.arbor/tasks/<package>/`。
+  如果判断为 single package，应创建/确认 `.arbor/tasks/<package>/` 并记录 fits_package，而不是强行维护 map。
+  如果判断为 split packages，只有下方列出的 executable packages 才应该成为 `.arbor/tasks/<package>/`。
   package graph 确认后应 materialize child package stubs；T-xxx 明细留在每个 package 内，不在 map 中展开。
   map.md 是人类导航；map.json 是机器可读统筹状态源。
 -->
@@ -22,9 +23,17 @@ source_research: <research-topic | null>
 
 `map-check` 只报告 ready / blocked / active / complete / missing，不自动派发执行。需要推进时，按输出显式进入对应 package 的 `brainstorm` / `task` / `impl` / `review`。
 
+## Boundary routing decision
+
+本文件只在 route decision 为 `split packages` 后实例化；`single package` / `back to brainstorm` 只应出现在临时 route 输出或 rejected options 中。
+
+- Decision: split packages
+- Why: <为什么当前 framing 应拆成多个 executable packages>
+- Rejected options: <为什么没有选择 single package 或 back to brainstorm>
+
 ## Current framing
 
-<当前对这个大项目/上位主题的一句话理解；为什么需要多个 executable packages。>
+<当前对这个需求/上位主题的一句话理解；如果 split，说明为什么需要多个 executable packages。>
 
 ## Implementation framing
 

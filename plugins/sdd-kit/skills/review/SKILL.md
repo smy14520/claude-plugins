@@ -1,78 +1,77 @@
 ---
 name: review
-description: "Independent semantic audit of impl output for a package-local T-xxx against package-local PRD, task, wiki, and actual package diff. Runs AFTER impl reports DONE/DONE_WITH_CONCERNS. Read-only — never edits code, `prd.md`, or task definition. Reports APPROVED / APPROVED_WITH_NOTES / NEEDS_REWORK / BRAINSTORM_DRIFT. Appends to `.arbor/tasks/<name>/review.md` and updates lifecycle through `sdd-arbor`. A single T-xxx approval is not package PR approval. Must consult git diff. Invoke only on explicit user request (e.g. '用 review skill 审计 <package> 的 T-001')."
+description: "仅当用户明确要求 sdd-kit package/T-xxx 语义审计时使用，例如 '用 review skill 审计 <package> 的 T-001'。对 impl DONE/DONE_WITH_CONCERNS 后的 actual diff 做只读审计：PRD + task + diff +（可选）wiki 是否一致。不要用于普通泛泛代码 review。输出 APPROVED / APPROVED_WITH_NOTES / NEEDS_REWORK / BRAINSTORM_DRIFT，并通过 sdd-arbor 追加 review log / 更新 task.json。"
 ---
 
-# Review — 独立语义审计
+# Review — Package semantic audit
 
-审计 impl 的 DONE 声明是否真正满足了 package-local PRD + task。impl 的 SelfCheck 只能证明验收命令通过；review 提出更深层的问题：**所构建的内容是否与上游意图一致？**
+使用语言：中文。
 
-## 在五阶段工作流中的定位
+Review 是 sdd-kit 的 package/T-xxx 语义审计 gate：检查 impl 的 DONE 声明是否真正满足 package-local PRD + task，而不是只看 SelfCheck 或测试是否通过。
 
-```text
-research → brainstorm → task → impl → [review]
-                                 │        │
-                                 ▼        ▼
-                             self-check   semantic audit
-                           (acceptance) (prd ↔ task ↔ diff ↔ wiki)
-```
+它不是普通 code review、PR approval、自动修复器或 Team Auto review panel。需要多 agent 多角度审查时，用户可显式使用 Team Auto；最终 sdd-kit verdict 仍由主会话按本 skill 收口。
 
-Review 是**语义安全网**。它：
+## Team Auto handoff
 
-- 读取 package-local `prd.md` + task definition + task state (`task.json`) + `context/review.jsonl` + **实际 git diff** +（可选）wiki
-- 将实现与上游语义进行比对，而非仅对照验收条件
-- 输出四态审计结果
-- **不**编辑代码、`prd.md` 或 `task.md` 任务定义
-- **不**自动触发任何操作
+如果用户在 review 请求里明确写了 `Team Auto` / `team auto` / `agent team` / `多 agent` / `review panel` / `开 team`，不要直接进入普通 review。
 
-## 三个原语
+先按 `skills/team-auto/SKILL.md` 的方式处理：根据当前 review 目标和 diff 形态，给出本次定制的 2–4 个阵型选项，让用户选择；Team 完成后，主会话再按本 skill 的四态 verdict 收口。
 
-### 🔍 Collect — 收集审计上下文
+这里不复制 Team Auto 的阵型、worker prompt 或 Team 创建流程；这些只维护在 `skills/team-auto/`。
 
-1. 确定审计目标：package + package-local T-xxx；裸 `T-001` 不可视为全局唯一任务
-2. 读取 task package 的 `prd.md`、`task.md`、`task.json` 与可选 `context/review.jsonl`
-3. 运行 `git diff` 查看实际变更，并说明当前 T-xxx 对应的 diff scope
-4. 可选用 `sdd-arbor wiki-collect --query "<query>" --limit 5 --json` 查阅相关 wiki 页面；wiki 只作 orientation，结论必须回到 diff / PRD / task / `.arbor` 验证
-5. 若 package 内缺少 `prd.md`，可读取 legacy `.arbor/brainstorms/<name>.md` 作为 fallback，但必须报告这是迁移风险
+## 输入与边界
 
-### ⚖️ Judge — 将 diff 与上游语义进行比对
+- 审计对象必须是 package + package-local T-xxx；裸 `T-001` 不可视为全局唯一任务。
+- 必读：`.arbor/tasks/<package>/prd.md`、`task.md`、`task.json`、actual `git diff`。
+- 可读：`context/review.jsonl`、相关 `.wiki` 页面；wiki 只作 orientation，结论必须回到 PRD / task / diff 验证。
+- 只读代码、PRD 和 task definition；不编辑实现，不改 `prd.md` / `task.md`。
+- 只通过 helper 追加 review log / 更新 lifecycle；不手写 `task.json` 或 context JSONL。
 
-1. 检查 PRD 的目标 / 范围 / 场景是否被 diff 覆盖
-2. 检查 task 的 deliverable / acceptance / context / ready-check 是否被尊重
-3. 检查 diff 是否出现范围蔓延、遗漏关键路径、违背来源支持的约束
-4. 检查 wiki gotcha 是否被违反
-5. 若任务带 `source_amendment`，确认 AMD corrected rule 被实现，且 regression checks 覆盖未受影响旧行为
-6. 将发现归类为一个状态
+## Review lenses
 
-### 📤 Report — 输出审计状态
+默认从这些视角审，但按当前 diff 选择重点，不机械逐项输出：
 
-1. 分类为：APPROVED / APPROVED_WITH_NOTES / NEEDS_REWORK / BRAINSTORM_DRIFT
-2. 追加到 `.arbor/tasks/<name>/review.md`
-3. 使用 `sdd-arbor` 更新 `.arbor/tasks/<name>/task.json` 中对应 T-xxx 的 `state`、`updated_at`、顶层聚合 `state/current_phase/next_action` 与 `phase_history`
-4. 输出结构化摘要，并说明此 verdict 是否只覆盖当前 T-xxx
-5. 若所有 required T-xxx 都已通过 review，说明 package 可进入 PR/final review；否则继续处理下一个 T-xxx
-6. 若有新的 review context，使用 `sdd-arbor add-context` / `sdd-arbor add-context-batch --type review` 追加，不手写 `context/*.jsonl`
-7. 若状态为 `BRAINSTORM_DRIFT`：建议回到 brainstorm 追加 package-local `AMD-xxx`，再由 task 追加新的 T-xxx；不要让 impl 背锅
+- **需求语义**：PRD 目标、scope、关键场景、out of scope 是否被满足或被破坏。
+- **Task 对齐**：deliverable、acceptance、context、ready-check 是否被尊重。
+- **Diff 边界**：是否 scope creep、遗漏关键路径、修改了不该改的内容；当前 verdict 覆盖哪些 diff scope。
+- **测试与回归**：关键行为、edge case、amendment regression 是否有证据。
+- **架构与可维护性**：实现是否符合既有模式，是否引入不必要复杂度或脆弱耦合。
+- **安全与状态一致性**：权限、数据、交易、并发、状态迁移、幂等等承重语义是否安全。
+- **项目公约**：是否违反与本 diff 相关的 `CLAUDE.md` / `.claude/rules` / wiki gotcha。
 
-## 四种审计状态
+## 四态 verdict
 
 | 状态 | 含义 |
 |------|------|
-| **APPROVED** | Diff 中当前 T-xxx 对应部分覆盖了 PRD slice 与 task 范围，无保留意见 |
+| **APPROVED** | 当前 T-xxx 对应 diff 覆盖 PRD slice 与 task 范围，无保留意见 |
 | **APPROVED_WITH_NOTES** | 语义正确，但有轻微问题或后续建议 |
-| **NEEDS_REWORK** | Diff 与 PRD / task 存在语义差距，impl 需重新处理 |
-| **BRAINSTORM_DRIFT** | Diff 看似合理，但 PRD 本身有误 / 失效 / 与当前代码库脱节 |
+| **NEEDS_REWORK** | diff 与 PRD / task 存在语义差距，impl 需重新处理 |
+| **BRAINSTORM_DRIFT** | diff 看似合理，但 PRD 本身错误、失效或与当前 repo 脱节；回 brainstorm 做 forward-only amendment |
 
-## 核心规则
+单个 T-xxx verdict 不等于 package PR approval；package readiness 由所有 required T-xxx 的 review 状态聚合。
 
-1. **只读代码和任务定义** —— review 绝不编辑代码、`prd.md`、`task.md` 或验收条件；只可追加 `review.md`，并必须通过 helper 更新 `task.json` 的 review 元数据。
-2. **`task.json` 是当前状态源** —— `review.md` 是审计日志，latest review result 以 `task.json` 为准。
-3. **必须读取实际 diff** —— 只看 task 的 DONE 状态不构成审查；diff 是 package diff，结论要聚焦当前 T-xxx。
-4. **单个 T-xxx 批准不等于 package PR 批准** —— package readiness 由所有 required T-xxx review 聚合而来。
-5. **优先使用全新上下文** —— 如有可能，在新会话 / 子代理中执行 review。
-6. **范围：PRD + task + diff + wiki** —— research 是上游背景，不是审查主要对象。
-7. **未经列举检查项不得批准** —— APPROVED 必须至少说明 goal / scope / constraints / diff scope。
-8. **BRAINSTORM_DRIFT 退回 brainstorm，而非 impl** —— 上游 PRD 错误时，追加 AMD-xxx，再 task append 新 T-xxx。
-9. **Amendment review 要看回归** —— 审 amendment-linked T-xxx 时必须确认 corrected rule + regression evidence。
-10. **不自动重复触发** —— 报告一次后即停止。
-11. **不手写 JSON 状态或 context JSONL** —— 状态用 helper；context 用 `add-context` / `add-context-batch`；如 helper 不足，先扩展 helper。
+## 输出
+
+- 追加到 `.arbor/tasks/<package>/review.md`，审计正文默认中文；状态枚举、T-xxx、路径、命令、schema 字段和代码标识符保持原文。
+- 使用 `sdd-arbor` 更新 `task.json` 中对应 T-xxx 的 review state、updated_at、顶层聚合状态和 phase history。
+- 若有新的 review context，使用 `sdd-arbor add-context` / `add-context-batch --type review`。
+- 若 verdict 是 `BRAINSTORM_DRIFT`，建议回 brainstorm 追加 `AMD-xxx`；不要让 impl 背锅。
+
+推荐报告结构：
+
+```md
+结论：NEEDS_REWORK。<一句话说明>
+
+问题清单：
+
+1. 中等 — <问题>
+   - 证据：<文件路径 / 命令 / diff 事实>
+   - 影响：<为什么影响 package / T-xxx / 验收>
+   - 建议处理：<下一步>
+
+通过检查：
+
+- <已确认通过的关键点>
+```
+
+APPROVED 不能只是 “LGTM”；至少说明 goal / scope / constraints / diff scope 已检查。

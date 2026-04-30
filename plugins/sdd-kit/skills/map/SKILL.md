@@ -1,16 +1,16 @@
 ---
 name: map
-description: "Maintain `.arbor/maps/<initiative>/` as the canonical coordination layer for large initiatives that split into executable task packages. Materializes child package stubs, maintains map.md/map.json, records dependencies/contracts/blockers, and checks serial ready/blocked/active/complete/missing package state. Does NOT create T-xxx, dispatch execution, or replace package-local PRDs. Invoke only on explicit user request."
+description: "Route clarified framing into a package boundary decision: confirm single executable package, split a large initiative into package graph, or send unclear framing back to brainstorm. For split initiatives, maintains `.arbor/maps/<initiative>/`, materializes child package stubs, records dependencies/contracts/blockers, and checks serial ready/blocked/active/complete/missing package state. Does NOT create T-xxx, dispatch execution, or replace package-local PRDs. Invoke only on explicit user request."
 ---
 
-# Map — Large Initiative / Package Graph
+# Map — Boundary Routing / Package Graph
 
-Map 是 large initiative 的导航和状态层。它维护多个 executable packages 之间的结构、依赖、execution waves 和 cross-package contracts。
+Map 负责把 clarified framing 路由成 package 边界决策：确认 single executable package、拆成 package graph，或退回 brainstorm。只有 split 后才维护多个 executable packages 之间的结构、依赖、execution waves 和 cross-package contracts。
 
 ```text
-research? → brainstorm → [map] → package-local brainstorm → task → impl → review
-                              ↑                              │
-                              └── package status / blocker 回写到 map.json
+research? → brainstorm → [map]
+                              ├─ single package → task
+                              └─ split packages → package-local brainstorm → task → impl → review
 ```
 
 ## 职责边界
@@ -19,7 +19,7 @@ research? → brainstorm → [map] → package-local brainstorm → task → imp
 - `.arbor/maps/<initiative>/map.json`：机器可读 package graph / dependency / status / orchestration state。
 - `.arbor/tasks/<package>/`：map 中确认的 executable child package stub。
 
-Map 不写详细 package PRD，不拆 T-xxx，不写代码，不审计。Package-local PRD 由 brainstorm 负责，T-xxx 由 task 负责。
+Map 不写 T-xxx，不写代码，不审计。确认 single package 时，可以创建/确认该 package PRD workspace 并记录 `fits_package`；split 后的 child package-local PRD 仍由 brainstorm 补齐，T-xxx 由 task 负责。
 
 `.arbor/` 是控制面：只保存 map、PRD、task、review、context 和状态。产品源码/测试必须写到 repo 的实际实现目录，不能写到 `.arbor/tasks/<package>/`。
 
@@ -34,9 +34,19 @@ Map 不写详细 package PRD，不拆 T-xxx，不写代码，不审计。Package
 
 ## 原语
 
-### Create — 创建 initiative map
+### Route — 判断 package 边界
 
-触发：brainstorm 已输出 clarified initiative framing，或用户明确要求为已经清楚的大需求建 map。
+触发：brainstorm 已输出 clarified framing，或用户明确要求 map 判断这个需求应该 single package 还是 split packages。
+
+先给出推荐 boundary decision 与理由；需要用户确认时，再给出选项，推荐项放第一：
+
+1. `single package`：当前需求可作为一个需求/评审/回滚边界；创建/确认 `.arbor/tasks/<package>/prd.md`，记录 `fits_package`，下一步 `task`。
+2. `split packages`：当前需求自然包含多个 executable packages；创建/更新 initiative map，并 materialize child package stubs。
+3. `back to brainstorm`：目标、实现前提或边界问题仍不清楚；返回 brainstorm 继续问。
+
+### Create — 创建 split initiative map
+
+触发：Route 判断需要 split packages，且用户确认。
 
 流程：
 
@@ -75,9 +85,9 @@ Map 不写详细 package PRD，不拆 T-xxx，不写代码，不审计。Package
 
 ## 核心原则
 
-1. Map 只服务 large initiative；小需求不要加仪式感。
-2. 一个上位项目一个 map。
-3. Map 不写详细 PRD，不拆 T-xxx。
+1. Map 先做 boundary routing；小需求可选择 single package，不强行拆。
+2. 只有 split initiative 才需要 `.arbor/maps/<initiative>/`。
+3. Map 不拆 T-xxx；single package 的详细 PRD 可在当前 package workspace 内补齐，split child PRD 交回 brainstorm。
 4. Package graph 确认后 child package stub 应立即存在。
 5. `map.json` 是统筹状态源；`map.md` 是人类解释层。
 6. Package 是需求/评审/回滚边界；branch/PR metadata 只是可选记录，不代表自动执行。
@@ -87,6 +97,17 @@ Map 不写详细 package PRD，不拆 T-xxx，不写代码，不审计。Package
 10. Map 不隐式推进到 task/impl。
 
 ## 目录结构
+
+Single package route：
+
+```text
+.arbor/tasks/<package>/
+├── prd.md       # package PRD
+├── task.md      # template until task skill runs
+└── task.json    # package_sizing=fits_package
+```
+
+Split package route：
 
 ```text
 .arbor/maps/<initiative>/
@@ -102,7 +123,8 @@ Map 不写详细 package PRD，不拆 T-xxx，不写代码，不审计。Package
 ## 本 skill 不做
 
 - 不采集 raw evidence（research）。
-- 不定稿 child package PRD（brainstorm）。
+- 不把 unclear framing 硬路由成 package。
+- 不定稿 split child package PRD（brainstorm）。
 - 不拆 T-xxx（task）。
 - 不写代码（impl）。
 - 不做语义审计（review）。

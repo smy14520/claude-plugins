@@ -11,16 +11,16 @@ Brainstorm 把用户目标、repo 现实和已有 research 收敛成可执行前
 
 ```text
 research? → [brainstorm]
-              ├─ small: single package PRD → task
-              └─ large: clarified initiative framing → map → package-local brainstorm → task
+              ├─ obvious small: single package PRD → task
+              └─ needs boundary routing: clarified framing → map → single package 或 package graph
 ```
 
 ## 入口模式
 
 如果用户显式指定 `normal`、`grill` 或 `grill-me`，直接使用该模式。否则在开始前用 `AskUserQuestion` 让用户选择，问题、header、选项 label 和 description 都用中文：
 
-- `normal`：默认模式，高效收敛；只问当前最影响设计、package boundary、task 拆解或 map handoff 的问题。
-- `grill`：压力测试模式；沿 plan/design decision tree 逐支追问，解决决策依赖，直到 shared understanding；每个问题都给推荐答案。
+- `normal`：默认模式，高效收敛；只问当前最影响设计、package boundary、task 拆解或 map handoff 的问题。不使用 grill-me turn shape；assumption audit 可作为内部简短判断，不必外显成压力式拷问。
+- `grill` / `grill-me`：高强度需求拷问模式；使用 `skills/brainstorm/references/grill-me.md` 的访谈姿态和 turn shape，先暴露薄弱假设、边界误解和未说清的实现前提，不急着写 PRD 或判断 package。自然收敛后，再回到 normal 的出口判断。
 
 两种模式都必须先读 repo / research / 相关 PRD/map；能由代码或已有材料回答的问题不要问用户。
 
@@ -29,9 +29,9 @@ research? → [brainstorm]
 1. **Context first**：先读 repo、已有 research、用户输入、相关 PRD/map；能从上下文确认的不要问。
 2. **State understanding**：简要说明已知事实、当前理解、真正会影响方向的缺口。
 3. **Assumption audit**：把 research 候选理解转成 blocking / important / optional assumptions，审计来源、影响和是否必须在定稿前解决。
-4. **One useful question**：normal 只问最高价值阻塞问题；grill 沿 decision tree 一次问一个问题，并给推荐答案与理由。使用 `AskUserQuestion` 时，question/header/options/description 必须写中文，避免出现英文访谈 UI。
+4. **One useful question**：normal 只问最高价值阻塞问题；grill-me 使用模式卡的 turn shape，一次只问一个最高价值问题，并给推荐答案与理由。使用 `AskUserQuestion` 时，question/header/options/description 必须写中文，避免出现英文访谈 UI。
 5. **Right place**：全局项目约定经用户同意后沉淀到 `CLAUDE.md` / `.claude/rules`；initiative/package-local 约束写入 framing 或 PRD。
-6. **No silent split**：需求和 implementation framing 都清楚后，才进入出口判断。
+6. **Boundary light**：明显 small 才直接写 single package PRD；边界不自然或用户希望再判断时，只输出 clarified framing，交给 map 做 boundary routing。
 
 ## Assumption audit
 
@@ -74,24 +74,24 @@ Large initiative handoff 前，必须确认足以支撑 package graph 的 implem
 
 典型缺口：项目形态、MVP 边界、核心用户流、权限/交易语义、数据持久化、测试与运行方式。
 
-### 2. Single executable package
+### 2. Obvious single executable package
 
-当前 change 可作为一个需求/评审/回滚边界时：
+当前 change 明显可作为一个需求/评审/回滚边界，且用户没有要求交给 map 再判断时：
 
 - 创建或更新 `.arbor/tasks/<package>/prd.md`。
 - 记录 package sizing 为 `fits_package`，actor/phase 为 `brainstorm`。
 - PRD 写清：背景、目标、scope、关键/边界场景、交付物、高层方案、boundary decision、关键约束、sources、open questions / assumptions / risks。
 
-### 3. Large initiative → map
+### 3. Clarified framing → map boundary routing
 
-需求和 implementation framing 都清楚，且自然包含多个 executable packages / 独立交付节奏时：
+需求和 implementation framing 已经清楚，但 package 边界不明显、可能需要拆分，或用户希望由 map 再判断时：
 
-- 只输出 clarified initiative framing。
+- 只输出 clarified framing。
 - 不运行 map 创建命令。
 - 不 materialize child package stubs。
 - 不创建 `.arbor/tasks/<child-package>/`。
 
-Handoff 写清：目标/MVP、repo 现实与实现前提、已确认的项目级选择、角色与核心流、关键规则/风险、为什么需要 map、拆包顺序线索（baseline/shared contract/上游下游依赖）、仍不阻塞 map 的局部问题。
+Handoff 写清：目标/MVP、repo 现实与实现前提、已确认的项目级选择、角色与核心流、关键规则/风险、可能的 single package / split package 落法、仍不阻塞 map 判断的局部问题。
 
 下一步提示：`/sdd-kit:map <initiative>`。
 

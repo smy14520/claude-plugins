@@ -61,6 +61,31 @@ M-02
   T-004 (test) depends on T-003
 ```
 
+## 并行执行提示
+
+本节只用于人工 / Team Auto / 多会话分工，不代表自动 scheduler。并行前先确认依赖、shared contract 和文件/资产 ownership。
+
+### Role lanes
+
+- shared / lead: [T-001]
+- backend: [T-002, T-003]
+- frontend: []
+- test: [T-004]
+- docs / devops: []
+
+### Suggested waves
+
+- Wave 0: T-001 shared contract
+- Wave 1: T-002 backend
+- Wave 2: T-003 backend + T-004 test（仅当 T-004 的 ready-check 已满足）
+
+### Ownership notes
+
+- shared/global 文件 owner: <T-xxx / lane>
+- 只读边界: <哪些 lane 只能读取、不能修改的目录 / 文件 / 资产>
+- 对接规则: contract 不清或需要跨 lane 修改时，停止并问 lead，不要猜。
+- worktree: role lane ownership 清楚时默认不需要；候选实现隔离或写入重叠时再使用。
+
 ## 任务列表
 
 - id: T-001

@@ -233,11 +233,19 @@ map_json: map.json
 
 # {title}
 
-<!-- Large initiative package graph. Map skill owns this file; map.json is the machine-readable coordination source. -->
+<!-- Boundary routing / split package graph. Map skill owns this file when the route is split packages; map.json is the machine-readable coordination source. -->
+
+## Boundary routing decision
+
+本文件只在 route decision 为 `split packages` 后实例化；`single package` / `back to brainstorm` 只应出现在临时 route 输出或 rejected options 中。
+
+- Decision: split packages
+- Why: <为什么当前 framing 应拆成多个 executable packages>
+- Rejected options: <为什么没有选择 single package 或 back to brainstorm>
 
 ## 当前 framing
 
-<这个 initiative 为什么需要多个 executable packages？>
+<当前对这个需求/上位主题的一句话理解；如果 split，说明为什么需要多个 executable packages。>
 
 ## Implementation framing
 

@@ -128,9 +128,9 @@
 
 **为什么错误**：T-xxx 是 package-local 控制单元，不是并行执行边界。长列表会掩盖真正应该拆 package 的事实。
 
-**修正**：先回 brainstorm 澄清需求与 design framing。
+**修正**：先回 brainstorm 澄清需求与 design framing；边界不自然时交给 map 做 boundary routing。
 
-确认是 large initiative 后，由 map 输出 package graph，并用 `create-split-packages` materialize child package stubs（记录 `split_applied`）。
+确认需要 split packages 后，由 map 输出 package graph，并用 `create-split-packages` materialize child package stubs（记录 `split_applied`）。
 
 用户确认后，对每个 child package 走 package-local brainstorm/PRD，再分别拆 T-xxx。
 
@@ -142,9 +142,9 @@
 
 **为什么错误**：`.arbor/tasks/<package>/` 本身宣称自己是 executable package 边界；用它承载 initiative 会让后续拆包和执行边界对冲。
 
-**修正**：先用 brainstorm 澄清 large initiative framing。
+**修正**：先用 brainstorm 澄清 framing。
 
-再由 map 创建 `.arbor/maps/<initiative>/map.md` + `map.json`，并把 map 中确认的 executable packages materialize 为 `.arbor/tasks/<package>/` stubs；不要创建 parent initiative task package。后续用 `map-check` 查看 ready / blocked / active / complete / missing。
+再由 map 做 boundary routing。若判断为 split packages，创建 `.arbor/maps/<initiative>/map.md` + `map.json`，并把 map 中确认的 executable packages materialize 为 `.arbor/tasks/<package>/` stubs；不要创建 parent initiative task package。后续用 `map-check` 查看 ready / blocked / active / complete / missing。
 
 ---
 

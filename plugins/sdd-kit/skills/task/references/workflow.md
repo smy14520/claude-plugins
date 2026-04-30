@@ -34,7 +34,7 @@
 
 情况 C：无文件，用户给出会话内目标
 
-- 先回到 brainstorm 澄清为 single executable package PRD；若是 large initiative，先进入 map 拆 package graph
+- 先回到 brainstorm 澄清需求；若边界不自然或可能是 large initiative，进入 map 做 boundary routing
 - 仅当会话目标已被确认是 executable package，且目标与 acceptance 足够明确时，才可用 arbor helper `create` 创建 ad-hoc task package
 - ad-hoc package 仍必须先记录 `fits_package` 或 `split_applied`，再进入 T-xxx
 
@@ -180,8 +180,9 @@
 1. 收集所有依赖边
 2. 环检测
 3. 输出 ASCII 依赖图
-4. 输出关键路径、可并行分支、当前 ready 任务列表
-5. 使用 `sdd-arbor validate <name>` 做机械引用和环检测
+4. 输出关键路径、当前 ready 任务列表
+5. 将可并行分支表达为 role lanes、suggested waves、shared/contract 前置任务和 ownership notes；这是人工 / Team Auto / 多会话提示，不是自动调度
+6. 使用 `sdd-arbor validate <name>` 做机械引用和环检测
 
 ---
 
