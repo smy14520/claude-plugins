@@ -36,13 +36,17 @@ Package 是需求 / 评审 / 回滚边界；`T-xxx` 是 package-local control / 
 用 task skill 拆 <package>
 用 impl skill 执行 <package> 的 T-001
 用 review skill 审计 <package> 的 T-001
+用 prep command 批量准备 <initiative>
+用 run command 按队列实现 <initiative> --autonomous
 用 wiki skill query / ingest / lint <content>
 用 doctor 检查当前 sdd-kit 项目状态
 用 rules 访谈并推荐项目规则
 这个 review 用 Team Auto 开多 agent 看看
 ```
 
-Slash command：`/sdd-kit:research`、`/sdd-kit:brainstorm`、`/sdd-kit:map`、`/sdd-kit:task`、`/sdd-kit:impl`、`/sdd-kit:review`、`/sdd-kit:wiki`、`/sdd-kit:doctor`、`/sdd-kit:rules`、`/sdd-kit:team-auto`。
+Slash command：`/sdd-kit:research`、`/sdd-kit:brainstorm`、`/sdd-kit:map`、`/sdd-kit:task`、`/sdd-kit:impl`、`/sdd-kit:review`、`/sdd-kit:prep`、`/sdd-kit:run`、`/sdd-kit:wiki`、`/sdd-kit:doctor`、`/sdd-kit:rules`、`/sdd-kit:team-auto`。
+
+`prep/run` 是显式 command：只在用户调用 `/sdd-kit:prep` 或 `/sdd-kit:run` 时触发，用来批量编排既有阶段；不替代单个 package 的 `brainstorm/task/impl/review`。
 
 ## `sdd-arbor` helper
 
