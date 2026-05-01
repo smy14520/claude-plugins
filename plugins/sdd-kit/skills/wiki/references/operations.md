@@ -75,15 +75,10 @@ package 到达稳定 milestone 后发布模块卡片。
 
 ## Lint
 
-审计 `.wiki` 健康度。可以报告和建议，不能擅自删除。
+审计 `.wiki` 健康度。只读报告，可以建议，不能擅自删除或 auto-fix。
 
-检查：
+```text
+sdd-arbor wiki-lint --json
+```
 
-- 缺失 `description` / `summary` / `tags`。
-- broken wikilinks。
-- orphan pages。
-- 重复主题。
-- module note 是否缺少 package/source_checkpoint。
-- locator 是否出现 line number（应移除）。
-
-可用 `sdd-arbor wiki-index --json` 作为基础索引。
+首版检查 metadata、broken wikilinks、重复 title/stem/module package、orphan warning、隐藏路径污染和 module line-number locator。

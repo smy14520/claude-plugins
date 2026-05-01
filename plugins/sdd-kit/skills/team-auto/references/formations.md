@@ -67,6 +67,20 @@
 
 产出：阻塞问题、非阻塞 notes、通过点、最终 review 建议。
 
+## Architecture Debate Panel
+
+适合：需求或 review 涉及领域模型、source of truth、schema/API 取舍、长期演进、抽象边界或核心架构质量；用户想通过争论获得方向和注意事项。
+
+做法：两个 architect 从不同价值函数挑战方案，reviewer/lead 负责追问证据并收口，不以快速达成一致为目标。
+
+常见角色：
+
+- pragmatic architect：压 YAGNI、交付成本、最小可维护边界和过度设计风险。
+- evolution architect：压领域模型、source of truth、invariants、不可逆决策和未来扩展轴。
+- reviewer / lead：核对当前需求证据，区分“当前必须保护”与“可以暂缓”，映射到 PRD/task/review next_action。
+
+产出：可选方向、分歧点、当前证据、采纳/暂缓项、风险提醒、建议写入 PRD/task 的架构意图。
+
 ## Research Swarm
 
 适合：需要多来源、多假设或多代码区域的 research，但最终写入必须由主会话审计。

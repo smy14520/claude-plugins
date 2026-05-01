@@ -16,6 +16,11 @@ WIKILINK_RE = re.compile(r"\[\[([^\]|#]+)(?:#[^\]|]+)?(?:\|[^\]]+)?\]\]")
 TOKEN_RE = re.compile(r"[\w]+", re.IGNORECASE)
 HEADING_RE = re.compile(r"^(#{1,6})\s+(.+?)\s*$")
 SYMBOL_RE = re.compile(r"`([A-Za-z_][A-Za-z0-9_:.#/-]*)`")
+REQUIRED_FRONTMATTER = {"title", "description", "type"}
+VALID_PAGE_TYPES = {"entity", "concept", "gotcha", "decision", "source", "module"}
+LINE_LOCATOR_RE = re.compile(r"(?:^|[\s`])(?:[\w./-]+\.(?:py|ts|tsx|js|jsx|go|rs|java|rb|php|css|scss|md|json|yaml|yml)):(?:L)?\d+|\bline\s+\d+\b", re.IGNORECASE)
+
+
 
 
 def wiki_root_path(root: Path, wiki_root: str | None = None) -> Path:
@@ -135,6 +140,10 @@ def _page_entry(root: Path, path: Path, include_content: bool) -> dict[str, Any]
     return entry
 
 
+def _resolve_wikilink(link: str, by_title: dict[str, dict[str, Any]], by_stem: dict[str, dict[str, Any]]) -> dict[str, Any] | None:
+    return by_title.get(link) or by_stem.get(Path(link).stem)
+
+
 def wiki_index(root: Path, wiki_root: str | None = None, tag: str | None = None, include_content: bool = False) -> dict[str, Any]:
     directory = wiki_root_path(root, wiki_root)
     if not directory.exists():
@@ -144,7 +153,7 @@ def wiki_index(root: Path, wiki_root: str | None = None, tag: str | None = None,
     by_stem = {Path(page["path"]).stem: page for page in pages}
     for page in pages:
         for link in page["links"]:
-            target = by_title.get(link) or by_stem.get(Path(link).stem)
+            target = _resolve_wikilink(link, by_title, by_stem)
             if target is not None and page["title"] not in target["backlinks"]:
                 target["backlinks"].append(page["title"])
     if tag:
@@ -159,6 +168,100 @@ def _tokens(value: Any) -> set[str]:
     if not isinstance(value, str):
         return set()
     return {item.casefold() for item in TOKEN_RE.findall(value)}
+
+
+def _lint_issue(code: str, path: str, message: str, **extra: Any) -> dict[str, Any]:
+    issue = {"code": code, "path": path, "message": message}
+    issue.update(extra)
+    return issue
+
+
+def _hidden_path_parts(relative_path: str) -> list[str]:
+    return [part for part in Path(relative_path).parts if part.startswith(".") and part != ".wiki"]
+
+
+def wiki_lint(root: Path, wiki_root: str | None = None) -> dict[str, Any]:
+    directory = wiki_root_path(root, wiki_root)
+    wiki_root_value = directory.relative_to(root).as_posix() if directory.exists() and directory.is_relative_to(root) else (directory.relative_to(root).as_posix() if directory.is_relative_to(root) else str(directory))
+    errors: list[dict[str, Any]] = []
+    warnings: list[dict[str, Any]] = []
+    if not directory.exists():
+        return {"ok": True, "wiki_root": wiki_root_value, "errors": [], "warnings": [], "summary": {"error_count": 0, "warning_count": 0}}
+
+    pages: list[dict[str, Any]] = []
+    by_title: dict[str, list[dict[str, Any]]] = {}
+    by_stem: dict[str, list[dict[str, Any]]] = {}
+    module_packages: dict[str, list[dict[str, Any]]] = {}
+    for path in sorted(directory.rglob("*.md")):
+        if not path.is_file():
+            continue
+        text = path.read_text(encoding="utf-8")
+        meta, body = _parse_frontmatter(text)
+        rel = path.relative_to(root).as_posix() if path.is_relative_to(root) else str(path)
+        title = _page_title(path, meta, body)
+        page = {"path": rel, "meta": meta, "body": body, "title": title, "stem": path.stem, "links": _links(body), "type": meta.get("type")}
+        pages.append(page)
+        by_title.setdefault(title, []).append(page)
+        by_stem.setdefault(path.stem, []).append(page)
+        missing = [field for field in sorted(REQUIRED_FRONTMATTER) if not isinstance(meta.get(field), str) or not str(meta.get(field)).strip()]
+        if missing:
+            errors.append(_lint_issue("missing_frontmatter", rel, "Missing required frontmatter: " + ", ".join(missing), fields=missing))
+        page_type = meta.get("type")
+        if isinstance(page_type, str) and page_type not in VALID_PAGE_TYPES:
+            errors.append(_lint_issue("invalid_type", rel, f"Invalid frontmatter type: {page_type}", type=page_type))
+        if not meta.get("summary"):
+            warnings.append(_lint_issue("missing_summary", rel, "Missing frontmatter summary"))
+        if not _tags(meta):
+            warnings.append(_lint_issue("missing_tags", rel, "Missing frontmatter tags"))
+        hidden_parts = _hidden_path_parts(rel)
+        if hidden_parts:
+            warnings.append(_lint_issue("hidden_path", rel, "Wiki page is under hidden path components: " + ", ".join(hidden_parts), parts=hidden_parts))
+        if page_type == "module":
+            package = meta.get("package")
+            if isinstance(package, str) and package.strip():
+                module_packages.setdefault(package.strip(), []).append(page)
+            else:
+                warnings.append(_lint_issue("module_missing_package", rel, "Module note is missing package frontmatter"))
+            if not isinstance(meta.get("source_checkpoint"), str) or not str(meta.get("source_checkpoint")).strip():
+                warnings.append(_lint_issue("module_missing_source_checkpoint", rel, "Module note is missing source_checkpoint frontmatter"))
+            for line_number, line in enumerate(body.splitlines(), start=1):
+                if LINE_LOCATOR_RE.search(line):
+                    warnings.append(_lint_issue("module_line_locator", rel, "Module note appears to use a line-number locator", line=line_number))
+                    break
+
+    single_by_title = {title: items[0] for title, items in by_title.items() if len(items) == 1}
+    single_by_stem = {stem: items[0] for stem, items in by_stem.items() if len(items) == 1}
+    for title, items in sorted(by_title.items()):
+        if len(items) > 1:
+            errors.append(_lint_issue("duplicate_title", items[0]["path"], f"Duplicate wiki title: {title}", title=title, paths=[item["path"] for item in items]))
+    for stem, items in sorted(by_stem.items()):
+        if len(items) > 1:
+            errors.append(_lint_issue("duplicate_stem", items[0]["path"], f"Duplicate wiki file stem: {stem}", stem=stem, paths=[item["path"] for item in items]))
+    for package, items in sorted(module_packages.items()):
+        if len(items) > 1:
+            errors.append(_lint_issue("duplicate_module_package", items[0]["path"], f"Duplicate module package: {package}", package=package, paths=[item["path"] for item in items]))
+    for page in pages:
+        for link in page["links"]:
+            if _resolve_wikilink(link, single_by_title, single_by_stem) is None:
+                errors.append(_lint_issue("broken_wikilink", page["path"], f"Broken wikilink: {link}", target=link))
+
+    linked_paths: set[str] = set()
+    for page in pages:
+        for link in page["links"]:
+            target = _resolve_wikilink(link, single_by_title, single_by_stem)
+            if target is not None:
+                linked_paths.add(target["path"])
+    for page in pages:
+        if page["path"] not in linked_paths and page["links"] == [] and Path(page["path"]).name != "index.md":
+            warnings.append(_lint_issue("orphan_page", page["path"], "Page has no wikilinks or backlinks"))
+
+    return {
+        "ok": not errors,
+        "wiki_root": wiki_root_value,
+        "errors": errors,
+        "warnings": warnings,
+        "summary": {"error_count": len(errors), "warning_count": len(warnings)},
+    }
 
 
 def wiki_search(root: Path, query: str, wiki_root: str | None = None, limit: int | None = None) -> dict[str, Any]:

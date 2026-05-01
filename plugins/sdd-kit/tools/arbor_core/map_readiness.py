@@ -5,7 +5,7 @@ from pathlib import Path
 from typing import Any
 
 from .fs import *
-from .map_contracts import open_contract_requests_for_package
+from .map_contracts import contract_blockers_for_consumer, open_contract_requests_for_package
 from .map_sync import read_package_summary, sync_map_from_packages
 
 
@@ -54,6 +54,7 @@ def map_check(root: Path, initiative: str, timestamp: str) -> dict[str, Any]:
         entry = package_entries.get(name, {"name": name})
         deps = entry.get("depends_on", summary.get("depends_on", []))
         open_contract_requests = open_contract_requests_for_package(data, name)
+        contract_blockers = contract_blockers_for_consumer(data, name)
         dependency_blockers: list[dict[str, Any]] = []
         for dep in deps if isinstance(deps, list) else []:
             dep_summary = summaries.get(dep) if dep in summaries else read_package_summary(root, dep)
@@ -75,6 +76,7 @@ def map_check(root: Path, initiative: str, timestamp: str) -> dict[str, Any]:
             "next_action": summary.get("next_action"),
             "depends_on": deps if isinstance(deps, list) else [],
             "open_contract_requests": open_contract_requests,
+            "contract_blockers": contract_blockers,
             "validation": summary.get("validation"),
         }
         if not summary.get("exists"):
@@ -100,6 +102,9 @@ def map_check(root: Path, initiative: str, timestamp: str) -> dict[str, Any]:
         elif dependency_blockers:
             item["reason"] = "dependency 未完成"
             item["blocked_by"] = dependency_blockers
+            blocked.append(item)
+        elif contract_blockers:
+            item["reason"] = "contract request 未解决"
             blocked.append(item)
         elif package_assignable(summary):
             ready.append(item)

@@ -28,12 +28,12 @@ def evaluate(payload: dict[str, Any]) -> dict[str, Any]:
         if CONTROL_STATE_RE.search(path):
             return {
                 "decision": "block",
-                "reason": "Use sdd-arborhelpers for .arbor control state instead of editing task.json/map.json directly.",
+                "reason": "Use sdd-arbor helpers for .arbor control state instead of editing task.json/map.json directly.",
             }
         if CONTEXT_JSONL_RE.search(path):
             return {
                 "decision": "block",
-                "reason": "Use sdd-arboradd-context or add-context-batch for package context JSONL.",
+                "reason": "Use sdd-arbor add-context or add-context-batch for package context JSONL.",
             }
     if tool_name == "Bash":
         command = _payload_command(payload)

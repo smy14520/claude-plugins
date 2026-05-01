@@ -57,6 +57,13 @@ class ArborCliTests(unittest.TestCase):
     def mark_task_md_defined(self, name):
         (self.package_dir(name) / "task.md").write_text(f"# Tasks: {name}\n\n## T-001\n\nDefined test task.\n", encoding="utf-8")
 
+    def create_ready_task_package(self, name="demo-task"):
+        self.run_cli("create", name)
+        self.run_cli("set-package-sizing", name, "--status", "fits_package", "--actor", "brainstorm", "--phase", "brainstorm", "--decision", "single package")
+        self.run_cli("set-prd-status", name, "--status", "ready-for-task", "--actor", "brainstorm", "--note", "ready")
+        self.run_cli("add-child", name, "--id", "T-001", "--title", "ADD first", "--milestone", "M-01", "--role", "shared")
+        self.mark_task_md_defined(name)
+
     def test_sdd_arbor_bin_wrapper_runs_from_project_cwd(self):
         result = self.run_bin("create", "demo-task", "--mode", "strict-atomic", "--title", "Demo task")
         self.assertEqual(result.returncode, 0, result.stderr)
@@ -430,6 +437,26 @@ class ArborCliTests(unittest.TestCase):
         self.assertEqual([item["name"] for item in check["complete"]], ["big-core"])
         self.assertEqual([item["name"] for item in check["ready"]], ["big-order"])
 
+    def test_map_check_contract_request_blocks_only_consumer(self):
+        self.create_map_file("big-init")
+        self.assertEqual(self.run_cli("create-split-packages", "big-init", "--package", "big-core::Big core::::core boundary", "--package", "big-order::Big order::::order boundary", "--decision", "from map"), 0)
+        self.assertEqual(self.run_cli("record-contract-request", "big-init", "--consumer", "big-order", "--producer", "big-core", "--request", "Need entitlement status output", "--status", "open"), 0)
+        check = arbor.map_check(self.root, "big-init", NOW)
+        self.assertEqual([item["name"] for item in check["ready"]], ["big-core"])
+        self.assertEqual([item["name"] for item in check["blocked"]], ["big-order"])
+        self.assertEqual(check["blocked"][0]["reason"], "contract request 未解决")
+        self.assertEqual(check["blocked"][0]["contract_blockers"][0]["id"], "CR-001")
+        for status in ["accepted", "rejected"]:
+            self.assertEqual(self.run_cli("record-contract-request", "big-init", "--id", "CR-001", "--consumer", "big-order", "--producer", "big-core", "--request", "Need entitlement status output", "--status", status), 0)
+            check = arbor.map_check(self.root, "big-init", NOW)
+            self.assertEqual([item["name"] for item in check["ready"]], ["big-core"])
+            self.assertEqual([item["name"] for item in check["blocked"]], ["big-order"])
+        for status in ["fulfilled", "superseded"]:
+            self.assertEqual(self.run_cli("record-contract-request", "big-init", "--id", "CR-001", "--consumer", "big-order", "--producer", "big-core", "--request", "Need entitlement status output", "--status", status), 0)
+            check = arbor.map_check(self.root, "big-init", NOW)
+            self.assertEqual([item["name"] for item in check["ready"]], ["big-core", "big-order"])
+            self.assertEqual(check["blocked"], [])
+
     def test_record_contract_request_create_update(self):
         self.create_map_file("big-init")
         self.assertEqual(self.run_cli("create-split-packages", "big-init", "--package", "big-core::Big core::::core boundary", "--package", "big-order::Big order::big-core::order boundary", "--decision", "from map"), 0)
@@ -543,6 +570,165 @@ Provides `RoleGate.canManageCourse`.
         self.assertEqual(result["wiki_root"], ".wiki")
         self.assertEqual(result["pages"], [])
 
+    def test_wiki_lint_reports_errors_and_warnings(self):
+        wiki = self.root / ".wiki"
+        (wiki / "Modules").mkdir(parents=True)
+        (wiki / "Modules" / "Ledger.md").write_text("""---
+title: Ledger
+description: Ledger module
+type: module
+tags: [module]
+package: ledger
+source_checkpoint: abc123
+summary: Stable module note.
+---
+
+# Ledger
+
+See [[Missing Page]].
+
+Locator `src/ledger.py:12`.
+""", encoding="utf-8")
+        (wiki / "Other" ).mkdir()
+        (wiki / "Other" / "Ledger.md").write_text("""---
+title: Ledger
+description: Duplicate title
+type: module
+tags: [module]
+package: ledger
+summary: Duplicate module package.
+---
+
+# Ledger duplicate
+""", encoding="utf-8")
+        (wiki / "Loose.md").write_text("# Loose\n", encoding="utf-8")
+        result = arbor.wiki_lint(self.root)
+        self.assertFalse(result["ok"])
+        error_codes = {item["code"] for item in result["errors"]}
+        warning_codes = {item["code"] for item in result["warnings"]}
+        self.assertIn("broken_wikilink", error_codes)
+        self.assertIn("duplicate_title", error_codes)
+        self.assertIn("duplicate_stem", error_codes)
+        self.assertIn("duplicate_module_package", error_codes)
+        self.assertIn("missing_frontmatter", error_codes)
+        self.assertIn("module_missing_source_checkpoint", warning_codes)
+        self.assertIn("module_line_locator", warning_codes)
+        self.assertEqual(self.run_cli("wiki-lint", "--json"), 1)
+
+    def test_wiki_lint_valid_wiki_exits_zero_with_orphan_warning(self):
+        wiki = self.root / ".wiki"
+        wiki.mkdir()
+        (wiki / "index.md").write_text("""---
+title: Index
+description: Wiki entry
+type: entity
+tags: [root]
+summary: Entry page.
+---
+
+# Index
+
+See [[Module One]].
+""", encoding="utf-8")
+        (wiki / "Module One.md").write_text("""---
+title: Module One
+description: Module one
+type: module
+tags: [module]
+package: module-one
+source_checkpoint: abc123
+summary: Module summary.
+---
+
+# Module One
+
+Uses `ModuleOneService`.
+""", encoding="utf-8")
+        (wiki / "Orphan.md").write_text("""---
+title: Orphan
+description: Orphan note
+type: concept
+tags: [concept]
+summary: Orphan warning only.
+---
+
+# Orphan
+""", encoding="utf-8")
+        result = arbor.wiki_lint(self.root)
+        self.assertTrue(result["ok"])
+        self.assertIn("orphan_page", {item["code"] for item in result["warnings"]})
+        self.assertEqual(self.run_cli("wiki-lint"), 0)
+
+    def test_doctor_skips_missing_wiki_and_reports_ok(self):
+        result = arbor.doctor(self.root, timestamp=NOW)
+        self.assertTrue(result["ok"])
+        self.assertTrue(result["wiki"]["skipped"])
+        self.assertEqual(result["summary"]["error_count"], 0)
+        self.assertEqual(self.run_cli("doctor", "--json"), 0)
+
+    def test_doctor_fails_on_task_validation_error(self):
+        self.run_cli("create", "demo-task")
+        data = self.task_json()
+        data["tasks"] = [{"id": "T-001", "title": "missing task markdown", "state": "ready", "depends_on": [], "role": "shared"}]
+        (self.package_dir() / "task.json").write_text(json.dumps(data), encoding="utf-8")
+        result = arbor.doctor(self.root, timestamp=NOW)
+        self.assertFalse(result["ok"])
+        self.assertIn("demo-task", result["tasks"]["errors"])
+        self.assertEqual(self.run_cli("doctor", "--json"), 1)
+
+    def test_doctor_fails_on_wiki_error_but_not_warning(self):
+        wiki = self.root / ".wiki"
+        wiki.mkdir()
+        (wiki / "index.md").write_text("""---
+title: Index
+description: Wiki entry
+type: entity
+tags: [root]
+summary: Entry page.
+---
+
+# Index
+
+See [[Missing]].
+""", encoding="utf-8")
+        self.assertEqual(self.run_cli("doctor", "--json"), 1)
+        (wiki / "index.md").write_text("""---
+title: Index
+description: Wiki entry
+type: entity
+tags: [root]
+summary: Entry page.
+---
+
+# Index
+""", encoding="utf-8")
+        (wiki / "Orphan.md").write_text("""---
+title: Orphan
+description: Orphan note
+type: concept
+tags: [concept]
+summary: Warning only.
+---
+
+# Orphan
+""", encoding="utf-8")
+        result = arbor.doctor(self.root, timestamp=NOW)
+        self.assertTrue(result["ok"])
+        self.assertIn("orphan_page", {item["code"] for item in result["wiki"]["warnings"]})
+        self.assertEqual(self.run_cli("doctor", "--json"), 0)
+        self.assertEqual(self.run_cli("doctor", "--strict", "--json"), 1)
+
+    def test_doctor_reports_map_blockers_without_failing(self):
+        self.create_map_file("big-init")
+        self.assertEqual(self.run_cli("create-split-packages", "big-init", "--package", "big-core::Big core::::core boundary", "--package", "big-order::Big order::::order boundary", "--decision", "from map"), 0)
+        self.assertEqual(self.run_cli("record-contract-request", "big-init", "--consumer", "big-order", "--producer", "big-core", "--request", "Need entitlement status output", "--status", "open"), 0)
+        result = arbor.doctor(self.root, timestamp=NOW)
+        self.assertTrue(result["ok"])
+        self.assertEqual(result["summary"]["blocked_count"], 1)
+        self.assertEqual(result["maps"]["initiatives"][0]["blocked"][0]["reason"], "contract request 未解决")
+        self.assertEqual(self.run_cli("doctor", "--json"), 0)
+        self.assertEqual(self.run_cli("doctor", "--strict", "--json"), 1)
+
     def test_freeze_definition_sets_impl_next_action(self):
         self.run_cli("create", "demo-task")
         self.run_cli("set-package-sizing", "demo-task", "--status", "fits_package", "--actor", "brainstorm", "--phase", "brainstorm", "--decision", "single package")
@@ -562,6 +748,51 @@ Provides `RoleGate.canManageCourse`.
         data = self.task_json()
         self.assertEqual(data["state"], "impl_done")
         self.assertEqual(data["next_action"]["skill"], "review")
+
+    def test_record_impl_result_stores_structured_evidence(self):
+        self.create_ready_task_package()
+        self.assertEqual(self.run_cli("record-impl-result", "demo-task", "--task", "T-001", "--state", "done_with_concerns", "--summary", "implemented behavior", "--acceptance", "golden path passes", "--command", "pytest tests/test_demo.py", "--concern", "edge case needs review", "--json"), 0)
+        data = self.task_json()
+        task = data["tasks"][0]
+        self.assertEqual(task["state"], "done_with_concerns")
+        self.assertEqual(task["last_impl_result"]["state"], "DONE_WITH_CONCERNS")
+        self.assertEqual(task["last_impl_result"]["acceptance"], ["golden path passes"])
+        self.assertEqual(task["last_impl_result"]["commands"], ["pytest tests/test_demo.py"])
+        self.assertEqual(task["last_impl_result"]["concerns"], ["edge case needs review"])
+        self.assertEqual(data["next_action"]["skill"], "review")
+        self.assertEqual(data["phase_history"][-1]["phase"], "impl")
+        self.assertEqual(self.run_cli("record-impl-result", "demo-task", "--task", "T-001", "--state", "approved", "--summary", "bad"), 1)
+        self.assertEqual(self.run_cli("record-impl-result", "demo-task", "--task", "T-999", "--state", "done", "--summary", "bad"), 1)
+
+    def test_record_review_stores_structured_evidence_and_appends_review_md(self):
+        self.create_ready_task_package()
+        self.run_cli("record-impl-result", "demo-task", "--task", "T-001", "--state", "done", "--summary", "implemented")
+        before = (self.package_dir() / "review.md").read_text(encoding="utf-8")
+        self.assertEqual(self.run_cli("record-review", "demo-task", "--task", "T-001", "--state", "approved_with_notes", "--summary", "approved", "--evidence", "unit tests pass", "--note", "keep an eye on edge", "--json"), 0)
+        data = self.task_json()
+        task = data["tasks"][0]
+        self.assertEqual(task["last_review_result"]["state"], "APPROVED_WITH_NOTES")
+        self.assertEqual(task["last_review_result"]["evidence"], ["unit tests pass"])
+        self.assertEqual(task["last_review_result"]["notes"], ["keep an eye on edge"])
+        self.assertEqual(data["state"], "reviewed")
+        self.assertEqual(data["next_action"]["skill"], "none")
+        review_md = (self.package_dir() / "review.md").read_text(encoding="utf-8")
+        self.assertIn(before, review_md)
+        self.assertIn("## 2026-04-25T00:00:00Z T-001 approved_with_notes", review_md)
+        self.assertIn("- Evidence: unit tests pass", review_md)
+        self.assertIn("- Note: keep an eye on edge", review_md)
+
+    def test_record_review_routes_rework_and_drift(self):
+        self.create_ready_task_package()
+        self.assertEqual(self.run_cli("record-review", "demo-task", "--task", "T-001", "--state", "needs_rework", "--summary", "bug remains"), 0)
+        data = self.task_json()
+        self.assertEqual(data["state"], "needs_rework")
+        self.assertEqual(data["next_action"]["skill"], "impl")
+        self.assertEqual(self.run_cli("record-review", "demo-task", "--task", "T-001", "--state", "brainstorm_drift", "--summary", "scope wrong"), 0)
+        data = self.task_json()
+        self.assertEqual(data["state"], "brainstorm_drift")
+        self.assertEqual(data["next_action"]["skill"], "brainstorm")
+        self.assertEqual(self.run_cli("record-review", "demo-task", "--task", "T-001", "--state", "done", "--summary", "bad"), 1)
 
     def test_review_rework_sets_impl_next_action(self):
         self.run_cli("create", "demo-task")
@@ -775,6 +1006,15 @@ Provides `RoleGate.canManageCourse`.
         self.run_cli("add-child", "demo-task", "--id", "T-001", "--title", "ADD first", "--milestone", "M-01", "--role", "shared")
         (self.package_dir() / "task.md").write_text("# 任务: demo-task\n\n### M-01\n\n- 包含任务: [T-001]\n\n- id: T-001\n  title: ADD first\n", encoding="utf-8")
         self.assertEqual(self.run_cli("validate", "demo-task"), 0)
+
+    def test_validate_rejects_task_markdown_drift(self):
+        self.create_ready_task_package()
+        (self.package_dir() / "task.md").write_text("---\npackage: other-package\nmode: lean\n---\n# 任务\n\n[[Other Page]]\n", encoding="utf-8")
+        errors = arbor.validate_package(self.root, "demo-task")
+        self.assertTrue(any("does not mention task id: T-001" in error for error in errors))
+        self.assertTrue(any("must not contain wikilinks" in error for error in errors))
+        self.assertTrue(any("frontmatter package" in error for error in errors))
+        self.assertTrue(any("frontmatter mode" in error for error in errors))
 
     def test_invalid_jsonl_fails_validation(self):
         self.run_cli("create", "demo-task")

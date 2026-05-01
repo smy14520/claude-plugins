@@ -44,6 +44,39 @@ def has_template_placeholders(path: Path) -> bool:
     return any(re.search(pattern, text, re.MULTILINE) for pattern in placeholder_patterns)
 
 
+def parse_markdown_frontmatter(text: str) -> tuple[dict[str, str], str]:
+    if not text.startswith("---\n"):
+        return {}, text
+    end = text.find("\n---", 4)
+    if end == -1:
+        return {}, text
+    meta: dict[str, str] = {}
+    for raw in text[4:end].strip().splitlines():
+        if not raw.strip() or raw.lstrip().startswith("#") or ":" not in raw:
+            continue
+        key, value = raw.split(":", 1)
+        meta[key.strip()] = value.strip().strip('"\'')
+    return meta, text[end + 4 :].lstrip("\n")
+
+
+def validate_task_markdown(path: Path, data: dict[str, Any], task_ids: set[str], errors: list[str]) -> None:
+    if not path.exists():
+        return
+    text = path.read_text(encoding="utf-8")
+    meta, body = parse_markdown_frontmatter(text)
+    if "[[" in body and re.search(r"\[\[[^\]]+\]\]", body):
+        errors.append("task.md must be self-contained and must not contain wikilinks")
+    name = data.get("name")
+    if "package" in meta and meta.get("package") != name:
+        errors.append(f"task.md frontmatter package '{meta.get('package')}' does not match task.json name '{name}'")
+    mode = data.get("mode")
+    if "mode" in meta and meta.get("mode") != mode:
+        errors.append(f"task.md frontmatter mode '{meta.get('mode')}' does not match task.json mode '{mode}'")
+    for task_id in sorted(task_ids):
+        if task_id not in body:
+            errors.append(f"task.md does not mention task id: {task_id}")
+
+
 def validate_optional_string(value: Any, label: str, errors: list[str]) -> None:
     if value is not None and not isinstance(value, str):
         errors.append(f"{label} must be a string or null")
@@ -400,6 +433,8 @@ def validate_package(root: Path, name: str) -> list[str]:
         errors.append("PRD is draft but task lifecycle has executable/completed tasks; run set-prd-status ready-for-task or revise PRD")
     if tasks and has_template_placeholders(pkg / "task.md"):
         errors.append("task.md still appears to contain template placeholders while task.json has tasks")
+    if tasks:
+        validate_task_markdown(pkg / "task.md", data, task_ids, errors)
 
     impl_entries = parse_jsonl(pkg / "context" / "impl.jsonl", errors, {"at", "actor", "task_id", "kind", "summary"})
     review_entries = parse_jsonl(pkg / "context" / "review.jsonl", errors, {"at", "actor", "task_id", "kind", "summary"})

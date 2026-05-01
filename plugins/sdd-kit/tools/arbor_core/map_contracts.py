@@ -25,6 +25,14 @@ def open_contract_requests_for_package(data: dict[str, Any], name: str) -> list[
     ]
 
 
+def contract_blockers_for_consumer(data: dict[str, Any], name: str) -> list[dict[str, Any]]:
+    return [
+        item
+        for item in contract_requests_list(data)
+        if item.get("status") in {"open", "accepted", "rejected"} and item.get("consumer") == name
+    ]
+
+
 def next_contract_request_id(requests: list[dict[str, Any]]) -> str:
     current = 0
     for item in requests:

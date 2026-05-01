@@ -21,6 +21,7 @@ Team Auto 是 sdd-kit 的会话层协作 skill：当用户显式要求 Team Auto
 这个 review 开多 agent 看看
 用 agent team 辩一下这个需求边界
 这个需求双推一下，一个激进一个保守
+让两个架构师争论一下这个余额模型
 ```
 
 如果用户只是泛泛说“能不能更快 / 多看看”，不要自动调用；必须有明确 Team Auto / Agent Team / 多 agent / 开 team / 双推 / 辩论 / panel 等协作意图。
@@ -53,6 +54,7 @@ Team Auto 是 sdd-kit 的会话层协作 skill：当用户显式要求 Team Auto
 - Role-lane Parallel
 - Shadow Review
 - Review Panel
+- Architecture Debate Panel
 - Research Swarm
 
 不要机械列全，不要每次照搬同一组阵型；只给本次最可能有价值的 2–4 个，并允许生成更贴合当前任务的新名字。
@@ -73,12 +75,13 @@ Team Auto 是 sdd-kit 的会话层协作 skill：当用户显式要求 Team Auto
 
 ## 收口
 
-Team 完成后，主会话汇总：
+Team 完成后，主会话汇总，并把结论映射回当前阶段的出口（例如 review verdict / task next_action / brainstorm handoff）：
 
 ```text
 共识：...
 分歧：...
 采纳：...
 不采纳：...
+最终结论：<verdict / next_action / handoff>
 后续动作：...
 ```

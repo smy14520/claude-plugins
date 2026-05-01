@@ -48,7 +48,7 @@
 
 ## Report
 
-- 使用 `sdd-arbor set-status` / `set-phase` 更新 `.arbor/tasks/<name>/task.json`：对应 package-local T-xxx 的 `state`、`updated_at`，必要时更新 `active_task`、聚合 `current_phase`、`next_action`，并追加 `phase_history`
+- 用 `sdd-arbor record-impl-result` 记录 DONE / DONE_WITH_CONCERNS / NEEDS_CONTEXT / BLOCKED，以及 summary、acceptance、commands、concerns；helper 更新 `task.json` 聚合状态和 `phase_history`
 - 如需补充实现阶段上下文，用 `sdd-arbor add-context <name> --type impl ...` 追加到 `context/impl.jsonl`
 - NEEDS_CONTEXT 行可引用：`prd.md §X / task <field> / SRC-...`
 - 绝不修改 `task.md`；不要创建 markdown TODO/status checklist

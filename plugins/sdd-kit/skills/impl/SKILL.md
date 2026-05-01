@@ -39,7 +39,7 @@ Impl 是**执行**阶段。它：
 4. 检查 `task.json.execution` 中的轻量 metadata（如有）；不为 T-xxx 创建独立 branch/PR
 5. 若 `task.json.active_task` 指向未完成任务，优先恢复该任务；否则选择下一个可执行任务：`depends_on` 已满足，且 `ready-check` 不阻塞
 6. 若 `task.json.next_action.skill` 不是 `impl`，先说明当前推荐动作与原因
-7. 向用户确认后开始，并用 `sdd-arbor set-status <name> --task T-xxx --state in_progress --actor impl --note "implementation started"` 记录状态
+7. 向用户确认后开始，并用 `sdd-arbor set-status <name> --task T-xxx --state in_progress --actor impl --note "implementation started"` 记录 active task
 
 ### 🔨 Execute — 编写代码
 
@@ -48,7 +48,7 @@ Impl 是**执行**阶段。它：
 1. 读取任务的 `deliverable + acceptance + context + sources + notes`
 2. 如 task-local context 仍不足以解释局部背景，可读取同 package 的 `prd.md` 作为背景
 3. 若依赖模块已有 wiki/module summary，可先用 `sdd-arbor wiki-collect --query "<query>" --limit 5 --json` 定位，再验证当前代码和 `.arbor`；wiki 只作 orientation
-4. 若用户明确要求 TDD，或当前 T-xxx 的主要风险是行为正确性，按 `references/tdd.md` 作为执行模式；TDD 不替代 impl lifecycle
+4. 若用户明确要求 TDD，或当前 T-xxx 的主要风险是行为正确性，按 `references/tdd.md` 执行；TDD 不替代 task acceptance
 5. 按当前 repo 的源码/测试结构写代码；若 package PRD/task 明确了落点，优先遵循
 6. 编写最小变更，以通过 acceptance 为目标；产品源码/测试必须写到 repo implementation tree，不得写入 `.arbor/tasks/<package>/`
 7. 若 task/PRD 未明确源码落点且当前 repo 也无法推断（例如空仓库且当前 task 不是建立项目基线），停止为 `NEEDS_CONTEXT`，不要创建孤立 demo 文件
@@ -73,7 +73,7 @@ Impl 是**执行**阶段。它：
 触发：SelfCheck 之后，或在 BLOCKED / NEEDS_CONTEXT 时。
 
 1. 分类为：DONE / DONE_WITH_CONCERNS / NEEDS_CONTEXT / BLOCKED
-2. 使用 `sdd-arbor` 更新 `.arbor/tasks/<name>/task.json` 中对应 T-xxx 的 `state`、`updated_at`、顶层 `state/current_phase/active_task/next_action` 与 `phase_history`
+2. 使用 `sdd-arbor record-impl-result <name> --task T-xxx --state <state> --summary "..." --acceptance "..." --command "..." --concern "..."` 记录结构化结果；helper 会更新 `task.json` 聚合状态与 `phase_history`
 3. 若有新的 implementation context，使用 `sdd-arbor add-context <name> --type impl ...`；多条 context 用 `sdd-arbor add-context-batch <name> --type impl ...` 原子追加，不手写 `context/*.jsonl`
 4. 向用户输出结构化摘要，并建议下一步
 5. 若状态为 `DONE_WITH_CONCERNS` 或 `BLOCKED`，可建议用户是否沉淀 wiki，但绝不自动入库
@@ -100,7 +100,7 @@ Impl 是**执行**阶段。它：
 9. **SelfCheck = 验收** —— 语义审计属于 review。
 10. **Amendment 是增量实现** —— 不为了“看起来一致”去改旧 PRD/task；只实现新 T-xxx。
 11. **禁止自动推进到下一任务** —— 除非用户明确说继续。
-12. **不手写 JSON 状态或 context JSONL** —— 状态用 helper；context 用 `add-context` / `add-context-batch`。
+12. **不手写 JSON 状态或 context JSONL** —— 开始用 `set-status`，结束用 `record-impl-result`；context 用 `add-context` / `add-context-batch`。
 
 ## 初始化
 

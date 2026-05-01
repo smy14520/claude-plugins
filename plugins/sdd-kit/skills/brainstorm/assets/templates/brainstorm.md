@@ -1,9 +1,3 @@
-# Legacy note: brainstorm template moved to prd.md
+# Legacy pointer
 
-New sdd-kit task packages use:
-
-```text
-.arbor/tasks/<name>/prd.md
-```
-
-Use `prd.md` in this directory as the active template. This file remains only as a legacy pointer for older references.
+Use `.arbor/tasks/<package>/prd.md` as the active brainstorm output. This file is kept only for old references.

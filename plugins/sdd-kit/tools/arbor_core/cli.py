@@ -5,6 +5,7 @@ import json
 import sys
 from pathlib import Path
 
+from .doctor import doctor
 from .errors import ArborError
 from .fs import now_iso
 from .map_state import *
@@ -51,6 +52,12 @@ def build_parser() -> argparse.ArgumentParser:
     target = validate.add_mutually_exclusive_group(required=True)
     target.add_argument("name", nargs="?")
     target.add_argument("--all", action="store_true")
+    validate.add_argument("--json", dest="json_output", action="store_true", help="Emit JSON output.")
+
+    doctor_parser = sub.add_parser("doctor", help="Check project Arbor/wiki workflow health.")
+    doctor_parser.add_argument("--wiki-root", default=".wiki")
+    doctor_parser.add_argument("--strict", action="store_true", help="Return non-zero when warnings or blocked packages exist.")
+    doctor_parser.add_argument("--json", dest="json_output", action="store_true", help="Emit JSON output.")
 
     set_status = sub.add_parser("set-status", help="Update package or task state.")
     set_status.add_argument("name")
@@ -65,6 +72,27 @@ def build_parser() -> argparse.ArgumentParser:
     set_phase.add_argument("--task")
     set_phase.add_argument("--actor", required=True)
     set_phase.add_argument("--note", default="")
+
+    record_impl = sub.add_parser("record-impl-result", help="Record structured implementation result evidence for a task.")
+    record_impl.add_argument("name")
+    record_impl.add_argument("--task", required=True)
+    record_impl.add_argument("--state", required=True)
+    record_impl.add_argument("--summary", required=True)
+    record_impl.add_argument("--acceptance", action="append", default=[])
+    record_impl.add_argument("--command", dest="commands", action="append", default=[])
+    record_impl.add_argument("--concern", action="append", default=[])
+    record_impl.add_argument("--actor", default="impl")
+    record_impl.add_argument("--json", dest="json_output", action="store_true", help="Emit JSON output.")
+
+    record_review_parser = sub.add_parser("record-review", help="Record structured review verdict evidence for a task.")
+    record_review_parser.add_argument("name")
+    record_review_parser.add_argument("--task", required=True)
+    record_review_parser.add_argument("--state", required=True)
+    record_review_parser.add_argument("--summary", required=True)
+    record_review_parser.add_argument("--evidence", action="append", default=[])
+    record_review_parser.add_argument("--note", action="append", default=[])
+    record_review_parser.add_argument("--actor", default="review")
+    record_review_parser.add_argument("--json", dest="json_output", action="store_true", help="Emit JSON output.")
 
     set_prd = sub.add_parser("set-prd-status", help="Update PRD readiness status.")
     set_prd.add_argument("name")
@@ -190,6 +218,10 @@ def build_parser() -> argparse.ArgumentParser:
     wiki_collect_parser.add_argument("--limit", type=int, default=5)
     wiki_collect_parser.add_argument("--json", dest="json_output", action="store_true", help="Emit JSON output.")
 
+    wiki_lint_parser = sub.add_parser("wiki-lint", help="Lint project-local .wiki markdown pages without modifying them.")
+    wiki_lint_parser.add_argument("--wiki-root", default=".wiki")
+    wiki_lint_parser.add_argument("--json", dest="json_output", action="store_true", help="Emit JSON output.")
+
     list_parser = sub.add_parser("list", help="List task packages.")
     list_parser.add_argument("--json", dest="json_output", action="store_true", help="Emit JSON output.")
 
@@ -270,6 +302,19 @@ def main(argv: list[str] | None = None) -> int:
                 print("ok")
             return 1 if all_errors else 0
 
+        if args.command == "doctor":
+            result = doctor(root, args.wiki_root, timestamp)
+            if json_output:
+                print(json.dumps(result, ensure_ascii=False, indent=2))
+            else:
+                print_human_doctor(result)
+            if not result["ok"]:
+                return 1
+            summary = result.get("summary", {}) if isinstance(result.get("summary"), dict) else {}
+            if args.strict and (summary.get("warning_count", 0) or summary.get("blocked_count", 0)):
+                return 1
+            return 0
+
         if args.command == "set-status":
             update_task_status(root, args.name, args.task, args.state, args.actor, args.note, timestamp)
             print("ok")
@@ -278,6 +323,22 @@ def main(argv: list[str] | None = None) -> int:
         if args.command == "set-phase":
             update_phase(root, args.name, args.phase, args.actor, args.note, args.task, timestamp)
             print("ok")
+            return 0
+
+        if args.command == "record-impl-result":
+            result = record_impl_result(root, args.name, args.task, args.state, args.summary, args.acceptance, args.commands, args.concern, args.actor, timestamp)
+            if json_output:
+                print(json.dumps(result, ensure_ascii=False, indent=2))
+            else:
+                print("ok")
+            return 0
+
+        if args.command == "record-review":
+            result = record_review(root, args.name, args.task, args.state, args.summary, args.evidence, args.note, args.actor, timestamp)
+            if json_output:
+                print(json.dumps(result, ensure_ascii=False, indent=2))
+            else:
+                print("ok")
             return 0
 
         if args.command == "set-prd-status":
@@ -396,6 +457,14 @@ def main(argv: list[str] | None = None) -> int:
                 for item in result["selected"]:
                     print(f"{item['path']} — {item['title']}")
             return 0
+
+        if args.command == "wiki-lint":
+            result = wiki_lint(root, args.wiki_root)
+            if json_output:
+                print(json.dumps(result, ensure_ascii=False, indent=2))
+            else:
+                print_human_wiki_lint(result)
+            return 0 if result["ok"] else 1
 
         if args.command == "list":
             items = list_packages(root)
