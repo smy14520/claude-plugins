@@ -22,7 +22,7 @@
 
 - 保持 workflow 骨架轻：brainstorm 写 PRD，impl 执行 PRD scope，review 审计；research 只在需要资料探索时使用。
 - 大需求用 parent PRD + ordered child packages 表达；不要恢复外层 initiative graph，也不要用巨大执行清单掩盖 package 边界错误。
-- PRD 是需求、Technical Framing、Acceptance Criteria 与可选 child packages / execution slices 的 source of truth；不要默认拆成二阶段任务计划。
+- PRD 是需求、Technical Framing、Acceptance Criteria 与 `## Slices` 的 source of truth；不要默认拆成二阶段任务计划。
 - `grill-me` 是 brainstorm 的高质量需求追问模式，应保留其“一次一个高价值问题 + 推荐答案”的能力，但不要把它变成兜底规则仓库。
 - 不要把 CLAUDE.md、rules 或已经自动加载的约束当成额外 discovery 工作重复阅读/总结，除非当前任务确实需要核对。
 - 需要增强稳定性时，优先把不确定步骤转为确定性 helper 或测试，而不是增加口头禁令。

@@ -18,14 +18,29 @@ Impl 执行一个 package PRD scope。它读 PRD，按 Slices 顺序连续实现
 
 ## 流程
 
-1. 读取 PRD 的目标、范围、Acceptance Criteria、Technical Framing、Slices。
-2. PRD blocking open questions 或 technical framing 缺失时停止，不要硬做。
-3. 用 `sdd-arbor set-status <package> --state doing --actor impl --note "开始执行"` 记录状态。
-4. 找到第一个未完成的 slice（`[ ]` 或 `[-]`），开始执行。
-5. 连续执行所有 slices，不在 slice 之间停顿等待用户确认。
-6. 每完成一个 slice，在 PRD 的 `## Slices` 段将该 slice 标记为 `[x]`。
-7. 全部 slices 完成后，运行 self-check。
-8. 用 `sdd-arbor record-impl-result <package> --state done|done_with_concerns|needs_context|blocked ...` 记录结果。
+1. 读取 PRD 的目标、范围、Acceptance Criteria、Technical Framing（含 Testing strategy）、Slices。
+2. 检查 Slices 状态：
+   - 所有 slice 已 `[x]` 且 `task.json` 已有 impl_result → package 已完成，不重复执行。
+   - 所有 slice 已 `[x]` 但没有 impl_result → 直接跳到 self-check（步骤 9）。
+   - 存在 `[ ]` 或 `[-]` → 正常执行（步骤 3 起）。
+3. PRD blocking open questions 或 technical framing 缺失时停止，不要硬做。
+4. 存量项目的 slice 包含技术锚点时，先验证锚点描述的现有结构仍然成立（表是否存在、模块接口是否匹配、设计模式是否如 PRD 所述），再动刀。发现不一致时报告 NEEDS_CONTEXT，不要硬改。
+5. 用 `sdd-arbor set-status <package> --state doing --actor impl --note "开始执行"` 记录状态（已处于 doing 时跳过）。
+6. 找到第一个未完成的 slice（`[ ]` 或 `[-]`），开始执行。
+7. 连续执行所有 slices，不在 slice 之间停顿等待用户确认。
+8. 每完成一个 slice，在 PRD 的 `## Slices` 段将该 slice 标记为 `[x]`。
+9. 全部 slices 完成后，运行 self-check。
+10. 用 `sdd-arbor record-impl-result <package> --state done|done_with_concerns|needs_context|blocked ...` 记录结果。
+
+## Testing strategy
+
+读取 PRD Technical Framing 中的 Testing strategy 字段，按选择的档位执行：
+
+- **核心路径测试**：每个 slice 完成后，补该 slice 涉及的关键路径和边界 case 测试，运行并确认全部通过后才标记 `[x]`。外部依赖用 mock/fake。
+- **TDD 驱动**：每个 slice 先写测试再写实现，按 `references/tdd.md` 的 red-green loop 执行，绿灯后才标记 `[x]`。外部依赖用 mock/fake。
+- **最小验收**：全部 slice 完成后，跑 happy path 验证功能跑通。
+
+测试框架和工具由 Technical Framing 的 stack 决定（AI 根据项目技术栈自行选择），sdd-kit 不指定具体工具。
 
 ## Slices 执行
 
@@ -44,8 +59,15 @@ Impl 不创建额外的执行计划文件。Slices 段就是进度记录。
 
 1. 读 PRD 的 Slices 段，找到第一个 `[ ]` 或 `[-]` 的 slice。
 2. 快速扫描实际代码状态，验证标记是否准确。代码即进度——如果标记说 S-001 完成了，但项目目录是空的，从 S-001 重新来。
-3. 如果是 `[-]`（部分完成），读取备注了解上次停在哪里，继续未完成的部分。
-4. 继续连续执行剩余 slices。
+3. 读已有测试文件——测试是前面 slice 设计决策的最好文档，能快速了解已建立的接口契约、数据结构和预期行为，避免后续 slice 与前面的设计意图矛盾。
+4. 如果是 `[-]`（部分完成），读取备注了解上次停在哪里，继续未完成的部分。
+5. 继续连续执行剩余 slices。
+
+如果是 review NEEDS_REWORK 后回到 impl：
+
+1. 读 `task.json` 的 `review_result`，了解 review 给出的具体问题清单和 verdict 理由。
+2. 针对性修复 review 指出的问题，不要从头重新执行所有 slice。
+3. 修复完成后重新运行 self-check，用 `record-impl-result` 记录新结果。
 
 如果 impl 检测到当前 slice 未完全做完但需要停止（如对话即将结束），在 PRD 中将该 slice 标记为 `[-]` 并附简短备注：
 
@@ -66,10 +88,21 @@ Impl 不创建额外的执行计划文件。Slices 段就是进度记录。
 
 ## Self-check
 
-- 从 PRD acceptance criteria、technical framing 和 repo 既有验证方式推导检查。
-- 运行命令或验证明确行为。
-- 失败时不要声称 DONE。
-- 把检查依据和命令写入 `record-impl-result`。
+Self-check 必须覆盖三层，不能只跑其中一层就声称 DONE：
+
+1. **构建通过** — 项目能正常编译/构建，无报错。
+2. **测试通过** — 按 Testing strategy 写的测试全部通过。没有测试跳过或忽略的关键失败。
+3. **功能验证** — 实际启动应用，验证核心路径可用：
+   - Web 项目：启动 dev server，用浏览器或 playwright 访问关键页面，确认能正常交互
+   - API 项目：启动服务，用 curl 或测试客户端验证关键接口的请求和响应
+   - CLI 工具：运行关键命令，检查输出符合预期
+   - 如果环境限制无法验证（如缺少数据库、缺少外部服务），明确记录为 DONE_WITH_CONCERNS 并说明原因，不要假装验证过了
+
+构建通过 + 测试通过 ≠ DONE。功能验证是必须的。
+
+功能验证失败时：先诊断原因并尝试修复，修复后重新运行三层验证。反复修复仍无法通过时，记录为 DONE_WITH_CONCERNS（问题明确但非阻塞）或 BLOCKED（环境/依赖阻塞），不要假装通过。
+
+把三层的检查依据和命令结果写入 `record-impl-result`。
 
 ## 规则
 
