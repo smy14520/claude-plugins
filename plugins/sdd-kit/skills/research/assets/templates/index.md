@@ -66,7 +66,7 @@ downstream: <brainstorm-name | direct-answer | wiki-ingest>
 
 ## 当前是否适合进入 brainstorm
 
-<open / ready-for-brainstorm / closed 的当前判断。若 ready-for-brainstorm，说明为什么；若还不够，说明主要缺口。ready-for-brainstorm 不表示 ready-for-map；技术栈、架构、repo baseline 等 implementation framing 仍由 brainstorm 检查和澄清。>
+<open / ready-for-brainstorm / closed 的当前判断。若 ready-for-brainstorm，说明为什么；若还不够，说明主要缺口。ready-for-brainstorm 不表示 implementation framing 已冻结；package scope、Slices、技术栈、架构、repo baseline 仍由 brainstorm 检查和澄清。>
 
 ## 下一步（由用户决定）
 

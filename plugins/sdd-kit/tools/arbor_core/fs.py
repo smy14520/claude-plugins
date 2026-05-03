@@ -23,42 +23,6 @@ def tasks_root(root: Path) -> Path:
     return arbor_root(root) / "tasks"
 
 
-def maps_root(root: Path) -> Path:
-    return arbor_root(root) / "maps"
-
-
-def map_dir(root: Path, initiative: str) -> Path:
-    validate_name(initiative)
-    return maps_root(root) / initiative
-
-
-def map_path(root: Path, initiative: str) -> Path:
-    return map_dir(root, initiative) / "map.md"
-
-
-def map_json_path(root: Path, initiative: str) -> Path:
-    return map_dir(root, initiative) / "map.json"
-
-
-def map_context_dir(root: Path, initiative: str) -> Path:
-    return map_dir(root, initiative) / "context"
-
-
-def legacy_map_path(root: Path, initiative: str) -> Path:
-    validate_name(initiative)
-    return maps_root(root) / f"{initiative}.md"
-
-
-def parent_map_ref(initiative: str) -> str:
-    validate_name(initiative)
-    return f".arbor/maps/{initiative}/map.md"
-
-
-def legacy_parent_map_ref(initiative: str) -> str:
-    validate_name(initiative)
-    return f".arbor/maps/{initiative}.md"
-
-
 def package_dir(root: Path, name: str) -> Path:
     validate_name(name)
     return tasks_root(root) / name

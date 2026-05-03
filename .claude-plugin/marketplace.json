@@ -10,8 +10,8 @@
   "plugins": [
     {
       "name": "sdd-kit",
-      "description": "SDD workflow + brainstorm/map boundary routing + Trellis-like child package materialization + serial map.json coordination + deterministic .arbor executable packages + Karpathy-style persistent wiki. Skills: research / map / brainstorm / task / impl / review / wiki. Skill-first, no fixed agents. Phases independent; user controls transitions.",
-      "version": "0.4.0",
+      "description": "PRD-first SDD workflow: brainstorm writes package PRD with technical framing, impl executes PRD scope, review audits. Supports ordered child package materialization, deterministic .arbor package state, and .wiki orientation notes. Skills: research / brainstorm / impl / review / wiki. Skill-first, no fixed agents; user controls transitions.",
+      "version": "0.6.0",
       "source": "./plugins/sdd-kit",
       "category": "development",
       "author": {

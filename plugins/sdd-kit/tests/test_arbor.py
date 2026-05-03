@@ -3,6 +3,7 @@ import contextlib
 import io
 import json
 import subprocess
+import sys
 import tempfile
 import unittest
 from pathlib import Path
@@ -19,6 +20,24 @@ arbor_guard = importlib.util.module_from_spec(hook_spec)
 hook_spec.loader.exec_module(arbor_guard)
 
 NOW = "2026-04-25T00:00:00Z"
+READY_PRD = """# Demo package
+
+## Technical Framing
+
+- Existing stack / framework: N/A
+- Auth / permissions: N/A
+- Frontend / backend boundary: N/A
+- Data model / persistence: N/A
+- Admin / ops surface: N/A
+- External integrations: N/A
+- Testing strategy: validate package
+- Migration / rollout / rollback: N/A
+
+## Slices
+
+- [ ] S-001: First slice — create baseline behavior
+- [ ] S-002: Self-check — run validation
+"""
 
 
 class ArborCliTests(unittest.TestCase):
@@ -36,485 +55,322 @@ class ArborCliTests(unittest.TestCase):
     def run_bin(self, *args):
         return subprocess.run([str(BIN_PATH), "--root", str(self.root), "--now", NOW, *args], cwd=self.root, stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True, check=False)
 
-    def package_dir(self, name="demo-task"):
+    def package_dir(self, name="demo-package"):
         return self.root / ".arbor" / "tasks" / name
 
-    def task_json(self, name="demo-task"):
+    def task_json(self, name="demo-package"):
         return json.loads((self.package_dir(name) / "task.json").read_text())
 
-    def map_dir(self, name="big-init"):
-        return self.root / ".arbor" / "maps" / name
+    def finalize_single(self, name="demo-package"):
+        spec = {
+            "kind": "single",
+            "name": name,
+            "title": "Demo package",
+            "prd": READY_PRD,
+            "decision": "single package with PRD-local Slices",
+        }
+        self.assertEqual(self.run_cli("finalize-brainstorm", "--input-json", json.dumps(spec), "--json"), 0)
 
-    def map_json(self, name="big-init"):
-        return json.loads((self.map_dir(name) / "map.json").read_text())
-
-    def create_map_file(self, name="big-init"):
-        path = self.map_dir(name)
-        path.mkdir(parents=True, exist_ok=True)
-        (path / "map.md").write_text(f"# {name}\n", encoding="utf-8")
-        return path
-
-    def mark_task_md_defined(self, name):
-        (self.package_dir(name) / "task.md").write_text(f"# Tasks: {name}\n\n## T-001\n\nDefined test task.\n", encoding="utf-8")
-
-    def create_ready_task_package(self, name="demo-task"):
-        self.run_cli("create", name)
-        self.run_cli("set-package-sizing", name, "--status", "fits_package", "--actor", "brainstorm", "--phase", "brainstorm", "--decision", "single package")
-        self.run_cli("set-prd-status", name, "--status", "ready-for-task", "--actor", "brainstorm", "--note", "ready")
-        self.run_cli("add-child", name, "--id", "T-001", "--title", "ADD first", "--milestone", "M-01", "--role", "shared")
-        self.mark_task_md_defined(name)
+    def finalize_single_json(self, name="demo-package"):
+        spec = {
+            "kind": "single",
+            "name": name,
+            "title": "Demo package",
+            "prd": READY_PRD,
+            "decision": "single package with PRD-local Slices",
+        }
+        result = subprocess.run(
+            [sys.executable, str(MODULE_PATH), "--root", str(self.root), "--now", NOW, "finalize-brainstorm", "--input-json", json.dumps(spec), "--json"],
+            cwd=self.root,
+            stdout=subprocess.PIPE,
+            stderr=subprocess.PIPE,
+            text=True,
+            check=False,
+        )
+        self.assertEqual(result.returncode, 0, result.stderr)
+        return json.loads(result.stdout)
 
     def test_sdd_arbor_bin_wrapper_runs_from_project_cwd(self):
-        result = self.run_bin("create", "demo-task", "--mode", "strict-atomic", "--title", "Demo task")
+        spec = {
+            "kind": "single",
+            "name": "demo-package",
+            "title": "Demo package",
+            "prd": READY_PRD,
+        }
+        result = self.run_bin("finalize-brainstorm", "--input-json", json.dumps(spec))
         self.assertEqual(result.returncode, 0, result.stderr)
-        self.assertTrue((self.root / ".arbor" / "tasks" / "demo-task" / "task.json").exists())
+        self.assertTrue((self.root / ".arbor" / "tasks" / "demo-package" / "task.json").exists())
         self.assertFalse((PLUGIN_ROOT / ".arbor").exists())
 
-    def test_create_writes_complete_package(self):
-        code = self.run_cli("create", "demo-task", "--mode", "strict-atomic", "--title", "Demo task")
+    def test_help_hides_internal_plumbing_and_removed_task_commands(self):
+        result = self.run_bin("--help")
+        self.assertEqual(result.returncode, 0, result.stderr)
+        self.assertIn("finalize-brainstorm", result.stdout)
+        self.assertNotIn("set-package-sizing", result.stdout)
+        self.assertNotIn("set-prd-status", result.stdout)
+        self.assertNotIn("parent-check", result.stdout)
+        self.assertNotIn("set-execution-plan", result.stdout)
+        self.assertNotIn("update-plan-item", result.stdout)
+        self.assertNotIn("materialize-children", result.stdout)
+        self.assertNotIn("add-child", result.stdout)
+        self.assertNotIn("--mode", result.stdout)
+
+    def test_finalize_brainstorm_help_documents_single_package_schema(self):
+        result = self.run_bin("finalize-brainstorm", "--help")
+        self.assertEqual(result.returncode, 0, result.stderr)
+        self.assertIn("JSON schema", result.stdout)
+        self.assertIn('"name"|"package"', result.stdout)
+        self.assertIn('"prd"|"prd_path"', result.stdout)
+        self.assertIn("Large scopes use PRD ## Slices", result.stdout)
+        self.assertNotIn('"children"', result.stdout)
+
+    def test_create_writes_prd_first_package_without_task_markdown(self):
+        code = self.run_cli("create", "demo-package", "--title", "Demo package")
         self.assertEqual(code, 0)
         pkg = self.package_dir()
         self.assertTrue((pkg / "prd.md").exists())
-        self.assertTrue((pkg / "task.md").exists())
+        self.assertFalse((pkg / "task.md").exists())
         self.assertTrue((pkg / "task.json").exists())
         self.assertTrue((pkg / "review.md").exists())
         self.assertTrue((pkg / "context" / "impl.jsonl").exists())
         self.assertTrue((pkg / "context" / "review.jsonl").exists())
         self.assertTrue((pkg / "context" / "sources.jsonl").exists())
         data = self.task_json()
-        self.assertEqual(data["schema_version"], "arbor-task-v1")
+        self.assertEqual(data["schema_version"], "arbor-package-v1")
+        self.assertEqual(data["state"], "draft")
+        self.assertEqual(data["package_kind"], "single")
+        self.assertNotIn("parent", data)
+        self.assertNotIn("children", data)
         self.assertEqual(data["prd"]["file"], "prd.md")
+        self.assertEqual(data["prd"]["status"], "draft")
         self.assertEqual(data["current_phase"], "brainstorm")
         self.assertEqual(data["execution"]["boundary"], "package")
-        self.assertEqual(data["execution"]["unit_path"], ".arbor/tasks/demo-task")
-        self.assertEqual(data["execution"]["child_task_scope"], "control_acceptance_review")
-        self.assertEqual(data["execution"]["status"], "unclaimed")
-        self.assertEqual(data["execution"]["checkpoints"], [])
-        self.assertEqual(data["package_sizing"]["status"], "unchecked")
-        self.assertEqual(data["prd"]["amendments"], [])
+        self.assertEqual(data["execution"]["unit_path"], ".arbor/tasks/demo-package")
+        self.assertNotIn("plan", data["execution"])
+        self.assertNotIn("child_task_scope", data["execution"])
+        self.assertNotIn("tasks", data)
+        self.assertNotIn("active_task", data)
+        self.assertNotIn("mode", data)
+        self.assertEqual(self.run_cli("validate", "demo-package"), 0)
 
     def test_create_does_not_overwrite_existing_prd(self):
-        self.run_cli("create", "demo-task", "--title", "Demo task")
+        self.run_cli("create", "demo-package", "--title", "Demo package")
         prd = self.package_dir() / "prd.md"
         prd.write_text("custom prd", encoding="utf-8")
-        self.run_cli("create", "demo-task", "--title", "Demo task")
+        self.run_cli("create", "demo-package", "--title", "Demo package")
         self.assertEqual(prd.read_text(encoding="utf-8"), "custom prd")
 
-    def test_create_map_writes_directory_artifacts(self):
-        self.assertEqual(self.run_cli("create-map", "big-init", "--title", "Big init"), 0)
-        self.assertTrue((self.map_dir() / "map.md").exists())
-        self.assertTrue((self.map_dir() / "map.json").exists())
-        self.assertFalse((self.map_dir() / "context" / "agent-assignments.jsonl").exists())
-        data = self.map_json()
-        self.assertEqual(data["schema_version"], "arbor-map-v1")
-        self.assertEqual(data["map_path"], ".arbor/maps/big-init/map.md")
-        self.assertEqual(data["orchestration"]["strategy"], "serial-package-map")
-        self.assertIn("map-check", data["orchestration"]["dependency_gate"])
-        self.assertIn("不自动创建 Team", data["orchestration"]["execution_model"])
-        self.assertEqual(data["contract_requests"], [])
-        self.assertNotIn("runtime", data["orchestration"])
-        self.assertNotIn("write_permission_boundary", data["orchestration"])
+    def test_finalize_brainstorm_single_creates_ready_package(self):
+        output = self.finalize_single_json()
+        self.assertEqual(output["kind"], "single")
+        self.assertEqual(output["root_package"], "demo-package")
+        self.assertEqual(output["packages"][0]["state"], "ready")
+        self.assertEqual(output["packages"][0]["next_action"], {"skill": "impl", "reason": "PRD 已就绪，可以开始执行"})
+        data = self.task_json()
+        self.assertEqual(data["package_kind"], "single")
+        self.assertEqual(data["package_sizing"]["status"], "fits_package")
+        self.assertEqual(data["prd"]["status"], "ready")
+        self.assertEqual(data["state"], "ready")
+        self.assertEqual(data["next_action"], {"skill": "impl", "reason": "PRD 已就绪，可以开始执行"})
+        self.assertEqual((self.package_dir() / "prd.md").read_text(encoding="utf-8"), READY_PRD)
+        self.assertEqual(self.run_cli("validate", "demo-package"), 0)
 
-    def test_create_map_migrates_legacy_flat_map(self):
-        (self.root / ".arbor" / "maps").mkdir(parents=True)
-        (self.root / ".arbor" / "maps" / "big-init.md").write_text("legacy map", encoding="utf-8")
-        self.assertEqual(self.run_cli("create-map", "big-init"), 0)
-        self.assertEqual((self.map_dir() / "map.md").read_text(encoding="utf-8"), "legacy map")
+    def test_finalize_brainstorm_accepts_mm_dd_prefixed_package_name(self):
+        self.finalize_single("05-02-knowledge-paid-system")
+        self.assertTrue((self.package_dir("05-02-knowledge-paid-system") / "task.json").exists())
+        data = self.task_json("05-02-knowledge-paid-system")
+        self.assertEqual(data["execution"]["unit_path"], ".arbor/tasks/05-02-knowledge-paid-system")
+        self.assertEqual(self.run_cli("validate", "05-02-knowledge-paid-system"), 0)
 
-    def test_create_map_upgrades_old_orchestration_strategy(self):
-        self.assertEqual(self.run_cli("create-map", "big-init"), 0)
-        data = self.map_json()
-        data["orchestration"] = {"strategy": "ready-packages-only"}
-        (self.map_dir() / "map.json").write_text(json.dumps(data), encoding="utf-8")
-        self.assertEqual(self.run_cli("create-map", "big-init"), 0)
-        upgraded = self.map_json()
-        self.assertEqual(upgraded["orchestration"]["strategy"], "serial-package-map")
-        self.assertIn("map-check", upgraded["orchestration"]["dependency_gate"])
-        self.assertIn("不自动创建 Team", upgraded["orchestration"]["execution_model"])
-        self.assertNotIn("runtime", upgraded["orchestration"])
-        self.assertNotIn("manual_review_mode", upgraded["orchestration"])
+    def test_finalize_brainstorm_accepts_package_and_prd_path_aliases(self):
+        self.run_cli("create", "demo-package", "--title", "Demo package")
+        prd = self.package_dir() / "prd.md"
+        prd.write_text(READY_PRD, encoding="utf-8")
+        spec = {"kind": "single", "package": "demo-package", "prd_path": ".arbor/tasks/demo-package/prd.md"}
 
-    def test_invalid_name_is_rejected(self):
-        code = self.run_cli("create", "Bad_Name")
-        self.assertEqual(code, 1)
-        self.assertFalse((self.root / ".arbor").exists())
+        self.assertEqual(self.run_cli("finalize-brainstorm", "--input-json", json.dumps(spec)), 0)
 
-    def test_validate_created_package(self):
-        self.run_cli("create", "demo-task")
-        self.assertEqual(self.run_cli("validate", "demo-task"), 0)
+        self.assertEqual((self.package_dir() / "prd.md").read_text(encoding="utf-8"), READY_PRD)
+        self.assertEqual(self.task_json()["prd"]["status"], "ready")
 
-    def test_validate_missing_task_json_fails(self):
-        self.run_cli("create", "demo-task")
-        (self.package_dir() / "task.json").unlink()
-        self.assertEqual(self.run_cli("validate", "demo-task"), 1)
+    def test_finalize_brainstorm_rejects_parent_child_package_splitting(self):
+        spec = {
+            "kind": "parent",
+            "name": "big-init",
+            "title": "Big init",
+            "prd": READY_PRD,
+            "children": [{"package": "big-core", "title": "Big core"}],
+        }
+        self.assertEqual(self.run_cli("finalize-brainstorm", "--input-json", json.dumps(spec), "--json"), 1)
+        self.assertFalse(self.package_dir("big-init").exists())
+        self.assertFalse(self.package_dir("big-core").exists())
 
-    def test_add_child_and_duplicate_rejected(self):
-        self.run_cli("create", "demo-task")
-        self.run_cli("set-package-sizing", "demo-task", "--status", "fits_package", "--actor", "brainstorm", "--phase", "brainstorm", "--decision", "single package")
-        code = self.run_cli(
-            "add-child",
-            "demo-task",
-            "--id",
-            "T-001",
-            "--title",
-            "ADD demo validator",
-            "--milestone",
-            "M-01",
-            "--role",
-            "shared",
-        )
+    def test_finalize_brainstorm_rejects_missing_prd_content(self):
+        spec = {"kind": "single", "name": "demo-package"}
+        self.assertEqual(self.run_cli("finalize-brainstorm", "--input-json", json.dumps(spec)), 1)
+        self.assertFalse(self.package_dir("demo-package").exists())
+
+    def test_finalize_brainstorm_rejects_obsolete_mode_field(self):
+        spec = {"kind": "single", "name": "demo-package", "prd": "# Demo", "mode": "lean"}
+        self.assertEqual(self.run_cli("finalize-brainstorm", "--input-json", json.dumps(spec)), 1)
+        self.assertFalse(self.package_dir("demo-package").exists())
+
+    def test_validate_rejects_obsolete_state_shapes(self):
+        self.run_cli("create", "demo-package")
+        (self.package_dir() / "task.md").write_text("obsolete", encoding="utf-8")
+        data = self.task_json()
+        data["tasks"] = []
+        data["mode"] = "strict-atomic"
+        data["parent"] = {"package": "old-parent"}
+        data["children"] = [{"package": "old-child"}]
+        data["execution"]["plan"] = [{"id": "P-001", "title": "old plan", "status": "pending"}]
+        (self.package_dir() / "task.json").write_text(json.dumps(data), encoding="utf-8")
+        errors = arbor.validate_package(self.root, "demo-package")
+        self.assertTrue(any("task.md is obsolete" in error for error in errors))
+        self.assertTrue(any("tasks[] is obsolete" in error for error in errors))
+        self.assertTrue(any("mode is obsolete" in error for error in errors))
+        self.assertTrue(any("parent metadata is obsolete" in error for error in errors))
+        self.assertTrue(any("children metadata is obsolete" in error for error in errors))
+        self.assertTrue(any("execution.plan is obsolete" in error for error in errors))
+
+    def test_set_status_updates_simplified_state_and_maps_legacy_state(self):
+        self.finalize_single()
+        code = self.run_cli("set-status", "demo-package", "--state", "doing", "--actor", "impl", "--note", "start")
         self.assertEqual(code, 0)
         data = self.task_json()
-        self.assertEqual(data["tasks"][0]["id"], "T-001")
+        self.assertEqual(data["state"], "doing")
         self.assertEqual(data["next_action"]["skill"], "impl")
-        self.assertEqual(self.run_cli("add-child", "demo-task", "--id", "T-001", "--title", "ADD duplicate", "--milestone", "M-01", "--role", "shared"), 1)
-
-    def test_unknown_dependency_rejected(self):
-        self.run_cli("create", "demo-task")
-        self.run_cli("set-package-sizing", "demo-task", "--status", "fits_package", "--actor", "brainstorm", "--phase", "brainstorm", "--decision", "single package")
-        code = self.run_cli(
-            "add-child",
-            "demo-task",
-            "--id",
-            "T-002",
-            "--title",
-            "ADD dependent",
-            "--milestone",
-            "M-01",
-            "--role",
-            "shared",
-            "--depends-on",
-            "T-999",
-        )
-        self.assertEqual(code, 1)
-
-    def test_add_child_requires_package_sizing_gate(self):
-        self.run_cli("create", "demo-task")
-        self.assertEqual(self.run_cli("add-child", "demo-task", "--id", "T-001", "--title", "ADD first", "--milestone", "M-01", "--role", "shared"), 1)
-        self.assertEqual(self.run_cli("set-package-sizing", "demo-task", "--status", "split_recommended", "--actor", "brainstorm", "--phase", "brainstorm", "--decision", "too large", "--signal", "multiple PR boundaries", "--recommended-package", "demo-core::core boundary"), 0)
-        self.assertEqual(self.run_cli("add-child", "demo-task", "--id", "T-001", "--title", "ADD first", "--milestone", "M-01", "--role", "shared"), 1)
-        data = self.task_json()
-        self.assertEqual(data["package_sizing"]["status"], "split_recommended")
-        self.assertEqual(data["package_sizing"]["recommended_packages"][0]["name"], "demo-core")
-
-    def test_validate_rejects_tasks_when_sizing_unchecked(self):
-        self.run_cli("create", "demo-task")
-        data = self.task_json()
-        data["tasks"].append({
-            "id": "T-001",
-            "title": "ADD first",
-            "milestone": "M-01",
-            "role": "shared",
-            "state": "ready",
-            "depends_on": [],
-            "ready": True,
-            "blockers": [],
-            "attempts": 0,
-            "last_impl_result": None,
-            "last_review_result": None,
-            "created_at": NOW,
-            "updated_at": NOW,
-        })
-        (self.package_dir() / "task.json").write_text(json.dumps(data), encoding="utf-8")
-        (self.package_dir() / "task.md").write_text("# 任务: demo-task\n\n- id: T-001\n  title: ADD first\n", encoding="utf-8")
-        self.assertEqual(self.run_cli("validate", "demo-task"), 1)
-
-    def test_validate_rejects_ready_prd_with_unchecked_sizing(self):
-        self.run_cli("create", "demo-task")
-        data = self.task_json()
-        data["prd"]["status"] = "ready-for-task"
-        data["prd"]["ready_for_task_at"] = NOW
-        data["state"] = "ready"
-        data["current_phase"] = "task"
-        data["next_action"] = {"skill": "task", "task_id": None, "reason": "bad"}
-        (self.package_dir() / "task.json").write_text(json.dumps(data), encoding="utf-8")
-        self.assertEqual(self.run_cli("validate", "demo-task"), 1)
-
-    def test_validate_rejects_split_recommended_without_recommended_packages(self):
-        self.run_cli("create", "demo-task")
-        data = self.task_json()
-        data["package_sizing"]["status"] = "split_recommended"
-        data["package_sizing"]["decision"] = "too large"
-        data["package_sizing"]["decided_at"] = NOW
-        data["package_sizing"]["decided_by"] = "brainstorm"
-        data["package_sizing"]["recommended_packages"] = []
-        (self.package_dir() / "task.json").write_text(json.dumps(data), encoding="utf-8")
-        self.assertEqual(self.run_cli("validate", "demo-task"), 1)
-
-    def test_validate_detects_cycle(self):
-        self.run_cli("create", "demo-task")
-        self.run_cli("set-package-sizing", "demo-task", "--status", "fits_package", "--actor", "brainstorm", "--phase", "brainstorm", "--decision", "single package")
-        self.run_cli("add-child", "demo-task", "--id", "T-001", "--title", "ADD first", "--milestone", "M-01", "--role", "shared")
-        self.run_cli("add-child", "demo-task", "--id", "T-002", "--title", "ADD second", "--milestone", "M-01", "--role", "shared", "--depends-on", "T-001")
-        data = self.task_json()
-        data["tasks"][0]["depends_on"] = ["T-002"]
-        (self.package_dir() / "task.json").write_text(json.dumps(data), encoding="utf-8")
-        self.assertEqual(self.run_cli("validate", "demo-task"), 1)
-
-    def test_set_status_updates_task_and_phase_history(self):
-        self.run_cli("create", "demo-task")
-        self.run_cli("set-package-sizing", "demo-task", "--status", "fits_package", "--actor", "brainstorm", "--phase", "brainstorm", "--decision", "single package")
-        self.run_cli("add-child", "demo-task", "--id", "T-001", "--title", "ADD first", "--milestone", "M-01", "--role", "shared")
-        code = self.run_cli("set-status", "demo-task", "--task", "T-001", "--state", "in_progress", "--actor", "impl", "--note", "start")
-        self.assertEqual(code, 0)
-        data = self.task_json()
-        self.assertEqual(data["tasks"][0]["state"], "in_progress")
-        self.assertEqual(data["active_task"], "T-001")
+        self.assertEqual(data["execution"]["status"], "in_progress")
         self.assertEqual(data["phase_history"][-1]["actor"], "impl")
+        self.assertEqual(self.run_cli("set-status", "demo-package", "--state", "impl_done", "--actor", "impl", "--note", "legacy"), 0)
+        self.assertEqual(self.task_json()["state"], "done")
 
-    def test_set_phase_updates_current_phase(self):
-        self.run_cli("create", "demo-task")
-        code = self.run_cli("set-phase", "demo-task", "--phase", "task", "--actor", "task", "--note", "decompose")
-        self.assertEqual(code, 0)
-        self.assertEqual(self.task_json()["current_phase"], "task")
-
-    def test_ready_for_task_requires_package_sizing(self):
-        self.run_cli("create", "demo-task")
-        code = self.run_cli("set-prd-status", "demo-task", "--status", "ready-for-task", "--actor", "brainstorm", "--note", "ready")
+    def test_ready_prd_requires_package_sizing(self):
+        self.run_cli("create", "demo-package")
+        code = self.run_cli("set-prd-status", "demo-package", "--status", "ready", "--actor", "brainstorm", "--note", "ready")
         self.assertEqual(code, 1)
         data = self.task_json()
         self.assertEqual(data["prd"]["status"], "draft")
         self.assertEqual(data["package_sizing"]["status"], "unchecked")
 
-    def test_brainstorm_sizing_allows_ready_for_task(self):
-        self.run_cli("create", "demo-task")
-        self.assertEqual(self.run_cli("set-package-sizing", "demo-task", "--status", "fits_package", "--actor", "brainstorm", "--phase", "brainstorm", "--decision", "single package boundary is valid"), 0)
-        code = self.run_cli("set-prd-status", "demo-task", "--status", "ready-for-task", "--actor", "brainstorm", "--note", "ready")
-        self.assertEqual(code, 0)
+    def test_record_impl_result_routes_structured_results(self):
+        self.finalize_single()
+        self.assertEqual(self.run_cli("record-impl-result", "demo-package", "--state", "done_with_concerns", "--summary", "implemented behavior", "--acceptance", "golden path passes", "--command", "pytest tests/test_demo.py", "--concern", "edge case needs review", "--json"), 0)
         data = self.task_json()
-        self.assertEqual(data["package_sizing"]["decided_by"], "brainstorm")
-        self.assertEqual(data["prd"]["status"], "ready-for-task")
-        self.assertEqual(data["state"], "ready")
-        self.assertEqual(data["current_phase"], "task")
-        self.assertEqual(data["next_action"]["skill"], "task")
+        self.assertEqual(data["state"], "done")
+        self.assertEqual(data["impl_result"]["state"], "DONE_WITH_CONCERNS")
+        self.assertEqual(data["impl_result"]["acceptance"], ["golden path passes"])
+        self.assertEqual(data["impl_result"]["commands"], ["pytest tests/test_demo.py"])
+        self.assertEqual(data["impl_result"]["concerns"], ["edge case needs review"])
+        self.assertEqual(data["next_action"]["skill"], "review")
+        self.assertEqual(data["phase_history"][-1]["phase"], "impl")
+        self.assertEqual(self.run_cli("record-impl-result", "demo-package", "--state", "approved", "--summary", "bad"), 1)
 
-    def test_split_recommended_blocks_ready_for_task_and_routes_to_map(self):
-        self.run_cli("create", "demo-task")
-        self.assertEqual(self.run_cli("set-package-sizing", "demo-task", "--status", "split_recommended", "--actor", "brainstorm", "--phase", "brainstorm", "--decision", "PRD crosses package boundaries", "--recommended-package", "demo-core::core boundary"), 0)
+    def test_record_impl_result_routes_context_and_blockers(self):
+        self.finalize_single()
+        self.assertEqual(self.run_cli("record-impl-result", "demo-package", "--state", "needs_context", "--summary", "PRD missing auth boundary"), 0)
         data = self.task_json()
-        self.assertEqual(data["package_sizing"]["status"], "split_recommended")
-        self.assertEqual(data["current_phase"], "map")
-        self.assertEqual(data["next_action"]["skill"], "map")
-        self.assertEqual(self.run_cli("set-prd-status", "demo-task", "--status", "ready-for-task", "--actor", "brainstorm", "--note", "ready"), 1)
+        self.assertEqual(data["state"], "doing")
+        self.assertEqual(data["next_action"]["skill"], "brainstorm")
+        self.assertEqual(self.run_cli("record-impl-result", "demo-package", "--state", "blocked", "--summary", "database unavailable"), 0)
+        data = self.task_json()
+        self.assertEqual(data["state"], "doing")
+        self.assertEqual(data["next_action"]["skill"], "user")
 
-    def test_split_applied_from_map_allows_task_decomposition(self):
-        self.run_cli("create", "demo-task")
-        self.assertEqual(self.run_cli("set-package-sizing", "demo-task", "--status", "split_applied", "--actor", "map", "--phase", "map", "--decision", "child package from .arbor/maps/demo/map.md"), 0)
-        self.assertEqual(self.run_cli("set-prd-status", "demo-task", "--status", "ready-for-task", "--actor", "brainstorm", "--note", "ready"), 0)
-        self.assertEqual(self.run_cli("add-child", "demo-task", "--id", "T-001", "--title", "ADD first", "--milestone", "M-01", "--role", "shared"), 0)
-        (self.package_dir() / "task.md").write_text("# 任务: demo-task\n\n- id: T-001\n  title: ADD first\n", encoding="utf-8")
-        self.assertEqual(self.run_cli("validate", "demo-task"), 0)
+    def test_record_review_stores_package_verdict_and_appends_review_md(self):
+        self.finalize_single()
+        self.run_cli("record-impl-result", "demo-package", "--state", "done", "--summary", "implemented")
+        before = (self.package_dir() / "review.md").read_text(encoding="utf-8")
+        self.assertEqual(self.run_cli("record-review", "demo-package", "--state", "approved_with_notes", "--summary", "approved", "--evidence", "unit tests pass", "--note", "keep an eye on edge", "--json"), 0)
+        data = self.task_json()
+        self.assertEqual(data["review_result"]["state"], "APPROVED_WITH_NOTES")
+        self.assertEqual(data["review_result"]["evidence"], ["unit tests pass"])
+        self.assertEqual(data["review_result"]["notes"], ["keep an eye on edge"])
+        self.assertEqual(data["state"], "reviewed")
+        self.assertEqual(data["next_action"]["skill"], "none")
+        review_md = (self.package_dir() / "review.md").read_text(encoding="utf-8")
+        self.assertIn(before, review_md)
+        self.assertIn("## 2026-04-25T00:00:00Z approved_with_notes", review_md)
+        self.assertIn("- Evidence: unit tests pass", review_md)
+        self.assertIn("- Note: keep an eye on edge", review_md)
 
-    def test_create_split_packages_materializes_child_stubs(self):
-        self.create_map_file("big-init")
+    def test_record_review_routes_rework_and_drift(self):
+        self.finalize_single()
+        self.assertEqual(self.run_cli("record-review", "demo-package", "--state", "needs_rework", "--summary", "bug remains"), 0)
+        data = self.task_json()
+        self.assertEqual(data["state"], "doing")
+        self.assertEqual(data["next_action"]["skill"], "impl")
+        self.assertEqual(self.run_cli("record-review", "demo-package", "--state", "brainstorm_drift", "--summary", "scope wrong"), 0)
+        data = self.task_json()
+        self.assertEqual(data["state"], "draft")
+        self.assertEqual(data["next_action"]["skill"], "brainstorm")
+        self.assertEqual(self.run_cli("record-review", "demo-package", "--state", "done", "--summary", "bad"), 1)
+
+    def test_add_amendment_routes_to_impl(self):
+        self.finalize_single()
         self.assertEqual(
             self.run_cli(
-                "create-split-packages",
-                "big-init",
-                "--package",
-                "big-core::Big core::::core boundary",
-                "--package",
-                "big-order::Big order::big-core::order boundary",
+                "add-amendment",
+                "demo-package",
+                "--id",
+                "AMD-001",
+                "--title",
+                "Correct refund behavior",
+                "--wrong",
+                "refund not described",
+                "--correct",
+                "full refund revokes entitlement",
+                "--affects",
+                "refund flow",
                 "--actor",
-                "map",
-                "--decision",
-                "package graph 已从 .arbor/maps/big-init/map.md materialize",
+                "brainstorm",
             ),
             0,
         )
-        self.assertFalse(self.package_dir("big-init").exists())
-        for name in ["big-core", "big-order"]:
-            pkg = self.package_dir(name)
-            self.assertTrue((pkg / "prd.md").exists())
-            self.assertTrue((pkg / "task.md").exists())
-            self.assertTrue((pkg / "task.json").exists())
-            self.assertEqual(self.run_cli("validate", name), 0)
-        core = self.task_json("big-core")
-        self.assertEqual(core["prd"]["source_type"], "map-split")
-        self.assertEqual(core["prd"]["parent_initiative"], "big-init")
-        self.assertEqual(core["package_sizing"]["status"], "split_applied")
-        self.assertEqual(core["package_sizing"]["parent_map"], ".arbor/maps/big-init/map.md")
-        map_data = self.map_json("big-init")
-        self.assertEqual([item["name"] for item in map_data["packages"]], ["big-core", "big-order"])
-        self.assertEqual(map_data["packages"][0]["boundary_reason"], "core boundary")
-        self.assertEqual(map_data["packages"][1]["depends_on"], ["big-core"])
-        for entry in map_data["packages"]:
-            self.assertNotIn("parallel_policy", entry)
-            self.assertNotIn("modification_scope", entry)
-            self.assertNotIn("contract_inputs", entry)
-            self.assertNotIn("contract_outputs", entry)
-        self.assertEqual(core["tasks"], [])
-        self.assertEqual(core["prd"]["status"], "draft")
-        self.assertEqual(core["next_action"]["skill"], "brainstorm")
-        self.assertEqual(core["package_sizing"]["boundary_reason"], "core boundary")
-        self.assertNotIn("parallel_policy", core["package_sizing"])
-        order = self.task_json("big-order")
-        self.assertEqual(order["package_sizing"]["depends_on_packages"], ["big-core"])
-        self.assertEqual(order["package_sizing"]["boundary_reason"], "order boundary")
-        self.assertNotIn("parallel_policy", order["package_sizing"])
-
-    def test_create_split_package_can_later_enter_task_decomposition(self):
-        self.create_map_file("big-init")
-        self.assertEqual(self.run_cli("create-split-packages", "big-init", "--package", "big-core::Big core::::core boundary", "--decision", "from map"), 0)
-        self.assertEqual(self.run_cli("set-prd-status", "big-core", "--status", "ready-for-task", "--actor", "brainstorm", "--note", "ready"), 0)
-        self.assertEqual(self.run_cli("add-child", "big-core", "--id", "T-001", "--title", "ADD first", "--milestone", "M-01", "--role", "shared"), 0)
-        (self.package_dir("big-core") / "task.md").write_text("# 任务: big-core\n\n- id: T-001\n  title: ADD first\n", encoding="utf-8")
-        self.assertEqual(self.run_cli("validate", "big-core"), 0)
-
-    def test_create_split_packages_rejects_invalid_specs(self):
-        self.create_map_file("big-init")
-        self.assertEqual(self.run_cli("create-split-packages", "big-init", "--package", "big-init::Parent::::bad", "--decision", "from map"), 1)
-        self.assertEqual(self.run_cli("create-split-packages", "big-init", "--package", "Bad::Bad::::bad", "--decision", "from map"), 1)
-        self.assertEqual(self.run_cli("create-split-packages", "big-init", "--package", "big-core::Big core::::core", "--package", "big-core::Duplicate::::dup", "--decision", "from map"), 1)
-        self.assertEqual(self.run_cli("create-split-packages", "big-init", "--package", "big-core::Big core::big-core::self", "--decision", "from map"), 1)
-        self.run_cli("create", "existing", "--source-type", "ad-hoc")
-        self.run_cli("set-package-sizing", "existing", "--status", "fits_package", "--actor", "brainstorm", "--phase", "brainstorm", "--decision", "standalone")
-        self.assertEqual(self.run_cli("create-split-packages", "big-init", "--package", "existing::Existing::::conflict", "--decision", "from map"), 1)
-        self.assertEqual(self.map_json("big-init")["packages"], [])
-
-    def test_create_split_packages_is_idempotent_without_overwriting_prd(self):
-        self.create_map_file("big-init")
-        self.assertEqual(self.run_cli("create-split-packages", "big-init", "--package", "big-core::Big core::::core boundary", "--decision", "from map"), 0)
-        prd = self.package_dir("big-core") / "prd.md"
-        prd.write_text("custom child prd", encoding="utf-8")
-        self.assertEqual(self.run_cli("create-split-packages", "big-init", "--package", "big-core::Big core::::core boundary", "--decision", "from map"), 0)
-        self.assertEqual(prd.read_text(encoding="utf-8"), "custom child prd")
-
-    def test_validate_rejects_malformed_map_split_metadata(self):
-        self.run_cli("create", "big-core", "--source-type", "map-split")
-        data = self.task_json("big-core")
-        data["prd"]["parent_initiative"] = "big-init"
-        data["prd"]["parent_map"] = ".arbor/maps/wrong.md"
-        data["package_sizing"]["status"] = "fits_package"
-        data["package_sizing"]["decision"] = "bad"
-        (self.package_dir("big-core") / "task.json").write_text(json.dumps(data), encoding="utf-8")
-        self.assertEqual(self.run_cli("validate", "big-core"), 1)
-
-    def test_map_check_reports_ready_and_blocked_packages(self):
-        self.create_map_file("big-init")
-        self.assertEqual(
-            self.run_cli(
-                "create-split-packages",
-                "big-init",
-                "--package",
-                "big-core::Big core::::core boundary",
-                "--package",
-                "big-order::Big order::big-core::order boundary",
-                "--decision",
-                "from map",
-            ),
-            0,
-        )
-        check = arbor.map_check(self.root, "big-init", NOW)
-        self.assertEqual([item["name"] for item in check["ready"]], ["big-core"])
-        self.assertEqual([item["name"] for item in check["blocked"]], ["big-order"])
-        self.assertEqual(check["blocked"][0]["reason"], "dependency 未完成")
-        self.assertEqual(check["blocked"][0]["blocked_by"][0]["name"], "big-core")
-        self.assertNotIn("execution_ready", check)
-        self.assertNotIn("prep_ready", check)
-
-    def test_map_check_dependency_reviewed_does_not_unlock_downstream(self):
-        self.create_map_file("big-init")
-        self.assertEqual(self.run_cli("create-split-packages", "big-init", "--package", "big-core::Big core::::core boundary", "--package", "big-order::Big order::big-core::order boundary", "--decision", "from map"), 0)
-        self.assertEqual(self.run_cli("set-prd-status", "big-core", "--status", "ready-for-task", "--actor", "brainstorm", "--note", "ready"), 0)
-        self.assertEqual(self.run_cli("add-child", "big-core", "--id", "T-001", "--title", "ADD first", "--milestone", "M-01", "--role", "shared"), 0)
-        self.mark_task_md_defined("big-core")
-        self.assertEqual(self.run_cli("set-status", "big-core", "--task", "T-001", "--state", "approved", "--actor", "review", "--note", "approved"), 0)
-        self.assertEqual(self.run_cli("set-execution", "big-core", "--status", "reviewed"), 0)
-        check = arbor.map_check(self.root, "big-init", NOW)
-        self.assertEqual([item["name"] for item in check["ready"]], [])
-        self.assertEqual([item["name"] for item in check["blocked"]], ["big-core", "big-order"])
-        self.assertEqual(check["blocked"][0]["reason"], "package 已 reviewed；需要显式标记 completed 或合并 PR 后下游才能依赖")
-        self.assertEqual(check["blocked"][1]["blocked_by"][0]["name"], "big-core")
-
-    def test_map_check_unblocks_downstream_after_completed_or_merged(self):
-        self.create_map_file("big-init")
-        self.assertEqual(self.run_cli("create-split-packages", "big-init", "--package", "big-core::Big core::::core boundary", "--package", "big-order::Big order::big-core::order boundary", "--decision", "from map"), 0)
-        data = self.task_json("big-core")
-        data["state"] = "completed"
-        (self.package_dir("big-core") / "task.json").write_text(json.dumps(data), encoding="utf-8")
-        check = arbor.map_check(self.root, "big-init", NOW)
-        self.assertEqual([item["name"] for item in check["complete"]], ["big-core"])
-        self.assertEqual([item["name"] for item in check["ready"]], ["big-order"])
-
-    def test_map_check_contract_request_blocks_only_consumer(self):
-        self.create_map_file("big-init")
-        self.assertEqual(self.run_cli("create-split-packages", "big-init", "--package", "big-core::Big core::::core boundary", "--package", "big-order::Big order::::order boundary", "--decision", "from map"), 0)
-        self.assertEqual(self.run_cli("record-contract-request", "big-init", "--consumer", "big-order", "--producer", "big-core", "--request", "Need entitlement status output", "--status", "open"), 0)
-        check = arbor.map_check(self.root, "big-init", NOW)
-        self.assertEqual([item["name"] for item in check["ready"]], ["big-core"])
-        self.assertEqual([item["name"] for item in check["blocked"]], ["big-order"])
-        self.assertEqual(check["blocked"][0]["reason"], "contract request 未解决")
-        self.assertEqual(check["blocked"][0]["contract_blockers"][0]["id"], "CR-001")
-        for status in ["accepted", "rejected"]:
-            self.assertEqual(self.run_cli("record-contract-request", "big-init", "--id", "CR-001", "--consumer", "big-order", "--producer", "big-core", "--request", "Need entitlement status output", "--status", status), 0)
-            check = arbor.map_check(self.root, "big-init", NOW)
-            self.assertEqual([item["name"] for item in check["ready"]], ["big-core"])
-            self.assertEqual([item["name"] for item in check["blocked"]], ["big-order"])
-        for status in ["fulfilled", "superseded"]:
-            self.assertEqual(self.run_cli("record-contract-request", "big-init", "--id", "CR-001", "--consumer", "big-order", "--producer", "big-core", "--request", "Need entitlement status output", "--status", status), 0)
-            check = arbor.map_check(self.root, "big-init", NOW)
-            self.assertEqual([item["name"] for item in check["ready"]], ["big-core", "big-order"])
-            self.assertEqual(check["blocked"], [])
-
-    def test_record_contract_request_create_update(self):
-        self.create_map_file("big-init")
-        self.assertEqual(self.run_cli("create-split-packages", "big-init", "--package", "big-core::Big core::::core boundary", "--package", "big-order::Big order::big-core::order boundary", "--decision", "from map"), 0)
-        self.assertEqual(self.run_cli("record-contract-request", "big-init", "--consumer", "big-order", "--producer", "big-core", "--request", "Need entitlement status output", "--status", "open"), 0)
-        data = self.map_json("big-init")
-        self.assertEqual(data["contract_requests"][0]["id"], "CR-001")
-        self.assertEqual(data["contract_requests"][0]["consumer"], "big-order")
-        self.assertEqual(data["contract_requests"][0]["producer"], "big-core")
-        self.assertEqual(self.run_cli("record-contract-request", "big-init", "--id", "CR-001", "--consumer", "big-order", "--producer", "big-core", "--request", "Need entitlement status output", "--status", "accepted", "--resolution", "big-core will expose stable status"), 0)
-        data = self.map_json("big-init")
-        self.assertEqual(len(data["contract_requests"]), 1)
-        self.assertEqual(data["contract_requests"][0]["status"], "accepted")
-        self.assertEqual(data["contract_requests"][0]["resolution"], "big-core will expose stable status")
-
-    def test_record_contract_request_rejects_unknown_or_invalid_packages(self):
-        self.create_map_file("big-init")
-        self.assertEqual(self.run_cli("create-split-packages", "big-init", "--package", "big-core::Big core::::core boundary", "--decision", "from map"), 0)
-        self.assertEqual(self.run_cli("record-contract-request", "big-init", "--consumer", "missing", "--producer", "big-core", "--request", "Need x", "--status", "open"), 1)
-        self.assertEqual(self.run_cli("record-contract-request", "big-init", "--consumer", "big-core", "--producer", "big-core", "--request", "Need x", "--status", "open"), 1)
-        self.assertEqual(self.map_json("big-init")["contract_requests"], [])
+        data = self.task_json()
+        self.assertEqual(data["prd"]["amendments"][0]["id"], "AMD-001")
+        self.assertEqual(data["prd"]["status"], "ready")
+        self.assertEqual(data["current_phase"], "brainstorm")
+        self.assertEqual(data["next_action"]["skill"], "impl")
+        self.assertEqual(data["phase_history"][-1]["to"], "amendment:AMD-001")
+        self.assertEqual(self.run_cli("validate", "demo-package"), 0)
 
     def test_add_context_batch_is_atomic_and_ordered(self):
-        self.run_cli("create", "demo-task")
-        self.run_cli("set-package-sizing", "demo-task", "--status", "fits_package", "--actor", "brainstorm", "--phase", "brainstorm", "--decision", "single package")
-        self.run_cli("add-child", "demo-task", "--id", "T-001", "--title", "ADD first", "--milestone", "M-01", "--role", "shared")
-        self.assertEqual(self.run_cli("add-context-batch", "demo-task", "--type", "impl", "--entry-json", '{"task_id":"T-001","kind":"note","summary":"first"}', "--entry-json", '{"task_id":"T-001","kind":"decision","summary":"second"}'), 0)
-        lines = (self.package_dir("demo-task") / "context" / "impl.jsonl").read_text(encoding="utf-8").strip().splitlines()
+        self.finalize_single()
+        self.assertEqual(self.run_cli("add-context-batch", "demo-package", "--type", "impl", "--entry-json", '{"kind":"note","summary":"first"}', "--entry-json", '{"kind":"decision","summary":"second"}'), 0)
+        lines = (self.package_dir() / "context" / "impl.jsonl").read_text(encoding="utf-8").strip().splitlines()
         self.assertEqual([json.loads(line)["summary"] for line in lines], ["first", "second"])
-        before = (self.package_dir("demo-task") / "context" / "review.jsonl").read_text(encoding="utf-8")
-        self.assertEqual(self.run_cli("add-context-batch", "demo-task", "--type", "review", "--entry-json", '{"task_id":"T-999","kind":"note","summary":"bad"}'), 1)
-        self.assertEqual((self.package_dir("demo-task") / "context" / "review.jsonl").read_text(encoding="utf-8"), before)
+        before = (self.package_dir() / "context" / "review.jsonl").read_text(encoding="utf-8")
+        self.assertEqual(self.run_cli("add-context-batch", "demo-package", "--type", "review", "--entry-json", '{"kind":"bad","summary":"bad"}'), 1)
+        self.assertEqual((self.package_dir() / "context" / "review.jsonl").read_text(encoding="utf-8"), before)
 
-    def test_repair_context_jsonl_adds_missing_schema_fields(self):
-        self.run_cli("create", "demo-task")
-        self.run_cli("set-package-sizing", "demo-task", "--status", "fits_package", "--actor", "brainstorm", "--phase", "brainstorm", "--decision", "single package")
-        self.run_cli("add-child", "demo-task", "--id", "T-001", "--title", "ADD first", "--milestone", "M-01", "--role", "shared")
-        path = self.package_dir("demo-task") / "context" / "review.jsonl"
-        path.write_text('{"summary":"review note","task_id":"T-001"}\n', encoding="utf-8")
-        self.assertEqual(self.run_cli("validate", "demo-task"), 1)
-        self.assertEqual(self.run_cli("repair-context", "demo-task", "--type", "review", "--json"), 0)
+    def test_repair_context_jsonl_removes_obsolete_task_id_and_adds_schema_fields(self):
+        self.finalize_single()
+        path = self.package_dir() / "context" / "review.jsonl"
+        path.write_text('{"summary":"review note","task_id":"old"}\n', encoding="utf-8")
+        self.assertEqual(self.run_cli("validate", "demo-package"), 1)
+        self.assertEqual(self.run_cli("repair-context", "demo-package", "--type", "review", "--json"), 0)
         entry = json.loads(path.read_text(encoding="utf-8").strip())
         self.assertEqual(entry["kind"], "note")
         self.assertEqual(entry["actor"], "arbor")
         self.assertEqual(entry["at"], NOW)
-        errors = arbor.validate_package(self.root, "demo-task")
+        self.assertNotIn("task_id", entry)
+        errors = arbor.validate_package(self.root, "demo-package")
         self.assertFalse([error for error in errors if "context/review.jsonl" in error])
 
     def test_module_summary_has_stable_non_line_locators(self):
-        self.create_map_file("big-init")
-        self.assertEqual(self.run_cli("create-split-packages", "big-init", "--package", "big-core::Big core::::core boundary", "--decision", "from map"), 0)
-        self.assertEqual(self.run_cli("record-contract-request", "big-init", "--consumer", "big-core", "--producer", "big-core", "--request", "bad", "--status", "open"), 1)
-        packet = arbor.module_summary(self.root, "big-core", "big-init", NOW)
+        self.finalize_single()
+        packet = arbor.module_summary(self.root, "demo-package", NOW)
         self.assertEqual(packet["kind"], "module-summary")
         self.assertEqual(packet["schema_version"], "sdd-module-summary-v1")
-        self.assertEqual(packet["package"], "big-core")
-        self.assertIn("contracts", packet)
+        self.assertEqual(packet["package"], "demo-package")
+        self.assertEqual(packet["package_kind"], "single")
+        self.assertNotIn("parent", packet)
+        self.assertNotIn("children", packet)
+        self.assertEqual(packet["related_packages"], [])
         self.assertNotIn("line", json.dumps(packet).lower())
-        self.assertEqual(self.run_cli("module-summary", "big-core", "--initiative", "big-init", "--json"), 0)
+        self.assertNotIn("tests", packet)
+        self.assertEqual(self.run_cli("module-summary", "demo-package", "--json"), 0)
 
     def test_wiki_index_search_and_collect_nested_pages(self):
         wiki = self.root / ".wiki" / "Modules"
@@ -565,11 +421,6 @@ Provides `RoleGate.canManageCourse`.
         self.assertEqual(self.run_cli("wiki-search", "balance refund", "--json"), 0)
         self.assertEqual(self.run_cli("wiki-collect", "--query", "balance refund", "--json"), 0)
 
-    def test_wiki_index_empty_root(self):
-        result = arbor.wiki_index(self.root)
-        self.assertEqual(result["wiki_root"], ".wiki")
-        self.assertEqual(result["pages"], [])
-
     def test_wiki_lint_reports_errors_and_warnings(self):
         wiki = self.root / ".wiki"
         (wiki / "Modules").mkdir(parents=True)
@@ -615,488 +466,50 @@ summary: Duplicate module package.
         self.assertIn("module_line_locator", warning_codes)
         self.assertEqual(self.run_cli("wiki-lint", "--json"), 1)
 
-    def test_wiki_lint_valid_wiki_exits_zero_with_orphan_warning(self):
-        wiki = self.root / ".wiki"
-        wiki.mkdir()
-        (wiki / "index.md").write_text("""---
-title: Index
-description: Wiki entry
-type: entity
-tags: [root]
-summary: Entry page.
----
-
-# Index
-
-See [[Module One]].
-""", encoding="utf-8")
-        (wiki / "Module One.md").write_text("""---
-title: Module One
-description: Module one
-type: module
-tags: [module]
-package: module-one
-source_checkpoint: abc123
-summary: Module summary.
----
-
-# Module One
-
-Uses `ModuleOneService`.
-""", encoding="utf-8")
-        (wiki / "Orphan.md").write_text("""---
-title: Orphan
-description: Orphan note
-type: concept
-tags: [concept]
-summary: Orphan warning only.
----
-
-# Orphan
-""", encoding="utf-8")
-        result = arbor.wiki_lint(self.root)
-        self.assertTrue(result["ok"])
-        self.assertIn("orphan_page", {item["code"] for item in result["warnings"]})
-        self.assertEqual(self.run_cli("wiki-lint"), 0)
-
-    def test_doctor_skips_missing_wiki_and_reports_ok(self):
+    def test_doctor_skips_missing_wiki_and_reports_next_action(self):
+        self.finalize_single()
         result = arbor.doctor(self.root, timestamp=NOW)
         self.assertTrue(result["ok"])
         self.assertTrue(result["wiki"]["skipped"])
         self.assertEqual(result["summary"]["error_count"], 0)
+        self.assertEqual(result["next_action"]["skill"], "impl")
+        self.assertEqual(result["next_action"]["package"], "demo-package")
         self.assertEqual(self.run_cli("doctor", "--json"), 0)
 
-    def test_doctor_fails_on_task_validation_error(self):
-        self.run_cli("create", "demo-task")
+    def test_doctor_fails_on_package_validation_error(self):
+        self.run_cli("create", "demo-package")
         data = self.task_json()
-        data["tasks"] = [{"id": "T-001", "title": "missing task markdown", "state": "ready", "depends_on": [], "role": "shared"}]
+        data["state"] = "bad"
         (self.package_dir() / "task.json").write_text(json.dumps(data), encoding="utf-8")
         result = arbor.doctor(self.root, timestamp=NOW)
         self.assertFalse(result["ok"])
-        self.assertIn("demo-task", result["tasks"]["errors"])
+        self.assertIn("demo-package", result["packages"]["errors"])
+        self.assertEqual(result["next_action"]["skill"], "doctor")
         self.assertEqual(self.run_cli("doctor", "--json"), 1)
-
-    def test_doctor_fails_on_wiki_error_but_not_warning(self):
-        wiki = self.root / ".wiki"
-        wiki.mkdir()
-        (wiki / "index.md").write_text("""---
-title: Index
-description: Wiki entry
-type: entity
-tags: [root]
-summary: Entry page.
----
-
-# Index
-
-See [[Missing]].
-""", encoding="utf-8")
-        self.assertEqual(self.run_cli("doctor", "--json"), 1)
-        (wiki / "index.md").write_text("""---
-title: Index
-description: Wiki entry
-type: entity
-tags: [root]
-summary: Entry page.
----
-
-# Index
-""", encoding="utf-8")
-        (wiki / "Orphan.md").write_text("""---
-title: Orphan
-description: Orphan note
-type: concept
-tags: [concept]
-summary: Warning only.
----
-
-# Orphan
-""", encoding="utf-8")
-        result = arbor.doctor(self.root, timestamp=NOW)
-        self.assertTrue(result["ok"])
-        self.assertIn("orphan_page", {item["code"] for item in result["wiki"]["warnings"]})
-        self.assertEqual(self.run_cli("doctor", "--json"), 0)
-        self.assertEqual(self.run_cli("doctor", "--strict", "--json"), 1)
-
-    def test_doctor_reports_map_blockers_without_failing(self):
-        self.create_map_file("big-init")
-        self.assertEqual(self.run_cli("create-split-packages", "big-init", "--package", "big-core::Big core::::core boundary", "--package", "big-order::Big order::::order boundary", "--decision", "from map"), 0)
-        self.assertEqual(self.run_cli("record-contract-request", "big-init", "--consumer", "big-order", "--producer", "big-core", "--request", "Need entitlement status output", "--status", "open"), 0)
-        result = arbor.doctor(self.root, timestamp=NOW)
-        self.assertTrue(result["ok"])
-        self.assertEqual(result["summary"]["blocked_count"], 1)
-        self.assertEqual(result["maps"]["initiatives"][0]["blocked"][0]["reason"], "contract request 未解决")
-        self.assertEqual(self.run_cli("doctor", "--json"), 0)
-        self.assertEqual(self.run_cli("doctor", "--strict", "--json"), 1)
-
-    def test_freeze_definition_sets_impl_next_action(self):
-        self.run_cli("create", "demo-task")
-        self.run_cli("set-package-sizing", "demo-task", "--status", "fits_package", "--actor", "brainstorm", "--phase", "brainstorm", "--decision", "single package")
-        self.run_cli("add-child", "demo-task", "--id", "T-001", "--title", "ADD first", "--milestone", "M-01", "--role", "shared")
-        code = self.run_cli("freeze-definition", "demo-task", "--actor", "task", "--note", "frozen")
-        self.assertEqual(code, 0)
-        data = self.task_json()
-        self.assertTrue(data["definition"]["frozen"])
-        self.assertEqual(data["next_action"]["skill"], "impl")
-        self.assertEqual(data["next_action"]["task_id"], "T-001")
-
-    def test_done_status_sets_review_next_action(self):
-        self.run_cli("create", "demo-task")
-        self.run_cli("set-package-sizing", "demo-task", "--status", "fits_package", "--actor", "brainstorm", "--phase", "brainstorm", "--decision", "single package")
-        self.run_cli("add-child", "demo-task", "--id", "T-001", "--title", "ADD first", "--milestone", "M-01", "--role", "shared")
-        self.run_cli("set-status", "demo-task", "--task", "T-001", "--state", "done", "--actor", "impl", "--note", "done")
-        data = self.task_json()
-        self.assertEqual(data["state"], "impl_done")
-        self.assertEqual(data["next_action"]["skill"], "review")
-
-    def test_record_impl_result_stores_structured_evidence(self):
-        self.create_ready_task_package()
-        self.assertEqual(self.run_cli("record-impl-result", "demo-task", "--task", "T-001", "--state", "done_with_concerns", "--summary", "implemented behavior", "--acceptance", "golden path passes", "--command", "pytest tests/test_demo.py", "--concern", "edge case needs review", "--json"), 0)
-        data = self.task_json()
-        task = data["tasks"][0]
-        self.assertEqual(task["state"], "done_with_concerns")
-        self.assertEqual(task["last_impl_result"]["state"], "DONE_WITH_CONCERNS")
-        self.assertEqual(task["last_impl_result"]["acceptance"], ["golden path passes"])
-        self.assertEqual(task["last_impl_result"]["commands"], ["pytest tests/test_demo.py"])
-        self.assertEqual(task["last_impl_result"]["concerns"], ["edge case needs review"])
-        self.assertEqual(data["next_action"]["skill"], "review")
-        self.assertEqual(data["phase_history"][-1]["phase"], "impl")
-        self.assertEqual(self.run_cli("record-impl-result", "demo-task", "--task", "T-001", "--state", "approved", "--summary", "bad"), 1)
-        self.assertEqual(self.run_cli("record-impl-result", "demo-task", "--task", "T-999", "--state", "done", "--summary", "bad"), 1)
-
-    def test_record_review_stores_structured_evidence_and_appends_review_md(self):
-        self.create_ready_task_package()
-        self.run_cli("record-impl-result", "demo-task", "--task", "T-001", "--state", "done", "--summary", "implemented")
-        before = (self.package_dir() / "review.md").read_text(encoding="utf-8")
-        self.assertEqual(self.run_cli("record-review", "demo-task", "--task", "T-001", "--state", "approved_with_notes", "--summary", "approved", "--evidence", "unit tests pass", "--note", "keep an eye on edge", "--json"), 0)
-        data = self.task_json()
-        task = data["tasks"][0]
-        self.assertEqual(task["last_review_result"]["state"], "APPROVED_WITH_NOTES")
-        self.assertEqual(task["last_review_result"]["evidence"], ["unit tests pass"])
-        self.assertEqual(task["last_review_result"]["notes"], ["keep an eye on edge"])
-        self.assertEqual(data["state"], "reviewed")
-        self.assertEqual(data["next_action"]["skill"], "none")
-        review_md = (self.package_dir() / "review.md").read_text(encoding="utf-8")
-        self.assertIn(before, review_md)
-        self.assertIn("## 2026-04-25T00:00:00Z T-001 approved_with_notes", review_md)
-        self.assertIn("- Evidence: unit tests pass", review_md)
-        self.assertIn("- Note: keep an eye on edge", review_md)
-
-    def test_record_review_routes_rework_and_drift(self):
-        self.create_ready_task_package()
-        self.assertEqual(self.run_cli("record-review", "demo-task", "--task", "T-001", "--state", "needs_rework", "--summary", "bug remains"), 0)
-        data = self.task_json()
-        self.assertEqual(data["state"], "needs_rework")
-        self.assertEqual(data["next_action"]["skill"], "impl")
-        self.assertEqual(self.run_cli("record-review", "demo-task", "--task", "T-001", "--state", "brainstorm_drift", "--summary", "scope wrong"), 0)
-        data = self.task_json()
-        self.assertEqual(data["state"], "brainstorm_drift")
-        self.assertEqual(data["next_action"]["skill"], "brainstorm")
-        self.assertEqual(self.run_cli("record-review", "demo-task", "--task", "T-001", "--state", "done", "--summary", "bad"), 1)
-
-    def test_review_rework_sets_impl_next_action(self):
-        self.run_cli("create", "demo-task")
-        self.run_cli("set-package-sizing", "demo-task", "--status", "fits_package", "--actor", "brainstorm", "--phase", "brainstorm", "--decision", "single package")
-        self.run_cli("add-child", "demo-task", "--id", "T-001", "--title", "ADD first", "--milestone", "M-01", "--role", "shared")
-        self.run_cli("set-status", "demo-task", "--task", "T-001", "--state", "needs_rework", "--actor", "review", "--note", "rework")
-        data = self.task_json()
-        self.assertEqual(data["state"], "needs_rework")
-        self.assertEqual(data["next_action"]["skill"], "impl")
-
-    def test_brainstorm_drift_sets_brainstorm_next_action(self):
-        self.run_cli("create", "demo-task")
-        self.run_cli("set-package-sizing", "demo-task", "--status", "fits_package", "--actor", "brainstorm", "--phase", "brainstorm", "--decision", "single package")
-        self.run_cli("add-child", "demo-task", "--id", "T-001", "--title", "ADD first", "--milestone", "M-01", "--role", "shared")
-        self.run_cli("set-status", "demo-task", "--task", "T-001", "--state", "brainstorm_drift", "--actor", "review", "--note", "drift")
-        data = self.task_json()
-        self.assertEqual(data["state"], "brainstorm_drift")
-        self.assertEqual(data["next_action"]["skill"], "brainstorm")
-
-    def test_add_amendment_routes_to_task(self):
-        self.run_cli("create", "demo-task")
-        self.run_cli("set-package-sizing", "demo-task", "--status", "fits_package", "--actor", "brainstorm", "--phase", "brainstorm", "--decision", "single package")
-        self.run_cli("add-child", "demo-task", "--id", "T-001", "--title", "ADD first", "--milestone", "M-01", "--role", "shared")
-        self.run_cli("set-status", "demo-task", "--task", "T-001", "--state", "brainstorm_drift", "--actor", "review", "--note", "drift")
-        self.assertEqual(
-            self.run_cli(
-                "add-amendment",
-                "demo-task",
-                "--id",
-                "AMD-001",
-                "--title",
-                "Correct refund behavior",
-                "--wrong",
-                "refund not described",
-                "--correct",
-                "full refund revokes entitlement",
-                "--affects-task",
-                "T-001",
-                "--actor",
-                "brainstorm",
-            ),
-            0,
-        )
-        data = self.task_json()
-        self.assertEqual(data["prd"]["amendments"][0]["id"], "AMD-001")
-        self.assertEqual(data["prd"]["status"], "ready-for-task")
-        self.assertEqual(data["current_phase"], "task")
-        self.assertEqual(data["next_action"]["skill"], "task")
-        self.assertEqual(data["phase_history"][-1]["to"], "amendment:AMD-001")
-        (self.package_dir() / "task.md").write_text("# 任务: demo-task\n\n- id: T-001\n  title: ADD first\n", encoding="utf-8")
-        self.assertEqual(self.run_cli("validate", "demo-task"), 0)
-
-    def test_add_amendment_rejects_duplicate_or_bad_id(self):
-        self.run_cli("create", "demo-task")
-        self.run_cli("set-package-sizing", "demo-task", "--status", "fits_package", "--actor", "brainstorm", "--phase", "brainstorm", "--decision", "single package")
-        self.run_cli("add-child", "demo-task", "--id", "T-001", "--title", "ADD first", "--milestone", "M-01", "--role", "shared")
-        self.assertEqual(self.run_cli("add-amendment", "demo-task", "--id", "AMD-1", "--title", "Bad", "--wrong", "old", "--correct", "new"), 1)
-        self.assertEqual(self.run_cli("add-amendment", "demo-task", "--id", "AMD-001", "--title", "One", "--wrong", "old", "--correct", "new"), 0)
-        self.assertEqual(self.run_cli("add-amendment", "demo-task", "--id", "AMD-001", "--title", "Dup", "--wrong", "old", "--correct", "new"), 1)
-
-    def test_add_child_links_to_amendment(self):
-        self.run_cli("create", "demo-task")
-        self.run_cli("set-package-sizing", "demo-task", "--status", "fits_package", "--actor", "brainstorm", "--phase", "brainstorm", "--decision", "single package")
-        self.run_cli("add-child", "demo-task", "--id", "T-001", "--title", "ADD first", "--milestone", "M-01", "--role", "shared")
-        self.run_cli("add-amendment", "demo-task", "--id", "AMD-001", "--title", "Correction", "--wrong", "old", "--correct", "new", "--affects-task", "T-001")
-        self.assertEqual(self.run_cli("add-child", "demo-task", "--id", "T-002", "--title", "UPDATE correction", "--milestone", "M-AMEND", "--role", "shared", "--source-amendment", "AMD-001", "--corrects", "T-001"), 0)
-        data = self.task_json()
-        task = data["tasks"][1]
-        self.assertEqual(task["source_amendment"], "AMD-001")
-        self.assertEqual(task["corrects"], ["T-001"])
-        (self.package_dir() / "task.md").write_text("# 任务: demo-task\n\n- id: T-001\n  title: ADD first\n- id: T-002\n  title: UPDATE correction\n", encoding="utf-8")
-        self.assertEqual(self.run_cli("validate", "demo-task"), 0)
-
-    def test_add_child_rejects_unknown_amendment_or_corrects_task(self):
-        self.run_cli("create", "demo-task")
-        self.run_cli("set-package-sizing", "demo-task", "--status", "fits_package", "--actor", "brainstorm", "--phase", "brainstorm", "--decision", "single package")
-        self.run_cli("add-child", "demo-task", "--id", "T-001", "--title", "ADD first", "--milestone", "M-01", "--role", "shared")
-        self.assertEqual(self.run_cli("add-child", "demo-task", "--id", "T-002", "--title", "UPDATE correction", "--milestone", "M-AMEND", "--role", "shared", "--source-amendment", "AMD-999"), 1)
-        self.run_cli("add-amendment", "demo-task", "--id", "AMD-001", "--title", "Correction", "--wrong", "old", "--correct", "new", "--affects-task", "T-001")
-        self.assertEqual(self.run_cli("add-child", "demo-task", "--id", "T-002", "--title", "UPDATE correction", "--milestone", "M-AMEND", "--role", "shared", "--source-amendment", "AMD-001", "--corrects", "T-999"), 1)
-
-    def test_forward_only_amendment_recovery_can_review_package(self):
-        self.run_cli("create", "demo-task")
-        self.run_cli("set-package-sizing", "demo-task", "--status", "fits_package", "--actor", "brainstorm", "--phase", "brainstorm", "--decision", "single package")
-        self.run_cli("set-prd-status", "demo-task", "--status", "ready-for-task", "--actor", "brainstorm", "--note", "ready")
-        self.run_cli("add-child", "demo-task", "--id", "T-001", "--title", "ADD first", "--milestone", "M-01", "--role", "shared")
-        self.run_cli("set-status", "demo-task", "--task", "T-001", "--state", "brainstorm_drift", "--actor", "review", "--note", "drift")
-        self.run_cli("add-amendment", "demo-task", "--id", "AMD-001", "--title", "Correction", "--wrong", "old", "--correct", "new", "--affects-task", "T-001")
-        self.run_cli("add-child", "demo-task", "--id", "T-002", "--title", "UPDATE correction", "--milestone", "M-AMEND", "--role", "shared", "--source-amendment", "AMD-001", "--corrects", "T-001")
-        self.run_cli("set-status", "demo-task", "--task", "T-001", "--state", "skipped", "--actor", "task", "--note", "obsolete after AMD-001; corrected by T-002")
-        data = self.task_json()
-        self.assertEqual(data["next_action"], {"skill": "impl", "task_id": "T-002", "reason": "下一个 package-local ready task"})
-        self.run_cli("set-status", "demo-task", "--task", "T-002", "--state", "approved", "--actor", "review", "--note", "approved")
-        data = self.task_json()
-        self.assertEqual(data["state"], "reviewed")
-        self.assertEqual(data["next_action"]["skill"], "none")
-        (self.package_dir() / "task.md").write_text("# 任务: demo-task\n\n- id: T-001\n  title: ADD first\n- id: T-002\n  title: UPDATE correction\n", encoding="utf-8")
-        self.assertEqual(self.run_cli("validate", "demo-task"), 0)
-
-    def test_validate_rejects_malformed_amendment_metadata(self):
-        self.run_cli("create", "demo-task")
-        data = self.task_json()
-        data["prd"]["amendments"] = [{"id": "BAD", "title": "Bad", "wrong": "old", "correct": "new", "created_at": NOW, "created_by": "brainstorm"}]
-        (self.package_dir() / "task.json").write_text(json.dumps(data), encoding="utf-8")
-        self.assertEqual(self.run_cli("validate", "demo-task"), 1)
-
-    def test_add_context_jsonl_and_validate(self):
-        self.run_cli("create", "demo-task")
-        self.run_cli("set-package-sizing", "demo-task", "--status", "fits_package", "--actor", "brainstorm", "--phase", "brainstorm", "--decision", "single package")
-        self.run_cli("set-prd-status", "demo-task", "--status", "ready-for-task", "--actor", "brainstorm", "--note", "ready")
-        self.run_cli("add-child", "demo-task", "--id", "T-001", "--title", "ADD first", "--milestone", "M-01", "--role", "shared")
-        (self.package_dir() / "task.md").write_text("# 任务: demo-task\n\n- id: T-001\n  title: ADD first\n", encoding="utf-8")
-        code = self.run_cli("add-context", "demo-task", "--type", "impl", "--task", "T-001", "--kind", "note", "--summary", "Smoke context")
-        self.assertEqual(code, 0)
-        line = (self.package_dir() / "context" / "impl.jsonl").read_text(encoding="utf-8").strip()
-        self.assertEqual(json.loads(line)["summary"], "Smoke context")
-        self.assertEqual(self.run_cli("validate", "demo-task"), 0)
-
-    def test_add_sources_context_jsonl_and_validate(self):
-        self.run_cli("create", "demo-task")
-        code = self.run_cli(
-            "add-context",
-            "demo-task",
-            "--type",
-            "sources",
-            "--source-id",
-            "SRC-LOCAL-001",
-            "--source-type",
-            "local-file",
-            "--location",
-            "src/example.ts:1-10",
-            "--title",
-            "Example",
-            "--why",
-            "Shows pattern",
-        )
-        self.assertEqual(code, 0)
-        self.assertEqual(self.run_cli("validate", "demo-task"), 0)
-
-    def test_validate_rejects_unknown_next_action_task(self):
-        self.run_cli("create", "demo-task")
-        data = self.task_json()
-        data["next_action"] = {"skill": "impl", "task_id": "T-999", "reason": "bad"}
-        (self.package_dir() / "task.json").write_text(json.dumps(data), encoding="utf-8")
-        self.assertEqual(self.run_cli("validate", "demo-task"), 1)
-
-    def test_validate_rejects_context_unknown_task(self):
-        self.run_cli("create", "demo-task")
-        self.run_cli("add-context", "demo-task", "--type", "impl", "--task", "T-999", "--kind", "note", "--summary", "bad")
-        # add-context rejects unknown task before writing.
-        self.assertEqual((self.package_dir() / "context" / "impl.jsonl").read_text(encoding="utf-8"), "")
-
-    def test_validate_rejects_duplicate_sources(self):
-        self.run_cli("create", "demo-task")
-        for _ in range(2):
-            self.run_cli(
-                "add-context",
-                "demo-task",
-                "--type",
-                "sources",
-                "--source-id",
-                "SRC-LOCAL-001",
-                "--source-type",
-                "local-file",
-                "--location",
-                "src/example.ts:1-10",
-                "--title",
-                "Example",
-                "--why",
-                "Shows pattern",
-            )
-        self.assertEqual(self.run_cli("validate", "demo-task"), 1)
-
-    def test_validate_rejects_active_task_state_mismatch(self):
-        self.run_cli("create", "demo-task")
-        self.run_cli("set-package-sizing", "demo-task", "--status", "fits_package", "--actor", "brainstorm", "--phase", "brainstorm", "--decision", "single package")
-        self.run_cli("add-child", "demo-task", "--id", "T-001", "--title", "ADD first", "--milestone", "M-01", "--role", "shared")
-        data = self.task_json()
-        data["active_task"] = "T-001"
-        data["state"] = "reviewed"
-        data["next_action"] = {"skill": "none", "task_id": None, "reason": "bad"}
-        (self.package_dir() / "task.json").write_text(json.dumps(data), encoding="utf-8")
-        self.assertEqual(self.run_cli("validate", "demo-task"), 1)
-
-    def test_validate_rejects_template_task_with_tasks(self):
-        self.run_cli("create", "demo-task")
-        self.run_cli("set-package-sizing", "demo-task", "--status", "fits_package", "--actor", "brainstorm", "--phase", "brainstorm", "--decision", "single package")
-        self.run_cli("add-child", "demo-task", "--id", "T-001", "--title", "ADD first", "--milestone", "M-01", "--role", "shared")
-        self.assertEqual(self.run_cli("validate", "demo-task"), 1)
-
-    def test_validate_allows_html_comments_without_template_placeholders(self):
-        self.run_cli("create", "demo-task")
-        self.run_cli("set-package-sizing", "demo-task", "--status", "fits_package", "--actor", "brainstorm", "--phase", "brainstorm", "--decision", "single package")
-        self.run_cli("set-prd-status", "demo-task", "--status", "ready-for-task", "--actor", "brainstorm", "--note", "ready")
-        self.run_cli("add-child", "demo-task", "--id", "T-001", "--title", "ADD first", "--milestone", "M-01", "--role", "shared")
-        (self.package_dir() / "task.md").write_text("# 任务: demo-task\n\n<!-- review note -->\n\n- id: T-001\n  title: ADD first\n", encoding="utf-8")
-        self.assertEqual(self.run_cli("validate", "demo-task"), 0)
-
-    def test_validate_rejects_angle_bracket_template_placeholders(self):
-        self.run_cli("create", "demo-task")
-        self.run_cli("set-package-sizing", "demo-task", "--status", "fits_package", "--actor", "brainstorm", "--phase", "brainstorm", "--decision", "single package")
-        self.run_cli("set-prd-status", "demo-task", "--status", "ready-for-task", "--actor", "brainstorm", "--note", "ready")
-        self.run_cli("add-child", "demo-task", "--id", "T-001", "--title", "ADD first", "--milestone", "M-01", "--role", "shared")
-        (self.package_dir() / "task.md").write_text("# 任务: demo-task\n\n- id: T-001\n  title: ADD <deliverable>\n", encoding="utf-8")
-        self.assertEqual(self.run_cli("validate", "demo-task"), 1)
-
-    def test_validate_allows_real_task_id_lists(self):
-        self.run_cli("create", "demo-task")
-        self.run_cli("set-package-sizing", "demo-task", "--status", "fits_package", "--actor", "brainstorm", "--phase", "brainstorm", "--decision", "single package")
-        self.run_cli("set-prd-status", "demo-task", "--status", "ready-for-task", "--actor", "brainstorm", "--note", "ready")
-        self.run_cli("add-child", "demo-task", "--id", "T-001", "--title", "ADD first", "--milestone", "M-01", "--role", "shared")
-        (self.package_dir() / "task.md").write_text("# 任务: demo-task\n\n### M-01\n\n- 包含任务: [T-001]\n\n- id: T-001\n  title: ADD first\n", encoding="utf-8")
-        self.assertEqual(self.run_cli("validate", "demo-task"), 0)
-
-    def test_validate_rejects_task_markdown_drift(self):
-        self.create_ready_task_package()
-        (self.package_dir() / "task.md").write_text("---\npackage: other-package\nmode: lean\n---\n# 任务\n\n[[Other Page]]\n", encoding="utf-8")
-        errors = arbor.validate_package(self.root, "demo-task")
-        self.assertTrue(any("does not mention task id: T-001" in error for error in errors))
-        self.assertTrue(any("must not contain wikilinks" in error for error in errors))
-        self.assertTrue(any("frontmatter package" in error for error in errors))
-        self.assertTrue(any("frontmatter mode" in error for error in errors))
-
-    def test_invalid_jsonl_fails_validation(self):
-        self.run_cli("create", "demo-task")
-        (self.package_dir() / "context" / "impl.jsonl").write_text("{bad json\n", encoding="utf-8")
-        self.assertEqual(self.run_cli("validate", "demo-task"), 1)
-
-    def test_validate_allows_legacy_missing_execution(self):
-        self.run_cli("create", "demo-task")
-        data = self.task_json()
-        del data["execution"]
-        (self.package_dir() / "task.json").write_text(json.dumps(data), encoding="utf-8")
-        self.assertEqual(self.run_cli("validate", "demo-task"), 0)
-
-    def test_validate_rejects_invalid_execution_status(self):
-        self.run_cli("create", "demo-task")
-        data = self.task_json()
-        data["execution"]["status"] = "bad"
-        (self.package_dir() / "task.json").write_text(json.dumps(data), encoding="utf-8")
-        self.assertEqual(self.run_cli("validate", "demo-task"), 1)
-
-    def test_validate_allows_legacy_missing_execution_checkpoints(self):
-        self.run_cli("create", "demo-task")
-        data = self.task_json()
-        del data["execution"]["checkpoints"]
-        (self.package_dir() / "task.json").write_text(json.dumps(data), encoding="utf-8")
-        self.assertEqual(self.run_cli("validate", "demo-task"), 0)
 
     def test_set_execution_and_pr_record_package_metadata(self):
-        self.run_cli("create", "demo-task")
-        self.assertEqual(self.run_cli("set-execution", "demo-task", "--status", "in_progress", "--base-branch", "main", "--branch", "arbor/demo-task", "--worktree", "/tmp/demo-task", "--worktree-created-by", "manual"), 0)
-        self.assertEqual(self.run_cli("set-pr", "demo-task", "--url", "https://example.com/pr/1", "--number", "1", "--state", "open"), 0)
+        self.run_cli("create", "demo-package")
+        self.assertEqual(self.run_cli("set-execution", "demo-package", "--status", "in_progress", "--base-branch", "main", "--branch", "arbor/demo-package", "--worktree", "/tmp/demo-package", "--worktree-created-by", "manual"), 0)
+        self.assertEqual(self.run_cli("set-pr", "demo-package", "--url", "https://example.com/pr/1", "--number", "1", "--state", "open"), 0)
         execution = self.task_json()["execution"]
-        self.assertEqual(execution["branch"]["name"], "arbor/demo-task")
+        self.assertEqual(execution["branch"]["name"], "arbor/demo-package")
         self.assertEqual(execution["worktree"]["created_by"], "manual")
         self.assertEqual(execution["pr"]["number"], 1)
         self.assertEqual(execution["pr"]["state"], "open")
         self.assertEqual(execution["status"], "pr_open")
-        self.assertEqual(self.run_cli("validate", "demo-task"), 0)
-
-    def test_single_approved_task_does_not_review_package_when_more_tasks_exist(self):
-        self.run_cli("create", "demo-task")
-        self.run_cli("set-package-sizing", "demo-task", "--status", "fits_package", "--actor", "brainstorm", "--phase", "brainstorm", "--decision", "single package")
-        self.run_cli("add-child", "demo-task", "--id", "T-001", "--title", "ADD first", "--milestone", "M-01", "--role", "shared")
-        self.run_cli("set-status", "demo-task", "--task", "T-001", "--state", "approved", "--actor", "review", "--note", "ok")
-        self.run_cli("add-child", "demo-task", "--id", "T-002", "--title", "ADD second", "--milestone", "M-01", "--role", "shared", "--depends-on", "T-001")
-        data = self.task_json()
-        self.assertEqual(data["state"], "ready")
-        self.assertEqual(data["next_action"]["skill"], "impl")
-        self.assertEqual(data["next_action"]["task_id"], "T-002")
-
-    def test_all_tasks_approved_reviews_package(self):
-        self.run_cli("create", "demo-task")
-        self.run_cli("set-package-sizing", "demo-task", "--status", "fits_package", "--actor", "brainstorm", "--phase", "brainstorm", "--decision", "single package")
-        self.run_cli("add-child", "demo-task", "--id", "T-001", "--title", "ADD first", "--milestone", "M-01", "--role", "shared")
-        self.run_cli("add-child", "demo-task", "--id", "T-002", "--title", "ADD second", "--milestone", "M-01", "--role", "shared")
-        self.run_cli("set-status", "demo-task", "--task", "T-001", "--state", "approved", "--actor", "review", "--note", "ok")
-        self.run_cli("set-status", "demo-task", "--task", "T-002", "--state", "approved", "--actor", "review", "--note", "ok")
-        data = self.task_json()
-        self.assertEqual(data["state"], "reviewed")
-        self.assertEqual(data["next_action"]["skill"], "none")
-
-    def test_done_task_prioritizes_review_before_next_impl(self):
-        self.run_cli("create", "demo-task")
-        self.run_cli("set-package-sizing", "demo-task", "--status", "fits_package", "--actor", "brainstorm", "--phase", "brainstorm", "--decision", "single package")
-        self.run_cli("add-child", "demo-task", "--id", "T-001", "--title", "ADD first", "--milestone", "M-01", "--role", "shared")
-        self.run_cli("add-child", "demo-task", "--id", "T-002", "--title", "ADD second", "--milestone", "M-01", "--role", "shared")
-        self.run_cli("set-status", "demo-task", "--task", "T-001", "--state", "done", "--actor", "impl", "--note", "done")
-        data = self.task_json()
-        self.assertEqual(data["state"], "impl_done")
-        self.assertEqual(data["next_action"]["skill"], "review")
-        self.assertEqual(data["next_action"]["task_id"], "T-001")
+        self.assertEqual(self.run_cli("validate", "demo-package"), 0)
 
     def test_list_and_show_json_are_parseable(self):
-        self.run_cli("create", "demo-task")
+        self.run_cli("create", "demo-package")
         items = arbor.list_packages(self.root)
-        self.assertEqual(items[0]["name"], "demo-task")
+        self.assertEqual(items[0]["name"], "demo-package")
         self.assertIn("execution_status", items[0])
         self.assertIn("package_sizing", items[0])
-        shown = arbor.show_package(self.root, "demo-task")
-        self.assertEqual(shown["name"], "demo-task")
+        shown = arbor.show_package(self.root, "demo-package")
+        self.assertEqual(shown["name"], "demo-package")
         self.assertIn("execution", shown)
         self.assertIn("package_sizing", shown)
+        self.assertNotIn("children", shown)
         self.assertTrue(shown["validation"]["ok"])
 
     def test_legacy_source_type_records_legacy_path(self):
@@ -1105,10 +518,10 @@ summary: Warning only.
         self.assertEqual(data["prd"]["legacy_source"], ".arbor/brainstorms/legacy-demo.md")
 
     def test_arbor_guard_blocks_direct_control_state_and_context_jsonl(self):
-        control = arbor_guard.evaluate({"tool_name": "Write", "tool_input": {"file_path": str(self.root / ".arbor" / "tasks" / "demo-task" / "task.json")}})
+        control = arbor_guard.evaluate({"tool_name": "Write", "tool_input": {"file_path": str(self.root / ".arbor" / "tasks" / "demo-package" / "task.json")}})
         self.assertEqual(control["decision"], "block")
         self.assertIn("helpers", control["reason"])
-        context = arbor_guard.evaluate({"tool_name": "Edit", "tool_input": {"file_path": str(self.root / ".arbor" / "tasks" / "demo-task" / "context" / "impl.jsonl")}})
+        context = arbor_guard.evaluate({"tool_name": "Edit", "tool_input": {"file_path": str(self.root / ".arbor" / "tasks" / "demo-package" / "context" / "impl.jsonl")}})
         self.assertEqual(context["decision"], "block")
         self.assertIn("add-context-batch", context["reason"])
 

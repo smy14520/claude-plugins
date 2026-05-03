@@ -1,7 +1,7 @@
 {
   "name": "sdd-kit",
-  "version": "0.5.0",
-  "description": "Skill-first SDD workflow with .arbor deterministic package state and .wiki orientation notes.",
+  "version": "0.6.0",
+  "description": "PRD-first SDD workflow: brainstorm writes package PRD, impl executes PRD scope, review audits; .arbor maintains deterministic package state and .wiki orientation notes.",
   "author": {
     "name": "camellia",
     "email": "camellia@gmail.com"

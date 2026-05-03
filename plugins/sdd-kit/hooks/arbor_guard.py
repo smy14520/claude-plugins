@@ -6,7 +6,7 @@ import re
 import sys
 from typing import Any
 
-CONTROL_STATE_RE = re.compile(r"(^|/)\.arbor/(tasks/[^/]+/task\.json|maps/[^/]+/map\.json)$")
+CONTROL_STATE_RE = re.compile(r"(^|/)\.arbor/tasks/[^/]+/task\.json$")
 CONTEXT_JSONL_RE = re.compile(r"(^|/)\.arbor/tasks/[^/]+/context/(impl|review|sources)\.jsonl$")
 DESTRUCTIVE_RE = re.compile(r"\b(git\s+reset\s+--hard|git\s+clean\s+-|git\s+push\s+--force|rm\s+-rf)\b")
 
@@ -28,7 +28,7 @@ def evaluate(payload: dict[str, Any]) -> dict[str, Any]:
         if CONTROL_STATE_RE.search(path):
             return {
                 "decision": "block",
-                "reason": "Use sdd-arbor helpers for .arbor control state instead of editing task.json/map.json directly.",
+                "reason": "Use sdd-arbor helpers for .arbor control state instead of editing task.json directly.",
             }
         if CONTEXT_JSONL_RE.search(path):
             return {

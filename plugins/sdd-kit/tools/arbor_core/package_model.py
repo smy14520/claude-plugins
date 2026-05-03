@@ -7,10 +7,10 @@ from .errors import ArborError
 from .fs import *
 from .schema import *
 from .state import default_execution
-from .templates import prd_template, review_template, task_template
+from .templates import prd_template, review_template
 
 
-def base_task_json(name: str, mode: str, title: str, timestamp: str, source_type: str) -> dict[str, Any]:
+def base_task_json(name: str, title: str, timestamp: str, source_type: str) -> dict[str, Any]:
     return {
         "schema_version": SCHEMA_VERSION,
         "name": name,
@@ -24,15 +24,10 @@ def base_task_json(name: str, mode: str, title: str, timestamp: str, source_type
             "status": "draft",
             "source_type": source_type,
             "legacy_source": f".arbor/brainstorms/{name}.md" if source_type == "legacy-brainstorm" else None,
-            "ready_for_task_at": None,
+            "ready_at": None,
             "amendments": [],
         },
-        "definition": {
-            "task_md": "task.md",
-            "frozen": False,
-            "version": 0,
-            "updated_at": None,
-        },
+        "package_kind": "single",
         "package_sizing": {
             "status": "unchecked",
             "decision": None,
@@ -42,37 +37,32 @@ def base_task_json(name: str, mode: str, title: str, timestamp: str, source_type
             "decided_by": None,
             "note": None,
         },
-        "mode": mode,
-        "state": "planned",
+        "state": "draft",
         "current_phase": "brainstorm",
-        "active_task": None,
         "next_action": {
             "skill": "brainstorm",
-            "task_id": None,
-            "reason": "PRD 草稿已创建，下一步由 brainstorm 补齐 package-local 需求与方案 framing",
+            "reason": "PRD 草稿已创建，下一步由 brainstorm 补齐需求与 technical framing",
         },
         "execution": default_execution(name),
-        "tasks": [],
+        "impl_result": None,
+        "review_result": None,
         "phase_history": [
             {
                 "at": timestamp,
                 "phase": "brainstorm",
-                "task_id": None,
                 "from": None,
-                "to": "planned",
+                "to": "draft",
                 "actor": "arbor",
-                "note": "task package 已创建",
+                "note": "package PRD workspace 已创建",
             }
         ],
     }
 
 
-def create_package(root: Path, name: str, mode: str, title: str | None, source_type: str, timestamp: str) -> dict[str, Any]:
+def create_package(root: Path, name: str, title: str | None, source_type: str, timestamp: str) -> dict[str, Any]:
     validate_name(name)
-    if mode not in MODES:
-        raise ArborError(f"Invalid mode '{mode}'. Expected one of: {', '.join(sorted(MODES))}.")
-    if source_type not in {"new", "legacy-brainstorm", "ad-hoc", "map-split"}:
-        raise ArborError("Invalid source type. Expected new, legacy-brainstorm, ad-hoc, or map-split.")
+    if source_type not in {"new", "legacy-brainstorm", "ad-hoc"}:
+        raise ArborError("Invalid source type. Expected new, legacy-brainstorm, or ad-hoc.")
 
     title = title or name
     pkg = package_dir(root, name)
@@ -82,7 +72,6 @@ def create_package(root: Path, name: str, mode: str, title: str | None, source_t
     created_files: list[str] = []
     for rel, content in [
         ("prd.md", prd_template(name, title, timestamp)),
-        ("task.md", task_template(name, mode, timestamp)),
         ("review.md", review_template(name, timestamp)),
         ("context/impl.jsonl", ""),
         ("context/review.jsonl", ""),
@@ -95,7 +84,7 @@ def create_package(root: Path, name: str, mode: str, title: str | None, source_t
     if task_path.exists():
         data = read_json(task_path)
     else:
-        data = base_task_json(name, mode, title, timestamp, source_type)
+        data = base_task_json(name, title, timestamp, source_type)
         write_json(task_path, data)
         created_files.append("task.json")
 

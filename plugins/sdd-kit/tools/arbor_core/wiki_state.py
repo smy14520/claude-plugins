@@ -6,9 +6,6 @@ from typing import Any
 
 from .errors import ArborError
 from .fs import *
-from .map_contracts import contract_requests_list
-from .map_model import ensure_map_workspace
-from .map_sync import read_package_summary, sync_map_from_packages
 from .state import ensure_execution
 from .validation import validate_package
 
@@ -330,32 +327,21 @@ def wiki_collect(root: Path, query: str, wiki_root: str | None = None, limit: in
     return {"wiki_root": search["wiki_root"], "query": query, "selected": selected}
 
 
-def module_summary(root: Path, package: str, initiative: str | None = None, timestamp: str | None = None) -> dict[str, Any]:
+def module_summary(root: Path, package: str, timestamp: str | None = None) -> dict[str, Any]:
     validate_name(package)
     pkg, data = load_package(root, package)
-    summary = read_package_summary(root, package)
     execution = ensure_execution(data)
-    sizing = data.get("package_sizing") if isinstance(data.get("package_sizing"), dict) else {}
-    parent = initiative or sizing.get("parent_initiative")
-    contracts = {"requests": []}
-    if isinstance(parent, str) and parent:
-        try:
-            map_data = sync_map_from_packages(root, parent, timestamp or data.get("updated_at") or data.get("created_at") or "")
-            contracts["requests"] = [item for item in contract_requests_list(map_data) if package in {item.get("consumer"), item.get("producer")}]
-        except ArborError:
-            contracts["requests"] = []
-    tasks = data.get("tasks", []) if isinstance(data.get("tasks"), list) else []
+    errors = validate_package(root, package)
     return {
         "kind": "module-summary",
         "schema_version": "sdd-module-summary-v1",
         "package": package,
-        "title": summary.get("title") or data.get("title") or package,
-        "status": summary.get("state"),
+        "title": data.get("title") or package,
+        "status": data.get("state"),
         "execution_status": execution.get("status"),
-        "contracts": contracts,
+        "package_kind": data.get("package_kind", "single"),
         "important_files": [],
         "invariants": [],
-        "tests": [task.get("title") for task in tasks if isinstance(task, dict) and isinstance(task.get("title"), str) and "test" in task.get("title", "").casefold()],
-        "verification": [{"ok": not validate_package(root, package), "source": "validate_package"}],
-        "related_packages": summary.get("depends_on", []),
+        "verification": [{"ok": not errors, "source": "validate_package"}],
+        "related_packages": [],
     }

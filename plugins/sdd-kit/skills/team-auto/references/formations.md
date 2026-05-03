@@ -6,16 +6,16 @@
 
 适合：research、brainstorm、架构不确定、需求边界不清。
 
-做法：多个 agent 从不同立场互相挑战假设，目标是暴露薄弱点，而不是快速达成表面共识。
+做法：多个 agent 从不同立场互相挑战假设，目标是暴露薄弱点，而不是快速达成表面共识。必须至少经过立场轮、交叉反驳轮、收敛轮；如果只是各自交报告，应该改用 subagent fan-out，不要称为 Team debate。
 
 常见角色：
 
 - product skeptic：压目标、非目标、用户流、验收口径。
 - tech lead：压架构、状态、数据、测试和集成风险。
-- scope cutter：压 MVP、非目标和回滚边界。
+- scope skeptic：压本次范围、非目标和回滚边界。
 - domain critic：压业务规则、权限、交易、内容或玩法边界。
 
-产出：共识、分歧、被推翻的假设、最高价值追问、推荐下一步。
+产出：初始立场、被对方推翻或修正的假设、仍未收敛的分歧、最高价值追问、推荐下一步。
 
 ## 双推 / Dual-track Push
 
@@ -36,7 +36,7 @@
 
 适合：单个 package 内天然按职责分工，例如前端 / 后端 / 测试 / 美术 / 文档 / devops。
 
-做法：lead 先确认 shared/contract 任务、依赖顺序和文件/资产 ownership；每个执行者在自己的 lane 内串行处理一组 T-xxx。
+做法：lead 先确认 shared/contract、依赖顺序和文件/资产 ownership；每个执行者在自己的 lane 内处理明确的 package scope。
 
 默认不要求 worktree；只有写入重叠、候选实现隔离或用户明确要求时才建议。
 
@@ -71,15 +71,15 @@
 
 适合：需求或 review 涉及领域模型、source of truth、schema/API 取舍、长期演进、抽象边界或核心架构质量；用户想通过争论获得方向和注意事项。
 
-做法：两个 architect 从不同价值函数挑战方案，reviewer/lead 负责追问证据并收口，不以快速达成一致为目标。
+做法：两个 architect 从不同价值函数挑战方案，reviewer/lead 负责追问证据并收口，不以快速达成一致为目标。lead 要把 pragmatic 的主张发给 evolution 反驳，也要把 evolution 的主张发给 pragmatic 反驳；reviewer 负责指出双方哪些主张缺证据、哪些需要写入 PRD。
 
 常见角色：
 
 - pragmatic architect：压 YAGNI、交付成本、最小可维护边界和过度设计风险。
 - evolution architect：压领域模型、source of truth、invariants、不可逆决策和未来扩展轴。
-- reviewer / lead：核对当前需求证据，区分“当前必须保护”与“可以暂缓”，映射到 PRD/task/review next_action。
+- reviewer / lead：核对当前需求证据，区分“当前必须保护”与“可以暂缓”，映射到 PRD / review next_action。
 
-产出：可选方向、分歧点、当前证据、采纳/暂缓项、风险提醒、建议写入 PRD/task 的架构意图。
+产出：双方初始架构主张、互相反驳后改变的判断、仍未收敛的分歧、当前证据、采纳/暂缓项、建议写入 PRD 的架构意图。
 
 ## Research Swarm
 

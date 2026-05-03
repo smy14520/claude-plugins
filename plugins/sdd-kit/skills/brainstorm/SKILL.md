@@ -1,137 +1,177 @@
 ---
 name: brainstorm
-description: "仅当用户显式请求 /sdd-kit:brainstorm、用 brainstorm skill、normal/grill/grill-me 需求收敛，或要求在 task/map 前收敛需求/PRD 时使用。不要用于 research 收集、map 拆包、task 拆解、impl 或 review。"
+description: "把模糊需求持续沉淀到 sdd-kit package PRD draft，断点续作访谈，最终收敛成 PRD-first package。支持 normal 和 grill-me；不要用于 research、impl 或 review。"
 ---
 
-# Brainstorm — 需求澄清 / Design Framing
+# Brainstorm — durable PRD-first package
 
-使用语言：中文。面向用户的访谈问题、选项、推荐理由、缺口说明和阶段输出默认都用中文；保留代码标识符、文件路径、命令、英文术语原文即可。
+使用语言：中文。
 
-Brainstorm 把用户目标、repo 现实和已有 research 收敛成可执行前的需求与设计 framing。需求或实现前提不清楚时，不能拆包。
+Arbor helper 入口、路径和常用命令见 [`../references/arbor-helper.md`](../references/arbor-helper.md)；运行前遵守其中约定。
 
-```text
-research? → [brainstorm]
-              ├─ obvious small: single package PRD → task
-              └─ needs boundary routing: clarified framing → map → single package 或 package graph
-```
+Brainstorm 把需求变成可执行 package PRD：先创建或定位 `.arbor/tasks/<package>/prd.md` draft，把每轮访谈结果写进 PRD；等需求、technical framing、验收和边界足够清楚并得到用户确认后，通过 `sdd-arbor finalize-brainstorm` 写入 ready package。它不写代码、不 review、不维护第二套执行计划。
 
-## 入口模式
+## 模式
 
-如果用户显式指定 `normal`、`grill` 或 `grill-me`，直接使用该模式。否则在开始前用 `AskUserQuestion` 让用户选择，问题、header、选项 label 和 description 都用中文：
+- `normal`：高效收敛。使用 `references/normal.md` 的 pacing 和 turn shape；已有信息足够时尽快整理 PRD 并定稿。
+- `grill-me`：高强度需求追问。使用 `references/grill-me.md` 的 pacing 和 turn shape，持续追问直到目标、边界、关键场景、technical framing 和验收口径足够清楚，再整理 PRD 并定稿。
 
-- `normal`：默认模式，高效收敛；只问当前最影响设计、package boundary、task 拆解或 map handoff 的问题。不使用 grill-me turn shape；assumption audit 可作为内部简短判断，不必外显成压力式拷问。
-- `grill` / `grill-me`：高强度需求拷问模式；使用 `skills/brainstorm/references/grill-me.md` 的访谈姿态和 turn shape，先暴露薄弱假设、边界误解和未说清的实现前提，不急着写 PRD 或判断 package。自然收敛后，再回到 normal 的出口判断。
+### 模式选择
 
-两种模式都必须先读 repo / research / 相关 PRD/map；能由代码或已有材料回答的问题不要问用户。需要拿关联信息时，可用 `.wiki/index.md` 作为人工导航入口，或用 `sdd-arbor wiki-index --json` / `wiki-collect --query "<query>" --limit 5 --json` 先看 metadata / description / summary / locators，再只读取真正相关页面。wiki 命中必须标记为 orientation source，定稿前回到代码和 `.arbor` 验证。
+1. 用户显式指定 `normal` / `grill-me` / 直接定稿 / 不追问时，遵从用户。
+2. 用户明确要求直接创建 package 或定稿时，不为了模式选择打断；若存在 blocking 缺口，只问一个最高价值问题。
+3. 用户没有指定模式，且输入是模糊、产品型、系统型、方案型需求，或存在多个合理方向 / 关键取舍 / 验收不明时，必须调用 `AskUserQuestion` 询问 `normal` / `grill-me`；"知识付费系统"这类产品型需求属于这个分支。
+4. 用户没有指定模式，且当前是 research 之后进入 brainstorm，也必须调用 `AskUserQuestion`，除非用户明确要求直接定稿；research 是上下文，不是需求冻结。
+5. 只有当需求已经包含目标、范围、关键场景、验收、非目标和技术边界，且用户明显期待推进时，才可以默认 `normal` 而不弹模式选择。
+
+`AskUserQuestion` 选项固定为：
+
+- `grill-me`：一轮一个问题，高强度追问目标、边界、关键场景、technical framing、验收和取舍；产品 / 系统 / 商业模式不清时默认推荐。
+- `normal`：基于已有信息快速收敛 PRD，只在 blocking 缺口上问一个问题；需求基本清楚时推荐。
+
+## Package naming
+
+当用户没有显式提供 package name，由 brainstorm 从需求标题生成 package name 时，默认使用 Trellis-style 日期前缀：`MM-DD-<topic-slug>`。
+
+- 示例：用户说"知识付费系统" → `.arbor/tasks/05-02-knowledge-paid-system/`。
+- `<topic-slug>` 使用英文 lowercase kebab-case；避免中文、空格、下划线和路径分隔符。
+- 用户显式给出合法 package name 时优先使用用户给定名称。
+- 同日同主题已有 package 时，追加更具体的短后缀，不覆盖旧 package。
+
+## Draft PRD workspace
+
+Brainstorm 一开始就要创建或定位 active draft：`.arbor/tasks/<package>/prd.md`。
+
+- 新需求：生成 package name，调用 `sdd-arbor create <package>` 创建 `.arbor/tasks/<package>/`，用 PRD 模板 seed `prd.md`，frontmatter `status: draft`。
+- 续作：用户显式给 package name 时，读取对应 `.arbor/tasks/<package>/prd.md`。
+- 自然语言续作：用户只说 topic / "继续某需求"时，扫描 `.arbor/tasks/*/prd.md` 的 frontmatter、标题、`What I already know`、`Open Questions`，找到候选后继续；多个候选时只问一次确认。
+- Draft package 只是访谈工作区，不等于 ready package；不要手写 package control state。
+- PRD draft 是 source of truth：每轮回答后先更新 PRD，再问下一个问题。
+
+## Research handoff
+
+Research 资料只是 source-backed context / 候选理解，不代表需求已经被用户确认或冻结。
+
+从 research 进入 brainstorm 时：
+
+1. 读取 research 的 `index.md`、相关 notes、open questions 和 readiness。
+2. 显式区分 research 已支持的事实、research 提出的候选方向、仍未由用户确认的产品 / 范围 / 验收 / 技术 framing 假设。
+3. `ready-for-brainstorm` 只表示资料足够让 brainstorm 接手，不表示需求已定稿。
+4. 除非用户明确指定 `normal` 或直接定稿，否则用 `AskUserQuestion` 让用户选择模式。
+5. 如果 research 中仍有 open questions、关键 assumptions、多个可行方向，默认推荐 `grill-me`。
+
+## Question interaction rules
+
+- 每轮只问一个最高价值问题。
+- 产品形态、范围、权限、计费、数据模型、技术边界等离散取舍必须用 `AskUserQuestion` 给 2-4 个选项，推荐项放第一，并在推荐项 description 中说明推荐理由。
+- 真正开放题才用文字给推荐答案和理由。
+- 用户回答后必须先更新 PRD draft，再继续下一问。
 
 ## 工作循环
 
-1. **Context first**：先读 repo、已有 research、用户输入、相关 PRD/map；需要关联知识时再检索 wiki metadata；能从上下文确认的不要问。
-2. **State understanding**：简要说明已知事实、当前理解、真正会影响方向的缺口。
-3. **Assumption audit**：把 research 候选理解转成 blocking / important / optional assumptions，审计来源、影响和是否必须在定稿前解决。
-4. **One useful question**：normal 只问最高价值阻塞问题；grill-me 使用模式卡的 turn shape，一次只问一个最高价值问题，并给推荐答案与理由。使用 `AskUserQuestion` 时，question/header/options/description 必须写中文，避免出现英文访谈 UI。
-5. **Right place**：全局项目约定经用户同意后沉淀到 `CLAUDE.md` / `.claude/rules`；initiative/package-local 约束写入 framing 或 PRD。
-6. **Boundary light**：明显 small 才直接写 single package PRD；边界不自然或用户希望再判断时，只输出 clarified framing，交给 map 做 boundary routing。
+1. 读取用户输入、相关代码、已有 research / PRD。
+2. 创建或定位 `.arbor/tasks/<package>/prd.md` draft；如果是新 draft，立即写入已知背景、初始 open questions 和当前推荐方向。
+3. 按模式选择规则决定是否先用 `AskUserQuestion` 询问 `normal` / `grill-me`。
+4. 简短说明当前理解和真正阻塞 finalize 的缺口。
+5. 若仍不清楚：按 Question interaction rules 提问；停止等待用户。
+6. 用户回答后：必须先更新 PRD draft，再继续。更新内容包括：
+   - 将已回答问题从 `Open Questions` 移走或改写为新的未决问题。
+   - 追加 / 调整 `Requirements (evolving)`、`Acceptance Criteria (evolving)` 和 `Technical Framing`。
+   - 把关键问答和需求变化追加到 `Interview Log`；只记关键问题、用户选择/回答、产生的需求变化，不保存完整聊天流水。
+7. PRD 更新完成后，再问下一个最高价值问题；重复这个循环直到形成初步 package scope 轮廓。
+8. 初步 package scope 轮廓形成后，执行一次扩展扫视；完成后回到收敛。
+9. 达到 PRD 定稿条件并得到用户确认后，整理 PRD 正文（包括 Slices），调用 `sdd-arbor finalize-brainstorm`。
+10. 停在 impl 前，告诉用户下一步用 impl 执行。
 
-## Assumption audit
+## Context first
 
-Brainstorm 负责把 research 的候选理解收敛成可执行 framing。进入 PRD / map handoff 前，要显式审计会影响方向、package 边界或验收标准的假设。
+Brainstorm 开始时先判断项目上下文：
 
-假设分级：
+- **新项目**（无既有代码/数据库）：按常规工作循环进行。
+- **存量项目**（已有代码、表结构、业务模块）：在第一轮追问前，主动读取与需求相关的现有代码，分析涉及的表结构、模块设计、接口模式和扩展点，将分析结论写入 PRD 的 `What I already know` 和 `Technical Framing`。
 
-- **blocking**：如果为假，当前需求解释或 package / initiative 方向不成立；定稿前必须解决或明确改向。
-- **important**：如果为假，会改变 package 边界、方案、交付物或验收标准；定稿前至少要记录处理策略。
-- **optional**：如果为假，只影响细节、文案、polish 或后续优化；不阻塞定稿，但应留在 open questions / risks。
+存量项目的技术分析至少覆盖：
 
-审计时回答：
+- 涉及的现有表和关键字段
+- 现有模块/类的设计模式（适配器、策略、事件等）
+- 新需求的接入点：改哪些表/模块，建哪些新表/模块
+- 不能动的边界：其他模块依赖的接口、共享表等
 
-- 这个假设来自哪个 research note、用户输入、代码事实或外部来源？
-- 如果它为假，会影响目标、scope、boundary sizing、验证重点中的哪一项？
-- 它是否必须在写 PRD / map handoff 前解决？如果不解决，如何在 open questions / risks 中暴露？
+分析结论侧重变更方案（改什么、建什么、怎么接入），现有结构只需点明涉及的表/模块和关键关系，不需要完整复述。
 
-## Map readiness gate
+## Technical Framing
 
-`research.status=ready-for-brainstorm` 只表示已有材料足够进入 brainstorm；不表示可以直接进入 map。Research 可能只澄清了业务范围，尚未澄清实现前提。
+产品 PRD 必须收敛承重技术边界，避免 impl 在关键架构问题上自由发挥。不要把它写成实现步骤流水账；只记录会改变 scope、验收或风险的决定。
 
-Large initiative handoff 前，必须确认足以支撑 package graph 的 implementation framing：
+Finalize 前至少覆盖：
 
-- repo 现实：已有源码/测试/运行方式，或明确缺少产品实现面。
-- 项目形态：应用类型、技术栈、前后端关系，或明确先用 baseline/scaffold package 承载这些选择。
-- 跨 package 语义：数据持久化、权限、交易、状态流转、验收口径。
-- 工程约定：源码/测试布局、运行/验证方式、需要沉淀的全局规则。
+- Existing stack / framework：沿用什么、不能引入什么。
+- Auth / permissions：谁能做什么，权限边界在哪里。
+- Frontend / backend boundary：页面、API、service、CLI 或脚本边界。
+- Data model / persistence：新增/修改状态、表、缓存、迁移、幂等要求。
+- Admin / ops surface：管理后台、配置、观测、回滚入口。
+- External integrations：第三方、队列、支付、邮件、AI API 等边界。
+- Testing strategy：必须跑什么测试，哪些场景需要覆盖。
+- Migration / rollout / rollback：上线、迁移和回退边界；不需要则写 N/A。
 
-如果这些缺口会影响多个 package，不要输出 map handoff；继续提问。不要把“map 阶段不要默认技术栈”当作替代提问。
+## Slices
 
-## 出口
+PRD 定稿时必须包含 `## Slices` 段，将需求按实现顺序切成有序的实现切片。Slices 是 brainstorm 的产物——此时细节最多，切片最精准。
 
-### 1. 仍不清楚
+Slices 的原则：
 
-如果缺少会影响设计或执行边界的信息：
+- 每个 slice 是一个有意义的实现阶段，不是按文件/函数机械拆分。
+- 顺序反映依赖关系：先基建，再核心逻辑，再边缘功能，最后验收。
+- 粒度适中：太粗（"实现后端"）没有指导意义，太细（"创建 user 表"）增加噪声。一般 3-8 个 slice。
+- 每个 slice 一行描述，点明目标和关键交付，不需要展开成完整子 PRD。
+- 用 `[ ]` 标记未完成状态；impl 执行时会标记进度。
 
-- 输出当前理解和缺口。
-- 问一个高价值问题，带具体选项/权衡/推荐。
-- 不创建 package，不创建 map，不写 package graph。
+示例：
 
-典型缺口：项目形态、MVP 边界、核心用户流、权限/交易语义、数据持久化、测试与运行方式。
+```markdown
+## Slices
 
-### 2. Obvious single executable package
-
-当前 change 明显可作为一个需求/评审/回滚边界，且用户没有要求交给 map 再判断时：
-
-- 创建或更新 `.arbor/tasks/<package>/prd.md`。
-- 记录 package sizing 为 `fits_package`，actor/phase 为 `brainstorm`。
-- PRD 写清：背景、目标、scope、关键/边界场景、交付物、高层方案、boundary decision、关键约束、sources、open questions / assumptions / risks。
-
-### 3. Clarified framing → map boundary routing
-
-需求和 implementation framing 已经清楚，但 package 边界不明显、可能需要拆分，或用户希望由 map 再判断时：
-
-- 只输出 clarified framing。
-- 不运行 map 创建命令。
-- 不 materialize child package stubs。
-- 不创建 `.arbor/tasks/<child-package>/`。
-
-Handoff 写清：目标/MVP、repo 现实与实现前提、已确认的项目级选择、角色与核心流、关键规则/风险、可能的 single package / split package 落法、仍不阻塞 map 判断的局部问题。
-
-下一步提示：`/sdd-kit:map <initiative>`。
-
-### 4. Map-derived child package
-
-当 `.arbor/tasks/<package>/` 已由 map materialize，且 `package_sizing.status=split_applied` / `prd.parent_map` 指向 map：
-
-- 继承 map 中已确认的 initiative-level framing。
-- 只补 package-local 场景、交付物、约束、验证重点。
-- 不修改 sibling package 状态。
-- 若发现全局 framing 已失效，停止并回 map/user。
-
-## Arbor state
-
-`arbor.py` 只做机械状态维护；语义判断写在 PRD/framing 中。需要精确参数时运行：
-
-```text
-sdd-arbor <subcommand> --help
+- [ ] S-001: 项目基建 — Laravel + React TS 脚手架、DB config、健康检查 API、dev 启动命令
+- [ ] S-002: 认证与 RBAC — 用户/管理员登录、角色权限模型、菜单/按钮权限
+- [ ] S-003: 后台核心闭环 — 课程/章节管理、订单模拟支付、用户授权、首页内容
+- [ ] S-004: 前台学习闭环 — 首页、课程列表/详情、注册登录、购买解锁、学习页、我的课程
+- [ ] S-005: E2E 验收 — 前台购买学习、后台管理、RBAC 权限路径的自动化测试
 ```
 
-Brainstorm 常用 subcommands：
+## 扩展扫视
 
-- `create`
-- `set-package-sizing`
-- `add-context`（sources）
-- `add-amendment`
-- `set-prd-status`
+扩展扫视是 brainstorm 内部的 diverge → converge 转折，不是 research，也不是新阶段。
 
-## Amendment / finalize
+在初步 package scope 轮廓形成后、PRD 定稿前，简短扫一遍：
 
-- 已进入 task/impl/review 后发现需求错了：只做 forward-only amendment；package-local 修正追加 `AMD-xxx` 并记录 `add-amendment`。若影响 sibling 或 package graph，停止并回 map/user。
-- Finalize 只适用于 single package PRD 或 map-derived child PRD：无阻塞 open question，boundary 为 `fits_package` 或 `split_applied`，再将 PRD 置为 `ready-for-task`。
-- Large initiative framing 不走 `ready-for-task`；下一步是 map。
+- 未来演进：哪些能力很快会被需要，但不一定进本次 PRD scope？
+- 相关场景：有没有相邻用户流 / 系统流会影响当前边界？
+- 失败与边界：哪些异常、权限、数据、迁移或回滚边界容易漏？
+
+让用户选择：哪些纳入本次 PRD scope，哪些明确写入 `Out of scope`。扫视结果必须写回 `Requirements (evolving)` / `Out of scope` / `Acceptance Criteria (evolving)`，再进入 finalize。
+
+## PRD 定稿条件
+
+只有同时满足以下条件，才可以整理 PRD 并调用 `sdd-arbor finalize-brainstorm`：
+
+- Blocking questions 已解决，剩余 open questions 不阻塞 impl/review。
+- Technical Framing 已覆盖承重技术边界；未知承重项不能留给 impl 猜。
+- 扩展扫视已完成，结果已写入 Requirements / Out of scope / Acceptance Criteria。
+- Acceptance Criteria 覆盖核心路径和关键失败 / 边界路径。
+- Slices 已写好，按依赖顺序列出实现切片。
+- PRD 已从 evolving 区整理进正式结构，保留必要决策和来源，避免访谈流水污染最终交付物。
+- 用户确认最终摘要。
+
+Finalize 时调用 `sdd-arbor finalize-brainstorm --input-json '{"name": "<package>", "kind": "single", "prd_path": ".arbor/tasks/<package>/prd.md"}'`。
+
+## Arbor
+
+- Draft 阶段可以创建 / 编辑 `.arbor/tasks/<package>/prd.md`，但不要手写 `.arbor` control state。
+- Ready package 必须由 `sdd-arbor finalize-brainstorm --input-json ...` 写入。
 
 ## 不做
 
-- 不采集 raw evidence（research）。
-- 不创建/维护 package graph，不创建 map，不 materialize child stubs（map）。
-- 不拆 T-xxx（task）。
-- 不写代码（impl）。
-- 不做语义审计（review）。
+- 不采集 raw evidence（用 research）。
+- 不写代码（用 impl）。
+- 不做语义审计（用 review）。
 - 不自动推进下一阶段。
-- 不把产品源码/测试写到 `.arbor/`。

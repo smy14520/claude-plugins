@@ -21,7 +21,6 @@ def list_packages(root: Path) -> list[dict[str, Any]]:
             data = read_json(task_path)
         except ArborError:
             continue
-        tasks = data.get("tasks", []) if isinstance(data.get("tasks"), list) else []
         execution = data.get("execution") if isinstance(data.get("execution"), dict) else {}
         branch = execution.get("branch") if isinstance(execution.get("branch"), dict) else {}
         worktree = execution.get("worktree") if isinstance(execution.get("worktree"), dict) else {}
@@ -33,16 +32,12 @@ def list_packages(root: Path) -> list[dict[str, Any]]:
                 "state": data.get("state"),
                 "current_phase": data.get("current_phase"),
                 "package_sizing": sizing.get("status"),
-                "active_task": data.get("active_task"),
                 "next_action": data.get("next_action"),
                 "execution_status": execution.get("status"),
                 "execution_owner": execution.get("owner"),
                 "branch": branch.get("name"),
                 "worktree": worktree.get("path"),
                 "pr": pr.get("url") or pr.get("number"),
-                "task_count": len(tasks),
-                "ready_count": sum(1 for task in tasks if task.get("state") == "ready"),
-                "blocked_count": sum(1 for task in tasks if task.get("state") in {"blocked", "needs_context"}),
             }
         )
     return result
@@ -51,17 +46,16 @@ def list_packages(root: Path) -> list[dict[str, Any]]:
 def show_package(root: Path, name: str) -> dict[str, Any]:
     pkg, data = load_package(root, name)
     errors = validate_package(root, name)
-    tasks = data.get("tasks", []) if isinstance(data.get("tasks"), list) else []
     return {
         "name": name,
         "package": str(pkg),
         "state": data.get("state"),
         "current_phase": data.get("current_phase"),
-        "active_task": data.get("active_task"),
         "next_action": data.get("next_action"),
         "execution": data.get("execution"),
         "package_sizing": data.get("package_sizing"),
         "prd": data.get("prd"),
-        "tasks": tasks,
+        "impl_result": data.get("impl_result"),
+        "review_result": data.get("review_result"),
         "validation": {"ok": not errors, "errors": errors},
     }

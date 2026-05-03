@@ -1,27 +1,31 @@
 # Review workflow notes
 
-Review 是 package/T-xxx semantic audit，不是普通 code review。主文件 `SKILL.md` 是权威说明；本文件只保留执行时容易漏的细节。
+Review 是 package PRD semantic audit，不是普通 code review。主文件 `SKILL.md` 是权威说明；本文件只保留执行时容易漏的细节。
 
 ## 收集
 
-- 解析目标：package + package-local T-xxx / 最近 DONE；裸 `T-001` 不是全局唯一任务。
-- 读取 `.arbor/tasks/<name>/prd.md`、`task.md`、`task.json`、可选 `context/review.jsonl`。
-- 必须检查 actual `git diff`，并明确当前 T-xxx 对应的 diff scope。
+- 确认 package；裸 slice 名称不是执行单元。
+- 读取 `prd.md`、`task.json`、impl evidence 和 actual `git diff`。
+- 检查 PRD `## Slices` 与实际实现进度是否一致；slice 标记是线索，代码和 diff 才是事实。
 - 可选查 `.wiki` / `sdd-arbor wiki-collect`，但 wiki 只作 orientation。
 - 若缺 `prd.md`，legacy `.arbor/brainstorms/<name>.md` 只能作为 fallback，并在报告中标为迁移风险。
 
 ## 判定
 
-按 `SKILL.md` 的 review lenses 选择重点，不机械逐项输出。APPROVED 必须至少说明：
+按当前 diff 选择重点，不机械逐项输出。APPROVED 至少说明：
 
-- goal / scope 已对齐；
-- task acceptance / context 已检查；
-- diff scope 清楚且无阻塞越界；
-- 关键测试 / 回归证据足够或说明为何不需要。
+- PRD goal / scope 已对齐；
+- Acceptance Criteria 与 Technical Framing 已满足；
+- `## Slices` 描述的实现闭环已完成；
+- impl evidence 和 self-check 能支撑 DONE；
+- diff scope 清楚，没有越界或破坏 out of scope；
+- 关键测试 / 回归证据足够，或说明为何不需要。
+
+如果 PRD + impl evidence 足够证明当前 scope，则可以 APPROVED。若 impl evidence 无法映射到 acceptance，通常是 NEEDS_REWORK。若 PRD 本身错误、失效或与当前 repo 脱节，才是 BRAINSTORM_DRIFT。
 
 ## 报告
 
-审计正文默认中文，不使用 `Verdict` / `Findings` / `Evidence` 等英文 rubric。推荐结构：
+审计正文默认中文。推荐结构：
 
 ```md
 结论：NEEDS_REWORK。<一句话说明>
@@ -30,7 +34,7 @@ Review 是 package/T-xxx semantic audit，不是普通 code review。主文件 `
 
 1. 中等 — <问题>
    - 证据：<文件路径 / 命令 / diff 事实>
-   - 影响：<为什么影响 package / T-xxx / 验收>
+   - 影响：<为什么影响 package / 验收>
    - 建议处理：<下一步>
 
 通过检查：
@@ -40,7 +44,8 @@ Review 是 package/T-xxx semantic audit，不是普通 code review。主文件 `
 
 下一步指引：
 
-- APPROVED → 当前 T-xxx 通过；若所有 required T-xxx 都通过 review，package 可进入 PR/final review。
-- APPROVED_WITH_NOTES → 当前 T-xxx 可计入 package readiness，但建议 follow-up。
-- NEEDS_REWORK → 回 `/sdd-kit:impl` 处理当前 T-xxx。
-- BRAINSTORM_DRIFT → 回 `/sdd-kit:brainstorm` 追加 package-local `AMD-xxx`；若边界变化，回 map/user。
+- APPROVED → 当前 package PRD scope 通过 review。
+- APPROVED_WITH_NOTES → 当前 package 可计入 reviewed，但建议 follow-up。
+- NEEDS_REWORK → 回 `/sdd-kit:impl` 处理当前 package。
+- BRAINSTORM_DRIFT → 回 `/sdd-kit:brainstorm` 追加 amendment。
+- PRD 描述不足但方向清楚 → 回 brainstorm 更新 PRD，不引入第二套执行计划。

@@ -1,79 +1,49 @@
 # Impl 反模式
 
-已观察到的失败模式。全部应避免。
+## 未运行 self-check 即声称 DONE
 
----
+必须执行从 PRD 推导出的 self-check。无法运行则是 BLOCKED / NEEDS_CONTEXT，而非 DONE。
 
-## 1. 未运行验收即声称 DONE
+## 静默做设计决策以解除阻塞
 
-**修复方式**：SelfCheck 必须执行每一条 `acceptance:`。无法运行则是 BLOCKED，而非 DONE。
+PRD 对 TTL、重试次数、URL、权限边界、数据模型等有歧义时，不要自行拍板。发出 NEEDS_CONTEXT，并引用具体来源。
 
----
+## 将 BLOCKED 伪装为 DONE_WITH_CONCERNS
 
-## 2. 静默做设计决策以解除阻塞
+DONE_WITH_CONCERNS 只有在 self-check 通过时才成立。否则就是 BLOCKED 或 NEEDS_CONTEXT。
 
-**症状**：任务对 TTL / 重试次数 / URL 有歧义，执行者自行拍板。
+## 修改需求定义使其通过
 
-**修复方式**：发出 NEEDS_CONTEXT，并引用具体来源（`PRD §X / task <field> / SRC-...`）。
+impl 不得编辑 PRD 的需求内容或手写 task.json。若上游定义有问题，返回 NEEDS_CONTEXT。
 
----
+## 在实现中夹带清理工作
 
-## 3. 将 BLOCKED 伪装为 DONE_WITH_CONCERNS
+保持实现聚焦于当前 package PRD scope。相邻清理另起需求或回 brainstorm 修改 PRD。
 
-**修复方式**：DWC 只有在 acceptance 通过时才成立。否则就是 BLOCKED 或 NEEDS_CONTEXT。
+## “运行了测试”但不看输出
 
----
+检查退出码和输出，不做表面通过。
 
-## 4. 修改任务定义使其通过
+## 在 slice 之间停下来等用户确认
 
-**修复方式**：impl 不得编辑 task 的 `acceptance:` / `context:` / `ready-check:`。若上游定义有问题，返回 NEEDS_CONTEXT。
+PRD 定稿后才进入 impl；执行阶段应连续推进所有 Slices。只有 NEEDS_CONTEXT 或 BLOCKED 才停止。
 
----
+## 过度重做 brainstorm
 
-## 5. 在任务提交中夹带清理工作
+impl 可以读取 PRD 和实际代码状态，但目标是理解当前 scope，不是重新判断产品方向。
 
-**修复方式**：保持任务聚焦于其 deliverable。相邻清理另起任务。
+## 重写 PRD 以匹配 impl
 
----
+impl 不是 PRD 的权威。若认为上游文档有误，发 NEEDS_CONTEXT，或留给 review 标记 BRAINSTORM_DRIFT。Impl 只允许更新 `## Slices` 的进度标记。
 
-## 6. "运行了测试"但不看输出
+## 把 DONE 当成 delivered
 
-**修复方式**：检查退出码 + 输出，不做表面通过。
+DONE 只表示当前 package PRD scope self-check 通过。是否 delivered 还需要 review / PR / merge / release 事实。
 
----
+## 用第二套执行计划替代 Slices
 
-## 7. 自动推进到下一个任务
+不要创建 execution plan、status.md 或 TODO 文件。`## Slices` 是断点续作提示；task.json 是 lifecycle 状态源。
 
-**修复方式**：报告后停止，由用户决定是否继续。
+## self-check 不记录依据
 
----
-
-## 8. 过度依赖重读 PRD
-
-**症状**：每个 task 都重新把整个 PRD 当主要输入。
-
-**为什么错误**：这会让 task-local 冻结失去意义，重新把高层歧义带回 impl。
-
-**修复方式**：优先信任 task 的 `context + sources + ready-check`。只有在局部背景不足时才回读 PRD。
-
----
-
-## 9. 重写 PRD 以匹配 impl
-
-**修复方式**：impl 不是 PRD 的权威。若认为上游文档有误，发 NEEDS_CONTEXT 或留给 review 标记 `BRAINSTORM_DRIFT`。
-
----
-
-## 10. 把 T-xxx DONE 当成 package 完成
-
-**症状**：当前 T-xxx acceptance 通过后，声称整个 package 已完成。
-
-**修复方式**：DONE 只覆盖当前 package-local T-xxx。Package readiness 必须由所有 required T-xxx 的 review 聚合得出。
-
----
-
-## 11. 在 package branch 中夹带另一个 package 的工作
-
-**症状**：实现当前 T-xxx 时顺手修改另一个 bounded package 的范围。
-
-**修复方式**：停止并返回 NEEDS_CONTEXT / task；若确实需要跨 package 工作，更新 map 或拆出新的 package。
+`record-impl-result` 必须记录 self-check 来源、命令/谓词和结果，供 review 审计。

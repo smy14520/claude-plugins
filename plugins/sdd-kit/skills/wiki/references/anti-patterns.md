@@ -58,15 +58,15 @@ sdd-arbor wiki-collect --query "<query>" --limit 5 --json
 
 ---
 
-## AP7 — task.md 依赖 wikilinks
+## AP7 — PRD 执行边界依赖 wikilinks
 
-`task.md` 必须自包含。可以在 PRD 里链接 wiki 作为背景提示，但执行计划不能要求实现者跟随 wikilink 才知道要做什么。
+可以在 PRD 里链接 wiki 作为背景提示，但 package PRD 的执行边界必须自包含；不要要求实现者跟随 wikilink 才知道要做什么。
 
 ---
 
 ## AP8 — 隐式技能串联
 
-Wiki skill 不自动调用 research/brainstorm/task/impl/review；其他 skill 也不静默写 wiki。需要写入时由用户显式要求，或在 package 达到稳定 milestone 后显式请求 module summary publish。
+Wiki skill 不自动调用 research/brainstorm/impl/review；其他 skill 也不静默写 wiki。需要写入时由用户显式要求，或在 package 达到稳定 milestone 后显式请求 module summary publish。
 
 ---
 

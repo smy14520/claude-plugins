@@ -20,18 +20,13 @@
 
 ## Workflow 设计偏好
 
-- 保持 workflow 骨架轻：research/brainstorm/map/task/impl/review 各自职责要窄。
-- Brainstorm/map 负责澄清上下文、架构取舍和 package 边界；task 只分解已经确定边界的可执行 package。
+- 保持 workflow 骨架轻：brainstorm 写 PRD，impl 执行 PRD scope，review 审计；research 只在需要资料探索时使用。
+- 大需求用 parent PRD + ordered child packages 表达；不要恢复外层 initiative graph，也不要用巨大执行清单掩盖 package 边界错误。
+- PRD 是需求、Technical Framing、Acceptance Criteria 与可选 child packages / execution slices 的 source of truth；不要默认拆成二阶段任务计划。
+- `grill-me` 是 brainstorm 的高质量需求追问模式，应保留其“一次一个高价值问题 + 推荐答案”的能力，但不要把它变成兜底规则仓库。
 - 不要把 CLAUDE.md、rules 或已经自动加载的约束当成额外 discovery 工作重复阅读/总结，除非当前任务确实需要核对。
 - 需要增强稳定性时，优先把不确定步骤转为确定性 helper 或测试，而不是增加口头禁令。
 - `.wiki/` 是项目本地导航层，不是 source of truth；用它快速定位，再验证当前代码和 `.arbor`。
-
-## Map 串行统筹原则
-
-- `map` 只负责 large initiative 的 package graph、execution waves、依赖和 blocker 导航，不自动创建 Team、不派发执行者。
-- `map-check` 输出当前可推进 package、阻塞原因和完成状态；真正实现仍由用户或当前会话显式进入对应 package 的 `brainstorm` / `task` / `impl` / `review`。
-- Downstream implementation 只能依赖明确完成事实：上游 package `completed`、execution `merged` 或 PR `merged`；`reviewed` alone 不等于可依赖主干事实。
-- 跨 package 缺口通过 contract request 表达，不直接 patch sibling internals。
 
 ## Hooks 使用原则
 

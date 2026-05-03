@@ -17,7 +17,7 @@ Research 采用 **index-first** 模式：
 ## 在工作流中的定位
 
 ```text
-[research] → brainstorm → task → impl
+[research] → brainstorm → impl → review
     ↑
     └── 可在任何时候回到 research，继续补资料 / 提问 / 修正理解
 ```
@@ -32,7 +32,7 @@ Research 是**发散 → 收敛**阶段。它：
 - **不做**最终设计决策
 - **不自动**推进到 `brainstorm`
 
-当研究结果已经足够收敛、适合冻结时，才进入 `brainstorm`。`brainstorm` 负责**需求澄清定稿与 design framing**：小需求形成 executable package PRD/context artifact（`.arbor/tasks/<package>/prd.md`），大需求必须继续确认 implementation framing，清楚后才形成 clarified initiative framing 并交给 `map` 拆 package graph；不是 research 第一次真正搞懂需求的地方。`ready-for-brainstorm` 只表示已有材料足够开始 brainstorm，不表示技术栈、架构、repo 基线或实现前提已足够进入 map。
+当研究结果已经足够收敛、适合冻结时，才进入 `brainstorm`。`brainstorm` 负责**需求澄清定稿与 design framing**：形成 executable package PRD（`.arbor/tasks/<package>/prd.md`），并在 PRD 内写好 ordered `## Slices`。`ready-for-brainstorm` 只表示已有材料足够让 brainstorm 接手，不表示需求已经冻结；后续 brainstorm 仍应区分 research 支持的事实、候选方向和未由用户确认的范围 / 验收假设，并按需询问 `normal` / `grill-me` 模式。
 
 ## 六个原语
 
@@ -144,13 +144,13 @@ subagent 只返回 source-backed packet，不直接写 `.arbor/research/<topic>/
 ## 本 skill 不做的事
 
 - 不冻结方案 / 不做最终设计选择（使用 `brainstorm` skill）
-- 不拆任务或写代码（使用 `task` / `impl` skill）
+- 不拆执行计划或写代码（使用 `brainstorm` / `impl` skill）
 - 不自动将发现摄取到 wiki（由用户通过 `wiki` skill 触发）
 - 不把项目策略写成 research 规则
 
 ## 何时不激活
 
-- 用户已有清晰 brainstorm 并要求产出任务 → 使用 `task` skill
+- 用户已有清晰需求并要求冻结执行范围 → 使用 `brainstorm` skill finalize package PRD
 - 用户的问题是无需建立研究工作区即可直接回答的单一事实问答 → 直接回答
 - 用户正在 impl 中途询问局部代码解释 → 内联回答
 - 已存在仍有效的 research 工作区 → 直接读取并继续

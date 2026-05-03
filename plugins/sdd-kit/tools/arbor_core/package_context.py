@@ -7,7 +7,6 @@ from typing import Any
 from .errors import ArborError
 from .fs import *
 from .schema import *
-from .package_lifecycle import find_task
 
 
 def _context_path(root: Path, name: str, context_type: str) -> Path:
@@ -30,9 +29,7 @@ def _normalize_context_line(context_type: str, entry: dict[str, Any], actor: str
     if not normalized.get("actor"):
         normalized["actor"] = actor
         fields.append("actor")
-    if "task_id" not in normalized:
-        normalized["task_id"] = None
-        fields.append("task_id")
+    normalized.pop("task_id", None)
     return normalized, fields
 
 
@@ -54,8 +51,8 @@ def repair_context_jsonl(root: Path, name: str, context_type: str, actor: str, t
         if not isinstance(entry, dict):
             raise ArborError(f"JSONL entry must be an object at {path}:{line_no}")
         normalized, fields = _normalize_context_line(context_type, entry, actor, timestamp)
-        if fields:
-            repaired.append({"line": line_no, "fields": fields})
+        if fields or "task_id" in entry:
+            repaired.append({"line": line_no, "fields": fields + (["task_id"] if "task_id" in entry else [])})
             changed = True
         entries.append(normalized)
     if changed:
@@ -66,12 +63,10 @@ def repair_context_jsonl(root: Path, name: str, context_type: str, actor: str, t
     return {"package": name, "type": context_type, "changed": changed, "repaired": repaired, "count": len(repaired)}
 
 
-def add_context(root: Path, name: str, context_type: str, task_id: str | None, kind: str | None, summary: str | None, source: str | None, actor: str, timestamp: str, source_id: str | None, source_type: str | None, location: str | None, title: str | None, why: str | None) -> dict[str, Any]:
+def add_context(root: Path, name: str, context_type: str, kind: str | None, summary: str | None, source: str | None, actor: str, timestamp: str, source_id: str | None, source_type: str | None, location: str | None, title: str | None, why: str | None) -> dict[str, Any]:
     if context_type not in CONTEXT_TYPES:
         raise ArborError(f"Invalid context type '{context_type}'.")
     pkg, data = load_package(root, name)
-    if task_id:
-        find_task(data, task_id)
     path = pkg / "context" / f"{context_type}.jsonl"
     if context_type == "sources":
         if not all([source_id, source_type, location, title, why]):
@@ -93,7 +88,6 @@ def add_context(root: Path, name: str, context_type: str, task_id: str | None, k
         entry = {
             "at": timestamp,
             "actor": actor,
-            "task_id": task_id,
             "kind": kind or "note",
             "source": source,
             "summary": summary,
@@ -129,9 +123,6 @@ def add_context_batch(root: Path, name: str, context_type: str, entries: list[di
     for entry in entries:
         if not isinstance(entry, dict):
             raise ArborError("Context batch entries must be JSON objects.")
-        task_id = entry.get("task_id")
-        if task_id:
-            find_task(data, task_id)
         _validate_context_entry(context_type, entry)
     path = pkg / "context" / f"{context_type}.jsonl"
     written: list[dict[str, Any]] = []
@@ -148,7 +139,6 @@ def add_context_batch(root: Path, name: str, context_type: str, entries: list[di
             normalized = {
                 "at": entry.get("at") or timestamp,
                 "actor": entry.get("actor") or actor,
-                "task_id": entry.get("task_id"),
                 "kind": entry.get("kind") or "note",
                 "source": entry.get("source"),
                 "summary": entry["summary"],

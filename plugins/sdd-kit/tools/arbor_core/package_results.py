@@ -5,17 +5,10 @@ from typing import Any
 
 from .errors import ArborError
 from .fs import load_package, save_package
-from .package_lifecycle import find_task
-from .schema import TASK_ID_RE
-from .state import add_phase_history, recalculate_package_state
+from .state import add_phase_history, route_package_state
 
 IMPL_RESULT_STATES = {"done", "done_with_concerns", "needs_context", "blocked"}
 REVIEW_RESULT_STATES = {"approved", "approved_with_notes", "needs_rework", "brainstorm_drift"}
-
-
-def _require_task_id(task_id: str) -> None:
-    if not TASK_ID_RE.match(task_id):
-        raise ArborError(f"Invalid task id '{task_id}'. Use T-001 format.")
 
 
 def _state_label(state: str) -> str:
@@ -25,7 +18,6 @@ def _state_label(state: str) -> str:
 def record_impl_result(
     root: Path,
     name: str,
-    task_id: str,
     state: str,
     summary: str,
     acceptance: list[str],
@@ -36,15 +28,11 @@ def record_impl_result(
 ) -> dict[str, Any]:
     if state not in IMPL_RESULT_STATES:
         raise ArborError(f"Invalid impl result state '{state}'.")
-    _require_task_id(task_id)
     if not summary.strip():
         raise ArborError("Impl result summary is required.")
     pkg, data = load_package(root, name)
-    task = find_task(data, task_id)
-    old = task.get("state")
-    task["state"] = state
-    task["updated_at"] = timestamp
-    task["last_impl_result"] = {
+    old = data.get("state")
+    result = {
         "state": _state_label(state),
         "at": timestamp,
         "summary": summary.strip(),
@@ -52,17 +40,24 @@ def record_impl_result(
         "commands": [item for item in commands if item],
         "concerns": [item for item in concerns if item],
     }
-    recalculate_package_state(data)
-    data["updated_at"] = timestamp
-    add_phase_history(data, timestamp, "impl", task_id, old, state, actor, summary.strip())
+    data["impl_result"] = result
+    if state in {"done", "done_with_concerns"}:
+        route_package_state(data, "done", timestamp, actor, summary.strip())
+    elif state == "needs_context":
+        route_package_state(data, "doing", timestamp, actor, summary.strip())
+        data["next_action"] = {"skill": "brainstorm", "reason": "impl 发现 PRD / technical framing 缺口，需要回 brainstorm 补齐"}
+    elif state == "blocked":
+        route_package_state(data, "doing", timestamp, actor, summary.strip())
+        data["next_action"] = {"skill": "user", "reason": "impl 被环境、权限、依赖或外部因素阻塞，需要用户处理"}
+    add_phase_history(data, timestamp, "impl", old, state, actor, summary.strip())
     save_package(pkg, data)
-    return {"package": name, "task_id": task_id, "state": state, "task": task, "next_action": data.get("next_action")}
+    return {"package": name, "state": state, "impl_result": result, "next_action": data.get("next_action")}
 
 
-def _append_review_entry(pkg: Path, task_id: str, state: str, summary: str, evidence: list[str], notes: list[str], actor: str, timestamp: str) -> None:
+def _append_review_entry(pkg: Path, state: str, summary: str, evidence: list[str], notes: list[str], actor: str, timestamp: str) -> None:
     lines = [
         "",
-        f"## {timestamp} {task_id} {state}",
+        f"## {timestamp} {state}",
         "",
         f"- Actor: {actor}",
         f"- Summary: {summary}",
@@ -78,7 +73,6 @@ def _append_review_entry(pkg: Path, task_id: str, state: str, summary: str, evid
 def record_review(
     root: Path,
     name: str,
-    task_id: str,
     state: str,
     summary: str,
     evidence: list[str],
@@ -88,24 +82,27 @@ def record_review(
 ) -> dict[str, Any]:
     if state not in REVIEW_RESULT_STATES:
         raise ArborError(f"Invalid review state '{state}'.")
-    _require_task_id(task_id)
     if not summary.strip():
         raise ArborError("Review summary is required.")
     pkg, data = load_package(root, name)
-    task = find_task(data, task_id)
-    old = task.get("state")
-    task["state"] = state
-    task["updated_at"] = timestamp
-    task["last_review_result"] = {
+    old = data.get("state")
+    result = {
         "state": _state_label(state),
         "at": timestamp,
         "summary": summary.strip(),
         "evidence": [item for item in evidence if item],
         "notes": [item for item in notes if item],
     }
-    recalculate_package_state(data)
-    data["updated_at"] = timestamp
-    add_phase_history(data, timestamp, "review", task_id, old, state, actor, summary.strip())
+    data["review_result"] = result
+    if state in {"approved", "approved_with_notes"}:
+        route_package_state(data, "reviewed", timestamp, actor, summary.strip())
+    elif state == "needs_rework":
+        route_package_state(data, "doing", timestamp, actor, summary.strip())
+        data["next_action"] = {"skill": "impl", "reason": "review 要求返工，回到 impl 继续执行"}
+    elif state == "brainstorm_drift":
+        route_package_state(data, "draft", timestamp, actor, summary.strip())
+        data["next_action"] = {"skill": "brainstorm", "reason": "review 发现 PRD 漂移，需要回 brainstorm 修正需求"}
+    add_phase_history(data, timestamp, "review", old, state, actor, summary.strip())
     save_package(pkg, data)
-    _append_review_entry(pkg, task_id, state, summary.strip(), [item for item in evidence if item], [item for item in notes if item], actor, timestamp)
-    return {"package": name, "task_id": task_id, "state": state, "task": task, "next_action": data.get("next_action")}
+    _append_review_entry(pkg, state, summary.strip(), [item for item in evidence if item], [item for item in notes if item], actor, timestamp)
+    return {"package": name, "state": state, "review_result": result, "next_action": data.get("next_action")}

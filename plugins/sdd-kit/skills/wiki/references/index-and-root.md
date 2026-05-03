@@ -49,5 +49,5 @@ Module note 的真实内容在 `.wiki/Modules/<中文标题>.md`；retrieval hel
 
 - 页面间用 `[[Page]]` 或 `[[Page|Alias]]`。
 - Package PRD 可链接 wiki 作为背景提示。
-- `task.md` 不应依赖 wikilinks；执行计划必须自包含。
+- Package PRD 的执行边界必须自包含；不要要求实现者跟随 wikilink 才知道要做什么。
 - Module locator 不用行号；使用 path + stable symbol。

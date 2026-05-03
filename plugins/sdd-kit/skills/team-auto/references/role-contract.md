@@ -9,7 +9,7 @@
 
 目标：<本次 Team 要解决的问题，不要假设你看过主会话>。
 
-你负责的 lane / 角度 / T-xxx：<明确职责>。
+你负责的 lane / 角度 / package scope：<明确职责>。
 
 可修改范围：<文件、目录、artifact 或 none；只读任务写 none>。
 

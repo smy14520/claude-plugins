@@ -1,15 +1,43 @@
 ---
-name: <package-name>
-status: draft            # draft | ready-for-task | revising | superseded
+name: MM-DD-<topic-slug>
+status: draft            # draft | ready | revising | superseded
 date: YYYY-MM-DD
-package: .arbor/tasks/<package-name>/
+package: .arbor/tasks/MM-DD-<topic-slug>/
 tags: []                 # optional
 supersedes:              # optional, remove if N/A
 ---
 
-# <package-name>
-<!-- Executable package PRD/context artifact. Brainstorm skill owns this file after clarified package framing. -->
+# MM-DD-<topic-slug>
+<!-- Active brainstorm PRD draft. Seed this at brainstorm start, update it after every user answer, and finalize only through sdd-arbor finalize-brainstorm. -->
 <!-- 正文中的关键判断、场景、风险可用 [SRC-XXX] 标注来源 -->
+
+## What I already know
+
+- <已由用户确认、repo / research 支持，或当前明确可采用的事实 / 决策>
+- <不要把未确认假设写成事实；放到 Open Questions 或 Assumptions>
+
+## Requirements (evolving)
+
+- <每轮回答后更新：已经确认或当前采用的需求>
+- <形成初步 package scope 后，把扩展扫视中纳入本次 PRD scope 的项写到这里或 In scope>
+
+## Acceptance Criteria (evolving)
+
+- [ ] <每轮回答后更新：用户可确认、impl/review 可验证的验收项>
+- [ ] <覆盖核心路径；PRD 定稿前补上关键失败 / 边界路径>
+
+## Open Questions
+
+- <当前下一个最高价值问题；已回答后移走或改写>
+- <剩余未决项需标明 blocking / important / optional>
+
+## Interview Log
+
+<!-- 只记录关键问题、用户选择/回答、由此产生的需求变化；不要保存完整聊天流水。 -->
+
+| Turn | Question | User answer / choice | Requirement change |
+|---|---|---|---|
+| 001 | <问了什么> | <用户怎么选 / 怎么回答> | <新增、修改或排除什么需求> |
 
 ## 背景与问题
 
@@ -26,12 +54,11 @@ supersedes:              # optional, remove if N/A
 
 - <本 package 明确要做的内容 1>
 - <内容 2>
-- <内容 3>
 
 ### Out of scope
 
-- <看起来相近，但本 package 明确不做的内容 1>
-- <内容 2>
+- <看起来相近，但本次明确不做的内容 1>
+- <扩展扫视后决定不进本次 PRD scope 的内容>
 
 ## 关键场景 / 用户流 / 系统流
 
@@ -58,37 +85,56 @@ supersedes:              # optional, remove if N/A
 
 - <接口 / 页面 / 模块 / 脚本 / 配置 / 数据变更>
 - <交付物 2>
-- <交付物 3>
+
+## Technical Framing
+
+<!-- 
+PRD 必须收敛承重技术边界，避免 impl 在关键架构问题上自由发挥。未知项放 Open Questions；不需要项明确 N/A。
+新项目：记录技术选型和架构边界。
+存量项目：基于代码分析，记录现有结构和变更方案——涉及的现有表/模块、新建/修改的表（含关键字段）、接入现有模式的方式、不能动的边界。
+-->
+
+- Existing stack / framework:
+- Auth / permissions:
+- Frontend / backend boundary:
+- Data model / persistence:
+- Admin / ops surface:
+- External integrations:
+- Testing strategy:
+- Migration / rollout / rollback:
 
 ## 方案草图 / Proposed approach
 
-<高层方案。强调如何满足场景与交付物，不写实现步骤流水账。>
+<高层方案。强调如何满足场景、technical framing 与交付物，不写实现步骤流水账。>
 
-## Boundary sizing decision
+## Boundary decision
 
-- Boundary status: <fits_package | split_applied>
-- Parent map / initiative: <.arbor/maps/<initiative>/map.md | none>
-- Why this is one executable package: <为什么当前范围可以作为一个需求/评审/回滚边界>
-- Rejected split candidates: <哪些 slice 被考虑过但不需要独立 package；原因是什么>
-- T-xxx 语义: package-local control / acceptance / review 单元，不默认创建独立 branch/PR
+- Package kind: single
+- Boundary status: fits_package
+- Why this boundary works: <为什么当前范围可以作为需求 / 执行 / 评审 / 回滚边界>
+- Execution unit: package PRD scope; progress lives in `## Slices`.
 
-## 拆解线索 / 实现切片建议
+## Slices
 
-- Slice A:
-- Slice B:
-- Slice C:
-- 依赖顺序 / 并行性提示:
-- 注意: 这些 slice 后续会变成 package-local T-xxx；不是独立 PR 单元
+<!-- Brainstorm 定稿前写好。Impl 只更新 [ ] / [-] / [x] 进度标记，不另建执行计划。 -->
+
+- [ ] S-001: <第一个有意义的实现切片 — 目标和关键交付>
+- [ ] S-002: <第二个有意义的实现切片 — 目标和关键交付>
+- [ ] S-003: <最终验收 / 自检切片 — 关键验证>
 
 ## 关键约束（仅保留承重约束）
 
-- <真正会影响 task 拆解或实现边界的约束>
+- <真正会影响实现边界的约束>
 - <约束 2>
 
 ## 数据 / 接口备注（按需）
 
 ### 数据 / 状态
 
+<!-- 
+新项目：列出需要的数据实体和关键属性。
+存量项目：列出涉及的现有表（标注 [existing]）和新建表（标注 [new]），写出关键字段和变更内容。
+-->
 - <涉及的状态、表、缓存、队列、幂等键等>
 
 ### 接口 / 集成
@@ -107,7 +153,7 @@ supersedes:              # optional, remove if N/A
 
 ### Open questions
 
-- <会影响 task 拆解的未决项>
+- <会影响 impl/review 的未决项；PRD 定稿前 blocking 项必须解决>
 
 ### Assumptions
 
@@ -122,10 +168,9 @@ supersedes:              # optional, remove if N/A
 ## Amendments / Forward-only corrections
 
 <!--
-Append-only after task/impl/review has started.
+Append-only after impl/review has started.
 Use AMD-001, AMD-002, ...
-Do not rewrite old requirements or renumber existing T-xxx.
-Task appends new T-xxx linked by source_amendment/corrects.
+Do not rewrite old requirements silently; record wrong/correct/affects/source.
 -->
 
 | ID | Date | Wrong / obsolete requirement | Correct rule | Affects | Source |
@@ -141,16 +186,21 @@ Task appends new T-xxx linked by source_amendment/corrects.
 
 <!--
 ═══ 自检清单 (Finalize 前逐项确认, 确认后删除本块) ═══
+- [ ] PRD draft 已在 brainstorm 开始时创建或定位，并在每轮用户回答后更新
+- [ ] What I already know / Requirements (evolving) / Acceptance Criteria (evolving) / Open Questions / Interview Log 足以支持断点续作
+- [ ] Interview Log 只保留关键问答和需求变化，没有完整聊天流水
 - [ ] 背景说明了“为什么现在做”
-- [ ] In scope / Out of scope 足够明确，且是 package-local 范围
+- [ ] In scope / Out of scope 足够明确，且扩展扫视结果已分别归入本次 PRD scope 或 Out of scope
 - [ ] 至少写出 2 个关键场景（如适用）
-- [ ] 交付物清单可被 task 直接拿来拆
-- [ ] Boundary sizing decision 已明确为 fits_package 或 split_applied
-- [ ] Package 可作为一个需求/评审/回滚边界；若其实是 large initiative，未 finalize 本文件，已输出 clarified framing 并交给 `map`
-- [ ] 若来自 map，Parent map / initiative 已写明
-- [ ] 拆解线索给出了切片或顺序提示，且 slice 只是 package-local T-xxx 候选
+- [ ] Technical Framing 覆盖 stack/auth/frontend-backend/data/admin/integration/testing/migration 等承重边界；N/A 项已明确
+- [ ] Acceptance Criteria 覆盖核心路径和关键失败 / 边界路径
+- [ ] Boundary decision 已明确为 fits_package，且当前 package 可作为需求/执行/评审/回滚边界
+- [ ] Slices 已写好，顺序体现依赖，粒度适中（通常 3-8 个）
+- [ ] Slices 是 PRD-local 进度记录，不是第二 source of truth
 - [ ] Open questions / Assumptions / Risks 已分开；blocking / important assumptions 已审计来源、影响和处理方式
 - [ ] Sources 能覆盖关键判断，不只是装饰附录
+- [ ] 用户已确认最终摘要
+- [ ] finalize 只通过 sdd-arbor finalize-brainstorm 写入 ready package
 - [ ] 若这是 amendment，旧需求没有被静默改写，AMD-xxx 写清 wrong/correct/affects
-- [ ] 若进入 task，不会因缺少关键信息而立刻卡住
+- [ ] 若进入 impl，不会因缺少关键信息而立刻卡住
 ════════════════════════════════════════════════════ -->
