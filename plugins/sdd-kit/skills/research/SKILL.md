@@ -98,6 +98,7 @@ Research 是**发散 → 收敛**阶段。它：
 4. 若当前足够进入 brainstorm → `status: ready-for-brainstorm`
 5. 若用户明确认可本轮 research 已足够完成 → `status: closed`
 6. 输出状态摘要；**不调用** brainstorm skill，也**不自动** ingest wiki
+7. 若本轮 research 收集了有长期复用价值的外部知识（第三方 API 接口/地址/认证流程、平台限制、外部系统行为等），提醒用户是否需要用 wiki skill 将关键接口、地址和约束沉淀为 wiki 页面（type: source / entity），带上原始获取源以便后续更新验证
 
 ## Subagent fan-out（可选）
 

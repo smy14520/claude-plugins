@@ -50,3 +50,4 @@ Package review 通过不等于 merged / delivered；它只说明当前 package P
 - 若 verdict 是 `NEEDS_REWORK`，下一步回 impl 处理当前 package。
 - 若 verdict 是 `BRAINSTORM_DRIFT`，建议回 brainstorm 追加 amendment；不要让 impl 背锅。
 - APPROVED 不能只是 “LGTM”；至少说明检查了哪些 goal / scope / diff evidence。
+- APPROVED 或 APPROVED_WITH_NOTES 后，提醒用户是否需要用 wiki skill publish 模块摘要，以便后续开发时快速定位该模块的契约、关键决策和跨模块关系。
