@@ -35,8 +35,8 @@ READY_PRD = """# Demo package
 
 ## Slices
 
-- [ ] S-001: First slice — create baseline behavior
-- [ ] S-002: Self-check — run validation
+- S-001: First slice — create baseline behavior
+- S-002: Self-check — run validation
 """
 
 
@@ -498,6 +498,36 @@ summary: Duplicate module package.
         self.assertEqual(execution["pr"]["state"], "open")
         self.assertEqual(execution["status"], "pr_open")
         self.assertEqual(self.run_cli("validate", "demo-package"), 0)
+
+    def test_mark_slice_creates_and_updates_slice_progress(self):
+        self.finalize_single()
+        self.assertEqual(self.run_cli("mark-slice", "demo-package", "--id", "S-001", "--status", "in_progress", "--note", "API done, page pending", "--json"), 0)
+        data = self.task_json()
+        self.assertEqual(len(data["slices"]), 1)
+        self.assertEqual(data["slices"][0]["id"], "S-001")
+        self.assertEqual(data["slices"][0]["status"], "in_progress")
+        self.assertEqual(data["slices"][0]["note"], "API done, page pending")
+        self.assertEqual(self.run_cli("mark-slice", "demo-package", "--id", "S-001", "--status", "done", "--json"), 0)
+        data = self.task_json()
+        self.assertEqual(len(data["slices"]), 1)
+        self.assertEqual(data["slices"][0]["status"], "done")
+        self.assertEqual(self.run_cli("mark-slice", "demo-package", "--id", "S-002", "--status", "done", "--json"), 0)
+        data = self.task_json()
+        self.assertEqual(len(data["slices"]), 2)
+        self.assertEqual([s["id"] for s in data["slices"]], ["S-001", "S-002"])
+        self.assertEqual(self.run_cli("validate", "demo-package"), 0)
+
+    def test_mark_slice_rejects_invalid_id(self):
+        self.finalize_single()
+        self.assertEqual(self.run_cli("mark-slice", "demo-package", "--id", "X-001", "--status", "done"), 1)
+
+    def test_show_includes_slices(self):
+        self.finalize_single()
+        self.run_cli("mark-slice", "demo-package", "--id", "S-001", "--status", "done")
+        shown = arbor.show_package(self.root, "demo-package")
+        self.assertIsNotNone(shown.get("slices"))
+        self.assertEqual(shown["slices"][0]["id"], "S-001")
+        self.assertEqual(shown["slices"][0]["status"], "done")
 
     def test_list_and_show_json_are_parseable(self):
         self.run_cli("create", "demo-package")

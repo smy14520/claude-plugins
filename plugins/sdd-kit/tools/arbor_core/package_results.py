@@ -5,6 +5,7 @@ from typing import Any
 
 from .errors import ArborError
 from .fs import load_package, save_package
+from .schema import SLICE_ID_RE, SLICE_STATUSES
 from .state import add_phase_history, route_package_state
 
 IMPL_RESULT_STATES = {"done", "done_with_concerns", "needs_context", "blocked"}
@@ -106,3 +107,39 @@ def record_review(
     save_package(pkg, data)
     _append_review_entry(pkg, state, summary.strip(), [item for item in evidence if item], [item for item in notes if item], actor, timestamp)
     return {"package": name, "state": state, "review_result": result, "next_action": data.get("next_action")}
+
+
+def mark_slice(
+    root: Path,
+    name: str,
+    slice_id: str,
+    status: str,
+    note: str,
+    actor: str,
+    timestamp: str,
+) -> dict[str, Any]:
+    if not SLICE_ID_RE.match(slice_id):
+        raise ArborError(f"Invalid slice id '{slice_id}'. Use S-001 format.")
+    if status not in SLICE_STATUSES:
+        raise ArborError(f"Invalid slice status '{status}'. Use: {', '.join(sorted(SLICE_STATUSES))}.")
+    pkg, data = load_package(root, name)
+    slices = data.get("slices")
+    if not isinstance(slices, list):
+        slices = []
+        data["slices"] = slices
+    existing = next((s for s in slices if s.get("id") == slice_id), None)
+    if existing:
+        existing["status"] = status
+        existing["note"] = note
+        existing["updated_at"] = timestamp
+    else:
+        slices.append({
+            "id": slice_id,
+            "status": status,
+            "note": note,
+            "updated_at": timestamp,
+        })
+        slices.sort(key=lambda s: s.get("id", ""))
+    data["updated_at"] = timestamp
+    save_package(pkg, data)
+    return {"package": name, "slice": slice_id, "status": status, "slices": slices}

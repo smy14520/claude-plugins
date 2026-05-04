@@ -21,6 +21,7 @@ PUBLIC_COMMANDS = (
     "validate",
     "doctor",
     "set-status",
+    "mark-slice",
     "record-impl-result",
     "record-review",
     "add-amendment",
@@ -112,6 +113,14 @@ def build_parser() -> argparse.ArgumentParser:
     record_impl.add_argument("--concern", action="append", default=[])
     record_impl.add_argument("--actor", default="impl")
     record_impl.add_argument("--json", dest="json_output", action="store_true", help="Emit JSON output.")
+
+    mark_slice_parser = _public_command(sub, "mark-slice", help="Update slice progress in task.json.")
+    mark_slice_parser.add_argument("name")
+    mark_slice_parser.add_argument("--id", required=True, help="Slice id (e.g. S-001).")
+    mark_slice_parser.add_argument("--status", required=True, choices=sorted(SLICE_STATUSES), help="Slice status.")
+    mark_slice_parser.add_argument("--note", default="", help="Optional progress note.")
+    mark_slice_parser.add_argument("--actor", default="impl")
+    mark_slice_parser.add_argument("--json", dest="json_output", action="store_true", help="Emit JSON output.")
 
     record_review_parser = _public_command(sub, "record-review", help="Record structured package review verdict evidence.")
     record_review_parser.add_argument("name")
@@ -313,6 +322,14 @@ def main(argv: list[str] | None = None) -> int:
                 print(json.dumps(result, ensure_ascii=False, indent=2))
             else:
                 print("ok")
+            return 0
+
+        if args.command == "mark-slice":
+            result = mark_slice(root, args.name, args.id, args.status, args.note, args.actor, timestamp)
+            if json_output:
+                print(json.dumps(result, ensure_ascii=False, indent=2))
+            else:
+                print(f"{result['slice']}: {result['status']}")
             return 0
 
         if args.command == "record-review":

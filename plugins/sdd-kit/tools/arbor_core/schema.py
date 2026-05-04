@@ -32,6 +32,7 @@ NEXT_ACTION_SKILLS = {"brainstorm", "impl", "review", "user", "none"}
 CONTEXT_TYPES = {"impl", "review", "sources"}
 CONTEXT_KINDS = {"constraint", "source", "note", "acceptance", "risk", "decision", "file", "command"}
 SOURCE_TYPES = {"local-file", "research-note", "external-url", "wiki", "other"}
+SLICE_STATUSES = {"pending", "in_progress", "done"}
 EXECUTION_STATUSES = {"unclaimed", "in_progress", "done", "reviewed", "pr_open", "merged", "abandoned"}
 PR_STATES = {"none", "draft", "open", "merged", "closed", "not_applicable"}
 PACKAGE_SIZING_STATUSES = {"unchecked", "fits_package"}

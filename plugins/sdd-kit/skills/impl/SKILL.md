@@ -19,16 +19,17 @@ Impl 执行一个 package PRD scope。它读 PRD，按 Slices 顺序连续实现
 ## 流程
 
 1. 读取 PRD 的目标、范围、Acceptance Criteria、Technical Framing（含 Testing strategy）、Slices。
-2. 检查 Slices 状态：
-   - 所有 slice 已 `[x]` 且 `task.json` 已有 impl_result → package 已完成，不重复执行。
-   - 所有 slice 已 `[x]` 但没有 impl_result → 直接跳到 self-check（步骤 9）。
-   - 存在 `[ ]` 或 `[-]` → 正常执行（步骤 3 起）。
+2. 读取 `task.json` 的 `slices` 数组检查进度（PRD 里的 Slices 段只定义需求，不做进度标记）：
+   - 所有 slice 已 `done` 且 `task.json` 已有 impl_result → package 已完成，不重复执行。
+   - 所有 slice 已 `done` 但没有 impl_result → 直接跳到 self-check（步骤 9）。
+   - 存在 `pending` 或 `in_progress` → 正常执行（步骤 3 起）。
+   - `slices` 数组为空或不存在 → 视为全部 pending，正常执行。
 3. PRD blocking open questions 或 technical framing 缺失时停止，不要硬做。
 4. 存量项目的 slice 包含技术锚点时，先验证锚点描述的现有结构仍然成立（表是否存在、模块接口是否匹配、设计模式是否如 PRD 所述），再动刀。发现不一致时报告 NEEDS_CONTEXT，不要硬改。
 5. 用 `sdd-arbor set-status <package> --state doing --actor impl --note "开始执行"` 记录状态（已处于 doing 时跳过）。
-6. 找到第一个未完成的 slice（`[ ]` 或 `[-]`），开始执行。
+6. 找到第一个未完成的 slice（`pending` 或 `in_progress`），开始执行。
 7. 连续执行所有 slices，不在 slice 之间停顿等待用户确认。
-8. 每完成一个 slice，在 PRD 的 `## Slices` 段将该 slice 标记为 `[x]`。
+8. 每完成一个 slice，用 `sdd-arbor mark-slice <package> --id S-001 --status done` 记录进度。
 9. 全部 slices 完成后，运行 self-check。
 10. 用 `sdd-arbor record-impl-result <package> --state done|done_with_concerns|needs_context|blocked ...` 记录结果。
 
@@ -36,31 +37,29 @@ Impl 执行一个 package PRD scope。它读 PRD，按 Slices 顺序连续实现
 
 读取 PRD Technical Framing 中的 Testing strategy 字段，按选择的档位执行：
 
-- **核心路径测试**：每个 slice 完成后，补该 slice 涉及的关键路径和边界 case 测试，运行并确认全部通过后才标记 `[x]`。外部依赖用 mock/fake。
-- **TDD 驱动**：每个 slice 先写测试再写实现，按 `references/tdd.md` 的 red-green loop 执行，绿灯后才标记 `[x]`。外部依赖用 mock/fake。
+- **核心路径测试**：每个 slice 完成后，补该 slice 涉及的关键路径和边界 case 测试，运行并确认全部通过后才用 `mark-slice` 标记 `done`。外部依赖用 mock/fake。
+- **TDD 驱动**：每个 slice 先写测试再写实现，按 `references/tdd.md` 的 red-green loop 执行，绿灯后才用 `mark-slice` 标记 `done`。外部依赖用 mock/fake。
 - **最小验收**：全部 slice 完成后，跑 happy path 验证功能跑通。
 
 测试框架和工具由 Technical Framing 的 stack 决定（AI 根据项目技术栈自行选择），sdd-kit 不指定具体工具。
 
 ## Slices 执行
 
-PRD 的 `## Slices` 段是执行顺序的 source of truth。Impl 按顺序逐个执行，不跳跃。
+PRD 的 `## Slices` 段定义 slice 需求和执行顺序。Impl 按顺序逐个执行，不跳跃。
 
-三种标记：
-- `[ ]` 未开始
-- `[-]` 部分完成（附简短备注）
-- `[x]` 完成
-
-Impl 不创建额外的执行计划文件。Slices 段就是进度记录。
+进度记录在 `task.json` 的 `slices` 数组中（通过 `sdd-arbor mark-slice` 更新），不修改 PRD 文件。三种状态：
+- `pending` 未开始
+- `in_progress` 部分完成（附备注说明停在哪里）
+- `done` 完成
 
 ## 断点续作
 
 如果对话中断（上下文窗口满、用户手动停、网络断），恢复时：
 
-1. 读 PRD 的 Slices 段，找到第一个 `[ ]` 或 `[-]` 的 slice。
+1. 读 `task.json` 的 `slices` 数组，找到第一个 `pending` 或 `in_progress` 的 slice。
 2. 快速扫描实际代码状态，验证标记是否准确。代码即进度——如果标记说 S-001 完成了，但项目目录是空的，从 S-001 重新来。
 3. 读已有测试文件——测试是前面 slice 设计决策的最好文档，能快速了解已建立的接口契约、数据结构和预期行为，避免后续 slice 与前面的设计意图矛盾。
-4. 如果是 `[-]`（部分完成），读取备注了解上次停在哪里，继续未完成的部分。
+4. 如果是 `in_progress`，读取 note 了解上次停在哪里，继续未完成的部分。
 5. 继续连续执行剩余 slices。
 
 如果是 review NEEDS_REWORK 后回到 impl：
@@ -69,10 +68,10 @@ Impl 不创建额外的执行计划文件。Slices 段就是进度记录。
 2. 针对性修复 review 指出的问题，不要从头重新执行所有 slice。
 3. 修复完成后重新运行 self-check，用 `record-impl-result` 记录新结果。
 
-如果 impl 检测到当前 slice 未完全做完但需要停止（如对话即将结束），在 PRD 中将该 slice 标记为 `[-]` 并附简短备注：
+如果 impl 检测到当前 slice 未完全做完但需要停止（如对话即将结束），用 `mark-slice` 记录部分进度：
 
-```markdown
-- [-] S-002: 认证与 RBAC — 后端 auth API + migration 完成，前端登录页未做
+```bash
+sdd-arbor mark-slice <package> --id S-002 --status in_progress --note "后端 auth API + migration 完成，前端登录页未做"
 ```
 
 ## 四种结果
@@ -109,6 +108,6 @@ Self-check 必须覆盖三层，不能只跑其中一层就声称 DONE：
 - 未运行可用 self-check，不得声称 DONE。
 - 连续执行所有 slices，不在中间停顿等用户确认。
 - 发现 PRD 决策错误，报告 NEEDS_CONTEXT，不静默改需求。
-- 不修改 `prd.md` 的需求内容（只更新 Slices 的进度标记）。
+- 不修改 `prd.md`。PRD 是需求 source of truth，impl 不碰它；进度通过 `mark-slice` 记录在 `task.json`。
 - 不手写 `task.json`。
 - 不自动进入 review。

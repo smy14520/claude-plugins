@@ -83,7 +83,7 @@ Use arbor helper `record-impl-result` for structured result evidence.
 
 ## 规则
 
-1. **PRD 需求内容不由 impl 静默修改**；impl 只更新 `## Slices` 的 `[ ]` / `[-]` / `[x]` 进度标记。
+1. **PRD 不由 impl 修改**；impl 进度通过 `sdd-arbor mark-slice` 写入 `task.json` 的 `slices` 数组。
 2. **task.json 是 lifecycle 状态事实源**。
 3. **不要写 `完成项` / `未完成项` / 普通 TODO**。
 4. **DONE 前必须记录 acceptance 结果**。

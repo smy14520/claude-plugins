@@ -245,6 +245,27 @@ def validate_package(root: Path, name: str) -> list[str]:
     if "active_task" in data:
         errors.append("active_task is obsolete in PRD-first model")
 
+    slices = data.get("slices")
+    if slices is not None:
+        if not isinstance(slices, list):
+            errors.append("slices must be an array")
+        else:
+            seen_ids: set[str] = set()
+            for index, entry in enumerate(slices):
+                label = f"slices[{index}]"
+                if not isinstance(entry, dict):
+                    errors.append(f"{label} must be an object")
+                    continue
+                sid = entry.get("id")
+                if not isinstance(sid, str) or not SLICE_ID_RE.match(sid):
+                    errors.append(f"{label}.id must match S-NNN format")
+                elif sid in seen_ids:
+                    errors.append(f"Duplicate slice id: {sid}")
+                else:
+                    seen_ids.add(sid)
+                if entry.get("status") not in SLICE_STATUSES:
+                    errors.append(f"{label}.status must be one of {sorted(SLICE_STATUSES)}")
+
     validate_package_sizing(data, errors)
     validate_package_kind(data, errors)
     validate_execution(data, errors)

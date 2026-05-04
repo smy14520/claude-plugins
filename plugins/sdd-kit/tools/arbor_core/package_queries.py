@@ -55,6 +55,7 @@ def show_package(root: Path, name: str) -> dict[str, Any]:
         "execution": data.get("execution"),
         "package_sizing": data.get("package_sizing"),
         "prd": data.get("prd"),
+        "slices": data.get("slices"),
         "impl_result": data.get("impl_result"),
         "review_result": data.get("review_result"),
         "validation": {"ok": not errors, "errors": errors},

@@ -1,0 +1,28 @@
+{
+  "run_dir": "/Users/camellia/Personal/Code/claude/claude-plugins/plugins/sdd-kit/tests/scenario_eval/runs/2026-05-04/personal-finance-greenfield-medium",
+  "work_dir": "/Users/camellia/Personal/Code/claude/claude-plugins/plugins/sdd-kit/tests/scenario_eval/runs/2026-05-04/personal-finance-greenfield-medium/project",
+  "model": "claude-opus-4-6",
+  "ai_user_model": "claude-opus-4-6",
+  "ai_user_mode": "agent",
+  "scenario_name": "personal-finance-greenfield-medium",
+  "scenario_profile": "greenfield-medium",
+  "user_request": "我想从零做一个面向个人和小家庭的 Web 现金流记账工具，支持账户、收支分类、预算、周期性账单和日常快速录入，能持久化数据并提供月度统计/复盘，同时先明确不做投资理财和报税，测试策略要覆盖核心模型、录入流程和统计口径，开发环境请尽量用 Docker/docker-compose 隔离。",
+  "turns": 14,
+  "impl_started": true,
+  "prd_path": "/Users/camellia/Personal/Code/claude/claude-plugins/plugins/sdd-kit/tests/scenario_eval/runs/2026-05-04/personal-finance-greenfield-medium/project/.arbor/tasks/05-04-household-cashflow-ledger/prd.md",
+  "task_state_path": "/Users/camellia/Personal/Code/claude/claude-plugins/plugins/sdd-kit/tests/scenario_eval/runs/2026-05-04/personal-finance-greenfield-medium/project/.arbor/tasks/05-04-household-cashflow-ledger/task.json",
+  "run_error": "Timed out waiting for tested agent response.",
+  "impl_response_preview": "好的。",
+  "verdict": "needs_review",
+  "checks": {
+    "multi_turn": true,
+    "has_technical_framing": true,
+    "has_slices": true,
+    "has_acceptance_criteria": true,
+    "has_existing_code_anchor": true,
+    "has_template_placeholder": false,
+    "has_blocking_open_question": true,
+    "package_ready": true,
+    "impl_recorded": false
+  }
+}

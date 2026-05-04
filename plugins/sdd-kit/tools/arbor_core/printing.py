@@ -24,6 +24,12 @@ def print_human_show(data: dict[str, Any]) -> None:
     print(f"Package sizing: {data.get('package_sizing')}")
     print(f"Execution: {data.get('execution')}")
     print(f"PRD: {data.get('prd')}")
+    slices = data.get("slices")
+    if slices:
+        print("Slices:")
+        for s in slices:
+            note = f" — {s['note']}" if s.get("note") else ""
+            print(f"  {s['id']}: {s['status']}{note}")
     print(f"Impl result: {data.get('impl_result')}")
     print(f"Review result: {data.get('review_result')}")
     print(f"Validation: {'ok' if data['validation']['ok'] else 'failed'}")

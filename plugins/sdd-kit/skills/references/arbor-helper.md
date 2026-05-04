@@ -40,6 +40,7 @@ sdd-arbor <subcommand> --help
 ### Lifecycle / implementation / review
 
 - `set-status`：更新 package lifecycle state（`draft` / `ready` / `doing` / `done` / `reviewed`）。
+- `mark-slice`：更新 slice 执行进度（`pending` / `in_progress` / `done`），记录在 `task.json` 的 `slices` 数组中。
 - `set-execution`：记录轻量执行元数据，如 branch、worktree、execution status。
 - `set-pr`：记录 package-level PR 元数据。
 - `record-impl-result`：记录 impl 结果、self-check 依据和命令。

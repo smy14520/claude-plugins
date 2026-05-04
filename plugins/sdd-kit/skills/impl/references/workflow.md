@@ -13,9 +13,9 @@ Impl 执行一个 package PRD scope，并记录结构化结果。
 ## Execute
 
 1. 根据 PRD scope / acceptance / technical framing / slices 形成一句 execution understanding。
-2. 找到第一个未完成 slice（`[ ]` 或 `[-]`），从那里继续。
+2. 读取 `task.json` 的 `slices` 数组，找到第一个 `pending` 或 `in_progress` slice，从那里继续；若数组为空则按 PRD Slices 顺序从头开始。
 3. 完整覆盖 PRD scope 的必要代码变更；避免无关重构、无关抽象和 PRD 外能力。
-4. 每完成一个 slice，在 PRD `## Slices` 段将该 slice 标记为 `[x]`。
+4. 每完成一个 slice，用 `sdd-arbor mark-slice <package> --id S-001 --status done` 记录进度。
 5. 连续执行所有 slices，不在 slice 之间停顿等用户确认。
 6. 信息不足时报告 NEEDS_CONTEXT；环境问题报告 BLOCKED。
 
