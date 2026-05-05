@@ -13,37 +13,16 @@ Collect 原语的 URL 抓取步骤的详细流程。适用于 `research.Collect`
 
 ---
 
-## 1. 工具选择 — 按信号决策
+## 1. 工具选择 — 按信号升级
 
-不要预先判断 URL 属于什么类型。从最廉价的工具开始，按返回信号的指示升级。
+不要预先按 URL 类型分桶；从最廉价的工具开始，按返回信号决定是否升级。
 
-### 起始选择（按 URL 形态的廉价提示）
+- **起手**：GitHub 仓库/文件用 `deepwiki`；已知库/框架文档站用 `context7`；其他 URL 一律先用内置 `fetch`。
+- **升级到 `playwright`**：fetch 返回空内容 / 残缺 HTML / 反爬挑战页面，或页面有标签切换、分页、"加载更多"、需要登录等动态状态。需登录时 playwright 暂停，请用户协助后继续。
+- **发现 JSON API**：页面背后有可发现的干净端点时，直接 `fetch` 该端点（比抓渲染页快且稳）。
+- **只有主题不知 URL**：先用 `exa`（语义）或 `grok-search`（时效）定位，再回到本流程。
 
-| URL 形态提示 | 首选工具 | 选择理由 |
-|---|---|---|
-| URL 指向 GitHub 仓库/文件 | `deepwiki` | 预索引且支持语义问答；远比抓取渲染页面经济 |
-| URL 指向已知库/框架文档站 | `context7` | 专为框架文档检索设计；返回结构化文档段落 |
-| 其他 URL | 内置 fetch | 最廉价；先尝试再说 |
-
-### 升级信号（观察返回结果后决定）
-
-| 信号 | 升级到 |
-|---|---|
-| fetch 返回空内容 / 残缺 HTML / 仅包含脚本标签 | `playwright` |
-| Cloudflare / 类似反爬挑战页面 | `playwright` |
-| 页面有标签切换、分页、"加载更多"按钮 | `playwright`（逐一导航各状态） |
-| 需要登录才能看到内容 | `playwright` → 暂停，请求用户登录后继续 |
-| 页面背后有可发现的 JSON API（网络面板可见干净端点） | 直接 `fetch` 该 API 端点 |
-| 不确定 URL，只有主题关键词 | `exa` 或 `grok-search` 先定位，再用找到的 URL 重新进入本流程 |
-
-### 工具说明
-
-- **deepwiki**：GitHub 仓库。返回结构化问答内容。
-- **context7**：库/框架文档。指定库名 + 主题，返回带版本标签的精选文档片段。
-- **内置 fetch**：静态 HTML / RSS / JSON。最廉价，始终先尝试。
-- **playwright**：真实浏览器运行时。处理 JS 渲染、标签切换、分页、登录场景。
-- **exa**：语义/神经搜索。输入主题短语，返回按语义相关性排序的 URL。
-- **grok-search**：实时/近期内容。输入查询短语，返回时效性结果。
+工具速记：`deepwiki` 仓库语义问答 / `context7` 框架文档段 / `fetch` 静态 HTML·RSS·JSON / `playwright` 真实浏览器 / `exa` 语义搜 / `grok-search` 时效搜。
 
 ---
 
@@ -118,44 +97,11 @@ fetched_at: YYYY-MM-DD HH:MM
 
 ## 5. 失败处理
 
-当 URL 穷尽工具阶梯后仍无法获取：
+URL 穷尽工具阶梯仍无法获取时：
 
-### 5.1 记录，不要丢弃
-
-创建 `raw/ext-<name>-failed.md`：
-
-```markdown
----
-url: <URL>
-attempts:
-  - tool: <工具>
-    error: "<错误描述>"
-  - tool: <工具>
-    error: "<错误描述>"
-final_status: unretrievable
----
-
-# 预期贡献
-
-<1-2 行说明此来源预期提供的内容>
-
-# 替代方案
-
-<替代来源或明确的"缺口"确认>
-```
-
-### 5.2 传播至 index.md
-
-在 `index.md` 的“仍未解决的问题”或“当前是否适合进入 brainstorm”章节中披露：
-
-```markdown
-- ⚠️ 无法获取 [<来源名称>](<URL>) — 已尝试 <工具列表>。
-  详见 `raw/ext-<name>-failed.md`。若此输入仍关键，则当前状态不应标记为 `ready-for-brainstorm`。
-```
-
-### 5.3 永远不要捏造
-
-来源不可获取时，**不要**从 URL、标题或搜索结果摘要推断其内容。
+1. **记录完整失败路径**到 `raw/ext-<name>-failed.md`，frontmatter 含 `url`、按顺序的 `attempts` 列表（每条 `tool` + `error`）、`final_status: unretrievable`。正文写"预期贡献"和可能的"替代方案 / 缺口确认"。
+2. **披露到 `index.md`** 的"仍未解决的问题"或"是否适合进入 brainstorm"段：标 ⚠️ + 已尝试工具列表 + failed 文件路径。该输入仍关键时，状态不应标 `ready-for-brainstorm`。
+3. **绝不捏造**：不从 URL、标题或搜索摘要推断不可获取来源的内容。
 
 ---
 
@@ -173,11 +119,8 @@ final_status: unretrievable
 
 ## 7. 检查清单 — 声明收集完成之前
 
-- [ ] 所有用户提供的 URL 已尝试获取
-- [ ] 每次获取失败后已按信号升级工具
-- [ ] 需要登录的 URL 已暂停并请求用户协助
-- [ ] 已验证标签完整性（或确认为单标签页面）
-- [ ] 已达到分页上限（或确认为非分页页面）
-- [ ] 已完成一级追踪（或确认无实质性引用）
-- [ ] 每个 `raw/ext-*.md` 都有必要元数据
-- [ ] 失败的 URL 已记录在 `raw/ext-*-failed.md` 中并在 `index.md` 中披露
+- [ ] 用户提供的 URL 全部已尝试；需登录的已请求用户协助
+- [ ] 每次失败都按返回信号升级了工具，未静默放弃
+- [ ] 多标签 / 分页 / 一级追踪 已完成（或确认不适用）
+- [ ] 每个 `raw/ext-*.md` 都有 `url` / `tool` / `fetched_at` 元数据
+- [ ] 失败的 URL 已写 `raw/ext-*-failed.md` 并在 `index.md` 披露

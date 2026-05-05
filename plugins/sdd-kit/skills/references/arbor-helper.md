@@ -29,7 +29,7 @@ sdd-arbor <subcommand> --help
 
 ### Brainstorm / package readiness
 
-- `create`：低层 draft workspace helper，仅用于新 brainstorm 开始时创建 `.arbor/tasks/<package>/prd.md` 草稿。
+- `create`：低层 draft workspace helper，仅用于新 brainstorm 开始时创建 `.arbor/tasks/<package>/prd.md` 草稿，并准备可选的 `artifacts/` 目录。
 - `finalize-brainstorm`：从 brainstorm PRD 草稿写入 ready package。大 scope 使用 PRD 内 `## Slices`，不要创建子 package。
 
 ### Context / handoff

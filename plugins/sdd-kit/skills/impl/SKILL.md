@@ -15,17 +15,18 @@ Impl 执行一个 package PRD scope。它读 PRD，按 Slices 顺序连续实现
 
 - `.arbor/tasks/<package>/prd.md`（PRD 是需求和 Slices 的 source of truth）
 - `.arbor/tasks/<package>/task.json`（读取 package state；只通过 `sdd-arbor` 更新）
+- `.arbor/tasks/<package>/artifacts/`（按需读取 PRD 引用的 data-model / integration / API contract；artifact 是 PRD 附属 contract，不是生产实现事实源）
 
 ## 流程
 
-1. 读取 PRD 的目标、范围、Acceptance Criteria、Technical Framing（含 Testing strategy）、Slices。
+1. 读取 PRD 的目标、范围、Acceptance Criteria、Package artifacts 引用、Technical Framing（含 Testing strategy）、Slices；若 PRD 引用了 `artifacts/` 中的 contract，先读取对应文件。
 2. 读取 `task.json` 的 `slices` 数组检查进度（PRD 里的 Slices 段只定义需求，不做进度标记）：
    - 所有 slice 已 `done` 且 `task.json` 已有 impl_result → package 已完成，不重复执行。
    - 所有 slice 已 `done` 但没有 impl_result → 直接跳到 self-check（步骤 9）。
    - 存在 `pending` 或 `in_progress` → 正常执行（步骤 3 起）。
    - `slices` 数组为空或不存在 → 视为全部 pending，正常执行。
 3. PRD blocking open questions 或 technical framing 缺失时停止，不要硬做。
-4. 存量项目的 slice 包含技术锚点时，先验证锚点描述的现有结构仍然成立（表是否存在、模块接口是否匹配、设计模式是否如 PRD 所述），再动刀。发现不一致时报告 NEEDS_CONTEXT，不要硬改。
+4. slice 的 `数据/schema` 或 `代码锚点` 字段引用了 `[existing]` 资源时，先验证这些资源仍然成立（表是否存在、模块接口是否匹配、文件路径是否对应、设计模式是否如 PRD 所述），再动刀。发现不一致时报告 NEEDS_CONTEXT，不要硬改。
 5. 用 `sdd-arbor set-status <package> --state doing --actor impl --note "开始执行"` 记录状态（已处于 doing 时跳过）。
 6. 找到第一个未完成的 slice（`pending` 或 `in_progress`），开始执行。
 7. 连续执行所有 slices，不在 slice 之间停顿等待用户确认。
@@ -107,7 +108,8 @@ Self-check 必须覆盖三层，不能只跑其中一层就声称 DONE：
 
 - 未运行可用 self-check，不得声称 DONE。
 - 连续执行所有 slices，不在中间停顿等用户确认。
-- 发现 PRD 决策错误，报告 NEEDS_CONTEXT，不静默改需求。
+- 发现 PRD 或 artifact 决策错误，报告 NEEDS_CONTEXT，不静默改需求或 contract。
 - 不修改 `prd.md`。PRD 是需求 source of truth，impl 不碰它；进度通过 `mark-slice` 记录在 `task.json`。
+- 不静默修改 PRD 引用的 `artifacts/` contract；如需改变，先记录 amendment 或 NEEDS_CONTEXT。
 - 不手写 `task.json`。
 - 不自动进入 review。

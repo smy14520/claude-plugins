@@ -97,16 +97,30 @@ supersedes:
 
 - Package kind: single
 - Boundary status: fits_package
-- Why this boundary works: <为什么当前范围可以作为需求 / 执行 / 评审边界>
-- Execution unit: package PRD scope; progress lives in `## Slices`.
+- Why this boundary works: <为什么当前范围可以作为需求 / 执行 / 评审 / 回滚边界>
+- Execution unit: package PRD scope; progress lives in `task.json` `slices` via `sdd-arbor mark-slice`.
 
 ## Slices
 
-<!-- Brainstorm 定稿前写好。Impl 只更新 [ ] / [-] / [x] 进度标记，不另建执行计划。 -->
+<!-- Brainstorm 定稿前写好。PRD 只定义 slice 需求和顺序；impl 进度通过 sdd-arbor mark-slice 写入 task.json。每个 slice 必填 完成标志；其余字段按 slice 实际涉及范围取舍——涉及就写，不涉及整条省略。不分存量/新项目。完成标志 vs Acceptance Criteria：AC 是用户视角的整体验收，完成标志是每 slice 的技术 done-condition，每条 AC 应能追溯到 1 个或多个 slice 的完成标志组合。 -->
 
-- [ ] S-001: <第一个有意义的实现切片 — 目标和关键交付>
-- [ ] S-002: <第二个有意义的实现切片 — 目标和关键交付>
-- [ ] S-003: <最终验收 / 自检切片 — 关键验证>
+### S-001: <有数据、有代码、有测试的 slice>
+
+- 完成标志：<一句话可验证的 done-condition>
+- 数据/schema：<涉及表/migration 时写；标注 [new]/[existing]；可指向 artifacts/data-model.sql>
+- 代码锚点：<涉及模块/文件/接口/页面时写；标注 [new]/[existing]>
+- 测试：<Testing strategy 要求时写>
+
+### S-002: <纯代码变更的 slice，例如 UI 或业务逻辑>
+
+- 完成标志：<...>
+- 代码锚点：<...>
+- 测试：<...>
+
+### S-003: <最终验收 / 自检切片>
+
+- 完成标志：<关键路径、边界 case、未授权/异常路径都已验证>
+- 测试：<...>
 
 ## 关键约束（仅保留承重约束）
 

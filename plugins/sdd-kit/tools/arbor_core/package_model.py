@@ -67,9 +67,14 @@ def create_package(root: Path, name: str, title: str | None, source_type: str, t
     title = title or name
     pkg = package_dir(root, name)
     context_dir = pkg / "context"
+    artifacts_dir = pkg / "artifacts"
+    artifacts_created = not artifacts_dir.exists()
     context_dir.mkdir(parents=True, exist_ok=True)
+    artifacts_dir.mkdir(parents=True, exist_ok=True)
 
     created_files: list[str] = []
+    if artifacts_created:
+        created_files.append("artifacts/")
     for rel, content in [
         ("prd.md", prd_template(name, title, timestamp)),
         ("review.md", review_template(name, timestamp)),
