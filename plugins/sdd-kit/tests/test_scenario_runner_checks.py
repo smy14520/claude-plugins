@@ -33,6 +33,23 @@ class DetectBlockingOpenQuestionTests(unittest.TestCase):
         prd = "# Demo\n\n## Open Questions\n\n- 无 blocking open questions。\n"
         self.assertFalse(runner._detect_blocking_open_question(prd))
 
+    def test_returns_false_for_chinese_negation_with_trailing_clause(self):
+        """Regression: PRD writers often append rationale after the negation,
+        e.g. `无 blocking open question；用户已确认最终摘要`. The detector must
+        treat the whole clause as a negation, not just the bare phrase."""
+        prd = (
+            "# Demo\n\n## Open Questions\n\n"
+            "- 无 blocking open question；用户已确认最终摘要，可以 finalize brainstorm。\n"
+        )
+        self.assertFalse(runner._detect_blocking_open_question(prd))
+
+    def test_returns_false_for_english_negation_with_trailing_clause(self):
+        prd = (
+            "# Demo\n\n## Open Questions\n\n"
+            "- No blocking open questions; user already confirmed final summary.\n"
+        )
+        self.assertFalse(runner._detect_blocking_open_question(prd))
+
     def test_returns_false_for_english_no_negation(self):
         prd = "# Demo\n\n## Open Questions\n\n- No blocking open questions.\n"
         self.assertFalse(runner._detect_blocking_open_question(prd))
@@ -240,8 +257,8 @@ class BrainstormReadyTextMarkerTests(unittest.TestCase):
 
 class ResponseTimeoutForPhaseTests(unittest.TestCase):
     def test_defaults_impl_timeout_longer_than_brainstorm(self):
-        self.assertEqual(runner.response_timeout_for_phase("brainstorm"), 180)
-        self.assertEqual(runner.response_timeout_for_phase("impl"), 1500)
+        self.assertEqual(runner.response_timeout_for_phase("brainstorm"), 900)
+        self.assertEqual(runner.response_timeout_for_phase("impl"), 2400)
 
     def test_brainstorm_uses_legacy_response_timeout_fallback(self):
         with mock.patch.dict(
@@ -250,7 +267,7 @@ class ResponseTimeoutForPhaseTests(unittest.TestCase):
             clear=False,
         ):
             self.assertEqual(runner.response_timeout_for_phase("brainstorm"), 240)
-            self.assertEqual(runner.response_timeout_for_phase("impl"), 1500)
+            self.assertEqual(runner.response_timeout_for_phase("impl"), 2400)
 
     def test_phase_specific_env_overrides(self):
         with mock.patch.dict(

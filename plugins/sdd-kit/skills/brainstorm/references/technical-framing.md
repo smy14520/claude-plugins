@@ -8,8 +8,8 @@
 
 - **Existing stack / framework**:沿用什么、不能引入什么。
 - **Auth / permissions**:谁能做什么,权限边界在哪里。
-- **Frontend / backend boundary**:页面、API、service、CLI 或脚本边界。
-- **Data model / persistence**:新增 / 修改状态、表、缓存、迁移、幂等要求;字段或关系较多时使用 package artifact(如 `artifacts/data-model.sql`)承载草案级 schema contract。
+- **Module / service boundaries**:按项目类型记录承重边界,例如页面、API、service、CLI、脚本、引擎子系统、模型 / 特征管线或设备接口。
+- **Data model / persistence**:新增 / 修改状态、数据结构、表、缓存、文件格式、迁移、幂等或版本兼容要求;结构较多时使用 package artifact 承载草案级 contract。
 - **Admin / ops surface**:管理后台、配置、观测、回滚入口。
 - **External integrations**:第三方、队列、支付、邮件、AI API 等边界。
 - **Testing strategy**:用 `AskUserQuestion` 让用户选档位,据此确定覆盖范围和 slice 规划(见下)。

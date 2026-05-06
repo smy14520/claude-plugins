@@ -6,7 +6,7 @@
 
 ## 静默做设计决策以解除阻塞
 
-PRD 对 TTL、重试次数、URL、权限边界、数据模型等有歧义时，不要自行拍板。发出 NEEDS_CONTEXT，并引用具体来源。
+PRD 对承重决策（性能预算、重试 / 超时、权限边界、数据模型、版本兼容等）有歧义时，不要自行拍板。发出 NEEDS_CONTEXT，并引用具体来源。
 
 ## 将 BLOCKED 伪装为 DONE_WITH_CONCERNS
 

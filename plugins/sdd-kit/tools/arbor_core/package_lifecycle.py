@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import re
 from pathlib import Path
 from typing import Any
 
@@ -7,6 +8,39 @@ from .errors import ArborError
 from .fs import *
 from .schema import *
 from .state import add_phase_history, route_package_state
+
+_FRONTMATTER_RE = re.compile(r"\A---\r?\n(.*?)\r?\n---(\r?\n|\Z)", re.DOTALL)
+_FRONTMATTER_STATUS_LINE_RE = re.compile(r"^(status:[ \t]*)(\S+)([ \t]*.*)$", re.MULTILINE)
+
+
+def _sync_prd_markdown_status(root: Path, name: str, status: str) -> None:
+    """Best-effort sync of the prd.md YAML frontmatter `status:` field.
+
+    Keeps PRD metadata aligned with task.json so reviewers reading prd.md
+    don't see `status: draft` after brainstorm finalize. No-op when prd.md
+    is missing, lacks a YAML frontmatter block, or has no `status:` line —
+    legacy or hand-written PRDs without frontmatter remain untouched.
+    """
+    prd_path = package_dir(root, name) / "prd.md"
+    if not prd_path.exists():
+        return
+    text = prd_path.read_text(encoding="utf-8")
+    match = _FRONTMATTER_RE.match(text)
+    if not match:
+        return
+    frontmatter = match.group(1)
+    updated, count = _FRONTMATTER_STATUS_LINE_RE.subn(
+        lambda m: f"{m.group(1)}{status}{m.group(3)}",
+        frontmatter,
+        count=1,
+    )
+    if count == 0 or updated == frontmatter:
+        return
+    rest = text[match.end():]
+    prd_path.write_text(
+        f"---\n{updated}\n---{match.group(2)}{rest}",
+        encoding="utf-8",
+    )
 
 
 def update_package_status(root: Path, name: str, state: str, actor: str, note: str, timestamp: str) -> dict[str, Any]:
@@ -100,6 +134,7 @@ def update_prd_status(root: Path, name: str, status: str, actor: str, note: str,
     data["updated_at"] = timestamp
     add_phase_history(data, timestamp, data.get("current_phase", "brainstorm"), old, status, actor, note)
     save_package(pkg, data)
+    _sync_prd_markdown_status(root, name, status)
     return data
 
 
@@ -149,4 +184,5 @@ def add_amendment(root: Path, name: str, amendment_id: str | None, title: str, w
     data["next_action"] = {"skill": "impl", "reason": f"amendment {amendment_id} 已记录，按更新后的 PRD scope 执行"}
     add_phase_history(data, timestamp, "brainstorm", None, f"amendment:{amendment_id}", actor, title)
     save_package(pkg, data)
+    _sync_prd_markdown_status(root, name, "ready")
     return data

@@ -216,6 +216,48 @@ class ArborCliTests(unittest.TestCase):
         self.assertEqual((self.package_dir() / "prd.md").read_text(encoding="utf-8"), READY_PRD)
         self.assertEqual(self.run_cli("validate", "demo-package"), 0)
 
+    def test_finalize_brainstorm_syncs_prd_frontmatter_status_to_ready(self):
+        """Regression: PRD frontmatter `status:` must follow task.json after finalize.
+
+        Previously brainstorm finalize updated task.json prd.status to ready
+        but left the YAML frontmatter on prd.md showing `status: draft`,
+        which made downstream review and audit confusing.
+        """
+        prd_with_frontmatter = (
+            "---\n"
+            "name: demo-package\n"
+            "status: draft\n"
+            "date: 2026-04-25\n"
+            "---\n"
+            "\n"
+            + READY_PRD
+        )
+        spec = {
+            "kind": "single",
+            "name": "demo-package",
+            "title": "Demo package",
+            "prd": prd_with_frontmatter,
+            "decision": "single package with PRD-local Slices",
+        }
+        self.assertEqual(
+            self.run_cli("finalize-brainstorm", "--input-json", json.dumps(spec)),
+            0,
+        )
+        self.assertEqual(self.task_json()["prd"]["status"], "ready")
+        prd_text = (self.package_dir() / "prd.md").read_text(encoding="utf-8")
+        self.assertIn("status: ready\n", prd_text)
+        self.assertNotIn("status: draft\n", prd_text)
+        self.assertIn("name: demo-package\n", prd_text)
+        self.assertIn("date: 2026-04-25\n", prd_text)
+
+    def test_finalize_brainstorm_leaves_prd_without_frontmatter_untouched(self):
+        """Regression guard: PRDs without YAML frontmatter must not gain one."""
+        self.finalize_single()
+        self.assertEqual(
+            (self.package_dir() / "prd.md").read_text(encoding="utf-8"),
+            READY_PRD,
+        )
+
     def test_finalize_brainstorm_accepts_mm_dd_prefixed_package_name(self):
         self.finalize_single("05-02-knowledge-paid-system")
         self.assertTrue((self.package_dir("05-02-knowledge-paid-system") / "task.json").exists())

@@ -5,7 +5,7 @@
 ## 原则
 
 - Artifact 是 PRD 附属 contract,不是生产实现事实源。
-- 新项目可用 `artifacts/data-model.sql` 压实草案级 schema contract;impl 后最终事实源是代码里的 migration / schema。
-- 第三方集成可用 `artifacts/integration-contract.md` 记录 payload、验签、token、mock / real 边界。
+- 数据 / schema 草案可用 `artifacts/data-model.sql`、`artifacts/feature-schema.json`、`artifacts/save-format.proto` 等压实 contract;impl 后最终事实源是代码里的 migration / schema / model。
+- 协议 / 集成可用 `artifacts/integration-contract.md`、`artifacts/api-contract.md`、`artifacts/wire-protocol.md` 等记录 payload、鉴权、mock / real 边界。
 - 不要把大段 SQL / 协议正文塞进 slice;slice 只引用 artifact 中的实体、协议或 contract。
 - 若 impl / review 发现 artifact 错误或需要改变,走 amendment / NEEDS_CONTEXT,不静默偏离。

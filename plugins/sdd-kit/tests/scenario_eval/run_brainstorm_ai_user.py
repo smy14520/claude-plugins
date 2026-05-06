@@ -400,7 +400,7 @@ _OPEN_QUESTIONS_SECTION_RE = re.compile(
     re.MULTILINE | re.DOTALL,
 )
 _NEGATIVE_BLOCKING_RE = re.compile(
-    r"^\s*-?\s*(?:无|没有|not\s+applicable|n/?a|none|no)\s+(?:any\s+)?blocking\s+open\s+questions?\s*[。.]?\s*$",
+    r"^\s*-?\s*(?:无|没有|not\s+applicable|n/?a|none|no)\s+(?:any\s+)?blocking\s+open\s+questions?\b[^\n]*$",
     re.IGNORECASE | re.MULTILINE,
 )
 _BLOCKING_WORD_RE = re.compile(r"(?:^|[^a-zA-Z-])blocking", re.IGNORECASE)
@@ -516,11 +516,11 @@ def quality_checks(prd_text: str, turns: int, task_state: dict[str, Any] | None 
 
 def response_timeout_for_phase(phase: str) -> int:
     if phase == "impl":
-        return int(os.environ.get("SCENARIO_IMPL_RESPONSE_TIMEOUT", "1500"))
+        return int(os.environ.get("SCENARIO_IMPL_RESPONSE_TIMEOUT", "2400"))
     return int(
         os.environ.get(
             "SCENARIO_BRAINSTORM_RESPONSE_TIMEOUT",
-            os.environ.get("SCENARIO_RESPONSE_TIMEOUT", "180"),
+            os.environ.get("SCENARIO_RESPONSE_TIMEOUT", "900"),
         )
     )
 
