@@ -1,0 +1,30 @@
+{
+  "run_dir": "/Users/camellia/Personal/Code/claude/claude-plugins/plugins/sdd-kit/tests/scenario_eval/runs/2026-05-05/todo-greenfield-small",
+  "work_dir": "/Users/camellia/Personal/Code/claude/claude-plugins/plugins/sdd-kit/tests/scenario_eval/runs/2026-05-05/todo-greenfield-small/project",
+  "model": "claude-opus-4-6",
+  "ai_user_model": "claude-opus-4-6",
+  "ai_user_mode": "agent",
+  "scenario_name": "todo-greenfield-small",
+  "scenario_profile": "greenfield-small",
+  "user_request": "我想从零做一个本地优先的轻量 Todo Web 应用，面向个人每天管理少量任务，核心只需要快速新增、标记完成、按“今天/稍后/已完成”分组，以及查看当天完成记录。",
+  "turns": 12,
+  "impl_started": false,
+  "prd_path": "/Users/camellia/Personal/Code/claude/claude-plugins/plugins/sdd-kit/tests/scenario_eval/runs/2026-05-05/todo-greenfield-small/project/.arbor/tasks/05-05-local-first-todo-web-app/prd.md",
+  "task_state_path": "/Users/camellia/Personal/Code/claude/claude-plugins/plugins/sdd-kit/tests/scenario_eval/runs/2026-05-05/todo-greenfield-small/project/.arbor/tasks/05-05-local-first-todo-web-app/task.json",
+  "run_error": "Timed out waiting for tested agent response.",
+  "impl_response_preview": "",
+  "verdict": "needs_review",
+  "checks": {
+    "multi_turn": true,
+    "has_technical_framing": true,
+    "has_slices": true,
+    "has_legacy_slice_checkboxes": false,
+    "has_slice_scaffold": false,
+    "has_acceptance_criteria": true,
+    "has_existing_code_anchor": true,
+    "has_template_placeholder": false,
+    "has_blocking_open_question": true,
+    "package_ready": true,
+    "impl_recorded": false
+  }
+}

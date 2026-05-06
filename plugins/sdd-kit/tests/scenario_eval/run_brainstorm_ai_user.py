@@ -386,22 +386,113 @@ def read_task_state(prd_path: Path | None) -> dict[str, Any] | None:
     return json.loads(task_path.read_text(encoding="utf-8"))
 
 
+_SLICE_HEADER_PATTERN = re.compile(r"^### S-\d{3}:", re.MULTILINE)
+_LEGACY_SLICE_CHECKBOX_PATTERN = re.compile(r"^- \[[ x\-]\] S-\d{3}", re.MULTILINE)
+_SLICE_SCAFFOLD_TOKENS = (
+    "<有数据、有代码、有测试的 slice>",
+    "<纯代码变更的 slice",
+    "<最终验收 / 自检切片>",
+    "<一句话可验证的 done-condition>",
+    "Impl 只更新 [ ] / [-] / [x]",
+)
+_OPEN_QUESTIONS_SECTION_RE = re.compile(
+    r"^#{2,}\s*Open [Qq]uestions\b.*?(?=^#{2,}\s|\Z)",
+    re.MULTILINE | re.DOTALL,
+)
+_NEGATIVE_BLOCKING_RE = re.compile(
+    r"^\s*-?\s*(?:无|没有|not\s+applicable|n/?a|none|no)\s+(?:any\s+)?blocking\s+open\s+questions?\s*[。.]?\s*$",
+    re.IGNORECASE | re.MULTILINE,
+)
+_BLOCKING_WORD_RE = re.compile(r"(?:^|[^a-zA-Z-])blocking", re.IGNORECASE)
+_IMPL_ACTIVE_SLICE_STATES = frozenset({"doing", "in_progress", "done"})
+
+
+def _detect_blocking_open_question(prd_text: str) -> bool:
+    """Scan only within `## Open Questions` sections for a non-negated blocking reference.
+
+    Any PRD discussion of `blocking` outside Open Questions (e.g. Interview Log
+    narrating "confirmed first batch of blocking questions") must not trigger this check.
+    """
+    sections = [m.group(0) for m in _OPEN_QUESTIONS_SECTION_RE.finditer(prd_text)]
+    if not sections:
+        return False
+    joined = "\n".join(sections)
+    filtered = _NEGATIVE_BLOCKING_RE.sub("", joined)
+    if "Blocking:" in filtered:
+        return True
+    return bool(_BLOCKING_WORD_RE.search(filtered))
+
+
+def _is_task_state_ready(task_state: dict[str, Any] | None) -> bool:
+    """Whether durable package state has advanced to `prd.status == "ready"`.
+
+    Kept as a small helper so the runner can rely on durable state instead of
+    assistant text in every branch of the brainstorm loop.
+    """
+    if not task_state:
+        return False
+    prd = task_state.get("prd")
+    if not isinstance(prd, dict):
+        return False
+    return prd.get("status") == "ready"
+
+
+def _derive_impl_started(task_state: dict[str, Any] | None) -> bool:
+    """Impl is 'started' whenever task.json evidences any impl-phase activity.
+
+    Source of truth is the package state file, never a runner-local bool,
+    because the runner's brainstorm loop may time out after finalize even
+    though impl has already advanced slices.
+    """
+    if not task_state:
+        return False
+    if task_state.get("current_phase") == "impl":
+        return True
+    if task_state.get("state") in ("doing", "done"):
+        return True
+    if task_state.get("impl_result"):
+        return True
+    for entry in task_state.get("slices") or []:
+        if entry.get("status") in _IMPL_ACTIVE_SLICE_STATES:
+            return True
+    return False
+
+
+def _slice_progress(task_state: dict[str, Any] | None) -> dict[str, Any]:
+    slices = (task_state or {}).get("slices") or []
+    total = len(slices)
+    done = sum(1 for s in slices if s.get("status") == "done")
+    in_progress = sum(1 for s in slices if s.get("status") in ("doing", "in_progress"))
+    impl_result = (task_state or {}).get("impl_result")
+    return {
+        "slices_total": total,
+        "slices_done_count": done,
+        "slices_in_progress_count": in_progress,
+        "impl_in_progress": bool((done > 0 or in_progress > 0) and not impl_result),
+    }
+
+
 def quality_checks(prd_text: str, turns: int, task_state: dict[str, Any] | None = None) -> dict[str, Any]:
-    blocking_scan_text = re.sub(
-        r"^\s*-?\s*(?:无|no|none)\s+blocking\s+open\s+questions?\s*[。.]?\s*$",
-        "",
-        prd_text,
-        flags=re.IGNORECASE | re.MULTILINE,
-    )
-    blocking_pattern = re.compile(r"(^|[^a-zA-Z-])blocking", re.IGNORECASE)
+    has_slice_headers = bool(_SLICE_HEADER_PATTERN.search(prd_text))
+    has_completion_markers = "完成标志" in prd_text
+    has_legacy_slice_checkboxes = bool(_LEGACY_SLICE_CHECKBOX_PATTERN.search(prd_text))
+    has_slice_scaffold = any(tok in prd_text for tok in _SLICE_SCAFFOLD_TOKENS)
     checks = {
         "multi_turn": turns >= 3,
         "has_technical_framing": "Technical Framing" in prd_text,
-        "has_slices": "## Slices" in prd_text,
+        "has_slices": (
+            "## Slices" in prd_text
+            and has_slice_headers
+            and has_completion_markers
+            and not has_legacy_slice_checkboxes
+            and not has_slice_scaffold
+        ),
+        "has_legacy_slice_checkboxes": has_legacy_slice_checkboxes,
+        "has_slice_scaffold": has_slice_scaffold,
         "has_acceptance_criteria": "Acceptance Criteria" in prd_text or "验收" in prd_text,
         "has_existing_code_anchor": True if SCENARIO.profile.startswith("greenfield-") else "现有" in prd_text or "existing" in prd_text.lower() or "src/" in prd_text,
         "has_template_placeholder": "<" in prd_text and ">" in prd_text,
-        "has_blocking_open_question": "Blocking:" in blocking_scan_text or bool(blocking_pattern.search(blocking_scan_text)),
+        "has_blocking_open_question": _detect_blocking_open_question(prd_text),
         "package_ready": bool(task_state and task_state.get("prd", {}).get("status") == "ready"),
         "impl_recorded": bool(task_state and task_state.get("impl_result")),
     }
@@ -423,13 +514,37 @@ def quality_checks(prd_text: str, turns: int, task_state: dict[str, Any] | None 
     return {"verdict": verdict, "checks": checks}
 
 
+def response_timeout_for_phase(phase: str) -> int:
+    if phase == "impl":
+        return int(os.environ.get("SCENARIO_IMPL_RESPONSE_TIMEOUT", "1500"))
+    return int(
+        os.environ.get(
+            "SCENARIO_BRAINSTORM_RESPONSE_TIMEOUT",
+            os.environ.get("SCENARIO_RESPONSE_TIMEOUT", "180"),
+        )
+    )
+
+
+def _message_preview(message: Any) -> str:
+    return repr(message)[:1000]
+
+
+def _has_brainstorm_ready_text_marker(response_text: str) -> bool:
+    lowered_response = response_text.lower()
+    return (
+        "finalized:" in lowered_response
+        or "已定稿并写入 ready package" in response_text
+        or "已定稿为 ready package" in response_text
+    )
+
+
 async def receive_tested_response(client: Any, paths: ScenarioPaths, phase: str) -> tuple[str, str | None, dict[str, Any] | None]:
     from claude_agent_sdk import AssistantMessage, ResultMessage, SystemMessage, TextBlock
 
     response_text = ""
     response_error: str | None = None
     response_retry: dict[str, Any] | None = None
-    async with asyncio.timeout(int(os.environ.get("SCENARIO_RESPONSE_TIMEOUT", "180"))):
+    async with asyncio.timeout(response_timeout_for_phase(phase)):
         async for msg in client.receive_response():
             if isinstance(msg, SystemMessage):
                 subtype = msg.subtype
@@ -449,6 +564,14 @@ async def receive_tested_response(client: Any, paths: ScenarioPaths, phase: str)
                 else:
                     log_event(paths, "tested_agent_system", phase=phase, subtype=subtype)
                 continue
+
+            log_event(
+                paths,
+                "tested_agent_message",
+                phase=phase,
+                message_type=type(msg).__name__,
+                preview=_message_preview(msg),
+            )
 
             if isinstance(msg, AssistantMessage):
                 text = "".join(block.text for block in msg.content if isinstance(block, TextBlock))
@@ -505,7 +628,7 @@ async def run_scenario(paths: ScenarioPaths) -> dict[str, Any]:
     result_text = ""
     run_error: str | None = None
     last_retry: dict[str, Any] | None = None
-    impl_started = False
+    impl_loop_entered = False
     impl_response = ""
     user_request = ""
     try:
@@ -525,14 +648,39 @@ async def run_scenario(paths: ScenarioPaths) -> dict[str, Any]:
             if response_error:
                 run_error = response_error
                 break
+
+            prd_path_probe = find_prd(paths.work_dir)
+            task_state_probe = read_task_state(prd_path_probe)
+            task_state_ready = _is_task_state_ready(task_state_probe)
+
             if not response_text:
+                if task_state_ready:
+                    append_dialogue(
+                        paths,
+                        "Brainstorm 完成",
+                        "[break reason: task_state_ready_empty_response]",
+                    )
+                    log_event(
+                        paths,
+                        "brainstorm_ready_detected",
+                        reason="task_state_ready_empty_response",
+                    )
+                    break
                 run_error = "Tested agent returned an empty brainstorm response."
                 break
 
             result_text += response_text
-            lowered_response = response_text.lower()
-            if "finalized:" in lowered_response or "已定稿并写入 ready package" in response_text or ("下一步可用" in response_text and "impl" in lowered_response):
-                append_dialogue(paths, "Brainstorm 完成", response_text)
+            text_ready_marker = _has_brainstorm_ready_text_marker(response_text)
+            if text_ready_marker or task_state_ready:
+                break_reason = (
+                    "text_marker" if text_ready_marker else "task_state_ready"
+                )
+                append_dialogue(
+                    paths,
+                    "Brainstorm 完成",
+                    f"[break reason: {break_reason}]\n\n{response_text}",
+                )
+                log_event(paths, "brainstorm_ready_detected", reason=break_reason)
                 break
 
             answer = await ai_user_answer(response_text, transcript, paths)
@@ -552,7 +700,7 @@ async def run_scenario(paths: ScenarioPaths) -> dict[str, Any]:
         prd_path = find_prd(paths.work_dir)
         task_state = read_task_state(prd_path)
         if task_state and task_state.get("prd", {}).get("status") == "ready":
-            impl_started = True
+            impl_loop_entered = True
             impl_user_prompt = impl_prompt(prd_path)
             append_dialogue(paths, "进入 Impl", impl_user_prompt)
             await asyncio.wait_for(client.query(impl_user_prompt), timeout=int(os.environ.get("SCENARIO_QUERY_TIMEOUT", "20")))
@@ -611,7 +759,9 @@ async def run_scenario(paths: ScenarioPaths) -> dict[str, Any]:
         "scenario_profile": SCENARIO.profile,
         "user_request": user_request,
         "turns": len(transcript),
-        "impl_started": impl_started,
+        "impl_started": _derive_impl_started(task_state),
+        "impl_loop_entered": impl_loop_entered,
+        **_slice_progress(task_state),
         "prd_path": str(prd_path) if prd_path else None,
         "task_state_path": str(prd_path.with_name("task.json")) if prd_path else None,
         "run_error": run_error,
@@ -638,13 +788,26 @@ def write_test_report(paths: ScenarioPaths, summary: dict[str, Any], prd_text: s
         prd_notes.append("- PRD 基础结构完整，未发现模板占位符或明显 blocking open question；后续重点看是否足够约束 impl。")
 
     impl_notes: list[str] = []
-    if not summary.get("impl_started"):
-        impl_notes.append("- Impl 未启动，主要原因通常是 brainstorm 未 ready 或 runner 未检测到 ready package。")
+    impl_started = summary.get("impl_started")
+    impl_loop_entered = summary.get("impl_loop_entered")
+    slices_done = summary.get("slices_done_count", 0)
+    slices_total = summary.get("slices_total", 0)
+    package_ready = summary["checks"].get("package_ready")
+    if not impl_started:
+        if package_ready:
+            impl_notes.append("- Brainstorm 已 ready 但 task.json 未出现 impl 活动；runner 未启动 impl 或 impl 启动后立刻失败。")
+        else:
+            impl_notes.append("- Impl 未启动：brainstorm 未产出 ready package。")
+    elif not impl_loop_entered:
+        impl_notes.append("- Impl 已在 task.json 中启动，但 runner 未进入 impl 循环；通常是 brainstorm 循环先一步 timeout。")
     elif not impl_result:
-        impl_notes.append("- Impl 已启动但未记录 impl_result，需要检查是执行超时、环境阻塞，还是 skill 未按 helper 记录结果。")
+        if slices_done > 0 or summary.get("slices_in_progress_count", 0) > 0:
+            impl_notes.append(f"- Impl 已启动并推进 slices（done {slices_done}/{slices_total}），但未记录 impl_result；可能被 runner timeout 中断，应检查 task.json 与 impl.jsonl。")
+        else:
+            impl_notes.append("- Impl 已启动但未记录 impl_result 且无 slice 进展，需要检查是执行超时、环境阻塞，还是 skill 未按 helper 记录结果。")
     else:
         state = impl_result.get("state") or impl_result.get("status") or "unknown"
-        impl_notes.append(f"- Impl 已记录结果：`{state}`。需要人工比对实现与 PRD acceptance criteria 是否一致。")
+        impl_notes.append(f"- Impl 已记录结果：`{state}`（slices {slices_done}/{slices_total}）。需要人工比对实现与 PRD acceptance criteria 是否一致。")
 
     report = f"""# Scenario Eval Report — {SCENARIO.name}
 
@@ -698,7 +861,8 @@ def print_summary(summary: dict[str, Any]) -> None:
     print(f"Scenario: {summary['scenario_name']}")
     print(f"Profile: {summary['scenario_profile']}")
     print(f"Turns: {summary['turns']}")
-    print(f"Impl started: {summary['impl_started']}")
+    print(f"Impl started: {summary['impl_started']} (loop entered: {summary.get('impl_loop_entered')})")
+    print(f"Slices: {summary.get('slices_done_count', 0)}/{summary.get('slices_total', 0)} done, {summary.get('slices_in_progress_count', 0)} in progress")
     print(f"PRD: {summary['prd_path']}")
     print(f"Verdict: {summary['verdict']}")
     if summary.get("run_error"):

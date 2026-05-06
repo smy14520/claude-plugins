@@ -35,8 +35,13 @@ READY_PRD = """# Demo package
 
 ## Slices
 
-- S-001: First slice — create baseline behavior
-- S-002: Self-check — run validation
+### S-001: First slice — create baseline behavior
+
+- 完成标志：baseline behavior created and verified
+
+### S-002: Self-check — run validation
+
+- 完成标志：validation passes
 """
 
 
@@ -172,6 +177,30 @@ class ArborCliTests(unittest.TestCase):
         self.run_cli("create", "demo-package", "--title", "Demo package")
         self.assertEqual(prd.read_text(encoding="utf-8"), "custom prd")
 
+    def test_prd_template_sourced_from_asset_no_drift(self):
+        """Regression guard: prd_template must read from the brainstorm asset, not a hardcoded copy."""
+        from arbor_core.templates import _ASSET_PRD_TEMPLATE, prd_template
+
+        asset_path = PLUGIN_ROOT / "skills" / "brainstorm" / "assets" / "templates" / "prd.md"
+        self.assertEqual(_ASSET_PRD_TEMPLATE.resolve(), asset_path.resolve())
+        self.assertTrue(_ASSET_PRD_TEMPLATE.exists())
+        rendered = prd_template("demo-package", "Demo Title", "2026-05-05T00:00:00+00:00")
+        for section in [
+            "## What I already know",
+            "## Package artifacts（按需）",
+            "## Slices",
+            "## Technical Framing",
+            "## Sources",
+            "═══ 自检清单",
+        ]:
+            self.assertIn(section, rendered, f"section {section!r} missing — prd_template may have drifted from asset")
+        self.assertIn("# Demo Title", rendered)
+        self.assertIn("name: demo-package", rendered)
+        self.assertIn("package: .arbor/tasks/demo-package/", rendered)
+        self.assertIn("date: 2026-05-05", rendered)
+        self.assertNotIn("MM-DD-<topic-slug>", rendered)
+        self.assertNotIn("YYYY-MM-DD", rendered)
+
     def test_finalize_brainstorm_single_creates_ready_package(self):
         output = self.finalize_single_json()
         self.assertEqual(output["kind"], "single")
@@ -226,6 +255,76 @@ class ArborCliTests(unittest.TestCase):
         spec = {"kind": "single", "name": "demo-package", "prd": "# Demo", "mode": "lean"}
         self.assertEqual(self.run_cli("finalize-brainstorm", "--input-json", json.dumps(spec)), 1)
         self.assertFalse(self.package_dir("demo-package").exists())
+
+    def test_finalize_brainstorm_rejects_prd_without_slices_section(self):
+        bad_prd = "# Demo\n\n## Technical Framing\n\n- stack: N/A\n"
+        spec = {"kind": "single", "name": "demo-package", "prd": bad_prd}
+        self.assertEqual(self.run_cli("finalize-brainstorm", "--input-json", json.dumps(spec)), 1)
+        self.assertFalse(self.package_dir().exists())
+
+    def test_finalize_brainstorm_rejects_slices_without_s_nnn_header(self):
+        bad_prd = (
+            "# Demo\n\n## Slices\n\n"
+            "- just some free text without S-NNN header\n"
+            "- 完成标志：something\n"
+        )
+        spec = {"kind": "single", "name": "demo-package", "prd": bad_prd}
+        self.assertEqual(self.run_cli("finalize-brainstorm", "--input-json", json.dumps(spec)), 1)
+        self.assertFalse(self.package_dir().exists())
+
+    def test_finalize_brainstorm_rejects_slices_without_completion_marker(self):
+        bad_prd = (
+            "# Demo\n\n## Slices\n\n"
+            "### S-001: slice without completion marker\n\n"
+            "- some note\n"
+        )
+        spec = {"kind": "single", "name": "demo-package", "prd": bad_prd}
+        result = self.run_bin("finalize-brainstorm", "--input-json", json.dumps(spec))
+        self.assertEqual(result.returncode, 1)
+        self.assertIn("S-001", result.stderr)
+        self.assertIn("完成标志", result.stderr)
+        self.assertFalse(self.package_dir().exists())
+
+    def test_finalize_brainstorm_rejects_slice_missing_completion_marker_even_when_siblings_have_one(self):
+        bad_prd = (
+            "# Demo\n\n## Slices\n\n"
+            "### S-001: first slice\n\n"
+            "- 完成标志：基建完成\n\n"
+            "### S-002: second slice missing marker\n\n"
+            "- 代码锚点：src/foo.ts [new]\n\n"
+            "### S-003: third slice also missing marker\n\n"
+            "- 测试：something\n"
+        )
+        spec = {"kind": "single", "name": "demo-package", "prd": bad_prd}
+        result = self.run_bin("finalize-brainstorm", "--input-json", json.dumps(spec))
+        self.assertEqual(result.returncode, 1)
+        self.assertIn("S-002", result.stderr)
+        self.assertIn("S-003", result.stderr)
+        self.assertNotIn("S-001", result.stderr)
+        self.assertIn("完成标志", result.stderr)
+        self.assertFalse(self.package_dir().exists())
+
+    def test_finalize_brainstorm_rejects_legacy_slice_checkbox_format(self):
+        bad_prd = (
+            "# Demo\n\n## Slices\n\n"
+            "- [ ] S-001: legacy checkbox format\n"
+            "- [-] S-002: in-progress legacy\n"
+        )
+        spec = {"kind": "single", "name": "demo-package", "prd": bad_prd}
+        self.assertEqual(self.run_cli("finalize-brainstorm", "--input-json", json.dumps(spec)), 1)
+        self.assertFalse(self.package_dir().exists())
+
+    def test_finalize_brainstorm_rejects_unfilled_slice_scaffold_tokens(self):
+        bad_prd = (
+            "# Demo\n\n## Slices\n\n"
+            "### S-001: <有数据、有代码、有测试的 slice>\n\n"
+            "- 完成标志：<一句话可验证的 done-condition>\n"
+        )
+        spec = {"kind": "single", "name": "demo-package", "prd": bad_prd}
+        result = self.run_bin("finalize-brainstorm", "--input-json", json.dumps(spec))
+        self.assertEqual(result.returncode, 1)
+        self.assertIn("scaffold", result.stderr)
+        self.assertFalse(self.package_dir().exists())
 
     def test_validate_rejects_obsolete_state_shapes(self):
         self.run_cli("create", "demo-package")

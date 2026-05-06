@@ -14,18 +14,21 @@ class ImplPromptContractTests(unittest.TestCase):
         self.assertIn("## Slices", text)
         self.assertIn("连续执行所有 slices", text)
         self.assertIn("不在 slice 之间停顿等待用户确认", text)
-        self.assertIn("`[-]` 部分完成", text)
+        self.assertIn("`in_progress` 部分完成", text)
         self.assertIn("代码即进度", text)
         self.assertIn("NEEDS_CONTEXT", text)
         self.assertIn("BLOCKED", text)
         self.assertNotIn("AskUserQuestion", text)
         self.assertNotIn("阻塞项预检", text)
+        self.assertNotIn("`[-]` 部分完成", text)
+        self.assertNotIn("Impl 只更新 [ ] / [-] / [x]", text)
 
     def test_impl_uses_prd_scope_wording_not_minimal_code_change(self):
         text = self.read_plugin_file("skills", "impl", "SKILL.md")
 
-        self.assertIn("PRD 的目标、范围、Acceptance Criteria、Technical Framing、Slices", text)
-        self.assertIn("不修改 `prd.md` 的需求内容", text)
+        self.assertIn("PRD 的目标、范围、Acceptance Criteria、Package artifacts 引用、Technical Framing", text)
+        self.assertIn("不修改 `prd.md`", text)
+        self.assertIn("PRD 是需求 source of truth", text)
         self.assertIn("PRD blocking open questions", text)
         self.assertNotIn("最小代码变更", text)
 
