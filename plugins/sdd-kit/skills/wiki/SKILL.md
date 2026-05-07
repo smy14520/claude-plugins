@@ -27,7 +27,7 @@ code      # implementation source of truth
 
 ### Ingest
 
-用户显式要求“记一下 / 沉淀 / wiki ingest”时，把新知识写成 `.wiki/**/*.md` 页面。
+用户显式要求“记一下 / 沉淀 / wiki ingest”时，把新知识写成 `.wiki/**/*.md` 页面，并维护 Obsidian 入口：`.wiki/index.md` 与相关分组 `index.md`。
 
 流程详见 `references/operations.md`；页面 schema 与 module note 结构详见 `references/page-types.md`。
 
@@ -39,7 +39,7 @@ code      # implementation source of truth
 sdd-arbor wiki-collect --query "<query>" --limit 5 --json
 ```
 
-只读取真正相关页面。若结果用于实现或 review，必须再验证当前代码和 `.arbor`。
+渐进式披露：先看候选页面的 title、description、summary、tags、type、links/backlinks 和 locators，再只读取真正相关页面。若结果用于实现或 review，必须再验证当前代码和 `.arbor`。
 
 ### Module publish
 

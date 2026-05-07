@@ -38,6 +38,8 @@ Research 是**发散 → 收敛**阶段。它：
 
 ### ❓ Clarify — 澄清问题与当前理解
 
+可选第 0 步：当本轮 research 需要理解当前代码库的既有领域（架构、模块边界、内部决策、cross-cut 同步改动），且项目已有 `.wiki/` 时，可先用 topic 关键词跑 `sdd-arbor wiki-collect --query "<topic>" --limit 5 --json` 查既有沉淀，命中时在 framing 中引用，避免重复研究已有结论。面向纯外部资料探索（协议规格、第三方 API 调研、市场调研等）跳过本步。
+
 流程：
 1. 暂定性重述需求，并先判断原始提法背后更像用户痛点、工作流问题、技术约束、采用阻力还是方案假设
 2. 将模糊需求改写成 research question；适合时补一条 `How might we ...` 式机会问题

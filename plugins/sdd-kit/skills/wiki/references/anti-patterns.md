@@ -58,9 +58,23 @@ sdd-arbor wiki-collect --query "<query>" --limit 5 --json
 
 ---
 
-## AP7 — PRD 执行边界依赖 wikilinks
+## AP7a — 把核心 scope 外包到 wiki
 
-可以在 PRD 里链接 wiki 作为背景提示，但 package PRD 的执行边界必须自包含；不要要求实现者跟随 wikilink 才知道要做什么。
+不要把 PRD 的 goal、scope、Acceptance Criteria 等核心需求藏在 wiki 里。即使 wiki 全部缺失，impl 看 PRD 也必须知道做什么。
+
+- ❌ PRD 写“按 [[新增导出]] 实现全部内容” —— 核心 scope 完全外包。
+- ✅ PRD 写“在 auth 模块新增导出函数 X，签名见下，涉及全项目多处同步修改；同步位置详见 [[新增导出]]” —— 核心 scope 在 PRD，wiki 仅作辅助。
+
+## AP7b — cross-cut 页面可以引用，但需要 fallback
+
+PRD 可以引用 wiki cross-cut 页面（如 `新增导出`、`API 路由注册`、`新增 enum 值`、`数据库迁移` 等）作为防漏辅助，但引用必须满足：
+
+- 核心 scope（做什么、为什么、验收）在 PRD 自包含。
+- wikilink 仅承担"防漏点"职责，不承担"做什么"职责。
+- PRD 写明 fallback：清单缺失或与现状不一致时 impl 调研代码逐一识别。
+- brainstorm 写引用前先 `wiki-collect --query "<keyword>"`，只引用结果中实际存在的 page title/path，不要凭记忆写 wikilink。
+
+PRD 引用 wiki 的标准三层结构见 `page-types.md` "PRD 引用 wiki 的范式"。
 
 ---
 
@@ -79,3 +93,20 @@ Wiki skill 不自动调用 research/brainstorm/impl/review；其他 skill 也不
 ## AP10 — 把 `.wiki` 写回 `.arbor/wiki`
 
 默认 wiki root 是项目内 `.wiki/`。除非用户显式覆盖 `--wiki-root .arbor/wiki`，不要把 wiki 写入 `.arbor/wiki`。
+
+---
+
+## AP11 — 重复维护 single-source
+
+不要在两个 page 都写完整的相同内容。每个内容片段只在一个 page 权威定义，另一个 page 用 wikilink + 一行 anchor 引用。
+
+- ❌ `Modules/auth.md` 和 `新增导出.md` 各自都列出 auth 的全部导出函数清单 —— 改一处忘改另一处必然腐化。
+- ✅ `Modules/auth.md` 是 auth 内部细节的 single source（包含函数签名）；`新增导出.md` 在自己视角写“auth 同步修改位置 + 命名规则，详细函数清单见 [[Modules/auth]] § 对外契约”。
+
+判断方法：
+
+- 内容**只对单个模块成立** → single source 在该 module page。
+- 内容**跨模块才有意义**（命名映射、规则比较、跨域联动） → single source 在 cross-cut page。
+- 两边都不复制完整内容，只 anchor。
+
+`wiki-lint` 的 `broken_wikilink` error 只检测目标页面是否存在，不检测 section anchor。被引用 section 的标题需要人工保持稳定；重命名前先 `grep -r "[[页面名]]"` 找出所有引用点同步更新。

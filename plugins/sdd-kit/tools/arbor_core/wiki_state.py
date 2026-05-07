@@ -14,7 +14,7 @@ TOKEN_RE = re.compile(r"[\w]+", re.IGNORECASE)
 HEADING_RE = re.compile(r"^(#{1,6})\s+(.+?)\s*$")
 SYMBOL_RE = re.compile(r"`([A-Za-z_][A-Za-z0-9_:.#/-]*)`")
 REQUIRED_FRONTMATTER = {"title", "description", "type"}
-VALID_PAGE_TYPES = {"entity", "concept", "gotcha", "decision", "source", "module"}
+VALID_PAGE_TYPES = {"entity", "concept", "gotcha", "decision", "source", "module", "cross_cut"}
 LINE_LOCATOR_RE = re.compile(r"(?:^|[\s`])(?:[\w./-]+\.(?:py|ts|tsx|js|jsx|go|rs|java|rb|php|css|scss|md|json|yaml|yml)):(?:L)?\d+|\bline\s+\d+\b", re.IGNORECASE)
 
 
@@ -232,7 +232,7 @@ def wiki_lint(root: Path, wiki_root: str | None = None) -> dict[str, Any]:
         if len(items) > 1:
             errors.append(_lint_issue("duplicate_title", items[0]["path"], f"Duplicate wiki title: {title}", title=title, paths=[item["path"] for item in items]))
     for stem, items in sorted(by_stem.items()):
-        if len(items) > 1:
+        if len(items) > 1 and stem != "index":
             errors.append(_lint_issue("duplicate_stem", items[0]["path"], f"Duplicate wiki file stem: {stem}", stem=stem, paths=[item["path"] for item in items]))
     for package, items in sorted(module_packages.items()):
         if len(items) > 1:
@@ -268,6 +268,7 @@ def wiki_search(root: Path, query: str, wiki_root: str | None = None, limit: int
     indexed = wiki_index(root, wiki_root, include_content=True)
     results: list[dict[str, Any]] = []
     weights = {
+        "type": 20,
         "title": 8,
         "tags": 6,
         "description": 5,
@@ -282,6 +283,7 @@ def wiki_search(root: Path, query: str, wiki_root: str | None = None, limit: int
         locator_text = " ".join(item.get("name", "") for item in page.get("locators", []) if isinstance(item, dict))
         fields = {
             "title": page.get("title"),
+            "type": page.get("type"),
             "tags": page.get("tags"),
             "description": page.get("description"),
             "summary": page.get("summary"),
@@ -316,6 +318,7 @@ def wiki_collect(root: Path, query: str, wiki_root: str | None = None, limit: in
                 "title": item["title"],
                 "description": item.get("description"),
                 "summary": item.get("summary"),
+                "type": item.get("type"),
                 "tags": item.get("tags", []),
                 "links": item.get("links", []),
                 "backlinks": item.get("backlinks", []),

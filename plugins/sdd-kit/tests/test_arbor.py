@@ -359,8 +359,8 @@ class ArborCliTests(unittest.TestCase):
     def test_finalize_brainstorm_rejects_unfilled_slice_scaffold_tokens(self):
         bad_prd = (
             "# Demo\n\n## Slices\n\n"
-            "### S-001: <有数据、有代码、有测试的 slice>\n\n"
-            "- 完成标志：<一句话可验证的 done-condition>\n"
+            "### S-001: <walking skeleton 或第一个独立可验证的契约/功能>\n\n"
+            "- 完成标志：<完成后多了什么可独立验证的契约/功能/行为>\n"
         )
         spec = {"kind": "single", "name": "demo-package", "prd": bad_prd}
         result = self.run_bin("finalize-brainstorm", "--input-json", json.dumps(spec))
@@ -532,8 +532,10 @@ class ArborCliTests(unittest.TestCase):
 title: Balance Ledger
 description: 余额账户、充值、扣款、退款 contract
 tags: [module, backend, ledger]
+type: module
 package: balance-ledger
 summary: Balance ledger owns account balance and refund invariants.
+last_updated: 2026-05-07
 ---
 
 # Balance Ledger
@@ -546,7 +548,9 @@ Uses `BalanceLedgerService.recharge` and links to [[User Role Access]].
 title: User Role Access
 description: 用户角色权限模块
 tags: [module, auth]
+type: module
 summary: User role access owns instructor/admin authorization.
+last_updated: 2026-05-07
 ---
 
 # User Role Access
@@ -570,6 +574,7 @@ Provides `RoleGate.canManageCourse`.
         collected = arbor.wiki_collect(self.root, "role course", limit=1)
         self.assertEqual(len(collected["selected"]), 1)
         self.assertIn(collected["selected"][0]["title"], {"Balance Ledger", "User Role Access"})
+        self.assertEqual(collected["selected"][0]["type"], "module")
         self.assertEqual(self.run_cli("wiki-index", "--json"), 0)
         self.assertEqual(self.run_cli("wiki-search", "balance refund", "--json"), 0)
         self.assertEqual(self.run_cli("wiki-collect", "--query", "balance refund", "--json"), 0)
@@ -585,6 +590,7 @@ tags: [module]
 package: ledger
 source_checkpoint: abc123
 summary: Stable module note.
+last_updated: 2026-05-07
 ---
 
 # Ledger
@@ -601,6 +607,7 @@ type: module
 tags: [module]
 package: ledger
 summary: Duplicate module package.
+last_updated: 2026-05-07
 ---
 
 # Ledger duplicate
@@ -618,6 +625,114 @@ summary: Duplicate module package.
         self.assertIn("module_missing_source_checkpoint", warning_codes)
         self.assertIn("module_line_locator", warning_codes)
         self.assertEqual(self.run_cli("wiki-lint", "--json"), 1)
+
+    def test_wiki_search_matches_on_type_field(self):
+        wiki = self.root / ".wiki"
+        wiki.mkdir(parents=True, exist_ok=True)
+        (wiki / "Export Touchpoints.md").write_text("""---
+title: Export Touchpoints
+description: Project-wide export touchpoints
+type: cross_cut
+tags: [exports]
+summary: Cross-module export checklist.
+last_updated: 2026-05-07
+---
+
+# Export Touchpoints
+
+## Touchpoints
+- `services/auth/exports.py`
+""", encoding="utf-8")
+        result = arbor.wiki_search(self.root, "cross_cut")
+        self.assertEqual(1, len(result["results"]))
+        match = result["results"][0]
+        self.assertIn("type", match["matched_fields"])
+        self.assertEqual("Export Touchpoints", match["title"])
+
+    def test_wiki_search_prioritizes_explicit_type_match(self):
+        wiki = self.root / ".wiki"
+        (wiki / "Modules").mkdir(parents=True, exist_ok=True)
+        (wiki / "CrossCut").mkdir(parents=True, exist_ok=True)
+        (wiki / "Modules" / "Auth.md").write_text("""---
+title: Auth
+description: auth module export implementation and routes
+type: module
+tags: [module, auth, exports]
+package: auth
+source_checkpoint: abc123
+summary: auth export functions and route anchors.
+last_updated: 2026-05-07
+---
+
+# Auth
+
+## Anchors
+- `services/auth/exports.py`
+- `api/auth_routes.py`
+""", encoding="utf-8")
+        (wiki / "CrossCut" / "Export Touchpoints.md").write_text("""---
+title: Export Touchpoints
+description: Project-wide export touchpoints
+type: cross_cut
+tags: [cross-cut, exports]
+summary: Cross-module export checklist for auth and payment.
+last_updated: 2026-05-07
+---
+
+# Export Touchpoints
+
+## Touchpoints
+- `services/auth/exports.py`
+""", encoding="utf-8")
+        result = arbor.wiki_search(self.root, "cross_cut auth export")
+        self.assertEqual("Export Touchpoints", result["results"][0]["title"])
+        self.assertIn("type", result["results"][0]["matched_fields"])
+
+    def test_wiki_lint_allows_group_index_pages(self):
+        wiki = self.root / ".wiki"
+        (wiki / "Modules").mkdir(parents=True, exist_ok=True)
+        (wiki / "CrossCut").mkdir(parents=True, exist_ok=True)
+        for path, title in (
+            (wiki / "index.md", "Wiki 入口"),
+            (wiki / "Modules" / "index.md", "Modules"),
+            (wiki / "CrossCut" / "index.md", "CrossCut"),
+        ):
+            path.write_text(f"""---
+title: {title}
+description: Obsidian navigation entry
+type: entity
+tags: [index]
+summary: Navigation entry.
+last_updated: 2026-05-07
+---
+
+# {title}
+""", encoding="utf-8")
+        result = arbor.wiki_lint(self.root)
+        duplicate_stem_errors = [item for item in result["errors"] if item["code"] == "duplicate_stem"]
+        self.assertEqual([], duplicate_stem_errors)
+
+    def test_wiki_lint_accepts_cross_cut_type(self):
+        wiki = self.root / ".wiki"
+        wiki.mkdir(parents=True, exist_ok=True)
+        (wiki / "Export Touchpoints.md").write_text("""---
+title: Export Touchpoints
+description: 新增导出函数与路由时全项目需同步修改的位置与命名规则
+type: cross_cut
+tags: [exports, backend]
+summary: 新增/修改导出时必须同步检查的位置与命名规则。
+last_updated: 2026-05-07
+---
+
+# Export Touchpoints
+
+## Touchpoints
+- `services/auth/exports.py`
+- `api/auth_routes.py`
+""", encoding="utf-8")
+        result = arbor.wiki_lint(self.root)
+        invalid_type_errors = [item for item in result["errors"] if item["code"] == "invalid_type"]
+        self.assertEqual([], invalid_type_errors)
 
     def test_doctor_skips_missing_wiki_and_reports_next_action(self):
         self.finalize_single()

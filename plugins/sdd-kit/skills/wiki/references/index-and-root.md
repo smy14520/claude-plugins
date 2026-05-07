@@ -4,15 +4,69 @@
 
 ## index.md
 
-`index.md` 是轻量入口，不是全量目录。它可以列：
+`.wiki/index.md` 是 Obsidian 入口页。只要创建或更新 wiki 页面，就应确保它存在，并至少链接到相关分组入口。
+
+它可以列：
 
 - 领域 root 页面
 - Modules 入口
+- CrossCut 入口
 - 跨域 concepts / decisions
 - source 页面
 - orphan/待整理页面
 
-不要在 `index.md` 复制每个 root 的全部子页面；重复导航会腐化。
+不要在 `.wiki/index.md` 复制每个分组的全部子页面；重复导航会腐化。
+
+## 分组 index.md
+
+常用分组目录应有自己的 `index.md`，让 Obsidian 用户不用全局搜索：
+
+- `.wiki/Modules/index.md`：链接 module note。
+- `.wiki/CrossCut/index.md`：链接 `type: cross_cut` 页面。
+
+分组 `index.md` 可以列该分组下的页面和一句用途说明；真实内容仍在具体页面。
+
+## `.wiki/index.md` 推荐 section 模板
+
+按 page type 分组，每条一行 wikilink + 一句用途。示例：
+
+```markdown
+# Wiki Index
+
+## 概览
+- [[Overview]] — 项目领域综述（如有）
+
+## 模块（type: module）
+- [[Modules/Todo core domain]] — Todo Task schema、生命周期 helper、localStorage adapter
+
+## 跨模块同步改动（type: cross_cut）
+- [[CrossCut/Todo 生命周期改动]] — 修改生命周期能力时同步检查的 5 处位置
+
+## 决策（type: decision）
+- [[Decisions/Local-only 数据架构]] — 第一版不引入云同步的取舍
+
+## 概念 / 模式（type: concept）
+- [[Concepts/Optimistic UI 更新模式]]
+
+## 已知坑（type: gotcha）
+- [[Gotchas/localStorage QuotaExceededError]]
+
+## 外部资料（type: source）
+- [[Sources/HTML5 storage spec]]
+
+## 真实对象（type: entity）
+- [[Entities/支付服务]]
+
+## 待整理 / orphan
+- [[Drafts/...]]
+```
+
+要点：
+
+- 每次 ingest 后同步更新对应 section（一行一个 wikilink，附一句话用途）。
+- **不在 `index.md` 里复制每个 root 的所有子页面** —— 重复导航会腐化（AP4）。
+- 空 section 可以省略；不需要为了"齐全"塞占位。
+- LLM 检索时可直接 `cat .wiki/index.md` 拿全 wiki 目录（小-中规模 wiki 不需要 helper），再按需 drill down。
 
 ## 根页面
 

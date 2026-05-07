@@ -16,10 +16,19 @@ Impl 执行一个 package PRD scope。它读 PRD，按 Slices 顺序连续实现
 - `.arbor/tasks/<package>/prd.md`（PRD 是需求和 Slices 的 source of truth）
 - `.arbor/tasks/<package>/task.json`（读取 package state；只通过 `sdd-arbor` 更新）
 - `.arbor/tasks/<package>/artifacts/`（按需读取 PRD 引用的 data-model / integration / API contract；artifact 是 PRD 附属 contract，不是生产实现事实源）
+- `.wiki/**/*.md`（按需读取 PRD 引用的 wiki 页面；wiki 是 orientation 层，不是事实源）
 
 ## 流程
 
 1. 读取 PRD 的目标、范围、Acceptance Criteria、Package artifacts 引用、Technical Framing（含 Testing strategy）、Slices；若 PRD 引用了 `artifacts/` 中的 contract，先读取对应文件。
+
+   Wiki 引用处理（仅当 PRD Technical Framing 写了 `详见 [[...]]` 形式的 wikilink 时）：
+   - **cross_cut 类**（漏读 = silent bug，必须验证）：
+     - 用 `sdd-arbor wiki-collect --query "<keyword>" --limit 5 --json` 读对应页面的同步修改位置、命名规则、注册机制。
+     - 验证页面里的位置、命名规则、注册机制仍适用于当前代码（路径是否仍存在、命名前缀是否仍一致、注册机制是否仍如页面所述）。
+     - 页面缺失或与代码不一致时，按 PRD fallback 调研代码逐一识别；执行结束后在 record-impl-result 中提醒用户是否更新 wiki。
+   - **其他 type**（module / entity / gotcha / decision / source）：按 PRD 提示按需读作为 orientation——理解既有契约 / 避坑 / 承重边界提醒；不替代 PRD scope，不需要逐一 verify。
+   - Wiki 只承担“防漏 / orientation”职责，执行边界以 PRD 为准。
 2. 读取 `task.json` 的 `slices` 数组检查进度（PRD 里的 Slices 段只定义需求，不做进度标记）：
    - 所有 slice 已 `done` 且 `task.json` 已有 impl_result → package 已完成，不重复执行。
    - 所有 slice 已 `done` 但没有 impl_result → 直接跳到 self-check（步骤 9）。
@@ -33,6 +42,7 @@ Impl 执行一个 package PRD scope。它读 PRD，按 Slices 顺序连续实现
 8. 每完成一个 slice，用 `sdd-arbor mark-slice <package> --id S-001 --status done` 记录进度。
 9. 全部 slices 完成后，运行 self-check。
 10. 用 `sdd-arbor record-impl-result <package> --state done|done_with_concerns|needs_context|blocked ...` 记录结果。
+11. 若本次 diff 触及 PRD 引用的 wiki cross-cut 页面里的位置，或实现过程中明确发现“同类改动必须在多个模块的相似位置同步修改”的重复模式，才在 record-impl-result 中提醒用户是否更新 / 新增 wiki 页面。仅泛泛改了 enum / route / 导出之一不算触发条件；用户决定，impl 不自动写 wiki。
 
 ## Testing strategy
 
@@ -109,3 +119,4 @@ Self-check 必须覆盖三层，不能只跑其中一层就声称 DONE：
 - 不静默修改 PRD 引用的 `artifacts/` contract；如需改变，先记录 amendment 或 NEEDS_CONTEXT。
 - 不手写 `task.json`。
 - 不自动进入 review。
+- 不自动写 `.wiki/`。读 wiki 是按需 orientation；写 wiki 必须由用户显式触发（见 `wiki/references/anti-patterns.md` AP3 / AP8）。

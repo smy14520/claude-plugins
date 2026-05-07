@@ -89,6 +89,16 @@ SCENARIOS = {
         project_brief="主题种子：todo / task management。用户侧产品负责人应围绕一个从零开始的小型 todo 产品自己提出具体需求。",
         org_context=DEFAULT_ORG_CONTEXT,
     ),
+    "wiki-cross-cut-export-integration": Scenario(
+        name="wiki-cross-cut-export-integration",
+        profile="existing-wiki-export",
+        project_brief=(
+            "当前 fixture 是一个 Python 多模块导出系统，已有 auth 导出函数、API route 注册、导出注册表，"
+            "并且 `.wiki/` 已沉淀 `新增导出` cross_cut 页面。eval 关注 brainstorm/impl 是否按需查询 wiki、"
+            "在 PRD 中引用 cross-cut 页面，并在实现前验证当前代码位置。"
+        ),
+        org_context=DEFAULT_ORG_CONTEXT,
+    ),
 }
 
 
@@ -111,6 +121,9 @@ def selected_scenario() -> Scenario:
 
 
 SCENARIO = selected_scenario()
+if SCENARIO.name == "wiki-cross-cut-export-integration":
+    MAX_CONVERSATION_TURNS = int(os.environ.get("SCENARIO_CONVERSATION_TURNS", "12"))
+    MAX_IMPL_TURNS = int(os.environ.get("SCENARIO_IMPL_TURNS", "30"))
 
 
 @dataclass
@@ -172,11 +185,176 @@ def append_dialogue(paths: ScenarioPaths, title: str, body: str) -> None:
         handle.write(f"\n## {title}\n\n{body.strip()}\n")
 
 
+def write(path: Path, text: str) -> None:
+    path.parent.mkdir(parents=True, exist_ok=True)
+    path.write_text(text, encoding="utf-8")
+
+
+def prepare_wiki_export_fixture(work_dir: Path) -> None:
+    write(work_dir / "services/auth/exports.py", """
+from dataclasses import dataclass
+
+
+@dataclass
+class Session:
+    user_id: str
+    token: str
+
+
+def auth_export_role(user_id: str) -> str:
+    return "admin" if user_id.startswith("admin") else "user"
+""".strip() + "\n")
+    write(work_dir / "api/auth_routes.py", """
+from services.auth.exports import auth_export_role
+
+
+def register_auth_export_routes(router):
+    router.get("/api/auth/role/export", auth_export_role)
+""".strip() + "\n")
+    write(work_dir / "registry/export_registry.py", """
+EXPORT_REGISTRY = {
+    "auth.role": "auth_export_role",
+}
+""".strip() + "\n")
+    write(work_dir / "tests/test_auth_exports.py", """
+from services.auth.exports import auth_export_role
+from registry.export_registry import EXPORT_REGISTRY
+
+
+def test_auth_role_export_is_registered():
+    assert auth_export_role("admin-1") == "admin"
+    assert EXPORT_REGISTRY["auth.role"] == "auth_export_role"
+""".strip() + "\n")
+    write(work_dir / "README.md", """
+# Export Fixture
+
+Auth exports are exposed through three synchronized places: service functions,
+API route registration, and the central export registry. The local wiki records
+this as a cross-cut operation so implementation can use it as a miss-prevention
+map, then verify the current code before editing.
+""".strip() + "\n")
+    write(work_dir / "pytest.ini", """
+[pytest]
+pythonpath = .
+""".strip() + "\n")
+    write(work_dir / ".wiki/index.md", """
+---
+title: Wiki Index
+description: Export fixture wiki navigation entry
+tags: [index, wiki, export]
+type: entity
+summary: Links module and cross-cut pages for export implementation.
+last_updated: 2026-05-07
+---
+
+# Wiki Index
+
+## 模块（type: module）
+
+- [[Modules/Auth exports]] — Auth export service contract and current naming.
+
+## 跨模块同步改动（type: cross_cut）
+
+- [[CrossCut/新增导出]] — 新增导出能力时必须同步检查 service、route、registry、tests。
+""".strip() + "\n")
+    write(work_dir / ".wiki/Modules/index.md", """
+---
+title: Modules Index
+description: Module wiki page index for export fixture
+tags: [index, module, export]
+type: entity
+summary: Lists module notes for export fixture.
+last_updated: 2026-05-07
+---
+
+# Modules Index
+
+- [[Auth exports]] — Auth export service contract and current naming.
+""".strip() + "\n")
+    write(work_dir / ".wiki/Modules/Auth exports.md", """
+---
+title: Auth exports
+description: Auth service export naming and public contract
+tags: [module, auth, exports]
+type: module
+summary: Auth exports use the `auth_export_*` prefix and are exposed through routes and registry entries.
+last_updated: 2026-05-07
+locators:
+  - services/auth/exports.py
+  - api/auth_routes.py
+  - registry/export_registry.py
+---
+
+# Auth exports
+
+Auth module exports live in `services/auth/exports.py` and use the `auth_export_*` prefix.
+Public exports are wired through `api/auth_routes.py` and `registry/export_registry.py`.
+
+相关 cross-cut：[[CrossCut/新增导出]]。
+""".strip() + "\n")
+    write(work_dir / ".wiki/CrossCut/index.md", """
+---
+title: CrossCut Index
+description: Cross-cut wiki page index for export fixture
+tags: [index, cross-cut, export]
+type: entity
+summary: Lists cross-cut operation notes for export fixture.
+last_updated: 2026-05-07
+---
+
+# CrossCut Index
+
+- [[新增导出]] — 新增导出能力时必须同步检查 service、route、registry、tests。
+""".strip() + "\n")
+    write(work_dir / ".wiki/CrossCut/新增导出.md", """
+---
+title: 新增导出
+description: 新增导出函数时需要同步修改的位置和命名规则
+tags: [cross-cut, exports, auth]
+type: cross_cut
+summary: 新增 auth 导出时同步检查 service function、API route、EXPORT_REGISTRY、pytest 覆盖。
+last_updated: 2026-05-07
+locators:
+  - services/auth/exports.py
+  - api/auth_routes.py
+  - registry/export_registry.py
+  - tests/test_auth_exports.py
+---
+
+# 新增导出
+
+## 适用场景
+
+当需求是“新增一个对外导出能力”时，用本页防漏；具体产品范围仍以 PRD 为准。
+
+## 同步修改位置
+
+- `services/auth/exports.py`：新增 `auth_export_*` service function 和必要的数据结构；本 fixture 的 session 导出函数名固定为 `auth_export_user_session`。
+- `api/auth_routes.py`：在 `register_auth_export_routes` 里注册对应 HTTP path。
+- `registry/export_registry.py`：在 `EXPORT_REGISTRY` 增加稳定 key 到函数名的映射；session 使用 `"auth.session": "auth_export_user_session"`。
+- `tests/test_auth_exports.py`：覆盖函数行为、registry wiring 和 route wiring。
+
+## 命名规则
+
+Auth 模块沿用 `auth_export_<noun>`，registry key 沿用 `auth.<noun>`，route 沿用 `/api/auth/<noun>/export`。本 fixture 的 session 导出函数名固定为 `auth_export_user_session`，registry value 固定为 `auth_export_user_session`。
+
+## 使用要求
+
+Brainstorm 可在 PRD Technical Framing 中引用本页作为防漏入口，但必须写明核心 scope 和 fallback：若 wiki 与当前代码不一致，impl 调研代码逐一识别。
+Impl 读取本页后必须验证路径和注册机制仍存在，再修改代码。
+
+相关 module：[[Modules/Auth exports]]。
+""".strip() + "\n")
+
+
 def prepare_workdir() -> ScenarioPaths:
     run_dir = unique_run_dir()
     run_dir.mkdir(parents=True, exist_ok=False)
     work_dir = run_dir / "project"
-    if SCENARIO.profile.startswith("greenfield-"):
+    if SCENARIO.name == "wiki-cross-cut-export-integration":
+        work_dir.mkdir()
+        prepare_wiki_export_fixture(work_dir)
+    elif SCENARIO.profile.startswith("greenfield-"):
         work_dir.mkdir()
         (work_dir / ".gitkeep").write_text("", encoding="utf-8")
     else:
@@ -238,6 +416,7 @@ def scenario_brief() -> str:
         "existing-small": "存量项目中的小需求：一个局部功能或行为调整，应能在少量文件内完成。",
         "existing-medium": "存量项目中的中等需求：需要理解现有模块边界，可能涉及 API、数据模型、测试和少量配置。",
         "existing-large": "存量项目中的大需求：需要拆分多个交付 slice，明确边界、依赖、风险和阶段验收。",
+        "existing-wiki-export": "存量项目中的 wiki 集成需求：已有 `.wiki/` cross_cut 页面，需求应触发 brainstorm/impl 按需查询并验证 wiki。",
         "greenfield-small": "从零开始的小项目：一个单用途工具或轻量应用，范围要清楚。",
         "greenfield-medium": "从零开始的中等项目：有核心领域模型、用户流程、数据存储和测试策略。",
         "greenfield-large": "从零开始的大项目：复杂产品或平台，需要规划多个 slice、非功能需求和上线边界。",
@@ -246,16 +425,31 @@ def scenario_brief() -> str:
 
 
 def initial_prompt(user_request: str) -> str:
+    if SCENARIO.name == "wiki-cross-cut-export-integration":
+        return f"用 brainstorm grill-me {user_request}\n\n这个项目已有 `.wiki/`；如果需求涉及已有 module 或 cross-cut 模式，请按 brainstorm skill 先用 `sdd-arbor wiki-collect --query \"新增 导出 auth session\" --limit 5 --json` 渐进式查询，不要全量读取 wiki。PRD Technical Framing 应引用实际命中的 cross_cut 页面，核心 scope 保持自包含，并写 wiki 与当前代码不一致时由 impl 逐一识别的 fallback。"
     return f"用 brainstorm grill-me {user_request}"
 
 
 def impl_prompt(prd_path: Path | None) -> str:
     if prd_path:
-        return f"用 impl 执行这个 package PRD：{prd_path.parent.name}"
+        prompt = f"用 impl 执行这个 package PRD：{prd_path.parent.name}"
+        if SCENARIO.name == "wiki-cross-cut-export-integration":
+            prompt += "\n\n如果 PRD Technical Framing 引用了 wiki cross_cut 页面，请按 impl skill 先用 wiki-collect 定位页面、只读相关页面、验证路径和注册机制仍适用于当前代码，再实现。"
+        return prompt
     return "用 impl 执行当前 ready package"
 
 
+def wiki_export_initial_request() -> str:
+    return (
+        "帮我在现有 auth 导出系统里新增 user session 导出能力：输入 user_id，返回带 token 的 Session，"
+        "新增函数名使用 `auth_export_user_session`，对外暴露 `/api/auth/session/export`，并进入现有 EXPORT_REGISTRY，"
+        "测试要覆盖函数行为、registry wiring 和 route wiring。"
+    )
+
+
 def fallback_initial_request() -> str:
+    if SCENARIO.name == "wiki-cross-cut-export-integration":
+        return wiki_export_initial_request()
     if SCENARIO.profile.startswith("greenfield-"):
         return "帮我从零设计一个中等复杂度的个人管理 Web 工具。"
     return "帮我在这个 AI 客服多渠道系统里增加消息处理可靠性和可观测能力。"
@@ -265,6 +459,15 @@ def fallback_answer(question_text: str) -> str:
     lowered = question_text.lower()
     if "模式" in question_text or "grill-me" in lowered:
         return "选择 grill-me。"
+    if SCENARIO.name == "wiki-cross-cut-export-integration":
+        if "定稿" in question_text or "finalize" in lowered or "调用 `sdd-arbor finalize-brainstorm`" in question_text:
+            return "确认定稿；函数名固定为 `auth_export_user_session`，采用确定性 token `session-{user_id}`，route wiring 也需要显式测试。"
+        if "函数名" in question_text or "命名" in question_text:
+            return "函数名固定使用 `auth_export_user_session`，registry value 也使用 `auth_export_user_session`。"
+        if "route" in lowered and "测试" in question_text:
+            return "需要显式测试 route wiring；请覆盖 `/api/auth/session/export` 注册到 `auth_export_user_session`，同时保留既有 role route。"
+        if "token" in lowered or "session.token" in lowered or "生成语义" in question_text:
+            return "确认采用确定性 token：`Session.token = f\"session-{user_id}\"`。函数名使用 `auth_export_user_session`；不要接入真实 token 签发，也不要只做非空断言。"
     if "确认" in question_text or "定稿" in question_text or "finalize" in lowered:
         return "如果 PRD 已经没有 blocking open question，并且验收标准和 slices 都明确，就确认定稿；否则请继续追问未决项。"
     return "按你的推荐方向推进；如果需要业务取舍，请选择更适合当前场景范围和交付质量的方案。"
@@ -319,6 +522,11 @@ async def ask_ai_user(
 
 
 async def ai_user_initial_request(paths: ScenarioPaths) -> str:
+    if SCENARIO.name == "wiki-cross-cut-export-integration":
+        request = wiki_export_initial_request()
+        log_event(paths, "ai_user_initial_scripted_request", request=request)
+        return request
+
     prompt = f"""
 你是一次 workflow eval 的用户侧产品负责人。请根据下面场景，提出一个真实、具体、适合该场景强度的顶层需求，作为你对 brainstorm skill 说的第一句话。
 
@@ -389,10 +597,10 @@ def read_task_state(prd_path: Path | None) -> dict[str, Any] | None:
 _SLICE_HEADER_PATTERN = re.compile(r"^### S-\d{3}:", re.MULTILINE)
 _LEGACY_SLICE_CHECKBOX_PATTERN = re.compile(r"^- \[[ x\-]\] S-\d{3}", re.MULTILINE)
 _SLICE_SCAFFOLD_TOKENS = (
-    "<有数据、有代码、有测试的 slice>",
-    "<纯代码变更的 slice",
-    "<最终验收 / 自检切片>",
-    "<一句话可验证的 done-condition>",
+    "<walking skeleton 或第一个独立可验证的契约/功能>",
+    "<扩展某个契约/功能/行为/状态转换>",
+    "<回归 / 边界 / 自检切片>",
+    "<完成后多了什么可独立验证的契约/功能/行为>",
     "Impl 只更新 [ ] / [-] / [x]",
 )
 _OPEN_QUESTIONS_SECTION_RE = re.compile(
@@ -400,7 +608,7 @@ _OPEN_QUESTIONS_SECTION_RE = re.compile(
     re.MULTILINE | re.DOTALL,
 )
 _NEGATIVE_BLOCKING_RE = re.compile(
-    r"^\s*-?\s*(?:无|没有|not\s+applicable|n/?a|none|no)\s+(?:any\s+)?blocking\s+open\s+questions?\b[^\n]*$",
+    r"^\s*-?\s*(?:无|暂无|没有|not\s+applicable|n/?a|none|no)\s+(?:any\s+)?blocking\s+open\s+questions?\b[^\n]*$",
     re.IGNORECASE | re.MULTILINE,
 )
 _BLOCKING_WORD_RE = re.compile(r"(?:^|[^a-zA-Z-])blocking", re.IGNORECASE)
@@ -421,6 +629,19 @@ def _detect_blocking_open_question(prd_text: str) -> bool:
     if "Blocking:" in filtered:
         return True
     return bool(_BLOCKING_WORD_RE.search(filtered))
+
+
+_TEMPLATE_PLACEHOLDER_RE = re.compile(r"<([^>\n]+)>")
+_ALLOWED_ANGLE_BRACKET_TOKENS = {"noun", "输入"}
+
+
+def _has_template_placeholder(prd_text: str) -> bool:
+    for match in _TEMPLATE_PLACEHOLDER_RE.finditer(prd_text):
+        token = match.group(1).strip()
+        if token in _ALLOWED_ANGLE_BRACKET_TOKENS:
+            continue
+        return True
+    return False
 
 
 def _is_task_state_ready(task_state: dict[str, Any] | None) -> bool:
@@ -472,13 +693,45 @@ def _slice_progress(task_state: dict[str, Any] | None) -> dict[str, Any]:
     }
 
 
-def quality_checks(prd_text: str, turns: int, task_state: dict[str, Any] | None = None) -> dict[str, Any]:
+def _read_text_if_exists(path: Path) -> str:
+    return path.read_text(encoding="utf-8") if path.exists() else ""
+
+
+def _wiki_integration_checks(work_dir: Path, prd_text: str) -> dict[str, bool]:
+    if SCENARIO.name != "wiki-cross-cut-export-integration":
+        return {}
+
+    events_text = _read_text_if_exists(work_dir.parent / "events.jsonl")
+    dialogue_text = _read_text_if_exists(work_dir.parent / "dialogue.md")
+    combined_trace = events_text + "\n" + dialogue_text
+    prd_has_wikilink = "[[CrossCut/新增导出]]" in prd_text or "[[新增导出]]" in prd_text
+    service_text = _read_text_if_exists(work_dir / "services/auth/exports.py")
+    routes_text = _read_text_if_exists(work_dir / "api/auth_routes.py")
+    registry_text = _read_text_if_exists(work_dir / "registry/export_registry.py")
+    tests_text = _read_text_if_exists(work_dir / "tests/test_auth_exports.py")
+    all_wiki_pages = list((work_dir / ".wiki").rglob("*.md")) if (work_dir / ".wiki").exists() else []
+    read_wiki_count = sum(1 for page in all_wiki_pages if page.as_posix() in combined_trace)
+
+    return {
+        "wiki_brainstorm_collect_used": "wiki-collect" in combined_trace and "新增" in combined_trace and "导出" in combined_trace,
+        "wiki_prd_references_cross_cut": prd_has_wikilink,
+        "wiki_prd_has_fallback": prd_has_wikilink and ("fallback" in prd_text.lower() or "与现状不一致" in prd_text or "逐一识别" in prd_text),
+        "wiki_prd_scope_self_contained": all(token in prd_text for token in ("session", "Session", "EXPORT_REGISTRY")) and "/api/auth/session/export" in prd_text,
+        "wiki_trace_not_blind_read_all": read_wiki_count < len(all_wiki_pages) if all_wiki_pages else False,
+        "wiki_impl_service_updated": "auth_export_user_session" in service_text and "token" in service_text,
+        "wiki_impl_route_updated": "/api/auth/session/export" in routes_text and "auth_export_user_session" in routes_text,
+        "wiki_impl_registry_updated": "auth.session" in registry_text and "auth_export_user_session" in registry_text,
+        "wiki_impl_tests_updated": "auth_export_user_session" in tests_text and "auth.session" in tests_text,
+    }
+
+
+def quality_checks(prd_text: str, turns: int, task_state: dict[str, Any] | None = None, work_dir: Path | None = None) -> dict[str, Any]:
     has_slice_headers = bool(_SLICE_HEADER_PATTERN.search(prd_text))
     has_completion_markers = "完成标志" in prd_text
     has_legacy_slice_checkboxes = bool(_LEGACY_SLICE_CHECKBOX_PATTERN.search(prd_text))
     has_slice_scaffold = any(tok in prd_text for tok in _SLICE_SCAFFOLD_TOKENS)
     checks = {
-        "multi_turn": turns >= 3,
+        "multi_turn": turns >= 3 or SCENARIO.name == "wiki-cross-cut-export-integration",
         "has_technical_framing": "Technical Framing" in prd_text,
         "has_slices": (
             "## Slices" in prd_text
@@ -490,12 +743,14 @@ def quality_checks(prd_text: str, turns: int, task_state: dict[str, Any] | None 
         "has_legacy_slice_checkboxes": has_legacy_slice_checkboxes,
         "has_slice_scaffold": has_slice_scaffold,
         "has_acceptance_criteria": "Acceptance Criteria" in prd_text or "验收" in prd_text,
-        "has_existing_code_anchor": True if SCENARIO.profile.startswith("greenfield-") else "现有" in prd_text or "existing" in prd_text.lower() or "src/" in prd_text,
-        "has_template_placeholder": "<" in prd_text and ">" in prd_text,
+        "has_existing_code_anchor": True if SCENARIO.profile.startswith("greenfield-") else "现有" in prd_text or "existing" in prd_text.lower() or "src/" in prd_text or "services/" in prd_text,
+        "has_template_placeholder": _has_template_placeholder(prd_text),
         "has_blocking_open_question": _detect_blocking_open_question(prd_text),
         "package_ready": bool(task_state and task_state.get("prd", {}).get("status") == "ready"),
         "impl_recorded": bool(task_state and task_state.get("impl_result")),
     }
+    if work_dir is not None:
+        checks.update(_wiki_integration_checks(work_dir, prd_text))
     hard_pass = (
         checks["multi_turn"]
         and checks["has_technical_framing"]
@@ -503,11 +758,28 @@ def quality_checks(prd_text: str, turns: int, task_state: dict[str, Any] | None 
         and checks["has_acceptance_criteria"]
         and checks["has_existing_code_anchor"]
     )
+    if SCENARIO.name == "wiki-cross-cut-export-integration":
+        hard_pass = hard_pass and all(
+            checks.get(key)
+            for key in (
+                "wiki_brainstorm_collect_used",
+                "wiki_prd_references_cross_cut",
+                "wiki_prd_has_fallback",
+                "wiki_prd_scope_self_contained",
+                "wiki_trace_not_blind_read_all",
+                "wiki_impl_service_updated",
+                "wiki_impl_route_updated",
+                "wiki_impl_registry_updated",
+                "wiki_impl_tests_updated",
+            )
+        )
     if not prd_text:
         verdict = "failed_to_run"
     elif hard_pass and checks["package_ready"] and checks["impl_recorded"] and not checks["has_template_placeholder"] and not checks["has_blocking_open_question"]:
         verdict = "pass"
     elif hard_pass:
+        verdict = "needs_review"
+    elif SCENARIO.name == "wiki-cross-cut-export-integration" and any(checks.get(key) for key in ("wiki_brainstorm_collect_used", "wiki_prd_references_cross_cut", "wiki_impl_service_updated")):
         verdict = "needs_review"
     else:
         verdict = "failed"
@@ -743,7 +1015,7 @@ async def run_scenario(paths: ScenarioPaths) -> dict[str, Any]:
     prd_path = find_prd(paths.work_dir)
     prd_text = prd_path.read_text(encoding="utf-8") if prd_path else ""
     task_state = read_task_state(prd_path)
-    check_result = quality_checks(prd_text, len(transcript), task_state)
+    check_result = quality_checks(prd_text, len(transcript), task_state, paths.work_dir)
     if run_error:
         if check_result["checks"].get("impl_recorded"):
             run_error = None
@@ -782,6 +1054,12 @@ def write_test_report(paths: ScenarioPaths, summary: dict[str, Any], prd_text: s
         prd_notes.append("- PRD 残留模板占位符，说明收尾整理不充分。")
     if summary["checks"].get("has_blocking_open_question"):
         prd_notes.append("- PRD 仍疑似包含 blocking open question，需要人工确认是否误判或真实阻塞。")
+    if SCENARIO.name == "wiki-cross-cut-export-integration":
+        wiki_failed = [key for key, value in summary["checks"].items() if key.startswith("wiki_") and not value]
+        if wiki_failed:
+            prd_notes.append("- Wiki 集成检查未通过：" + ", ".join(wiki_failed))
+        else:
+            prd_notes.append("- Wiki 集成检查通过：brainstorm/impl 使用了 cross_cut 页面、PRD 保持自包含并包含 fallback。")
     if "Requirements (evolving)" in prd_text:
         prd_notes.append("- PRD 仍保留 evolving 区；需要检查正式 section 是否完整，evolving 是否只是历史记录。")
     if not prd_notes:

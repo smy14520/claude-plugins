@@ -70,6 +70,10 @@ class DetectBlockingOpenQuestionTests(unittest.TestCase):
         prd = "# Demo\n\n## Open Questions\n\n- 没有 blocking open questions。\n"
         self.assertFalse(runner._detect_blocking_open_question(prd))
 
+    def test_returns_false_for_zanwu_negation(self):
+        prd = "# Demo\n\n## Open Questions\n\n- 暂无 blocking open questions。\n"
+        self.assertFalse(runner._detect_blocking_open_question(prd))
+
     def test_returns_true_for_unresolved_blocking_colon_marker(self):
         prd = "# Demo\n\n## Open Questions\n\n- Blocking: 需要确认支付服务商\n"
         self.assertTrue(runner._detect_blocking_open_question(prd))

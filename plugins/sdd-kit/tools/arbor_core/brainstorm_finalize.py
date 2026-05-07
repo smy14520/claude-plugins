@@ -18,10 +18,10 @@ _SLICE_BLOCK_RE = re.compile(
     re.MULTILINE | re.DOTALL,
 )
 _SLICE_SCAFFOLD_TOKENS = (
-    "<有数据、有代码、有测试的 slice>",
-    "<纯代码变更的 slice",
-    "<最终验收 / 自检切片>",
-    "<一句话可验证的 done-condition>",
+    "<walking skeleton 或第一个独立可验证的契约/功能>",
+    "<扩展某个契约/功能/行为/状态转换>",
+    "<回归 / 边界 / 自检切片>",
+    "<完成后多了什么可独立验证的契约/功能/行为>",
     "Impl 只更新 [ ] / [-] / [x]",
 )
 
