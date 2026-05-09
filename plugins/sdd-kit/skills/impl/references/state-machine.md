@@ -8,7 +8,9 @@ Impl 对单个 package PRD scope 只报告四种结果。Package 顶层 lifecycl
 
 ## DONE_WITH_CONCERNS
 
-self-check 通过，但实现有需要 review 知道的顾虑或妥协。
+A/B 通过且**功能代码兑现 PRD 承诺**，仅 C 因非阻塞环境限制无法完整验证。完整判定见 SKILL.md verdict 表。
+
+每条 concern 必须写 "PRD 完成标志原意 vs 实际实现"。若功能未兑现 PRD（典型如用替代方案顶替承重决策），不是 concern，应报 NEEDS_CONTEXT 或 BLOCKED。
 
 ## NEEDS_CONTEXT
 
@@ -23,4 +25,6 @@ self-check 通过，但实现有需要 review 知道的顾虑或妥协。
 
 ## BLOCKED
 
-环境或外部因素阻止执行，例如依赖、权限、认证、服务不可达或外部系统不可用。
+环境 / 外部因素让 impl **无法完成实现**或**无法判断核心功能是否工作**。常见：依赖装不上、权限 / 认证缺失、外部服务不可达、关键 parser 因系统库缺失无法运行。
+
+对照 DONE_WITH_CONCERNS：功能完整、只是验证手段受限不是 BLOCKED，见 SKILL.md verdict 表。

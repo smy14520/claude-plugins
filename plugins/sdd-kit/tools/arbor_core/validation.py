@@ -6,6 +6,7 @@ from typing import Any
 
 from .errors import ArborError
 from .fs import package_dir, read_json
+from .prd_slices import parse_prd_slices, validate_prd_slice_structure
 from .schema import *
 
 
@@ -197,6 +198,15 @@ def validate_package(root: Path, name: str) -> list[str]:
     if (pkg / "task.md").exists():
         errors.append("task.md is obsolete in PRD-first model; remove it")
 
+    prd_text: str | None = None
+    prd_slice_ids: set[str] | None = None
+    prd_path = pkg / "prd.md"
+    if prd_path.exists():
+        prd_text = prd_path.read_text(encoding="utf-8")
+        parsed_slices, parse_errors = parse_prd_slices(prd_text)
+        if not parse_errors:
+            prd_slice_ids = {item.id for item in parsed_slices}
+
     if not (pkg / "task.json").exists():
         return errors
 
@@ -239,6 +249,8 @@ def validate_package(root: Path, name: str) -> list[str]:
             sizing = data.get("package_sizing") if isinstance(data.get("package_sizing"), dict) else {}
             if sizing.get("status") != "fits_package":
                 errors.append("prd.status ready requires package_sizing.status fits_package")
+            if prd_text is not None:
+                errors.extend(f"prd.md: {error}" for error in validate_prd_slice_structure(prd_text))
 
     if "tasks" in data:
         errors.append("tasks[] is obsolete in PRD-first model; use PRD ## Slices instead")
@@ -263,6 +275,8 @@ def validate_package(root: Path, name: str) -> list[str]:
                     errors.append(f"Duplicate slice id: {sid}")
                 else:
                     seen_ids.add(sid)
+                    if prd_slice_ids is not None and sid not in prd_slice_ids:
+                        errors.append(f"{label}.id {sid} is not defined in PRD ## Slices")
                 if entry.get("status") not in SLICE_STATUSES:
                     errors.append(f"{label}.status must be one of {sorted(SLICE_STATUSES)}")
 

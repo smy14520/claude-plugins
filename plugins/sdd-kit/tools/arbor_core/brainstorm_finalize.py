@@ -9,71 +9,25 @@ from .errors import ArborError
 from .fs import package_dir, validate_name
 from .package_lifecycle import set_package_sizing, update_prd_status
 from .package_model import create_package
+from .prd_slices import validate_prd_slice_structure
 from .validation import validate_package
 
-_LEGACY_SLICE_CHECKBOX_RE = re.compile(r"^- \[[ x\-]\] S-\d{3}", re.MULTILINE)
-_SLICE_SECTION_RE = re.compile(r"^## Slices\b.*?(?=^## |\Z)", re.MULTILINE | re.DOTALL)
-_SLICE_BLOCK_RE = re.compile(
-    r"^### (S-\d{3}):.*?(?=^### S-\d{3}:|^## |\Z)",
+_DRAFT_ONLY_SECTION_RE = re.compile(
+    r"^## (?:Requirements \(evolving\)|Acceptance Criteria \(evolving\)|Interview Log)\s*.*?(?=^## |\Z)",
     re.MULTILINE | re.DOTALL,
-)
-_SLICE_SCAFFOLD_TOKENS = (
-    "<walking skeleton 或第一个独立可验证的契约/功能>",
-    "<扩展某个契约/功能/行为/状态转换>",
-    "<回归 / 边界 / 自检切片>",
-    "<完成后多了什么可独立验证的契约/功能/行为>",
-    "Impl 只更新 [ ] / [-] / [x]",
 )
 
 
 def _validate_prd_slice_structure(prd_text: str) -> None:
-    """Enforce the structured `## Slices` contract before finalize writes the PRD.
-
-    A PRD is ready only if its `## Slices` section contains at least one
-    `### S-NNN:` slice header, **each** slice block carries its own
-    `完成标志` marker, the PRD uses no legacy `- [ ] S-NNN` checkbox format,
-    and contains no unfilled template scaffold tokens.
-    """
-    errors: list[str] = []
-    if "## Slices" not in prd_text:
-        errors.append("missing `## Slices` section")
-        raise ArborError(
-            "finalize-brainstorm PRD structure invalid: " + "; ".join(errors)
-        )
-
-    slice_section_match = _SLICE_SECTION_RE.search(prd_text)
-    slice_section = slice_section_match.group(0) if slice_section_match else ""
-
-    slice_blocks = list(_SLICE_BLOCK_RE.finditer(slice_section))
-    if not slice_blocks:
-        errors.append(
-            "`## Slices` must contain at least one `### S-NNN:` slice header"
-        )
-    else:
-        missing_markers = [
-            match.group(1)
-            for match in slice_blocks
-            if "完成标志" not in match.group(0)
-        ]
-        if missing_markers:
-            errors.append(
-                "slices missing `完成标志` marker: " + ", ".join(missing_markers)
-            )
-
-    if _LEGACY_SLICE_CHECKBOX_RE.search(prd_text):
-        errors.append(
-            "PRD uses legacy `- [ ] S-NNN` checkbox format; migrate to `### S-NNN:` structured slices"
-        )
-    scaffold_hits = [tok for tok in _SLICE_SCAFFOLD_TOKENS if tok in prd_text]
-    if scaffold_hits:
-        errors.append(
-            "PRD contains unfilled slice scaffold tokens: " + ", ".join(scaffold_hits)
-        )
-
+    errors = validate_prd_slice_structure(prd_text, strict_scaffold=True)
     if errors:
         raise ArborError(
             "finalize-brainstorm PRD structure invalid: " + "; ".join(errors)
         )
+
+
+def _normalize_finalized_prd(prd_text: str) -> str:
+    return _DRAFT_ONLY_SECTION_RE.sub("", prd_text).rstrip() + "\n"
 
 
 def _required_string(data: dict[str, Any], field: str) -> str:
@@ -106,7 +60,7 @@ def _optional_string(data: dict[str, Any], field: str) -> str | None:
 def _write_prd(root: Path, name: str, prd: str | None) -> None:
     if prd is None:
         return
-    text = prd.rstrip() + "\n"
+    text = _normalize_finalized_prd(prd)
     (package_dir(root, name) / "prd.md").write_text(text, encoding="utf-8")
 
 

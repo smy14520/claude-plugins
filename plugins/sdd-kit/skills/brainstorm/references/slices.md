@@ -83,9 +83,18 @@ S-003: 按状态筛选 todo(查询能力 + e2e)
 
 ### 必填
 
-- `完成标志`:一句话描述**完成后多了什么可独立验证的契约 / 功能 / 行为**,不是某层动作的完成。每个 slice 都写,没有例外。
+- `完成标志`:slice 完成后多了什么**可独立验证的契约 / 功能 / 行为**,不是某层动作的完成。每个 slice 都写,没有例外。两种写法:
+  - **单行**:slice 只守护一个不变量时用。例:`- 完成标志:调用 X(input) 返回 Y 且测试通过`。
+  - **sublist**:slice 里有多个并列 claim 时用(尤其是 **positive action + 边界 / 阻止 / 守护**的组合)。每条一个独立可验证 claim;impl 必须逐条对账。例:
+    ```
+    - 完成标志:
+      - 代居民报名 / 取消报名 API
+      - 活动详情展示报名台账
+      - 重复报名被阻止
+    ```
   - ❌ work:"schema 已建"、"function 已实现"、"路由已注册"
-  - ✅ 可验证小单元:"创建 user-1 后 `GET /users/u1` 返回正确数据"、"调用 `X(input)` 返回 `Y` 且测试通过"、"order 状态 pending → paid 后 enrollment 自动建立"
+  - ✅ 可验证小单元:"创建 user-1 后 `GET /users/u1` 返回正确数据"、"order 状态 pending → paid 后 enrollment 自动建立"
+  - **长句里包含 negative invariant**(X 被阻止 / 重复被拒绝 / 冲突被拦截)时**必须用 sublist 分条**,不要打包在长句末尾——打包写法 impl 容易只证 positive action 漏 invariant。
 
 ### 按需
 

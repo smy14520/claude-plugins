@@ -1,122 +1,111 @@
 ---
 name: impl
-description: "Execute one sdd-kit package PRD scope as code changes. Reads PRD, writes code, runs self-checks, and records DONE / DONE_WITH_CONCERNS / NEEDS_CONTEXT / BLOCKED through sdd-arbor. Does not modify PRD artifacts."
+description: "Execute one sdd-kit package PRD scope as code changes. Reads PRD, writes code, runs self-checks, and records DONE / DONE_WITH_CONCERNS / NEEDS_CONTEXT / BLOCKED through sdd-arbor."
 ---
 
 # Impl — execute PRD scope
 
-使用语言：中文。
+通用约定见 [`../references/conventions.md`](../references/conventions.md)。
 
-Arbor helper 入口、路径和常用命令见 [`../references/arbor-helper.md`](../references/arbor-helper.md)；运行前遵守其中约定。
+Impl 执行一个 package PRD scope：读 PRD 的目标、范围、Acceptance Criteria、Package artifacts 引用、Technical Framing 和 `## Slices`，按顺序连续实现 slice，运行 self-check，记录结果。PRD 是需求 source of truth，impl 不修改 `prd.md`。
 
-Impl 执行一个 package PRD scope。它读 PRD，按 Slices 顺序连续实现，运行 self-check，并记录结果。执行阶段不需要用户介入——PRD 里该解决的问题都已解决。语义审计属于 review。
+## Hard rules
 
-## 输入
+1. 连续执行所有 slices，**不在 slice 之间停顿等待用户确认**。
+2. 未运行可用 self-check，不得声称 DONE。
+3. `prd.md` 和 PRD 引用的 `artifacts/` contract 不静默修改；需要改变时发 NEEDS_CONTEXT 或记录 amendment。
+4. 进度通过 `sdd-arbor mark-slice` 写入 `task.json`；不手写 `task.json`，不写第二套执行计划。
+5. PRD blocking open questions 或 technical framing 缺失时停止报 NEEDS_CONTEXT，不硬做。
+6. Slice 标注 `[existing]` 资源与实际代码不一致时报 NEEDS_CONTEXT；不静默修正。
 
-- `.arbor/tasks/<package>/prd.md`（PRD 是需求和 Slices 的 source of truth）
-- `.arbor/tasks/<package>/task.json`（读取 package state；只通过 `sdd-arbor` 更新）
-- `.arbor/tasks/<package>/artifacts/`（按需读取 PRD 引用的 data-model / integration / API contract；artifact 是 PRD 附属 contract，不是生产实现事实源）
-- `.wiki/**/*.md`（按需读取 PRD 引用的 wiki 页面；wiki 是 orientation 层，不是事实源）
+## 入场
 
-## 流程
+1. 读 `.arbor/tasks/<package>/prd.md`、`task.json`、PRD 引用的 `artifacts/`、PRD 引用的 wiki 页面（见 Wiki 引用处理）。
+2. 读 `task.json.slices` 判断进度：
+   - 全 `done` 且有 `impl_result` → 已完成，不重复执行。
+   - 全 `done` 但无 `impl_result` → 直接 self-check + 记录。
+   - 有 `pending` / `in_progress` → 正常执行。
+   - 数组空或不存在 → 全部 pending，按 PRD `## Slices` 顺序从头开始。
+3. 若 `review_result.state` 是 `NEEDS_REWORK`（CLI 参数 `needs_rework`），读问题清单针对性修复，不从头执行 slice。
+4. 状态非 doing 时 `sdd-arbor set-status <package> --state doing --actor impl --note "开始执行"`。
 
-1. 读取 PRD 的目标、范围、Acceptance Criteria、Package artifacts 引用、Technical Framing（含 Testing strategy）、Slices；若 PRD 引用了 `artifacts/` 中的 contract，先读取对应文件。
+代码即进度——`task.json.slices` 标记与项目实际状态不符时以代码为准。读已有测试是了解前面 slice 接口契约的捷径。
 
-   Wiki 引用处理（仅当 PRD Technical Framing 写了 `详见 [[...]]` 形式的 wikilink 时）：
-   - **cross_cut 类**（漏读 = silent bug，必须验证）：
-     - 用 `sdd-arbor wiki-collect --query "<keyword>" --limit 5 --json` 读对应页面的同步修改位置、命名规则、注册机制。
-     - 验证页面里的位置、命名规则、注册机制仍适用于当前代码（路径是否仍存在、命名前缀是否仍一致、注册机制是否仍如页面所述）。
-     - 页面缺失或与代码不一致时，按 PRD fallback 调研代码逐一识别；执行结束后在 record-impl-result 中提醒用户是否更新 wiki。
-   - **其他 type**（module / entity / gotcha / decision / source）：按 PRD 提示按需读作为 orientation——理解既有契约 / 避坑 / 承重边界提醒；不替代 PRD scope，不需要逐一 verify。
-   - Wiki 只承担“防漏 / orientation”职责，执行边界以 PRD 为准。
-2. 读取 `task.json` 的 `slices` 数组检查进度（PRD 里的 Slices 段只定义需求，不做进度标记）：
-   - 所有 slice 已 `done` 且 `task.json` 已有 impl_result → package 已完成，不重复执行。
-   - 所有 slice 已 `done` 但没有 impl_result → 直接跳到 self-check（步骤 9）。
-   - 存在 `pending` 或 `in_progress` → 正常执行（步骤 3 起）。
-   - `slices` 数组为空或不存在 → 视为全部 pending，正常执行。
-3. PRD blocking open questions 或 technical framing 缺失时停止，不要硬做。
-4. slice 的 `数据/schema` 或 `代码锚点` 字段引用了 `[existing]` 资源时，先验证这些资源仍然成立（表是否存在、模块接口是否匹配、文件路径是否对应、设计模式是否如 PRD 所述），再动刀。发现不一致时报告 NEEDS_CONTEXT，不要硬改。
-5. 用 `sdd-arbor set-status <package> --state doing --actor impl --note "开始执行"` 记录状态（已处于 doing 时跳过）。
-6. 找到第一个未完成的 slice（`pending` 或 `in_progress`），开始执行。
-7. 连续执行所有 slices，不在 slice 之间停顿等待用户确认。
-8. 每完成一个 slice，用 `sdd-arbor mark-slice <package> --id S-001 --status done` 记录进度。
-9. 全部 slices 完成后，运行 self-check。
-10. 用 `sdd-arbor record-impl-result <package> --state done|done_with_concerns|needs_context|blocked ...` 记录结果。
-11. 若本次 diff 触及 PRD 引用的 wiki cross-cut 页面里的位置，或实现过程中明确发现“同类改动必须在多个模块的相似位置同步修改”的重复模式，才在 record-impl-result 中提醒用户是否更新 / 新增 wiki 页面。仅泛泛改了 enum / route / 导出之一不算触发条件；用户决定，impl 不自动写 wiki。
+## Wiki 引用处理
 
-## Testing strategy
+PRD Technical Framing 写了 `详见 [[...]]` 形式的 wikilink 时：
 
-读取 PRD Technical Framing 中的 Testing strategy 字段，按选择的档位执行：
+- `cross_cut` 页面：漏读 = silent bug。`sdd-arbor wiki-collect --query "<kw>"` 读页面，verify 位置 / 命名 / 注册机制仍适用；不一致按 PRD fallback 调研代码。
+- 其它 type（module / entity / gotcha / decision / source）：按 orientation 读，不逐一 verify。
 
-- **核心路径测试**：每个 slice 完成后，补该 slice 涉及的关键路径和边界 case 测试，运行并确认全部通过后才用 `mark-slice` 标记 `done`。外部依赖用 mock/fake。
-- **TDD 驱动**：每个 slice 先写测试再写实现，按 `references/tdd.md` 的 red-green loop 执行，绿灯后才用 `mark-slice` 标记 `done`。外部依赖用 mock/fake。
-- **最小验收**：全部 slice 完成后，跑 happy path 验证功能跑通。
+## Slice 执行循环
 
-测试框架和工具由 Technical Framing 的 stack 决定（AI 根据项目技术栈自行选择），sdd-kit 不指定具体工具。
+对每个未完成 slice：
 
-## Slices 执行
+1. 按 PRD Testing strategy 档位实现 + 测试（TDD：先测后写；核心路径：实现后补关键路径 + 边界；最小验收：happy path 跑通）。
+2. 对账：slice 的每条"完成标志"是否有对应可观测产物？PRD 写的是 sublist 时逐条对账，不要整体打勾。特别注意 negative invariant（X 被阻止 / 重复被拒绝 / 冲突被拦截）——只证 positive action 不算对账通过。
+3. `sdd-arbor mark-slice <package> --id S-NNN --status done`；有差距用 `--status in_progress --note "<差距>"` 继续做，或接受妥协在最后 record 时写 `--concern`。
 
-PRD 的 `## Slices` 段定义 slice 需求和执行顺序。Impl 按顺序逐个执行，不跳跃。
-
-进度记录在 `task.json` 的 `slices` 数组中（通过 `sdd-arbor mark-slice` 更新），不修改 PRD 文件。三种状态：
-- `pending` 未开始
-- `in_progress` 部分完成（附备注说明停在哪里）
-- `done` 完成
-
-## 断点续作
-
-如果对话中断（上下文窗口满、用户手动停、网络断），恢复时：
-
-1. 读 `task.json` 的 `slices` 数组，找到第一个 `pending` 或 `in_progress` 的 slice。
-2. 快速扫描实际代码状态，验证标记是否准确。代码即进度——如果标记说 S-001 完成了，但项目目录是空的，从 S-001 重新来。
-3. 读已有测试文件——测试是前面 slice 设计决策的最好文档，能快速了解已建立的接口契约、数据结构和预期行为，避免后续 slice 与前面的设计意图矛盾。
-4. 如果是 `in_progress`，读取 note 了解上次停在哪里，继续未完成的部分。
-5. 继续连续执行剩余 slices。
-
-如果是 review NEEDS_REWORK 后回到 impl：
-
-1. 读 `task.json` 的 `review_result`，了解 review 给出的具体问题清单和 verdict 理由。
-2. 针对性修复 review 指出的问题，不要从头重新执行所有 slice。
-3. 修复完成后重新运行 self-check，用 `record-impl-result` 记录新结果。
-
-如果 impl 检测到当前 slice 未完全做完但需要停止（如对话即将结束），用 `mark-slice` 记录部分进度：
-
-```bash
-sdd-arbor mark-slice <package> --id S-002 --status in_progress --note "后端 auth API + migration 完成，前端登录页未做"
-```
-
-## 四种结果
-
-| 状态 | 含义 |
-|------|------|
-| DONE | PRD scope self-check 通过，无已知妥协 |
-| DONE_WITH_CONCERNS | self-check 通过，但有需要 review 知道的顾虑 |
-| NEEDS_CONTEXT | PRD / Technical Framing 信息缺失或冲突，继续会变成猜测 |
-| BLOCKED | 环境、依赖、权限或外部因素阻塞 |
-
-这四种是 impl 的**结果记录**，不是 package 状态。Package 状态只有 5 种：draft → ready → doing → done → reviewed。
+`task.json.slices` 的三态：`pending` 未开始 / `in_progress` 部分完成（附备注说明停在哪里）/ `done` 完成。
 
 ## Self-check
 
-Self-check 必须覆盖三层，不能只跑其中一层就声称 DONE：
+全部 slice 完成后按序跑：
 
-1. **构建通过** — 项目能正常编译/构建，无报错。
-2. **测试通过** — 按 Testing strategy 写的测试全部通过。没有测试跳过或忽略的关键失败。
-3. **功能验证** — 按 PRD Technical Framing 中的 stack / runtime 决定如何启动并验证核心路径。环境限制无法验证时，明确记录为 DONE_WITH_CONCERNS 或 BLOCKED 并说明原因，不要假装验证过了。
+| 层 | 内容 | 失败处理 |
+|---|---|---|
+| A. Build | 项目能编译 / 构建无报错 | 修复；反复失败 → NEEDS_CONTEXT / BLOCKED |
+| B. Test | 按 Testing strategy 的测试全部通过 | 修复；反复失败 → NEEDS_CONTEXT / BLOCKED |
+| C. Functional | 按 Technical Framing 的 stack / runtime 启动并验证核心路径 | 诊断修复；反复失败按判定表选结果 |
 
-构建通过 + 测试通过 ≠ DONE。功能验证是必须的。
+Build + Test 通过不等于 DONE。Functional 是必须的。把三层的依据与命令结果传给 `record-impl-result`。
 
-功能验证失败时：先诊断原因并尝试修复，修复后重新运行三层验证。反复修复仍无法通过时，记录为 DONE_WITH_CONCERNS（问题明确但非阻塞）或 BLOCKED（环境/依赖阻塞），不要假装通过。
+## 四种结果判定
 
-把三层的检查依据和命令结果写入 `record-impl-result`。
+```
+A/B/C 全通过 + 所有 marker 对账通过                    → DONE
+A/B/C 通过 + 至少一条 concern                           → DONE_WITH_CONCERNS
+C 因非阻塞环境限制无法完整验证（功能已实现）             → DONE_WITH_CONCERNS
+C 因环境/依赖导致无法完成或无法判断核心功能              → BLOCKED
+PRD / Technical Framing 信息缺失 / 冲突                 → NEEDS_CONTEXT
+环境、依赖、权限、外部因素阻塞实现或验证                 → BLOCKED
+```
 
-## 规则
+DONE_WITH_CONCERNS 的前提是**功能代码已兑现 PRD 承诺**，只是某些路径没法在当前环境完整验证。若实际交付物与 PRD 承诺不一致（典型如用替代方案顶替承重决策），按 anti-patterns "静默做设计决策以解除阻塞" 处理：停下报 NEEDS_CONTEXT。每条 concern 写 "PRD 完成标志原意 vs 实际实现"。
 
-- 未运行可用 self-check，不得声称 DONE。
-- 连续执行所有 slices，不在中间停顿等用户确认。
-- 发现 PRD 或 artifact 决策错误，报告 NEEDS_CONTEXT，不静默改需求或 contract。
-- 不修改 `prd.md`。PRD 是需求 source of truth，impl 不碰它；进度通过 `mark-slice` 记录在 `task.json`。
-- 不静默修改 PRD 引用的 `artifacts/` contract；如需改变，先记录 amendment 或 NEEDS_CONTEXT。
-- 不手写 `task.json`。
-- 不自动进入 review。
-- 不自动写 `.wiki/`。读 wiki 是按需 orientation；写 wiki 必须由用户显式触发（见 `wiki/references/anti-patterns.md` AP3 / AP8）。
+## 记录结果
+
+```bash
+sdd-arbor record-impl-result <package> \
+  --state done|done_with_concerns|needs_context|blocked \
+  --summary "<一句话总览本次 impl 范围>" \
+  --acceptance "<marker-id>: <证据>"  \
+  --command "<self-check 命令>" \
+  --concern "<PRD 原意 vs 实际>" \
+  ...
+```
+
+`--acceptance` / `--command` / `--concern` 可重复。
+
+**Acceptance 引用格式**——helper 会校验覆盖：
+
+- slice 只有 1 个"完成标志"（单行写法）→ 用 `S-NNN: <证据>`。
+- slice 有多个"完成标志"（sublist 写法）→ 每个 marker 单独一条 `S-NNN.M: <证据>`。漏了任何一条 helper 会拒绝 `--state done`；接受妥协就改 `--state done_with_concerns` + `--concern`。
+
+例：
+
+```
+--acceptance "S-001: GET /api/courses 返回 2 条种子 + e2e 通过"
+--acceptance "S-004.1: 代报名 API + UI form 走通"
+--acceptance "S-004.2: 取消 API + status=cancelled 落库"
+--acceptance "S-004.3: 活动详情页展示报名台账"
+--acceptance "S-004.4: 重复报名返回 409 + UI 显示错误"
+```
+
+若本次 diff 触及 PRD 引用的 wiki cross-cut 页面，或发现"同类改动在多个模块同步修改"的重复模式，record 时提醒用户是否更新 wiki。
+
+## References
+
+- Testing strategy 档位与 TDD loop 见 [`references/tdd.md`](references/tdd.md)。
+- 反模式见 [`references/anti-patterns.md`](references/anti-patterns.md)。
+- 状态机与 workflow 细节见 [`references/state-machine.md`](references/state-machine.md) / [`references/workflow.md`](references/workflow.md)。

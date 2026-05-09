@@ -17,13 +17,15 @@ Useful env:
 from __future__ import annotations
 
 import asyncio
+import hashlib
 import json
 import os
 import re
 import shutil
+import statistics
 import subprocess
 import sys
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any
@@ -34,9 +36,12 @@ FIXTURE_DIR = TESTS_ROOT / "fixtures" / "express-app"
 RUNS_ROOT = TESTS_ROOT / "scenario_eval" / "runs"
 MAX_CONVERSATION_TURNS = int(os.environ.get("SCENARIO_CONVERSATION_TURNS", "14"))
 MAX_IMPL_TURNS = int(os.environ.get("SCENARIO_IMPL_TURNS", "80"))
+MAX_DIRECT_TURNS = int(os.environ.get("SCENARIO_DIRECT_TURNS", "80"))
+MAX_REVIEW_TURNS = int(os.environ.get("SCENARIO_REVIEW_TURNS", "20"))
 DEFAULT_MODEL = os.environ.get("SCENARIO_TEST_MODEL", "claude-opus-4-6")
 AI_USER_MODEL = os.environ.get("SCENARIO_AI_USER_MODEL", DEFAULT_MODEL)
 AI_USER_MODE = os.environ.get("SCENARIO_AI_USER_MODE", "agent")
+CAPTURE_DIFF_MAX_BYTES = int(os.environ.get("SCENARIO_CAPTURE_DIFF_MAX_BYTES", "2000000"))
 
 if "ANTHROPIC_API_KEY" not in os.environ and "ANTHROPIC_AUTH_TOKEN" in os.environ:
     os.environ["ANTHROPIC_API_KEY"] = os.environ["ANTHROPIC_AUTH_TOKEN"]
@@ -137,6 +142,32 @@ class ScenarioPaths:
     test_report_path: Path
 
 
+@dataclass(frozen=True)
+class ExperimentConfig:
+    run_mode: str = "single-sdd"
+    repeats: int = 3
+    groups: tuple[str, ...] = ("A-direct", "B-sdd")
+    enable_review: bool = False
+    isolate_phases: bool = False
+
+
+@dataclass(frozen=True)
+class RunContext:
+    paths: ScenarioPaths
+    user_request: str
+    group: str | None = None
+    repeat: int | None = None
+    workflow: str = "single-sdd"
+
+
+@dataclass
+class PhaseResponse:
+    text: str = ""
+    error: str | None = None
+    retry: dict[str, Any] | None = None
+    metrics: dict[str, Any] = field(default_factory=dict)
+
+
 def timestamp() -> str:
     return datetime.now(timezone.utc).isoformat()
 
@@ -146,15 +177,23 @@ def safe_slug(value: str) -> str:
     return cleaned or "scenario"
 
 
-def unique_run_dir() -> Path:
-    date = datetime.now().strftime("%Y-%m-%d")
-    base = RUNS_ROOT / date / safe_slug(SCENARIO.name)
+def unique_path(base: Path) -> Path:
     if not base.exists():
         return base
     suffix = 2
-    while (RUNS_ROOT / date / f"{safe_slug(SCENARIO.name)}-{suffix}").exists():
+    while Path(f"{base}-{suffix}").exists():
         suffix += 1
-    return RUNS_ROOT / date / f"{safe_slug(SCENARIO.name)}-{suffix}"
+    return Path(f"{base}-{suffix}")
+
+
+def unique_run_dir() -> Path:
+    date = datetime.now().strftime("%Y-%m-%d")
+    return unique_path(RUNS_ROOT / date / safe_slug(SCENARIO.name))
+
+
+def unique_matrix_dir() -> Path:
+    date = datetime.now().strftime("%Y-%m-%d")
+    return unique_path(RUNS_ROOT / date / f"{safe_slug(SCENARIO.name)}-matrix")
 
 
 def log_event(paths: ScenarioPaths | None, event: str, **data: Any) -> None:
@@ -347,8 +386,8 @@ Impl 读取本页后必须验证路径和注册机制仍存在，再修改代码
 """.strip() + "\n")
 
 
-def prepare_workdir() -> ScenarioPaths:
-    run_dir = unique_run_dir()
+def prepare_workdir(run_dir: Path | None = None) -> ScenarioPaths:
+    run_dir = run_dir or unique_run_dir()
     run_dir.mkdir(parents=True, exist_ok=False)
     work_dir = run_dir / "project"
     if SCENARIO.name == "wiki-cross-cut-export-integration":
@@ -439,6 +478,25 @@ def impl_prompt(prd_path: Path | None) -> str:
     return "用 impl 执行当前 ready package"
 
 
+def review_prompt(prd_path: Path | None) -> str:
+    if prd_path:
+        return f"用 review 审计这个 package PRD：{prd_path.parent.name}"
+    return "用 review 审计当前 package PRD"
+
+
+def direct_prompt(user_request: str) -> str:
+    return f"""
+Implement this user brief directly in the current project.
+Do not use sdd-kit skills, brainstorm, impl, review, .arbor, or PRD workflow.
+Do not ask follow-up questions; make reasonable assumptions and keep scope tight.
+Write/update code and tests as needed. Run relevant verification if feasible.
+End with a concise Direct result summary including files changed, tests run, and concerns.
+
+User brief:
+{user_request}
+""".strip()
+
+
 def wiki_export_initial_request() -> str:
     return (
         "帮我在现有 auth 导出系统里新增 user session 导出能力：输入 user_id，返回带 token 的 Session，"
@@ -457,8 +515,6 @@ def fallback_initial_request() -> str:
 
 def fallback_answer(question_text: str) -> str:
     lowered = question_text.lower()
-    if "模式" in question_text or "grill-me" in lowered:
-        return "选择 grill-me。"
     if SCENARIO.name == "wiki-cross-cut-export-integration":
         if "定稿" in question_text or "finalize" in lowered or "调用 `sdd-arbor finalize-brainstorm`" in question_text:
             return "确认定稿；函数名固定为 `auth_export_user_session`，采用确定性 token `session-{user_id}`，route wiring 也需要显式测试。"
@@ -468,9 +524,13 @@ def fallback_answer(question_text: str) -> str:
             return "需要显式测试 route wiring；请覆盖 `/api/auth/session/export` 注册到 `auth_export_user_session`，同时保留既有 role route。"
         if "token" in lowered or "session.token" in lowered or "生成语义" in question_text:
             return "确认采用确定性 token：`Session.token = f\"session-{user_id}\"`。函数名使用 `auth_export_user_session`；不要接入真实 token 签发，也不要只做非空断言。"
+    if "模式" in question_text and "grill-me" in lowered and "推荐" not in question_text:
+        return "选择 grill-me。"
+    if any(marker in question_text for marker in ("回复 **接受 A**", "回复：**A**", "接受 A", "选项：", "选项")):
+        return "接受 A。"
     if "确认" in question_text or "定稿" in question_text or "finalize" in lowered:
-        return "如果 PRD 已经没有 blocking open question，并且验收标准和 slices 都明确，就确认定稿；否则请继续追问未决项。"
-    return "按你的推荐方向推进；如果需要业务取舍，请选择更适合当前场景范围和交付质量的方案。"
+        return "确认定稿。"
+    return "采用推荐。"
 
 
 async def ask_ai_user(
@@ -480,6 +540,7 @@ async def ask_ai_user(
     event_prefix: str,
     turn: int | None = None,
     max_chars: int = 900,
+    metrics: dict[str, Any] | None = None,
 ) -> str:
     from claude_agent_sdk import AssistantMessage, ClaudeAgentOptions, ClaudeSDKClient, ResultMessage, TextBlock
 
@@ -503,6 +564,10 @@ async def ask_ai_user(
                 if isinstance(msg, AssistantMessage):
                     result_text += "".join(block.text for block in msg.content if isinstance(block, TextBlock))
                 elif isinstance(msg, ResultMessage):
+                    result_metrics = extract_result_metrics(msg)
+                    if metrics is not None:
+                        add_phase_metrics(metrics.setdefault("ai_user", empty_metrics()), event_prefix, result_metrics)
+                    log_event(paths, f"{event_prefix}_agent_result", turn=turn, is_error=msg.is_error, metrics=result_metrics)
                     if msg.is_error:
                         log_event(paths, f"{event_prefix}_agent_error", turn=turn, result=msg.result)
                     elif msg.result and not result_text.strip():
@@ -521,7 +586,7 @@ async def ask_ai_user(
     return answer or fallback
 
 
-async def ai_user_initial_request(paths: ScenarioPaths) -> str:
+async def ai_user_initial_request(paths: ScenarioPaths, metrics: dict[str, Any] | None = None) -> str:
     if SCENARIO.name == "wiki-cross-cut-export-integration":
         request = wiki_export_initial_request()
         log_event(paths, "ai_user_initial_scripted_request", request=request)
@@ -542,10 +607,10 @@ async def ai_user_initial_request(paths: ScenarioPaths) -> str:
 - 新项目场景下，提出一个从零开始的新产品/工具需求。
 - 不要写 PRD，不要列实现计划。
 """.strip()
-    return await ask_ai_user(prompt, paths, fallback_initial_request(), "ai_user_initial", max_chars=360)
+    return await ask_ai_user(prompt, paths, fallback_initial_request(), "ai_user_initial", max_chars=360, metrics=metrics)
 
 
-async def ai_user_answer(question_text: str, transcript: list[dict[str, Any]], paths: ScenarioPaths) -> str:
+async def ai_user_answer(question_text: str, transcript: list[dict[str, Any]], paths: ScenarioPaths, metrics: dict[str, Any] | None = None) -> str:
     prompt = f"""
 你在一次真实产品需求访谈中扮演用户侧：一位有经验、但不会替实现者做设计的产品负责人。
 
@@ -577,6 +642,7 @@ async def ai_user_answer(question_text: str, transcript: list[dict[str, Any]], p
         fallback_answer(question_text),
         "ai_user_answer",
         turn=len(transcript) + 1,
+        metrics=metrics,
     )
 
 
@@ -656,6 +722,20 @@ def _is_task_state_ready(task_state: dict[str, Any] | None) -> bool:
     if not isinstance(prd, dict):
         return False
     return prd.get("status") == "ready"
+
+
+def _derive_review_recorded(task_state: dict[str, Any] | None) -> bool:
+    return bool(task_state and task_state.get("review_result"))
+
+
+def _review_state(task_state: dict[str, Any] | None) -> str | None:
+    if not task_state:
+        return None
+    review_result = task_state.get("review_result")
+    if not isinstance(review_result, dict):
+        return None
+    state = review_result.get("state")
+    return str(state) if state else None
 
 
 def _derive_impl_started(task_state: dict[str, Any] | None) -> bool:
@@ -742,7 +822,7 @@ def quality_checks(prd_text: str, turns: int, task_state: dict[str, Any] | None 
         ),
         "has_legacy_slice_checkboxes": has_legacy_slice_checkboxes,
         "has_slice_scaffold": has_slice_scaffold,
-        "has_acceptance_criteria": "Acceptance Criteria" in prd_text or "验收" in prd_text,
+        "has_acceptance_criteria": "Acceptance Criteria" in prd_text or "验收" in prd_text or "验证重点" in prd_text,
         "has_existing_code_anchor": True if SCENARIO.profile.startswith("greenfield-") else "现有" in prd_text or "existing" in prd_text.lower() or "src/" in prd_text or "services/" in prd_text,
         "has_template_placeholder": _has_template_placeholder(prd_text),
         "has_blocking_open_question": _detect_blocking_open_question(prd_text),
@@ -789,6 +869,10 @@ def quality_checks(prd_text: str, turns: int, task_state: dict[str, Any] | None 
 def response_timeout_for_phase(phase: str) -> int:
     if phase == "impl":
         return int(os.environ.get("SCENARIO_IMPL_RESPONSE_TIMEOUT", "2400"))
+    if phase == "direct":
+        return int(os.environ.get("SCENARIO_DIRECT_RESPONSE_TIMEOUT", "2400"))
+    if phase == "review":
+        return int(os.environ.get("SCENARIO_REVIEW_RESPONSE_TIMEOUT", "1800"))
     return int(
         os.environ.get(
             "SCENARIO_BRAINSTORM_RESPONSE_TIMEOUT",
@@ -801,6 +885,92 @@ def _message_preview(message: Any) -> str:
     return repr(message)[:1000]
 
 
+def _jsonable(value: Any) -> Any:
+    try:
+        json.dumps(value)
+        return value
+    except TypeError:
+        if hasattr(value, "model_dump"):
+            return _jsonable(value.model_dump())
+        if hasattr(value, "__dict__"):
+            return _jsonable(vars(value))
+        return repr(value)
+
+
+def extract_result_metrics(msg: Any) -> dict[str, Any]:
+    metrics: dict[str, Any] = {}
+    for attr in ("duration_ms", "duration_api_ms", "num_turns", "session_id", "total_cost_usd", "usage", "stop_reason"):
+        value = getattr(msg, attr, None)
+        if value is not None:
+            metrics[attr] = _jsonable(value)
+    return metrics
+
+
+def empty_metrics() -> dict[str, Any]:
+    return {"by_phase": {}, "total_cost_usd": 0.0, "duration_ms": 0, "usage": {}}
+
+
+def merge_usage(left: dict[str, Any], right: Any) -> dict[str, Any]:
+    result = dict(left)
+    if not isinstance(right, dict):
+        return result
+    for key, value in right.items():
+        if isinstance(value, (int, float)):
+            result[key] = result.get(key, 0) + value
+        elif isinstance(value, dict):
+            result[key] = merge_usage(result.get(key, {}), value)
+    return result
+
+
+def add_phase_metrics(bucket: dict[str, Any], phase: str, metrics: dict[str, Any]) -> None:
+    if not metrics:
+        return
+    phases = bucket.setdefault("by_phase", {})
+    phase_metrics = phases.setdefault(phase, {})
+    for key, value in metrics.items():
+        if key == "usage" and isinstance(value, dict):
+            phase_metrics[key] = merge_usage(phase_metrics.get(key, {}), value)
+            bucket["usage"] = merge_usage(bucket.get("usage", {}), value)
+        elif key in {"duration_ms", "duration_api_ms", "num_turns"} and isinstance(value, (int, float)):
+            phase_metrics[key] = phase_metrics.get(key, 0) + value
+            if key == "duration_ms":
+                bucket[key] = bucket.get(key, 0) + value
+        elif key == "total_cost_usd" and isinstance(value, (int, float)):
+            phase_metrics[key] = phase_metrics.get(key, 0.0) + value
+            bucket[key] = bucket.get(key, 0.0) + value
+        else:
+            phase_metrics[key] = value
+
+
+def new_run_metrics() -> dict[str, Any]:
+    return {"tested_agent": empty_metrics(), "ai_user": empty_metrics(), "harness_total": {}}
+
+
+def finalize_run_metrics(metrics: dict[str, Any]) -> dict[str, Any]:
+    tested = metrics.get("tested_agent", {})
+    ai_user = metrics.get("ai_user", {})
+    metrics["harness_total"] = {
+        "tested_agent_total_cost_usd": tested.get("total_cost_usd", 0.0),
+        "tested_agent_duration_ms": tested.get("duration_ms", 0),
+        "ai_user_total_cost_usd": ai_user.get("total_cost_usd", 0.0),
+        "ai_user_duration_ms": ai_user.get("duration_ms", 0),
+        "combined_total_cost_usd": tested.get("total_cost_usd", 0.0) + ai_user.get("total_cost_usd", 0.0),
+        "combined_duration_ms": tested.get("duration_ms", 0) + ai_user.get("duration_ms", 0),
+    }
+    return metrics
+
+
+def score_placeholders() -> dict[str, Any]:
+    return {
+        "completion": None,
+        "code": None,
+        "tests": None,
+        "scored_by": None,
+        "scored_at": None,
+        "notes": None,
+    }
+
+
 def _has_brainstorm_ready_text_marker(response_text: str) -> bool:
     lowered_response = response_text.lower()
     return (
@@ -810,7 +980,7 @@ def _has_brainstorm_ready_text_marker(response_text: str) -> bool:
     )
 
 
-async def receive_tested_response(client: Any, paths: ScenarioPaths, phase: str) -> tuple[str, str | None, dict[str, Any] | None]:
+async def receive_tested_response(client: Any, paths: ScenarioPaths, phase: str, metrics: dict[str, Any] | None = None) -> PhaseResponse:
     from claude_agent_sdk import AssistantMessage, ResultMessage, SystemMessage, TextBlock
 
     response_text = ""
@@ -853,16 +1023,240 @@ async def receive_tested_response(client: Any, paths: ScenarioPaths, phase: str)
                 continue
 
             if isinstance(msg, ResultMessage):
-                log_event(paths, "tested_agent_result", phase=phase, is_error=msg.is_error, duration_ms=msg.duration_ms)
+                result_metrics = extract_result_metrics(msg)
+                if metrics is not None:
+                    add_phase_metrics(metrics.setdefault("tested_agent", empty_metrics()), phase, result_metrics)
+                log_event(paths, "tested_agent_result", phase=phase, is_error=msg.is_error, metrics=result_metrics)
                 if msg.is_error:
                     response_error = msg.result or "ResultMessage reported an error."
                 elif msg.result and not response_text.strip():
                     response_text = msg.result
                 break
-    return response_text.strip(), response_error, response_retry
+    return PhaseResponse(response_text.strip(), response_error, response_retry, result_metrics if 'result_metrics' in locals() else {})
 
 
-async def run_scenario(paths: ScenarioPaths) -> dict[str, Any]:
+def _run_git_capture(work_dir: Path, args: list[str], max_bytes: int | None = None) -> tuple[str, bool]:
+    try:
+        result = subprocess.run(["git", *args], cwd=work_dir, text=True, capture_output=True, check=False)
+    except OSError as exc:
+        return f"git {' '.join(args)} failed: {exc}", False
+    text = result.stdout
+    if result.stderr:
+        text += result.stderr
+    if max_bytes is not None and len(text.encode("utf-8")) > max_bytes:
+        encoded = text.encode("utf-8")[:max_bytes]
+        return encoded.decode("utf-8", errors="ignore") + "\n[diff truncated]\n", True
+    return text, False
+
+
+def capture_diff(paths: ScenarioPaths) -> dict[str, Any]:
+    status, _ = _run_git_capture(paths.work_dir, ["status", "--short"])
+    stat, _ = _run_git_capture(paths.work_dir, ["diff", "--stat", "--cached"])
+    patch, truncated = _run_git_capture(paths.work_dir, ["diff", "--cached"], CAPTURE_DIFF_MAX_BYTES)
+    if not stat.strip():
+        stat, _ = _run_git_capture(paths.work_dir, ["diff", "--stat", "--no-index", "/dev/null", "."])
+    if not patch.strip():
+        patch, truncated = _run_git_capture(paths.work_dir, ["diff", "--no-index", "/dev/null", "."], CAPTURE_DIFF_MAX_BYTES)
+    write(paths.run_dir / "git_status.txt", status)
+    write(paths.run_dir / "diff.patch", patch)
+    return {
+        "sha256": hashlib.sha256(patch.encode("utf-8")).hexdigest() if patch else None,
+        "stat": stat,
+        "changed_files": sum(1 for line in status.splitlines() if line.strip()),
+        "patch_path": "diff.patch",
+        "truncated": truncated,
+    }
+
+
+def matrix_run_dir(matrix_dir: Path, group: str, repeat: int) -> Path:
+    return matrix_dir / group / f"rep-{repeat:02d}"
+
+
+def _env_flag(name: str, default: str = "0") -> bool:
+    return os.environ.get(name, default) not in {"0", "false", "False"}
+
+
+def parse_experiment_config() -> ExperimentConfig:
+    run_mode = os.environ.get("SCENARIO_RUN_MODE", "single-sdd")
+    groups = tuple(item.strip() for item in os.environ.get("SCENARIO_GROUPS", "A-direct,B-sdd").split(",") if item.strip())
+    enable_review_default = "1" if run_mode == "matrix" else "0"
+    return ExperimentConfig(
+        run_mode=run_mode,
+        repeats=int(os.environ.get("SCENARIO_REPEATS", "3")),
+        groups=groups or ("A-direct", "B-sdd"),
+        enable_review=_env_flag("SCENARIO_ENABLE_REVIEW", enable_review_default),
+        isolate_phases=_env_flag("SCENARIO_ISOLATE_PHASES", "0"),
+    )
+
+
+def _numeric_stats(values: list[float]) -> dict[str, Any]:
+    if not values:
+        return {"count": 0, "mean": None, "pstdev": None, "min": None, "max": None}
+    return {
+        "count": len(values),
+        "mean": statistics.mean(values),
+        "pstdev": statistics.pstdev(values) if len(values) > 1 else 0,
+        "min": min(values),
+        "max": max(values),
+    }
+
+
+def aggregate_matrix(summaries: list[dict[str, Any]]) -> dict[str, Any]:
+    by_group: dict[str, list[dict[str, Any]]] = {}
+    for summary in summaries:
+        by_group.setdefault(summary.get("group") or "unknown", []).append(summary)
+
+    groups: dict[str, Any] = {}
+    for group, items in sorted(by_group.items()):
+        costs = [item.get("metrics", {}).get("harness_total", {}).get("tested_agent_total_cost_usd") for item in items]
+        durations = [item.get("metrics", {}).get("harness_total", {}).get("tested_agent_duration_ms") for item in items]
+        changed_files = [item.get("diff", {}).get("changed_files") for item in items]
+        score_stats = {}
+        for key in ("completion", "code", "tests"):
+            score_values = [item.get("scores", {}).get(key) for item in items]
+            score_stats[key] = _numeric_stats([float(v) for v in score_values if isinstance(v, (int, float))])
+        review_states: dict[str, int] = {}
+        for item in items:
+            state = item.get("semantic_verdict")
+            if state:
+                review_states[state] = review_states.get(state, 0) + 1
+        groups[group] = {
+            "runs": len(items),
+            "runtime_errors": sum(1 for item in items if item.get("run_error")),
+            "verdict_counts": _count_values(item.get("verdict") for item in items),
+            "review_verdict_counts": review_states,
+            "unique_diff_hashes": len({item.get("diff", {}).get("sha256") for item in items if item.get("diff", {}).get("sha256")}),
+            "tested_agent_cost_usd": _numeric_stats([float(v) for v in costs if isinstance(v, (int, float))]),
+            "tested_agent_duration_ms": _numeric_stats([float(v) for v in durations if isinstance(v, (int, float))]),
+            "changed_files": _numeric_stats([float(v) for v in changed_files if isinstance(v, (int, float))]),
+            "scores": score_stats,
+        }
+    return {"scenario": SCENARIO.name, "profile": SCENARIO.profile, "runs": len(summaries), "groups": groups}
+
+
+def _count_values(values: Any) -> dict[str, int]:
+    counts: dict[str, int] = {}
+    for value in values:
+        key = str(value)
+        counts[key] = counts.get(key, 0) + 1
+    return counts
+
+
+def write_aggregate_reports(matrix_dir: Path, summaries: list[dict[str, Any]], aggregate: dict[str, Any]) -> None:
+    write(matrix_dir / "aggregate.json", json.dumps(aggregate, ensure_ascii=False, indent=2) + "\n")
+    lines = [f"# Scenario Matrix Aggregate — {SCENARIO.name}", "", "| Group | Runs | Verdicts | Review verdicts | Runtime errors | Unique diffs | Cost mean | Changed files mean |", "|---|---:|---|---|---:|---:|---:|---:|"]
+    for group, data in aggregate["groups"].items():
+        lines.append(
+            "| {group} | {runs} | {verdicts} | {reviews} | {errors} | {diffs} | {cost} | {changed} |".format(
+                group=group,
+                runs=data["runs"],
+                verdicts=json.dumps(data["verdict_counts"], ensure_ascii=False),
+                reviews=json.dumps(data["review_verdict_counts"], ensure_ascii=False),
+                errors=data["runtime_errors"],
+                diffs=data["unique_diff_hashes"],
+                cost=data["tested_agent_cost_usd"]["mean"],
+                changed=data["changed_files"]["mean"],
+            )
+        )
+    write(matrix_dir / "aggregate.md", "\n".join(lines) + "\n")
+    score_template = [
+        {
+            "group": item.get("group"),
+            "repeat": item.get("repeat"),
+            "run_dir": item.get("run_dir"),
+            "scores": score_placeholders(),
+        }
+        for item in summaries
+    ]
+    write(matrix_dir / "score_template.json", json.dumps(score_template, ensure_ascii=False, indent=2) + "\n")
+
+
+async def run_direct_scenario(paths: ScenarioPaths, user_request: str, group: str | None = None, repeat: int | None = None) -> dict[str, Any]:
+    from claude_agent_sdk import ClaudeAgentOptions, ClaudeSDKClient
+
+    metrics = new_run_metrics()
+    client = ClaudeSDKClient(ClaudeAgentOptions(
+        cwd=str(paths.work_dir),
+        permission_mode="bypassPermissions",
+        max_turns=int(os.environ.get("SCENARIO_DIRECT_MAX_TURNS", str(MAX_DIRECT_TURNS))),
+        model=DEFAULT_MODEL,
+        stderr=lambda line: log_event(paths, "tested_agent_stderr", line=line.strip()),
+    ))
+    response_text = ""
+    run_error: str | None = None
+    last_retry: dict[str, Any] | None = None
+    try:
+        log_event(paths, "tested_agent_connect_start", model=DEFAULT_MODEL, workflow="direct")
+        await asyncio.wait_for(client.connect(), timeout=int(os.environ.get("SCENARIO_CONNECT_TIMEOUT", "20")))
+        prompt = direct_prompt(user_request)
+        append_dialogue(paths, "Direct prompt", prompt)
+        await asyncio.wait_for(client.query(prompt), timeout=int(os.environ.get("SCENARIO_QUERY_TIMEOUT", "20")))
+        log_event(paths, "tested_agent_query_sent", phase="direct", prompt=prompt, user_request=user_request)
+        for turn in range(1, MAX_DIRECT_TURNS + 1):
+            phase_response = await receive_tested_response(client, paths, "direct", metrics)
+            response_text += phase_response.text
+            if phase_response.retry:
+                last_retry = phase_response.retry
+            if phase_response.error:
+                run_error = phase_response.error
+                break
+            if phase_response.text:
+                append_dialogue(paths, f"Direct response {turn}", phase_response.text)
+                break
+            run_error = "Tested agent returned an empty direct response."
+            break
+    except TimeoutError:
+        run_error = "Timed out waiting for tested agent response."
+        if last_retry:
+            run_error += f" Last API retry: {last_retry}"
+        log_event(paths, "tested_agent_timeout", error=run_error)
+    finally:
+        await client.disconnect()
+        log_event(paths, "tested_agent_disconnected")
+
+    write(paths.run_dir / "direct_result.md", response_text.strip() + "\n")
+    diff_info = capture_diff(paths)
+    summary = {
+        "run_dir": str(paths.run_dir),
+        "work_dir": str(paths.work_dir),
+        "workflow": "direct",
+        "group": group,
+        "repeat": repeat,
+        "model": DEFAULT_MODEL,
+        "ai_user_model": None,
+        "ai_user_mode": None,
+        "scenario_name": SCENARIO.name,
+        "scenario_profile": SCENARIO.profile,
+        "user_request": user_request,
+        "turns": 0,
+        "impl_started": False,
+        "impl_loop_entered": False,
+        "review_loop_entered": False,
+        "review_recorded": False,
+        "review_state": None,
+        "semantic_verdict": None,
+        "slices_total": 0,
+        "slices_done_count": 0,
+        "slices_in_progress_count": 0,
+        "impl_in_progress": False,
+        "prd_path": None,
+        "task_state_path": None,
+        "run_error": run_error,
+        "impl_result": None,
+        "review_result": None,
+        "direct_result_preview": response_text[:2000],
+        "scores": score_placeholders(),
+        "metrics": finalize_run_metrics(metrics),
+        "diff": diff_info,
+        "verdict": "agent_runtime_error" if run_error else "needs_review",
+        "checks": {"direct_completed": not bool(run_error)},
+    }
+    paths.summary_path.write_text(json.dumps(summary, ensure_ascii=False, indent=2) + "\n", encoding="utf-8")
+    write_test_report(paths, summary, "", None)
+    return summary
+
+
+async def run_scenario(paths: ScenarioPaths, user_request_override: str | None = None, group: str | None = None, repeat: int | None = None, enable_review: bool = False, isolate_phases: bool = False) -> dict[str, Any]:
     from claude_agent_sdk import (
         ClaudeAgentOptions,
         ClaudeSDKClient,
@@ -872,6 +1266,7 @@ async def run_scenario(paths: ScenarioPaths) -> dict[str, Any]:
     )
 
     transcript: list[dict[str, Any]] = []
+    metrics = new_run_metrics()
 
     async def auto_answer(tool_name: str, input_data: dict[str, Any], context: Any) -> PermissionResultAllow:
         if tool_name != "AskUserQuestion":
@@ -887,34 +1282,41 @@ async def run_scenario(paths: ScenarioPaths) -> dict[str, Any]:
             interrupt=False,
         )
 
-    client = ClaudeSDKClient(ClaudeAgentOptions(
-        cwd=str(paths.work_dir),
-        plugins=[SdkPluginConfig(type="local", path=str(PLUGIN_ROOT))],
-        permission_mode="bypassPermissions",
-        can_use_tool=auto_answer,
-        max_turns=int(os.environ.get("SCENARIO_MAX_TURNS", "140")),
-        model=DEFAULT_MODEL,
-        stderr=lambda line: log_event(paths, "tested_agent_stderr", line=line.strip()),
-    ))
+    def new_sdd_client(phase: str) -> Any:
+        log_event(paths, "tested_agent_client_created", phase=phase, isolated=isolate_phases)
+        return ClaudeSDKClient(ClaudeAgentOptions(
+            cwd=str(paths.work_dir),
+            plugins=[SdkPluginConfig(type="local", path=str(PLUGIN_ROOT))],
+            permission_mode="bypassPermissions",
+            can_use_tool=auto_answer,
+            max_turns=int(os.environ.get("SCENARIO_MAX_TURNS", "140")),
+            model=DEFAULT_MODEL,
+            stderr=lambda line: log_event(paths, "tested_agent_stderr", phase=phase, line=line.strip()),
+        ))
+
+    client = new_sdd_client("brainstorm")
 
     result_text = ""
     run_error: str | None = None
     last_retry: dict[str, Any] | None = None
     impl_loop_entered = False
+    review_loop_entered = False
     impl_response = ""
+    review_response = ""
     user_request = ""
     try:
-        log_event(paths, "tested_agent_connect_start", model=DEFAULT_MODEL, ai_user_mode=AI_USER_MODE)
+        log_event(paths, "tested_agent_connect_start", model=DEFAULT_MODEL, ai_user_mode=AI_USER_MODE, phase="brainstorm", isolated=isolate_phases)
         await asyncio.wait_for(client.connect(), timeout=int(os.environ.get("SCENARIO_CONNECT_TIMEOUT", "20")))
-        log_event(paths, "tested_agent_connected")
-        user_request = await ai_user_initial_request(paths)
+        log_event(paths, "tested_agent_connected", phase="brainstorm", isolated=isolate_phases)
+        user_request = user_request_override or await ai_user_initial_request(paths, metrics)
         append_dialogue(paths, "初始用户需求", user_request)
         prompt = initial_prompt(user_request)
         await asyncio.wait_for(client.query(prompt), timeout=int(os.environ.get("SCENARIO_QUERY_TIMEOUT", "20")))
         log_event(paths, "tested_agent_query_sent", phase="brainstorm", prompt=prompt, user_request=user_request)
 
         for turn_index in range(1, MAX_CONVERSATION_TURNS + 1):
-            response_text, response_error, response_retry = await receive_tested_response(client, paths, "brainstorm")
+            phase_response = await receive_tested_response(client, paths, "brainstorm", metrics)
+            response_text, response_error, response_retry = phase_response.text, phase_response.error, phase_response.retry
             if response_retry:
                 last_retry = response_retry
             if response_error:
@@ -955,7 +1357,7 @@ async def run_scenario(paths: ScenarioPaths) -> dict[str, Any]:
                 log_event(paths, "brainstorm_ready_detected", reason=break_reason)
                 break
 
-            answer = await ai_user_answer(response_text, transcript, paths)
+            answer = await ai_user_answer(response_text, transcript, paths, metrics)
             entry = {
                 "phase": "brainstorm",
                 "turn": len(transcript) + 1,
@@ -972,13 +1374,21 @@ async def run_scenario(paths: ScenarioPaths) -> dict[str, Any]:
         prd_path = find_prd(paths.work_dir)
         task_state = read_task_state(prd_path)
         if task_state and task_state.get("prd", {}).get("status") == "ready":
+            if isolate_phases:
+                await client.disconnect()
+                log_event(paths, "tested_agent_disconnected", phase="brainstorm", isolated=True)
+                client = new_sdd_client("impl")
+                log_event(paths, "tested_agent_connect_start", model=DEFAULT_MODEL, phase="impl", isolated=True)
+                await asyncio.wait_for(client.connect(), timeout=int(os.environ.get("SCENARIO_CONNECT_TIMEOUT", "20")))
+                log_event(paths, "tested_agent_connected", phase="impl", isolated=True)
             impl_loop_entered = True
             impl_user_prompt = impl_prompt(prd_path)
             append_dialogue(paths, "进入 Impl", impl_user_prompt)
             await asyncio.wait_for(client.query(impl_user_prompt), timeout=int(os.environ.get("SCENARIO_QUERY_TIMEOUT", "20")))
-            log_event(paths, "tested_agent_query_sent", phase="impl", prompt=impl_user_prompt)
+            log_event(paths, "tested_agent_query_sent", phase="impl", prompt=impl_user_prompt, isolated=isolate_phases)
             for impl_turn in range(1, MAX_IMPL_TURNS + 1):
-                response_text, response_error, response_retry = await receive_tested_response(client, paths, "impl")
+                phase_response = await receive_tested_response(client, paths, "impl", metrics)
+                response_text, response_error, response_retry = phase_response.text, phase_response.error, phase_response.retry
                 if response_retry:
                     last_retry = response_retry
                 if response_error:
@@ -1001,6 +1411,44 @@ async def run_scenario(paths: ScenarioPaths) -> dict[str, Any]:
                     break
                 await asyncio.wait_for(client.query("继续执行 impl，按 PRD Slices 完成剩余工作；不要询问我，遇到问题按 impl skill 记录结果。"), timeout=int(os.environ.get("SCENARIO_QUERY_TIMEOUT", "20")))
                 log_event(paths, "tested_agent_followup_sent", phase="impl", turn=impl_turn)
+
+            prd_path = find_prd(paths.work_dir)
+            task_state = read_task_state(prd_path)
+            if enable_review and task_state and task_state.get("impl_result"):
+                if isolate_phases:
+                    await client.disconnect()
+                    log_event(paths, "tested_agent_disconnected", phase="impl", isolated=True)
+                    client = new_sdd_client("review")
+                    log_event(paths, "tested_agent_connect_start", model=DEFAULT_MODEL, phase="review", isolated=True)
+                    await asyncio.wait_for(client.connect(), timeout=int(os.environ.get("SCENARIO_CONNECT_TIMEOUT", "20")))
+                    log_event(paths, "tested_agent_connected", phase="review", isolated=True)
+                review_loop_entered = True
+                review_user_prompt = review_prompt(prd_path)
+                append_dialogue(paths, "进入 Review", review_user_prompt)
+                await asyncio.wait_for(client.query(review_user_prompt), timeout=int(os.environ.get("SCENARIO_QUERY_TIMEOUT", "20")))
+                log_event(paths, "tested_agent_query_sent", phase="review", prompt=review_user_prompt, isolated=isolate_phases)
+                for review_turn in range(1, MAX_REVIEW_TURNS + 1):
+                    phase_response = await receive_tested_response(client, paths, "review", metrics)
+                    response_text, response_error, response_retry = phase_response.text, phase_response.error, phase_response.retry
+                    if response_retry:
+                        last_retry = response_retry
+                    if response_error:
+                        run_error = response_error
+                        break
+                    if not response_text:
+                        run_error = "Tested agent returned an empty review response."
+                        break
+                    review_response += response_text
+                    append_dialogue(paths, f"Review response {review_turn}", response_text)
+                    prd_path = find_prd(paths.work_dir)
+                    task_state = read_task_state(prd_path)
+                    if _derive_review_recorded(task_state):
+                        break
+                    if review_turn >= MAX_REVIEW_TURNS:
+                        run_error = "Review reached max response turns without recorded review_result."
+                        break
+                    await asyncio.wait_for(client.query("继续执行 review 审计并用 sdd-arbor record-review 记录 verdict；不要修改代码。"), timeout=int(os.environ.get("SCENARIO_QUERY_TIMEOUT", "20")))
+                    log_event(paths, "tested_agent_followup_sent", phase="review", turn=review_turn)
         else:
             run_error = run_error or "Brainstorm did not produce a ready package; impl was not started."
     except TimeoutError:
@@ -1010,7 +1458,7 @@ async def run_scenario(paths: ScenarioPaths) -> dict[str, Any]:
         log_event(paths, "tested_agent_timeout", error=run_error)
     finally:
         await client.disconnect()
-        log_event(paths, "tested_agent_disconnected")
+        log_event(paths, "tested_agent_disconnected", phase="final")
 
     prd_path = find_prd(paths.work_dir)
     prd_text = prd_path.read_text(encoding="utf-8") if prd_path else ""
@@ -1021,9 +1469,16 @@ async def run_scenario(paths: ScenarioPaths) -> dict[str, Any]:
             run_error = None
         elif check_result["verdict"] == "failed_to_run":
             check_result["verdict"] = "agent_runtime_error"
+    diff_info = capture_diff(paths)
+    review_result = task_state.get("review_result") if task_state else None
+    impl_result = task_state.get("impl_result") if task_state else None
     summary = {
         "run_dir": str(paths.run_dir),
         "work_dir": str(paths.work_dir),
+        "workflow": "sdd-review" if enable_review else "single-sdd",
+        "phase_isolation": isolate_phases,
+        "group": group,
+        "repeat": repeat,
         "model": DEFAULT_MODEL,
         "ai_user_model": AI_USER_MODEL,
         "ai_user_mode": AI_USER_MODE,
@@ -1033,11 +1488,21 @@ async def run_scenario(paths: ScenarioPaths) -> dict[str, Any]:
         "turns": len(transcript),
         "impl_started": _derive_impl_started(task_state),
         "impl_loop_entered": impl_loop_entered,
+        "review_loop_entered": review_loop_entered,
+        "review_recorded": _derive_review_recorded(task_state),
+        "review_state": _review_state(task_state),
+        "semantic_verdict": _review_state(task_state),
         **_slice_progress(task_state),
         "prd_path": str(prd_path) if prd_path else None,
         "task_state_path": str(prd_path.with_name("task.json")) if prd_path else None,
         "run_error": run_error,
+        "impl_result": impl_result,
+        "review_result": review_result,
         "impl_response_preview": impl_response[:2000],
+        "review_response_preview": review_response[:2000],
+        "scores": score_placeholders(),
+        "metrics": finalize_run_metrics(metrics),
+        "diff": diff_info,
         **check_result,
     }
     paths.summary_path.write_text(json.dumps(summary, ensure_ascii=False, indent=2) + "\n", encoding="utf-8")
@@ -1046,7 +1511,45 @@ async def run_scenario(paths: ScenarioPaths) -> dict[str, Any]:
 
 
 def write_test_report(paths: ScenarioPaths, summary: dict[str, Any], prd_text: str, task_state: dict[str, Any] | None) -> None:
+    if summary.get("workflow") == "direct":
+        report = f"""# Scenario Eval Report — {SCENARIO.name}
+
+## 基本信息
+
+- 时间：{timestamp()}
+- Profile：{SCENARIO.profile}
+- Work dir：`{paths.work_dir}`
+- Workflow：direct
+- Dialogue：`{paths.dialogue_path.relative_to(paths.work_dir.parent)}`
+- Summary：`{paths.summary_path.relative_to(paths.work_dir.parent)}`
+- Verdict：`{summary['verdict']}`
+- Run error：{summary.get('run_error') or 'N/A'}
+- Diff hash：{summary.get('diff', {}).get('sha256') or 'N/A'}
+
+## 用户顶层需求
+
+{summary.get('user_request') or 'N/A'}
+
+## Direct result preview
+
+{summary.get('direct_result_preview') or 'N/A'}
+
+## 评分占位
+
+```json
+{json.dumps(summary.get('scores', {}), ensure_ascii=False, indent=2)}
+```
+
+## 说明
+
+- Direct arm 不生成 PRD / task.json / review_result；语义质量后续用人工评分表对比。
+- `summary.verdict` 只代表 harness 是否完成，不代表实现质量通过。
+"""
+        paths.test_report_path.write_text(report, encoding="utf-8")
+        return
+
     impl_result = task_state.get("impl_result") if task_state else None
+    review_result = task_state.get("review_result") if task_state else None
     prd_notes: list[str] = []
     if not summary["checks"].get("package_ready"):
         prd_notes.append("- PRD 没有进入 ready 状态，brainstorm 未完成可执行 package 交付。")
@@ -1087,6 +1590,17 @@ def write_test_report(paths: ScenarioPaths, summary: dict[str, Any], prd_text: s
         state = impl_result.get("state") or impl_result.get("status") or "unknown"
         impl_notes.append(f"- Impl 已记录结果：`{state}`（slices {slices_done}/{slices_total}）。需要人工比对实现与 PRD acceptance criteria 是否一致。")
 
+    review_notes: list[str] = []
+    if summary.get("workflow") == "sdd-review":
+        if review_result:
+            review_notes.append(f"- Review 已记录语义 verdict：`{review_result.get('state')}`。")
+        elif summary.get("review_loop_entered"):
+            review_notes.append("- Review 循环已启动但未记录 review_result，需要检查 review 输出和 record-review 调用。")
+        else:
+            review_notes.append("- Review 未启动；通常是 impl_result 未记录或 runner 在 impl 阶段中断。")
+    else:
+        review_notes.append("- 当前 run 未启用 review phase。")
+
     report = f"""# Scenario Eval Report — {SCENARIO.name}
 
 ## 基本信息
@@ -1096,8 +1610,11 @@ def write_test_report(paths: ScenarioPaths, summary: dict[str, Any], prd_text: s
 - Work dir：`{paths.work_dir}`
 - Dialogue：`{paths.dialogue_path.relative_to(paths.work_dir.parent)}`
 - Summary：`{paths.summary_path.relative_to(paths.work_dir.parent)}`
+- Workflow：{summary.get('workflow') or 'single-sdd'}
 - Verdict：`{summary['verdict']}`
+- Semantic verdict：{summary.get('semantic_verdict') or 'N/A'}
 - Run error：{summary.get('run_error') or 'N/A'}
+- Diff hash：{summary.get('diff', {}).get('sha256') or 'N/A'}
 
 ## 用户顶层需求
 
@@ -1117,6 +1634,10 @@ def write_test_report(paths: ScenarioPaths, summary: dict[str, Any], prd_text: s
 
 {chr(10).join(impl_notes)}
 
+## Review 审计观察
+
+{chr(10).join(review_notes)}
+
 ## 需要人工审稿的问题
 
 - PRD 是否把产品边界、Technical Framing、验收标准和 Slices 写到足够可执行？
@@ -1129,6 +1650,12 @@ def write_test_report(paths: ScenarioPaths, summary: dict[str, Any], prd_text: s
 ```json
 {json.dumps(impl_result, ensure_ascii=False, indent=2) if impl_result else 'null'}
 ```
+
+## Review result raw
+
+```json
+{json.dumps(review_result, ensure_ascii=False, indent=2) if review_result else 'null'}
+```
 """
     paths.test_report_path.write_text(report, encoding="utf-8")
 
@@ -1138,8 +1665,12 @@ def print_summary(summary: dict[str, Any]) -> None:
     print(f"Work dir: {summary['work_dir']}")
     print(f"Scenario: {summary['scenario_name']}")
     print(f"Profile: {summary['scenario_profile']}")
+    print(f"Workflow: {summary.get('workflow')}")
+    if summary.get("group"):
+        print(f"Group/repeat: {summary.get('group')} #{summary.get('repeat')}")
     print(f"Turns: {summary['turns']}")
     print(f"Impl started: {summary['impl_started']} (loop entered: {summary.get('impl_loop_entered')})")
+    print(f"Review: {summary.get('review_state') or 'N/A'}")
     print(f"Slices: {summary.get('slices_done_count', 0)}/{summary.get('slices_total', 0)} done, {summary.get('slices_in_progress_count', 0)} in progress")
     print(f"PRD: {summary['prd_path']}")
     print(f"Verdict: {summary['verdict']}")
@@ -1150,10 +1681,71 @@ def print_summary(summary: dict[str, Any]) -> None:
         print(f"  {name}: {value}")
 
 
+def resolve_matrix_brief(paths: ScenarioPaths | None = None) -> str | None:
+    if os.environ.get("SCENARIO_MATRIX_BRIEF"):
+        return os.environ["SCENARIO_MATRIX_BRIEF"]
+    if os.environ.get("SCENARIO_MATRIX_BRIEF_PATH"):
+        return Path(os.environ["SCENARIO_MATRIX_BRIEF_PATH"]).read_text(encoding="utf-8").strip()
+    if SCENARIO.name == "wiki-cross-cut-export-integration":
+        return wiki_export_initial_request()
+    if os.environ.get("SCENARIO_PROJECT_BRIEF"):
+        return os.environ["SCENARIO_PROJECT_BRIEF"]
+    return None
+
+
+async def run_matrix(config: ExperimentConfig) -> dict[str, Any]:
+    matrix_dir = unique_matrix_dir()
+    matrix_dir.mkdir(parents=True, exist_ok=False)
+    brief = resolve_matrix_brief()
+    if brief is None:
+        seed_paths = prepare_workdir(matrix_dir / "_brief-seed")
+        brief = await ai_user_initial_request(seed_paths, new_run_metrics())
+    write(matrix_dir / "brief.md", brief.strip() + "\n")
+    matrix_meta = {
+        "scenario": SCENARIO.name,
+        "profile": SCENARIO.profile,
+        "groups": list(config.groups),
+        "repeats": config.repeats,
+        "enable_review": config.enable_review,
+        "isolate_phases": config.isolate_phases,
+        "brief_path": "brief.md",
+    }
+    write(matrix_dir / "matrix.json", json.dumps(matrix_meta, ensure_ascii=False, indent=2) + "\n")
+
+    summaries: list[dict[str, Any]] = []
+    for repeat in range(1, config.repeats + 1):
+        for group in config.groups:
+            run_dir = matrix_run_dir(matrix_dir, group, repeat)
+            paths = prepare_workdir(run_dir)
+            if group == "A-direct":
+                summary = await run_direct_scenario(paths, brief, group=group, repeat=repeat)
+            elif group == "B-sdd":
+                summary = await run_scenario(paths, user_request_override=brief, group=group, repeat=repeat, enable_review=config.enable_review, isolate_phases=config.isolate_phases)
+            else:
+                raise SystemExit(f"Unknown SCENARIO_GROUP={group!r}; expected A-direct or B-sdd")
+            summaries.append(summary)
+            print_summary(summary)
+
+    aggregate = aggregate_matrix(summaries)
+    write_aggregate_reports(matrix_dir, summaries, aggregate)
+    print(f"Matrix dir: {matrix_dir}")
+    return aggregate
+
+
 async def async_main() -> int:
     require_enabled()
+    config = parse_experiment_config()
+    if config.run_mode == "matrix":
+        aggregate = await run_matrix(config)
+        return 0 if aggregate.get("runs", 0) else 1
     paths = prepare_workdir()
-    summary = await run_scenario(paths)
+    if config.run_mode == "direct":
+        brief = resolve_matrix_brief(paths) or await ai_user_initial_request(paths, new_run_metrics())
+        summary = await run_direct_scenario(paths, brief, group="A-direct", repeat=1)
+    elif config.run_mode == "single-sdd":
+        summary = await run_scenario(paths, enable_review=config.enable_review, isolate_phases=config.isolate_phases)
+    else:
+        raise SystemExit("SCENARIO_RUN_MODE must be one of: single-sdd, direct, matrix")
     print_summary(summary)
     return 0 if summary["verdict"] in {"pass", "needs_review"} else 1
 

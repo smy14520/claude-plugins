@@ -38,10 +38,16 @@ READY_PRD = """# Demo package
 ### S-001: First slice — create baseline behavior
 
 - 完成标志：baseline behavior created and verified
+- 数据/schema：demo_records
+- 代码锚点：src/demo.py:12, app/demo/page.tsx:L8
+- 测试：tests/test_demo.py::test_baseline
 
 ### S-002: Self-check — run validation
 
 - 完成标志：validation passes
+- 数据/schema：N/A
+- 代码锚点：tools/validate.py:3
+- 测试：python -m unittest tests/test_validate.py
 """
 
 
@@ -215,6 +221,28 @@ class ArborCliTests(unittest.TestCase):
         self.assertEqual(data["next_action"], {"skill": "impl", "reason": "PRD 已就绪，可以开始执行"})
         self.assertEqual((self.package_dir() / "prd.md").read_text(encoding="utf-8"), READY_PRD)
         self.assertEqual(self.run_cli("validate", "demo-package"), 0)
+
+    def test_finalize_brainstorm_removes_draft_only_sections(self):
+        prd = READY_PRD + """
+## Requirements (evolving)
+
+- draft discovery note
+
+## Acceptance Criteria (evolving)
+
+- draft acceptance note
+
+## Interview Log
+
+- Q: old question
+"""
+        spec = {"kind": "single", "name": "demo-package", "title": "Demo package", "prd": prd}
+        self.assertEqual(self.run_cli("finalize-brainstorm", "--input-json", json.dumps(spec)), 0)
+        prd_text = (self.package_dir() / "prd.md").read_text(encoding="utf-8")
+        self.assertIn("## Slices", prd_text)
+        self.assertNotIn("## Requirements (evolving)", prd_text)
+        self.assertNotIn("## Acceptance Criteria (evolving)", prd_text)
+        self.assertNotIn("## Interview Log", prd_text)
 
     def test_finalize_brainstorm_syncs_prd_frontmatter_status_to_ready(self):
         """Regression: PRD frontmatter `status:` must follow task.json after finalize.
@@ -408,16 +436,191 @@ class ArborCliTests(unittest.TestCase):
 
     def test_record_impl_result_routes_structured_results(self):
         self.finalize_single()
-        self.assertEqual(self.run_cli("record-impl-result", "demo-package", "--state", "done_with_concerns", "--summary", "implemented behavior", "--acceptance", "golden path passes", "--command", "pytest tests/test_demo.py", "--concern", "edge case needs review", "--json"), 0)
+        self.assertEqual(self.run_cli("record-impl-result", "demo-package", "--state", "done_with_concerns", "--summary", "implemented behavior", "--acceptance", "S-001 golden path passes", "--acceptance", "S-002 validation passes", "--command", "pytest tests/test_demo.py", "--concern", "edge case needs review", "--json"), 0)
         data = self.task_json()
         self.assertEqual(data["state"], "done")
         self.assertEqual(data["impl_result"]["state"], "DONE_WITH_CONCERNS")
-        self.assertEqual(data["impl_result"]["acceptance"], ["golden path passes"])
+        self.assertEqual(data["impl_result"]["acceptance"], ["S-001 golden path passes", "S-002 validation passes"])
+        self.assertEqual(data["impl_result"]["acceptance_coverage"]["S-001"], ["S-001 golden path passes"])
         self.assertEqual(data["impl_result"]["commands"], ["pytest tests/test_demo.py"])
         self.assertEqual(data["impl_result"]["concerns"], ["edge case needs review"])
         self.assertEqual(data["next_action"]["skill"], "review")
         self.assertEqual(data["phase_history"][-1]["phase"], "impl")
         self.assertEqual(self.run_cli("record-impl-result", "demo-package", "--state", "approved", "--summary", "bad"), 1)
+
+    def test_record_impl_result_rejects_missing_and_unknown_slice_acceptance(self):
+        self.finalize_single()
+        self.assertEqual(self.run_cli("record-impl-result", "demo-package", "--state", "done", "--summary", "implemented", "--acceptance", "S-001 passes"), 1)
+        self.assertIsNone(self.task_json().get("impl_result"))
+        self.assertEqual(self.run_cli("record-impl-result", "demo-package", "--state", "done", "--summary", "implemented", "--acceptance", "S-001 passes", "--acceptance", "S-999 unknown"), 1)
+        self.assertIsNone(self.task_json().get("impl_result"))
+        self.assertEqual(self.run_cli("record-impl-result", "demo-package", "--state", "done", "--summary", "implemented", "--acceptance", "All slices done"), 1)
+        self.assertIsNone(self.task_json().get("impl_result"))
+
+    def test_multi_marker_slice_rejects_bare_slice_id_coverage(self):
+        """Multi-marker slices must be covered granularly — bare `S-NNN` does not suffice.
+
+        This enforces the semantic: if you chose to list markers as a sublist,
+        each is a separate claim requiring its own evidence. The back-compat
+        escape hatch only exists for single-marker slices (which is the MVP /
+        prototype case).
+        """
+        multi_marker_prd = """# Demo package
+
+## Technical Framing
+
+- Testing strategy: validate package
+
+## Slices
+
+### S-001: Registration with duplicate guard
+
+- 完成标志：
+  - 代居民报名
+  - 取消报名
+  - 重复报名被阻止
+
+### S-002: Self-check
+
+- 完成标志：validation passes
+"""
+        spec = {
+            "kind": "single",
+            "name": "demo-package",
+            "title": "Demo",
+            "prd": multi_marker_prd,
+        }
+        self.assertEqual(
+            self.run_cli(
+                "finalize-brainstorm",
+                "--input-json",
+                json.dumps(spec),
+                "--json",
+            ),
+            0,
+        )
+
+        # Bare S-001 reference for a multi-marker slice should be rejected.
+        self.assertEqual(
+            self.run_cli(
+                "record-impl-result",
+                "demo-package",
+                "--state",
+                "done",
+                "--summary",
+                "implemented",
+                "--acceptance",
+                "S-001: happy path works",
+                "--acceptance",
+                "S-002: validation passes",
+            ),
+            1,
+        )
+        self.assertIsNone(self.task_json().get("impl_result"))
+
+    def test_multi_marker_slice_rejects_partial_granular_coverage(self):
+        multi_marker_prd = """# Demo package
+
+## Technical Framing
+
+- Testing strategy: validate package
+
+## Slices
+
+### S-001: Registration with duplicate guard
+
+- 完成标志：
+  - 代居民报名
+  - 取消报名
+  - 重复报名被阻止
+
+### S-002: Self-check
+
+- 完成标志：validation passes
+"""
+        spec = {"kind": "single", "name": "demo-package", "title": "Demo", "prd": multi_marker_prd}
+        self.assertEqual(
+            self.run_cli(
+                "finalize-brainstorm",
+                "--input-json",
+                json.dumps(spec),
+                "--json",
+            ),
+            0,
+        )
+        # Covering only S-001.1 and S-001.2 (skipping S-001.3 = 重复报名被阻止) must fail.
+        # This is exactly the custom-2026-05-07 failure mode we want to catch.
+        self.assertEqual(
+            self.run_cli(
+                "record-impl-result",
+                "demo-package",
+                "--state",
+                "done",
+                "--summary",
+                "implemented",
+                "--acceptance",
+                "S-001.1: 代报名 API works",
+                "--acceptance",
+                "S-001.2: 取消 API works",
+                "--acceptance",
+                "S-002: validation passes",
+            ),
+            1,
+        )
+        self.assertIsNone(self.task_json().get("impl_result"))
+
+    def test_multi_marker_slice_accepts_full_granular_coverage(self):
+        multi_marker_prd = """# Demo package
+
+## Technical Framing
+
+- Testing strategy: validate package
+
+## Slices
+
+### S-001: Registration with duplicate guard
+
+- 完成标志：
+  - 代居民报名
+  - 取消报名
+  - 重复报名被阻止
+
+### S-002: Self-check
+
+- 完成标志：validation passes
+"""
+        spec = {"kind": "single", "name": "demo-package", "title": "Demo", "prd": multi_marker_prd}
+        self.assertEqual(
+            self.run_cli(
+                "finalize-brainstorm",
+                "--input-json",
+                json.dumps(spec),
+                "--json",
+            ),
+            0,
+        )
+        self.assertEqual(
+            self.run_cli(
+                "record-impl-result",
+                "demo-package",
+                "--state",
+                "done",
+                "--summary",
+                "implemented",
+                "--acceptance",
+                "S-001.1: 代报名 API works",
+                "--acceptance",
+                "S-001.2: 取消 API works",
+                "--acceptance",
+                "S-001.3: 重复报名 returns 409",
+                "--acceptance",
+                "S-002: validation passes",
+            ),
+            0,
+        )
+        data = self.task_json()
+        self.assertEqual(data["state"], "done")
+        self.assertEqual(len(data["impl_result"]["acceptance_coverage"]["S-001"]), 3)
 
     def test_record_impl_result_routes_context_and_blockers(self):
         self.finalize_single()
@@ -432,7 +635,7 @@ class ArborCliTests(unittest.TestCase):
 
     def test_record_review_stores_package_verdict_and_appends_review_md(self):
         self.finalize_single()
-        self.run_cli("record-impl-result", "demo-package", "--state", "done", "--summary", "implemented")
+        self.run_cli("record-impl-result", "demo-package", "--state", "done", "--summary", "implemented", "--acceptance", "S-001 implemented", "--acceptance", "S-002 validated")
         before = (self.package_dir() / "review.md").read_text(encoding="utf-8")
         self.assertEqual(self.run_cli("record-review", "demo-package", "--state", "approved_with_notes", "--summary", "approved", "--evidence", "unit tests pass", "--note", "keep an eye on edge", "--json"), 0)
         data = self.task_json()
@@ -513,6 +716,8 @@ class ArborCliTests(unittest.TestCase):
 
     def test_module_summary_has_stable_non_line_locators(self):
         self.finalize_single()
+        self.run_cli("mark-slice", "demo-package", "--id", "S-001", "--status", "done")
+        self.run_cli("record-impl-result", "demo-package", "--state", "done", "--summary", "implemented", "--acceptance", "S-001 implemented", "--acceptance", "S-002 validated", "--command", "python -m unittest tests/test_demo.py")
         packet = arbor.module_summary(self.root, "demo-package", NOW)
         self.assertEqual(packet["kind"], "module-summary")
         self.assertEqual(packet["schema_version"], "sdd-module-summary-v1")
@@ -521,8 +726,16 @@ class ArborCliTests(unittest.TestCase):
         self.assertNotIn("parent", packet)
         self.assertNotIn("children", packet)
         self.assertEqual(packet["related_packages"], [])
-        self.assertNotIn("line", json.dumps(packet).lower())
-        self.assertNotIn("tests", packet)
+        self.assertEqual([item["id"] for item in packet["slices"]], ["S-001", "S-002"])
+        self.assertEqual(packet["slices"][0]["status"], "done")
+        self.assertIn("src/demo.py", packet["important_files"])
+        self.assertIn("app/demo/page.tsx", packet["important_files"])
+        self.assertIn("tests/test_demo.py::test_baseline", packet["tests"])
+        self.assertIn("python -m unittest tests/test_demo.py", packet["tests"])
+        self.assertEqual(packet["contracts"][0]["completion_marker"], "baseline behavior created and verified")
+        self.assertEqual(packet["implementation"]["state"], "DONE")
+        self.assertNotIn(":12", json.dumps(packet))
+        self.assertNotIn(":L8", json.dumps(packet))
         self.assertEqual(self.run_cli("module-summary", "demo-package", "--json"), 0)
 
     def test_wiki_index_search_and_collect_nested_pages(self):
@@ -788,6 +1001,21 @@ last_updated: 2026-05-07
     def test_mark_slice_rejects_invalid_id(self):
         self.finalize_single()
         self.assertEqual(self.run_cli("mark-slice", "demo-package", "--id", "X-001", "--status", "done"), 1)
+
+    def test_mark_slice_rejects_slice_not_defined_in_prd_without_mutating(self):
+        self.finalize_single()
+        before = self.task_json()
+        self.assertEqual(self.run_cli("mark-slice", "demo-package", "--id", "S-999", "--status", "done"), 1)
+        after = self.task_json()
+        self.assertEqual(before.get("slices"), after.get("slices"))
+
+    def test_validate_rejects_slice_progress_not_defined_in_prd(self):
+        self.finalize_single()
+        data = self.task_json()
+        data["slices"] = [{"id": "S-999", "status": "done", "note": "bad", "updated_at": NOW}]
+        (self.package_dir() / "task.json").write_text(json.dumps(data), encoding="utf-8")
+        errors = arbor.validate_package(self.root, "demo-package")
+        self.assertTrue(any("S-999" in error and "PRD ## Slices" in error for error in errors))
 
     def test_show_includes_slices(self):
         self.finalize_single()

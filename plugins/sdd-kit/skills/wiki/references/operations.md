@@ -79,9 +79,9 @@ package 到达稳定 milestone 后发布模块卡片。
 流程：
 
 1. 运行：`sdd-arbor module-summary <package> --json`。
-2. 读取 packet 中 package、contracts、tests、related packages。
+2. 读取 packet 中 `package`、`slices`、`contracts`、`important_files`、`tests`、`implementation`、`verification`；`related_packages` 只有明确元数据时才使用。
 3. 写/更新 `.wiki/Modules/<中文标题>.md`。
-4. 保留人工补充内容，更新来自 arbor 的 summary/contract/verification sections。
+4. 保留人工补充内容，更新来自 arbor 的 summary / slices / contracts / verification sections。
 5. 不写行号；locator 使用 path + symbol/route/table/config/test/contract id。
 6. 返回更新页面路径和摘要。
 
