@@ -2,6 +2,8 @@
 
 Impl 对单个 package PRD scope 只报告四种结果。Package 顶层 lifecycle 只有 `draft → ready → doing → done → reviewed`；DONE 不等于 merged 或 delivered。
 
+每个 slice 有对应的 `slices/S-NNN.md` task 文件，包含 Acceptance（G/W/T 硬约束）、Approach（推荐路径）、Verification（验证命令）。Impl 以 task 文件的 Verification 通过 + Acceptance Then 满足为 done 标准。
+
 ## DONE
 
 当前 package PRD scope self-check 通过，无已知妥协。必须记录检查依据和命令结果。

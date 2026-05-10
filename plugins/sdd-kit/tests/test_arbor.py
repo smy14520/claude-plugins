@@ -80,6 +80,7 @@ class ArborCliTests(unittest.TestCase):
             "prd": READY_PRD,
             "decision": "single package with PRD-local Slices",
         }
+        self._create_slice_tasks(name)
         self.assertEqual(self.run_cli("finalize-brainstorm", "--input-json", json.dumps(spec), "--json"), 0)
 
     def finalize_single_json(self, name="demo-package"):
@@ -90,6 +91,7 @@ class ArborCliTests(unittest.TestCase):
             "prd": READY_PRD,
             "decision": "single package with PRD-local Slices",
         }
+        self._create_slice_tasks(name)
         result = subprocess.run(
             [sys.executable, str(MODULE_PATH), "--root", str(self.root), "--now", NOW, "finalize-brainstorm", "--input-json", json.dumps(spec), "--json"],
             cwd=self.root,
@@ -101,6 +103,18 @@ class ArborCliTests(unittest.TestCase):
         self.assertEqual(result.returncode, 0, result.stderr)
         return json.loads(result.stdout)
 
+    def _create_slice_tasks(self, name="demo-package"):
+        slices_dir = self.root / ".arbor" / "tasks" / name / "slices"
+        slices_dir.mkdir(parents=True, exist_ok=True)
+        (slices_dir / "S-001.md").write_text(
+            "# S-001: First slice\n\n## Acceptance\n\nGiven:\n- setup\n\nWhen:\n- action\n\nThen:\n- result\n\n## Verification\n\n- run tests\n",
+            encoding="utf-8",
+        )
+        (slices_dir / "S-002.md").write_text(
+            "# S-002: Self-check\n\n## Acceptance\n\nGiven:\n- baseline exists\n\nWhen:\n- validate\n\nThen:\n- passes\n\n## Verification\n\n- run validation\n",
+            encoding="utf-8",
+        )
+
     def test_sdd_arbor_bin_wrapper_runs_from_project_cwd(self):
         spec = {
             "kind": "single",
@@ -108,6 +122,7 @@ class ArborCliTests(unittest.TestCase):
             "title": "Demo package",
             "prd": READY_PRD,
         }
+        self._create_slice_tasks("demo-package")
         result = self.run_bin("finalize-brainstorm", "--input-json", json.dumps(spec))
         self.assertEqual(result.returncode, 0, result.stderr)
         self.assertTrue((self.root / ".arbor" / "tasks" / "demo-package" / "task.json").exists())
@@ -162,9 +177,6 @@ class ArborCliTests(unittest.TestCase):
         self.assertIn("progress lives in `task.json` `slices` via `sdd-arbor mark-slice`", prd_text)
         self.assertIn("### S-001:", prd_text)
         self.assertIn("- 完成标志：", prd_text)
-        self.assertIn("- 数据/schema：", prd_text)
-        self.assertIn("- 代码锚点：", prd_text)
-        self.assertIn("- 测试：", prd_text)
         self.assertNotIn("Impl 只更新 [ ] / [-] / [x]", prd_text)
         self.assertNotIn("- [ ] S-001", prd_text)
         self.assertNotIn("技术锚点", prd_text)
@@ -297,6 +309,7 @@ class ArborCliTests(unittest.TestCase):
         self.run_cli("create", "demo-package", "--title", "Demo package")
         prd = self.package_dir() / "prd.md"
         prd.write_text(READY_PRD, encoding="utf-8")
+        self._create_slice_tasks("demo-package")
         spec = {"kind": "single", "package": "demo-package", "prd_path": ".arbor/tasks/demo-package/prd.md"}
 
         self.assertEqual(self.run_cli("finalize-brainstorm", "--input-json", json.dumps(spec)), 0)
@@ -395,6 +408,49 @@ class ArborCliTests(unittest.TestCase):
         self.assertEqual(result.returncode, 1)
         self.assertIn("scaffold", result.stderr)
         self.assertFalse(self.package_dir().exists())
+
+    def test_finalize_brainstorm_validates_slice_tasks_when_dir_exists(self):
+        """When slices/ dir exists, finalize validates task files are present."""
+        self.run_cli("create", "demo-package", "--title", "Demo package")
+        prd = self.package_dir() / "prd.md"
+        prd.write_text(READY_PRD, encoding="utf-8")
+        # Create slices/ dir but only S-001.md (missing S-002.md)
+        slices_dir = self.package_dir() / "slices"
+        slices_dir.mkdir(parents=True, exist_ok=True)
+        (slices_dir / "S-001.md").write_text(
+            "# S-001\n\n## Acceptance\n\nThen: result\n\n## Verification\n\n- test\n",
+            encoding="utf-8",
+        )
+        spec = {"kind": "single", "package": "demo-package", "prd_path": ".arbor/tasks/demo-package/prd.md"}
+        self.assertEqual(self.run_cli("finalize-brainstorm", "--input-json", json.dumps(spec)), 1)
+
+    def test_finalize_brainstorm_validates_slice_task_sections(self):
+        """Task file missing ## Acceptance or ## Verification is rejected."""
+        self.run_cli("create", "demo-package", "--title", "Demo package")
+        prd = self.package_dir() / "prd.md"
+        prd.write_text(READY_PRD, encoding="utf-8")
+        slices_dir = self.package_dir() / "slices"
+        slices_dir.mkdir(parents=True, exist_ok=True)
+        (slices_dir / "S-001.md").write_text(
+            "# S-001\n\n## Acceptance\n\nThen: result\n\n## Verification\n\n- test\n",
+            encoding="utf-8",
+        )
+        # S-002 missing ## Verification
+        (slices_dir / "S-002.md").write_text(
+            "# S-002\n\n## Acceptance\n\nThen: result\n",
+            encoding="utf-8",
+        )
+        spec = {"kind": "single", "package": "demo-package", "prd_path": ".arbor/tasks/demo-package/prd.md"}
+        self.assertEqual(self.run_cli("finalize-brainstorm", "--input-json", json.dumps(spec)), 1)
+
+    def test_finalize_brainstorm_passes_with_complete_slice_tasks(self):
+        """When all slice task files have required sections, finalize succeeds."""
+        self.run_cli("create", "demo-package", "--title", "Demo package")
+        prd = self.package_dir() / "prd.md"
+        prd.write_text(READY_PRD, encoding="utf-8")
+        self._create_slice_tasks("demo-package")
+        spec = {"kind": "single", "package": "demo-package", "prd_path": ".arbor/tasks/demo-package/prd.md"}
+        self.assertEqual(self.run_cli("finalize-brainstorm", "--input-json", json.dumps(spec)), 0)
 
     def test_validate_rejects_obsolete_state_shapes(self):
         self.run_cli("create", "demo-package")
@@ -982,20 +1038,29 @@ last_updated: 2026-05-07
 
     def test_mark_slice_creates_and_updates_slice_progress(self):
         self.finalize_single()
+        # After finalize, slices are pre-registered with status "pending"
+        data = self.task_json()
+        self.assertEqual(len(data["slices"]), 2)
+        self.assertEqual(data["slices"][0]["id"], "S-001")
+        self.assertEqual(data["slices"][0]["status"], "pending")
+        self.assertEqual(data["slices"][1]["id"], "S-002")
+        self.assertEqual(data["slices"][1]["status"], "pending")
+        # mark-slice updates existing slice status
         self.assertEqual(self.run_cli("mark-slice", "demo-package", "--id", "S-001", "--status", "in_progress", "--note", "API done, page pending", "--json"), 0)
         data = self.task_json()
-        self.assertEqual(len(data["slices"]), 1)
+        self.assertEqual(len(data["slices"]), 2)
         self.assertEqual(data["slices"][0]["id"], "S-001")
         self.assertEqual(data["slices"][0]["status"], "in_progress")
         self.assertEqual(data["slices"][0]["note"], "API done, page pending")
         self.assertEqual(self.run_cli("mark-slice", "demo-package", "--id", "S-001", "--status", "done", "--json"), 0)
         data = self.task_json()
-        self.assertEqual(len(data["slices"]), 1)
+        self.assertEqual(len(data["slices"]), 2)
         self.assertEqual(data["slices"][0]["status"], "done")
         self.assertEqual(self.run_cli("mark-slice", "demo-package", "--id", "S-002", "--status", "done", "--json"), 0)
         data = self.task_json()
         self.assertEqual(len(data["slices"]), 2)
         self.assertEqual([s["id"] for s in data["slices"]], ["S-001", "S-002"])
+        self.assertEqual(data["slices"][1]["status"], "done")
         self.assertEqual(self.run_cli("validate", "demo-package"), 0)
 
     def test_mark_slice_rejects_invalid_id(self):

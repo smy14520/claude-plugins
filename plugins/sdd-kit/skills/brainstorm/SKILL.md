@@ -69,7 +69,19 @@ sdd-arbor wiki-collect --query "<keyword>" --limit 5 --json
 
 ## Slices
 
-PRD 定稿必须包含 `## Slices`，按依赖顺序写出有序实现切片。Slices 是 brainstorm 的产物——此时细节最多、切片最精准。每个 slice 是**独立可验证的小单元**（契约 / 功能 / 行为 / 状态转换），不是某层动作的完成；第一个通常是 walking skeleton。详细切分原则、字段、反例、退化护栏见 [`references/slices.md`](references/slices.md)。
+PRD 定稿必须包含 `## Slices`，按依赖顺序写出有序实现切片。每个 slice 是一个**行为级 checkpoint**——对应一个用户可观察行为或系统 invariant，能用一句 Given/When/Then 描述。第一个通常是 walking skeleton。详细切分原则、粒度判定、反例、退化护栏见 [`references/slices.md`](references/slices.md)。
+
+## Slice Tasks
+
+PRD Slices 确定后、finalize 前，在 `.arbor/tasks/<package>/slices/` 目录下为每个 slice 写入 `S-NNN.md` task 文件。Package 目录在 brainstorm 开始时已由 `create` 创建，直接在其中创建 `slices/` 子目录即可。这是 impl 的执行指引。
+
+每个 task 文件三段：
+
+- **Acceptance**（G/W/T）：硬约束，不满足 = 未完成。从 slice 的完成标志展开为结构化的 Given/When/Then。
+- **Approach**：推荐实现路径，agent 可偏离但必须满足 Acceptance。Walking skeleton 写详细，纯行为扩展写粗略。
+- **Verification**：确定性验证命令（如 `npm test`、`npm run build`），通过 = done。
+
+模板见 [`assets/templates/slice-task.md`](assets/templates/slice-task.md)。Finalize 时 helper 会校验每个 slice 的 task 文件存在且包含 `## Acceptance` 和 `## Verification`。
 
 ## Finalize
 

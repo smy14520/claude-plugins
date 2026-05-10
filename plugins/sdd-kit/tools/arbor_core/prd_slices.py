@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import re
 from dataclasses import dataclass, field
+from pathlib import Path
 
 LEGACY_SLICE_CHECKBOX_RE = re.compile(r"^- \[[ x\-]\] S-\d{3}", re.MULTILINE)
 SLICE_SECTION_RE = re.compile(r"^## Slices\b.*?(?=^## |\Z)", re.MULTILINE | re.DOTALL)
@@ -13,7 +14,9 @@ SLICE_ID_RE = re.compile(r"\bS-\d{3}\b")
 MARKER_ID_RE = re.compile(r"\bS-\d{3}(?:\.\d+)?\b")
 SLICE_SCAFFOLD_TOKENS = (
     "<walking skeleton 或第一个独立可验证的契约/功能>",
+    "<walking skeleton 或第一个独立可验证的行为>",
     "<扩展某个契约/功能/行为/状态转换>",
+    "<下一个独立可验证的行为>",
     "<回归 / 边界 / 自检切片>",
     "<完成后多了什么可独立验证的契约/功能/行为>",
     "Impl 只更新 [ ] / [-] / [x]",
@@ -175,3 +178,39 @@ def _field_value(body: str, labels: tuple[str, ...]) -> str:
     if not match:
         return ""
     return match.group(1).strip()
+
+
+_TASK_ACCEPTANCE_RE = re.compile(r"^## Acceptance\b", re.MULTILINE)
+_TASK_VERIFICATION_RE = re.compile(r"^## Verification\b", re.MULTILINE)
+
+
+def validate_slice_tasks(root: Path, package_name: str, slice_ids: list[str]) -> list[str]:
+    """Validate that each slice has a corresponding task file with required sections.
+
+    Returns errors if the slices/ directory exists but is missing files or sections.
+    If the package directory or slices/ directory does not exist yet, returns no errors
+    (the directory will be created during brainstorm and validated at finalize time).
+    """
+    from .fs import package_dir
+
+    errors: list[str] = []
+    pkg_dir = package_dir(root, package_name)
+    slices_dir = pkg_dir / "slices"
+
+    # If the package or slices dir doesn't exist yet, skip validation
+    # (package will be created by create_package after this check)
+    if not slices_dir.exists():
+        return errors
+
+    for slice_id in slice_ids:
+        task_file = slices_dir / f"{slice_id}.md"
+        if not task_file.exists():
+            errors.append(f"slice {slice_id} missing task file at slices/{slice_id}.md")
+            continue
+        content = task_file.read_text(encoding="utf-8")
+        if not _TASK_ACCEPTANCE_RE.search(content):
+            errors.append(f"slices/{slice_id}.md missing ## Acceptance section")
+        if not _TASK_VERIFICATION_RE.search(content):
+            errors.append(f"slices/{slice_id}.md missing ## Verification section")
+
+    return errors

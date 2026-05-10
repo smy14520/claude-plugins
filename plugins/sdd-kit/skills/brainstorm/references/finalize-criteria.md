@@ -25,6 +25,8 @@ PRD 定稿前需要完成两件事:扩展扫视和 PRD 收尾整理,然后才能
 
 把 evolving 内容落入正式 section,填实背景、目标、In scope、Out of scope、关键场景、交付物、Package artifacts、Technical Framing、Slices、验证重点和风险;删除模板示例、占位符和空 section;顶层 `Open Questions` 必须为空或只保留明确标注为 non-blocking 的项。
 
+删除 `## What I already know` 段——此时它的内容已经沉淀到 Requirements、Technical Framing、Slices 里,留着只增加 impl 阶段的噪音。（finalize 工具会自动剥离该段,但 brainstorm 应在提交 PRD 前主动整理,避免依赖工具兜底。）
+
 ## 自检
 
 收尾整理完成后,先自检 PRD,自检不通过时继续编辑 PRD,**不要询问用户确认定稿**:
@@ -40,7 +42,8 @@ PRD 定稿前需要完成两件事:扩展扫视和 PRD 收尾整理,然后才能
 - Technical Framing 已覆盖承重技术边界;未知承重项不能留给 impl 猜。
 - 扩展扫视已完成,结果已写入 Requirements / Out of scope / Acceptance Criteria。
 - Acceptance Criteria 覆盖核心路径和关键失败 / 边界路径。
-- Slices 已写好,按依赖顺序列出当前 PRD 的实现切片;不能保留示例 slice 或 `<...>`。
+- Slices 已写好，按依赖顺序列出当前 PRD 的实现切片；不能保留示例 slice 或 `<...>`。
+- 每个 slice 有对应的 `slices/S-NNN.md` task 文件，且包含非空的 `## Acceptance` 和 `## Verification` 段。
 - PRD 已从 evolving 区整理进正式结构,保留必要决策和来源,避免访谈流水污染最终交付物。
 - PRD 不再残留 `<...>` 模板占位符、示例 source、空 section;`背景与问题`、`目标`、`本次范围`、`关键场景`、`交付物清单`、`Package artifacts`、`Technical Framing`、`Slices`、`验证重点` 都必须是可执行内容。
 - 顶层 `Open Questions` 中没有 blocking question;若保留 non-blocking 问题,必须说明为什么不阻塞本次 impl / review。

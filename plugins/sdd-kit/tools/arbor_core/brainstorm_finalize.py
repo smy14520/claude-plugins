@@ -6,14 +6,14 @@ from pathlib import Path
 from typing import Any
 
 from .errors import ArborError
-from .fs import package_dir, validate_name
+from .fs import package_dir, validate_name, read_json, write_json, task_json_path
 from .package_lifecycle import set_package_sizing, update_prd_status
 from .package_model import create_package
-from .prd_slices import validate_prd_slice_structure
+from .prd_slices import parse_prd_slices, validate_prd_slice_structure, validate_slice_tasks
 from .validation import validate_package
 
 _DRAFT_ONLY_SECTION_RE = re.compile(
-    r"^## (?:Requirements \(evolving\)|Acceptance Criteria \(evolving\)|Interview Log)\s*.*?(?=^## |\Z)",
+    r"^## (?:What I already know|Requirements \(evolving\)|Acceptance Criteria \(evolving\)|Interview Log)\s*.*?(?=^## |\Z)",
     re.MULTILINE | re.DOTALL,
 )
 
@@ -130,12 +130,35 @@ def finalize_brainstorm(root: Path, spec: dict[str, Any], timestamp: str) -> dic
     if not prd or not prd.strip():
         raise ArborError("finalize-brainstorm requires non-empty prd or prd_path.")
     _validate_prd_slice_structure(prd)
+
+    # Validate slice task files exist with required sections
+    slices, _ = parse_prd_slices(prd)
+    if slices:
+        slice_ids = [s.id for s in slices]
+        task_errors = validate_slice_tasks(root, name, slice_ids)
+        if task_errors:
+            raise ArborError(
+                "finalize-brainstorm slice task validation failed: " + "; ".join(task_errors)
+            )
+
     decision = _optional_string(spec, "decision")
 
     create_package(root, name, title, "new", timestamp)
     _write_prd(root, name, prd)
     set_package_sizing(root, name, "fits_package", "brainstorm", "brainstorm finalized package", timestamp, decision or "single package with PRD-local Slices", [], [], "brainstorm")
     update_prd_status(root, name, "ready", "brainstorm", "brainstorm finalized PRD", timestamp)
+
+    # Register slices in task.json
+    if slices:
+        pkg = package_dir(root, name)
+        tj = task_json_path(pkg)
+        data = read_json(tj)
+        data["slices"] = [
+            {"id": s.id, "title": s.title, "status": "pending"}
+            for s in slices
+        ]
+        write_json(tj, data)
+
     _validate_created(root, [name])
     summary = _package_summary(root, name)
     return {"kind": "single", "root_package": name, "packages": [summary]}

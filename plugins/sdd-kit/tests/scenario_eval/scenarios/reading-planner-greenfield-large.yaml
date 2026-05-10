@@ -1,0 +1,51 @@
+name: reading-planner-greenfield-large
+profile: greenfield-large
+
+fixture: empty
+
+request:
+  mode: ai-generated
+  text: ""
+
+project_brief: |
+  主题种子：学习 / 阅读 / 目标追踪。用户侧产品负责人应提出一个从零开始的较大 Web 产品需求，
+  需要多个功能切片、清晰非目标、数据模型、核心用户流、验收和后续演进边界。
+
+org_context: |
+  如果对方问到开发/测试环境、依赖安装、启动应用或本机环境变更，你的组织约束是：
+  优先使用 Docker / docker-compose 在项目临时工作区内隔离环境；可以要求生成 docker-compose.yml；不要污染当前电脑的全局环境。
+
+ai_user:
+  mode: agent
+
+workflows:
+  - sdd-full
+
+timeouts:
+  brainstorm_turns: 16
+  impl_turns: 100
+  response_timeout: 300
+
+checks:
+  required:
+    - package_ready
+    - impl_recorded
+    - has_technical_framing
+    - has_slices
+    - has_acceptance_criteria
+  optional:
+    - build_passes
+    - tests_pass
+
+evaluation:
+  enabled: true
+  dimensions:
+    - name: prd_quality
+      prompt: "评估 PRD 是否完整覆盖大型产品需求、scope 边界清晰、slice 数量和粒度合理、非目标明确"
+      weight: 0.3
+    - name: impl_correctness
+      prompt: "评估实现是否满足 PRD 的 acceptance criteria，多 slice 之间是否连贯"
+      weight: 0.4
+    - name: code_quality
+      prompt: "评估代码质量：架构分层合理、模块边界清晰、测试覆盖关键路径"
+      weight: 0.3

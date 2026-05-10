@@ -1,0 +1,52 @@
+name: wiki-cross-cut-export-integration
+profile: existing-wiki-export
+
+fixture: wiki-export
+
+request:
+  mode: fixed
+  text: |
+    我需要新增一个 session 导出能力：在 services/auth/exports.py 中新增 auth_export_user_session 函数，
+    返回当前用户的 session 信息（user_id + token）。同时需要在 API route、export registry 和测试中同步注册。
+    请参考 .wiki/ 中的 cross_cut 页面了解同步修改规范。
+
+ai_user:
+  mode: scripted
+
+workflows:
+  - sdd-full
+
+timeouts:
+  brainstorm_turns: 12
+  impl_turns: 30
+  response_timeout: 300
+
+checks:
+  required:
+    - package_ready
+    - impl_recorded
+    - has_technical_framing
+    - has_slices
+    - wiki_brainstorm_collect_used
+    - wiki_prd_references_cross_cut
+    - wiki_prd_has_fallback
+    - wiki_prd_scope_self_contained
+    - wiki_impl_service_updated
+    - wiki_impl_route_updated
+    - wiki_impl_registry_updated
+    - wiki_impl_tests_updated
+  optional:
+    - wiki_trace_not_blind_read_all
+
+evaluation:
+  enabled: true
+  dimensions:
+    - name: wiki_integration
+      prompt: "评估 brainstorm/impl 是否正确使用 wiki cross_cut 页面指导实现，PRD 是否引用并保持自包含"
+      weight: 0.4
+    - name: impl_correctness
+      prompt: "评估实现是否在 service/route/registry/tests 四处同步注册了新导出能力"
+      weight: 0.4
+    - name: code_quality
+      prompt: "评估代码质量：与现有代码风格一致、函数签名合理、测试覆盖"
+      weight: 0.2

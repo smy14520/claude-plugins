@@ -1,21 +1,30 @@
 # Slices
 
-PRD 定稿时必须包含 `## Slices` 段,按依赖顺序写出有序实现切片。Slices 是 brainstorm 的产物——此时细节最多、切片最精准。
+PRD 定稿时必须包含 `## Slices` 段，按依赖顺序写出有序实现切片。Slices 是 brainstorm 的产物——此时细节最多、切片最精准。每个 slice 同时生成对应的 `slices/S-NNN.md` task 文件，承载执行细节。
 
-## 切分原则:独立可验证小单元
+## 切分原则：行为级 checkpoint
 
-每个 slice 是一个**独立可验证的小单元**——不是某层动作的完成。可验证的对象可以是:
+每个 slice 是一个**行为级 checkpoint**——对应一个用户可观察行为或系统 invariant，能用一句 Given/When/Then 描述。
 
-- **契约**:API / 函数 / 协议的输入输出约定(`POST /api/orders` 创建 pending 订单且 `GET` 返回该订单)
-- **功能**:用户 / 调用方可感知的端到端能力(用户能购买课程并立即学习)
-- **行为**:不变量、状态转换、对比等价性(支付成功后 enrollment 自动建立;重构后旧测试 + 对比测试都通过)
-- **触发链**:状态机 lifecycle 的某次转换或事件回调链(沙盒回调触发 order pending → paid)
+可验证的对象可以是：
 
-判定:写完一条 `完成标志` 后问自己——**"如果只完成这一个 slice 就停下来,系统是否得到了一个可独立验证的新契约 / 功能 / 行为?"** 不能 → 这是 work,合并或重写。
+- **契约**：API / 函数 / 协议的输入输出约定（`POST /api/orders` 创建 pending 订单且 `GET` 返回该订单）
+- **功能**：用户 / 调用方可感知的端到端能力（用户能购买课程并立即学习）
+- **行为**：不变量、状态转换、对比等价性（支付成功后 enrollment 自动建立）
+- **触发链**：状态机 lifecycle 的某次转换或事件回调链（沙盒回调触发 order pending → paid）
 
-### 反模式:按层切
+### 粒度判定
 
-❌ work-driven(按技术层切,集成债积累):
+- **一个主行为**：不要"报名管理模块"；要"参与者成功报名活动"。
+- **最多一个主要 mutation / 一个主要查询路径**：页面、action、service、test 可以跨层，但业务目标只有一个。
+- **能用一句 When 描述**：如果 When 需要写成"用户做 A 然后做 B 然后做 C"，就太大了。
+- **Then 不超过 4-5 条**：如果需要列举 5+ 独立功能才能描述清楚，应该拆。
+
+判定：写完一条"完成标志"后问自己——**"如果只完成这一个 slice 就停下来，系统是否得到了一个可独立验证的新契约 / 功能 / 行为？"** 不能 → 这是 work，合并或重写。
+
+### 反模式：按层切
+
+❌ work-driven（按技术层切，集成债积累）：
 
 ```
 S-001: 数据 schema 与 migration
@@ -24,172 +33,203 @@ S-003: API endpoint 注册
 S-004: 集成测试
 ```
 
-S-001 / S-002 / S-003 完成时都"看起来对",末期 S-004 才发现 schema 缺字段、API 设计不匹配,集成债爆发。
+S-001 / S-002 / S-003 完成时都"看起来对"，末期 S-004 才发现 schema 缺字段、API 设计不匹配，集成债爆发。
 
-✅ 按可验证小单元切(契约 / 行为驱动):
+❌ 模块-driven（把多个独立行为塞进一个 slice）：
 
 ```
-S-001: 创建 todo 后能查询到(最简 schema + 创建 + 查询 + e2e)
-S-002: todo 状态可在 open / done 间流转(扩展 schema status + 状态转换 e2e)
-S-003: 按状态筛选 todo(查询能力 + e2e)
+S-005: 主办方可以创建/发布/编辑/取消活动；可以查看报名列表；非 owner 不能操作
 ```
 
-每个 slice 完成时有可独立验证的产物,集成持续偿还。
+对人类工程师合理，但对 agent 太厚——里面至少有 5-7 个独立行为，agent 容易做到一半就自认完成。
+
+✅ 按行为级 checkpoint 切：
+
+```
+S-001: 创建 todo 后能查询到（最简 schema + 创建 + 查询 + e2e）
+S-002: todo 状态可在 open / done 间流转（扩展 schema status + 状态转换 e2e）
+S-003: 按状态筛选 todo（查询能力 + e2e）
+```
+
+每个 slice 完成时有可独立验证的产物，集成持续偿还。
 
 ### Walking skeleton 优先
 
-第一个 slice 通常是 walking skeleton——穿透足够的层让"可验证小单元"立得住:
+第一个 slice 通常是 walking skeleton——穿透足够的层让"可验证小单元"立得住：
 
-- 端到端跑通最简 happy path(框架 + DB + auth + 一个 endpoint + e2e test)
-- 或最简契约(`POST /api/X` 写入 → `GET` 读取 e2e 通)
+- 端到端跑通最简 happy path（框架 + DB + auth + 一个 endpoint + e2e test）
+- 或最简契约（`POST /api/X` 写入 → `GET` 读取 e2e 通）
 
-后续 slice 站在 skeleton 之上,各自补充某个契约 / 功能 / 行为 / 状态转换。这样:
+后续 slice 站在 skeleton 之上，各自补充某个契约 / 功能 / 行为 / 状态转换。
 
-- 第一 slice 的工作量集中在"穿透栈"而非"完整功能",可控
-- 后续 slice 粒度均匀(每个一个可验证单元)
-- 集成债零(从第一 slice 就 e2e 通)
+项目已有领域（课程、订单、用户）→ 第一 slice 用真实领域薄路径（如"课程列表 e2e 通"），**不要默认 `/api/ping` + placeholder page**。仅当项目完全没有任何领域锚点时，才允许用 placeholder endpoint 作为 walking skeleton。
 
-## 护栏:避免退化
-
-独立可验证小单元有三个常见退化路径,显式封住:
+## 护栏：避免退化
 
 ### 1. "有测试"不等于独立可验证小单元
 
-单元测试覆盖一个内部函数,但 consumer 还没接上 → 仍是 work,只是披了测试皮。
+单元测试覆盖一个内部函数，但 consumer 还没接上 → 仍是 work，只是披了测试皮。
 
-判断:**下一个 slice 能直接依赖本 slice 产出的契约 / 行为 / 状态吗?** 不能 → 合并或重写。
-
-- ❌ `S-001: OrderService.create 函数 + unit test`(没人用,done 时系统无可依赖产物)
-- ✅ `S-001: POST /api/orders 创建 pending order + GET /api/orders/{id} 返回该订单`(consumer 侧有观测点)
+判断：**下一个 slice 能直接依赖本 slice 产出的契约 / 行为 / 状态吗？** 不能 → 合并或重写。
 
 ### 2. API 契约 slice 必须写 consumer 侧验证
 
-"`POST /api/orders` 返回 201" 只是生产侧,不完整。必须有消费侧可观测的验证:
+"`POST /api/orders` 返回 201" 只是生产侧，不完整。必须有消费侧可观测的验证：
 
-- ✅ `POST /api/orders` 返回 201 + `GET /api/orders/{id}` 返回该订单(同层 API consumer)
-- ✅ `POST /api/orders` 返回 201 + 前端订单列表显示该订单(跨层 consumer)
-
-只有生产侧的 API slice 等同纯后端横切,违反第 1 条。
+- ✅ `POST /api/orders` 返回 201 + `GET /api/orders/{id}` 返回该订单
+- ✅ `POST /api/orders` 返回 201 + 前端订单列表显示该订单
 
 ### 3. Walking skeleton 用真实领域最薄路径
 
-项目已有领域(课程、订单、用户)→ 第一 slice 用真实领域薄路径(如"课程列表 e2e 通"),**不要默认 `/api/ping` + placeholder page**——这是 LLM 对 "walking skeleton" 一词的训练数据刻板印象,不是 walking skeleton 的本意。
+见上文 Walking skeleton 段。
 
-仅当项目完全没有任何领域锚点(全新工具库首个 slice、纯框架脚手架)时,才允许用 placeholder endpoint 作为 walking skeleton。
+### 4. Negative path 必须独立可验证
 
-## 写法
+如果 PRD 写"被阻止 / 拒绝 / 限制"，该 slice 必须有对应的 negative test 或验证。只证 positive action 不算对账通过。当 positive + negative 组合超过粒度标准时，拆成独立 slice。
 
-每个 slice 用 `### S-NNN: <标题>` 起头,body 用 `- 字段:值` 形式给出。**slice 涉及就写,不涉及就整条省略**,不写 N/A、不留占位。不分存量 / 新项目:是否写某字段只看这个 slice 的实际范围。
+## PRD 中的写法
+
+每个 slice 用 `### S-NNN: <标题>` 起头。PRD 里只保留**标题 + 完成标志**作为索引；详细的 Acceptance（G/W/T）、Approach、Verification 写在 `slices/S-NNN.md` task 文件中。
 
 ### 必填
 
-- `完成标志`:slice 完成后多了什么**可独立验证的契约 / 功能 / 行为**,不是某层动作的完成。每个 slice 都写,没有例外。两种写法:
-  - **单行**:slice 只守护一个不变量时用。例:`- 完成标志:调用 X(input) 返回 Y 且测试通过`。
-  - **sublist**:slice 里有多个并列 claim 时用(尤其是 **positive action + 边界 / 阻止 / 守护**的组合)。每条一个独立可验证 claim;impl 必须逐条对账。例:
-    ```
-    - 完成标志:
-      - 代居民报名 / 取消报名 API
-      - 活动详情展示报名台账
-      - 重复报名被阻止
-    ```
-  - ❌ work:"schema 已建"、"function 已实现"、"路由已注册"
-  - ✅ 可验证小单元:"创建 user-1 后 `GET /users/u1` 返回正确数据"、"order 状态 pending → paid 后 enrollment 自动建立"
-  - **长句里包含 negative invariant**(X 被阻止 / 重复被拒绝 / 冲突被拦截)时**必须用 sublist 分条**,不要打包在长句末尾——打包写法 impl 容易只证 positive action 漏 invariant。
+- `完成标志`：slice 完成后多了什么**可独立验证的契约 / 功能 / 行为**。两种写法：
+  - **单行**：slice 只守护一个不变量时用。例：`- 完成标志：调用 X(input) 返回 Y 且测试通过`。
+  - **sublist**：slice 里有多个并列 claim 时用（尤其是 **positive action + boundary / negative invariant** 的组合）。每条一个独立可验证 claim。
+  - ❌ work："schema 已建"、"function 已实现"、"路由已注册"
+  - ✅ 可验证小单元："创建 user-1 后 `GET /users/u1` 返回正确数据"
+  - **长句里包含 negative invariant** 时**必须用 sublist 分条**。
 
 ### 按需
 
-- `数据 / schema`:动到数据结构、表、文件格式、模型输入输出或 migration 时写。标注 `[new]` / `[existing]`;有 artifact 时指向具体位置。
-- `代码锚点`:动到或新建模块、文件、接口、页面、命令、子系统或 pipeline 时写。标注 `[new]` / `[existing]`;UI、外部集成、权限变更等都归此字段。
-- `测试`:Testing strategy 为核心路径 / TDD 时写(覆盖路径 / 边界或 test 文件名);最小验收档可省。
+- `数据 / schema`：动到数据结构、表、文件格式时写。标注 `[new]` / `[existing]`。
+- `代码锚点`：动到或新建模块、文件、接口、页面时写。标注 `[new]` / `[existing]`。
+- `测试`：Testing strategy 为核心路径 / TDD 时写。
+
+## Slice task 文件
+
+每个 slice 在 brainstorm finalize 前生成对应的 `.arbor/tasks/<package>/slices/S-NNN.md`。这是 impl 的执行指引。
+
+### 结构
+
+```markdown
+# S-NNN: <标题>
+
+## Acceptance
+
+Given:
+- <前置条件>
+
+When:
+- <用户/系统动作>
+
+Then:
+- <可观察结果>
+- <negative path 结果>
+
+## Approach
+
+1. <推荐实现步骤>
+2. ...
+
+## Verification
+
+- <验证命令>
+```
+
+### 三段职责
+
+| 段 | 性质 | Agent 必须遵守？ |
+|---|---|---|
+| **Acceptance** | 硬约束——不满足 = 未完成 | 必须 |
+| **Approach** | 推荐路径——可偏离但需满足 Acceptance | 推荐 |
+| **Verification** | 确定性验证——命令通过 = done | 必须 |
+
+### Approach 详细度
+
+| Slice 类型 | Approach 详细度 |
+|---|---|
+| Walking skeleton（穿透多层） | 详细——列出每层要做什么 |
+| 纯行为扩展（在已有架构上加功能） | 粗——"参考 S-NNN 的 action 模式" |
+| 失败路径 / negative test | 中等——列出要拦截的点 |
+| Final gate（纯验证） | 不需要 Approach |
 
 ## 完成标志 vs Acceptance Criteria
 
-- **AC**(PRD 顶层 `## Acceptance Criteria`)是**用户视角**的整体验收:"能创建账户并查看月度统计"。
-- **完成标志**是每 slice 的**可独立验证产物**:"账户 API 返回 201 + DB 记录已写入 + `GET /accounts/u1` 返回该记录"。
+- **AC**（PRD 顶层 `## Acceptance Criteria`）是**用户视角**的整体验收。
+- **完成标志**是每 slice 的**可独立验证产物**。
+- **Acceptance**（task 文件的 G/W/T）是完成标志的结构化展开。
 
 定稿时每条 AC 应能追溯到 1 个或多个 slice 的完成标志组合。
 
 ## 粒度
 
-由可验证性决定:完成后能用一两句话说清楚"怎么验证"。一个 slice 需要列举 5 个以上独立功能才能描述清楚就太粗,应该拆。slice 数量没有上限。
+由可验证性决定：完成后能用一句 When + 几条 Then 说清楚"怎么验证"。slice 数量没有上限——宁可多而细，不要少而粗。
 
-顺序反映**价值与依赖**:第一个 slice 通常是 walking skeleton(穿透栈让后续 slice 都有挂靠);后续 slice 各自补充某个契约 / 功能 / 行为 / 状态转换。**避免按层排列**(先基建 → 再核心 → 再边缘 → 最后验收)——这种排列下 90% 的 slice 完成时无法独立验证,集成债到末期才爆发。
+顺序反映**价值与依赖**：第一个 slice 通常是 walking skeleton；后续 slice 各自补充某个契约 / 功能 / 行为 / 状态转换。**避免按层排列**（先基建 → 再核心 → 再边缘 → 最后验收）。
 
 ## 示例
 
-### 小需求(纯契约新增)
-
-```markdown
-## Slices
-
-### S-001: Session export function 契约
-
-- 完成标志:`auth_export_user_session("u-1")` 返回 `Session(user_id="u-1", token="session-u-1")`,unit test 通过
-- 代码锚点:services/auth/exports.py [existing]
-- 测试:test_auth_exports.py 覆盖正常 + 边界
-
-### S-002: Public wiring(route + registry)契约
-
-- 完成标志:`/api/auth/session/export` 注册到 `auth_export_user_session` + `EXPORT_REGISTRY["auth.session"] == "auth_export_user_session"`,两条独立 e2e 断言
-- 代码锚点:api/auth_routes.py [existing];registry/export_registry.py [existing]
-- 测试:test_auth_exports.py 加 registry / route wiring 断言
-
-### S-003: 回归自检
-
-- 完成标志:既有 role export 行为不变(测试通过)+ 新 session export 全套通过
-- 测试:运行 test_auth_exports.py 全套
-```
-
-每个 slice 都是独立可验证的契约,无需等到末期集成才暴露问题。
-
-### 中需求(功能 + 状态机 + walking skeleton)
+### 中需求（知识付费 — 功能 + 状态机 + walking skeleton）
 
 ```markdown
 ## Slices
 
 ### S-001: Walking skeleton — 课程列表 e2e 通
 
-- 完成标志:`GET /api/courses` 返回种子数据(2 条)+ 首页渲染列表 + e2e 测试通过
-- 数据 / schema:courses 表 [new] minimal(id / title / description)
-- 代码锚点:Next.js 框架 + DB connection [new];首页 page [new];courses API [new]
-- 测试:e2e_courses_list.spec.ts
+- 完成标志：首页展示 seed 课程（2 条 published），draft 不展示，integration test 通过
+- 数据 / schema：courses 表 [new] minimal（id / title / description / price / published）
+- 代码锚点：Next.js 框架 + DB connection [new]；首页 page [new]；courses 查询 [new]
 
-### S-002: User 注册 + 登录契约
+### S-002: 用户注册登录
 
-- 完成标志:`POST /api/register` + `POST /api/login` 端到端通,session token 写入,`GET /api/me` 返回 user
-- 数据 / schema:users 表 [new]
-- 代码锚点:auth service [new];3 个 API [new]
+- 完成标志：
+  - 注册 → 登录 → /api/me 返回用户
+  - 重复邮箱注册返回错误
+  - 未登录访问 /api/me 返回 401
+- 数据 / schema：users 表 [new]
+- 代码锚点：auth service [new]；注册/登录页 [new]
 
-### S-003: Auth middleware + role 鉴权契约
+### S-003: 课程详情页
 
-- 完成标志:protected route 无 token → 401;有 token 但 role 不符 → 403;通过 → 200,各场景独立 assertion
-- 代码锚点:auth middleware [new];3 个测试用 protected endpoint
-- 测试:auth_middleware.test.ts
+- 完成标志：从列表进入详情，展示完整信息，不存在的课程返回 404 页面
+- 代码锚点：课程详情页 [new]
 
-### S-004: Order pending 创建契约
+### S-004: 下单 + Stripe Checkout 跳转
 
-- 完成标志:登录用户 `POST /api/orders {course_id}` 创建 pending order;同 idempotency_key 重复请求不重复创建
-- 数据 / schema:orders 表 [new]
-- 代码锚点:OrderService [new];orders API [new]
+- 完成标志：
+  - 登录用户点购买 → 创建 pending order → 跳转 Stripe Checkout
+  - 同课程重复下单复用已有 pending order
+  - 未登录用户被重定向到登录页
+- 数据 / schema：orders 表 [new]
+- 代码锚点：checkout action [new]；课程详情页购买按钮 [extend]
 
-### S-005: Payment 沙盒回调 → 状态流转
+### S-005: Stripe webhook → 订单状态流转
 
-- 完成标志:沙盒成功回调 → order pending → paid;失败回调 → pending → failed;状态机不可逆向
-- 代码锚点:PaymentService [new];callback API [new];状态机 [new]
-- 测试:payment_state_machine.test.ts
+- 完成标志：
+  - checkout.session.completed → order pending → paid
+  - 签名验证失败返回 400
+  - 重复 event 幂等处理
+- 代码锚点：webhook route [new]；order status 更新逻辑 [new]
 
-### S-006: Enrollment 在 paid 时自动建立(行为契约)
+### S-006: 支付成功自动开通课程
 
-- 完成标志:order paid 后 enrollments 自动写入 `(user, course)`;`GET /api/me/enrollments` 返回该记录
-- 数据 / schema:enrollments 表 [new]
-- 代码锚点:EnrollmentService [new];PaymentService 触发逻辑 [extend]
-- 测试:e2e order → payment → enrollment 链路
+- 完成标志：order paid 后 enrollment 自动创建；/api/me/enrollments 返回该课程；重复不创建
+- 数据 / schema：enrollments 表 [new]
+- 代码锚点：enrollment 创建逻辑 [new]；enrollments API [new]
+
+### S-007: 学员课程列表 + 学习入口
+
+- 完成标志：登录学员看到已购课程列表，点击进入学习页面，未购买课程不在列表中
+- 代码锚点：我的课程页 [new]；学习页 [new]
+
+### S-008: 交付闭环
+
+- 完成标志：npm test 全通过；npm run build 无报错；完整购买链路可走通
 ```
 
-S-001 是 walking skeleton(穿透 Next.js + DB + API + UI 栈),后续 slice 站在上面扩展。S-003 是纯技术契约(auth middleware),不是 user feature 但仍是独立可验证小单元(401 / 403 / 200 三种行为各有独立断言)。S-005 / S-006 是状态机 / 行为契约(状态转换、跨服务自动建立),也是独立可验证小单元。
-
-字段由 slice 实际涉及范围决定:S-002 / S-003 没指明 `测试` 字段表示沿用 Testing strategy 默认;S-001 涉及框架 + DB + API + UI 多面所以代码锚点列多项。
+每个 slice 是一个行为级 checkpoint。S-004 / S-005 各自只管一个状态转换，不把"下单 + 支付 + 开通"塞进一个 slice。
 
 ## 进度记录
 
-Impl 进度记录在 `task.json.slices` 数组(通过 `sdd-arbor mark-slice` 更新),PRD 里的 Slices 段只定义需求,不做进度标记。
+Impl 进度记录在 `task.json.slices` 数组（通过 `sdd-arbor mark-slice` 更新），PRD 里的 Slices 段只定义需求，不做进度标记。

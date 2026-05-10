@@ -21,13 +21,14 @@ Impl 执行一个 package PRD scope：读 PRD 的目标、范围、Acceptance Cr
 ## 入场
 
 1. 读 `.arbor/tasks/<package>/prd.md`、`task.json`、PRD 引用的 `artifacts/`、PRD 引用的 wiki 页面（见 Wiki 引用处理）。
-2. 读 `task.json.slices` 判断进度：
+2. 读 `.arbor/tasks/<package>/slices/` 目录下的 task 文件（`S-001.md`、`S-002.md`...），了解每个 slice 的 Acceptance、Approach、Verification。
+3. 读 `task.json.slices` 判断进度：
    - 全 `done` 且有 `impl_result` → 已完成，不重复执行。
    - 全 `done` 但无 `impl_result` → 直接 self-check + 记录。
    - 有 `pending` / `in_progress` → 正常执行。
    - 数组空或不存在 → 全部 pending，按 PRD `## Slices` 顺序从头开始。
-3. 若 `review_result.state` 是 `NEEDS_REWORK`（CLI 参数 `needs_rework`），读问题清单针对性修复，不从头执行 slice。
-4. 状态非 doing 时 `sdd-arbor set-status <package> --state doing --actor impl --note "开始执行"`。
+4. 若 `review_result.state` 是 `NEEDS_REWORK`（CLI 参数 `needs_rework`），读问题清单针对性修复，不从头执行 slice。
+5. 状态非 doing 时 `sdd-arbor set-status <package> --state doing --actor impl --note "开始执行"`。
 
 代码即进度——`task.json.slices` 标记与项目实际状态不符时以代码为准。读已有测试是了解前面 slice 接口契约的捷径。
 
@@ -42,9 +43,11 @@ PRD Technical Framing 写了 `详见 [[...]]` 形式的 wikilink 时：
 
 对每个未完成 slice：
 
-1. 按 PRD Testing strategy 档位实现 + 测试（TDD：先测后写；核心路径：实现后补关键路径 + 边界；最小验收：happy path 跑通）。
-2. 对账：slice 的每条"完成标志"是否有对应可观测产物？PRD 写的是 sublist 时逐条对账，不要整体打勾。特别注意 negative invariant（X 被阻止 / 重复被拒绝 / 冲突被拦截）——只证 positive action 不算对账通过。
-3. `sdd-arbor mark-slice <package> --id S-NNN --status done`；有差距用 `--status in_progress --note "<差距>"` 继续做，或接受妥协在最后 record 时写 `--concern`。
+1. 读对应的 `slices/S-NNN.md` task 文件。以 **Acceptance** 的 Then 条件为目标，**Approach** 为推荐路径（可偏离），**Verification** 命令为 done 标准。
+2. 按 PRD Testing strategy 档位实现 + 测试（TDD：先测后写；核心路径：实现后补关键路径 + 边界；最小验收：happy path 跑通）。
+3. 运行 task 文件的 Verification 命令，确认通过。
+4. 对账：Acceptance 的每条 Then 是否有对应可观测产物？特别注意 negative invariant——只证 positive action 不算对账通过。
+5. `sdd-arbor mark-slice <package> --id S-NNN --status done`；有差距用 `--status in_progress --note "<差距>"` 继续做，或接受妥协在最后 record 时写 `--concern`。
 
 `task.json.slices` 的三态：`pending` 未开始 / `in_progress` 部分完成（附备注说明停在哪里）/ `done` 完成。
 

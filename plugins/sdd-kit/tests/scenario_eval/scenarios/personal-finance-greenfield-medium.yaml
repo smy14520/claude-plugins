@@ -1,0 +1,52 @@
+name: personal-finance-greenfield-medium
+profile: greenfield-medium
+
+fixture: empty
+
+request:
+  mode: ai-generated
+  text: ""
+
+project_brief: |
+  主题种子：个人预算 / 记账 / cashflow。用户侧产品负责人应提出一个从零开始的中等复杂度 Web 工具需求，
+  包含核心领域模型、数据持久化、日常录入流程、统计/回顾、边界和测试策略。
+
+org_context: |
+  如果对方问到开发/测试环境、依赖安装、启动应用或本机环境变更，你的组织约束是：
+  优先使用 Docker / docker-compose 在项目临时工作区内隔离环境；可以要求生成 docker-compose.yml；不要污染当前电脑的全局环境。
+
+ai_user:
+  mode: agent
+
+workflows:
+  - sdd-full
+  - direct
+
+timeouts:
+  brainstorm_turns: 14
+  impl_turns: 120
+  response_timeout: 900
+
+checks:
+  required:
+    - package_ready
+    - impl_recorded
+    - has_technical_framing
+    - has_slices
+    - has_acceptance_criteria
+  optional:
+    - build_passes
+    - tests_pass
+
+evaluation:
+  enabled: true
+  dimensions:
+    - name: prd_quality
+      prompt: "评估 PRD 是否完整覆盖需求、技术边界清晰、slice 粒度合理、walking skeleton 合理"
+      weight: 0.3
+    - name: impl_correctness
+      prompt: "评估实现是否满足 PRD 的 acceptance criteria，功能链路是否完整"
+      weight: 0.4
+    - name: code_quality
+      prompt: "评估代码质量：架构合理、命名规范、错误处理、测试覆盖、安全性"
+      weight: 0.3

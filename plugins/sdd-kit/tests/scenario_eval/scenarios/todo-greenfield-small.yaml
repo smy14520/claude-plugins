@@ -1,0 +1,46 @@
+name: todo-greenfield-small
+profile: greenfield-small
+
+fixture: empty
+
+request:
+  mode: fixed
+  text: |
+    我要做一个命令行 todo 工具，Python 实现，支持添加、完成、列表、删除任务。
+    数据用 JSON 文件存储在 ~/.todo/tasks.json。
+    要有基本的输入校验和错误提示。
+
+ai_user:
+  mode: agent
+
+workflows:
+  - sdd-full
+  - direct
+
+timeouts:
+  brainstorm_turns: 10
+  impl_turns: 40
+  response_timeout: 900
+
+checks:
+  required:
+    - package_ready
+    - impl_recorded
+    - has_technical_framing
+    - has_slices
+  optional:
+    - build_passes
+    - tests_pass
+
+evaluation:
+  enabled: true
+  dimensions:
+    - name: prd_quality
+      prompt: "评估 PRD 是否完整覆盖 todo 工具需求（增删改查）、技术边界清晰、slice 粒度合理"
+      weight: 0.3
+    - name: impl_correctness
+      prompt: "评估实现是否满足 PRD 的 acceptance criteria，功能是否完整可用"
+      weight: 0.4
+    - name: code_quality
+      prompt: "评估代码质量：结构清晰、命名合理、错误处理得当、有测试覆盖"
+      weight: 0.3
