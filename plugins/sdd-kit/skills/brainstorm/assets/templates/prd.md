@@ -18,6 +18,9 @@ supersedes:              # optional, remove if N/A
 
 ## Requirements (evolving)
 
+<!-- 每条需求写到行为级精度：主语 + 动作 + 具体行为 + 约束。例：
+"录入页日期默认今天；用户可通过轻量折叠入口修改发生日期；交易编辑弹窗中发生日期始终可见可改。" -->
+
 - <每轮回答后更新：已经确认或当前采用的需求>
 - <形成初步 package scope 后，把扩展扫视中纳入本次 PRD scope 的项写到这里或 In scope>
 
@@ -62,6 +65,8 @@ supersedes:              # optional, remove if N/A
 
 ## 关键场景 / 用户流 / 系统流
 
+<!-- 每个场景追问到行为级精度：触发条件、具体行为、成功判定、退化路径。边界/异常是场景展开的自然副产品，不是独立补充。 -->
+
 ### 场景 1 — <名称>
 
 - 触发:
@@ -78,8 +83,8 @@ supersedes:              # optional, remove if N/A
 
 ### 边界 / 异常场景
 
-- <边界场景 1>
-- <异常场景 2>
+- <从各场景退化路径中提取的跨场景边界>
+- <系统级异常>
 
 ## 交付物清单
 
@@ -209,14 +214,15 @@ Do not rewrite old requirements silently; record wrong/correct/affects/source.
 - [ ] PRD draft 已在 brainstorm 开始时创建或定位，并在每轮用户回答后更新
 - [ ] What I already know / Requirements (evolving) / Acceptance Criteria (evolving) / Open Questions / Interview Log 足以支持断点续作
 - [ ] Interview Log 只保留关键问答和需求变化，没有完整聊天流水
-- [ ] 背景说明了“为什么现在做”
+- [ ] 背景说明了”为什么现在做”
 - [ ] In scope / Out of scope 足够明确，且扩展扫视结果已分别归入本次 PRD scope 或 Out of scope
-- [ ] 至少写出 2 个关键场景（如适用）
+- [ ] 至少写出 2 个关键场景（如适用），每个场景有触发、行为、成功判定和退化路径
 - [ ] Technical Framing 覆盖 stack/auth/frontend-backend/data/admin/integration/testing/migration 等承重边界；N/A 项已明确
 - [ ] 如存在承重数据模型、协议、API 或权限矩阵，已在 Package artifacts 引用对应 artifact；否则明确 N/A
-- [ ] Acceptance Criteria 覆盖核心路径和关键失败 / 边界路径
+- [ ] 关键场景的成功判定和 Slices 的完成标志覆盖核心路径和关键失败 / 边界路径
+- [ ] Evolving 内容已吸收进场景、范围、Technical Framing、Slices，不残留独立的 Requirements 或 AC section
 - [ ] Boundary decision 已明确为 fits_package，且当前 package 可作为需求/执行/评审/回滚边界
-- [ ] Slices 已写好，顺序体现价值与依赖；每个 slice 是独立可验证的小单元（契约/功能/行为/状态转换），完成标志说明“完成后多了什么可独立验证的产物”而非“做了什么动作”；涉及数据/代码/测试的 slice 按实际范围标注（不涉及整条省略，不写 N/A）
+- [ ] Slices 已写好，顺序体现价值与依赖；每个 slice 是独立可验证的小单元（契约/功能/行为/状态转换），完成标志说明”完成后多了什么可独立验证的产物”而非”做了什么动作”；涉及数据/代码/测试的 slice 按实际范围标注（不涉及整条省略，不写 N/A）
 - [ ] Slices 只定义需求和顺序，impl 进度通过 `sdd-arbor mark-slice` 写入 `task.json`
 - [ ] 每个 slice 有对应的 `slices/S-NNN.md` task 文件，包含 Acceptance（G/W/T）和 Verification 段
 - [ ] Open questions / Assumptions / Risks 已分开；blocking / important assumptions 已审计来源、影响和处理方式

@@ -79,7 +79,13 @@ class Evaluator:
         if artifacts.get("task_json"):
             sections.append(f"## task.json\n\n```json\n{artifacts['task_json']}\n```")
             sections.append("")
-        if artifacts.get("diff"):
+        if artifacts.get("source_files"):
+            source_text = artifacts["source_files"]
+            if len(source_text) > 80000:
+                source_text = source_text[:80000] + "\n\n[... truncated ...]"
+            sections.append(f"## 项目源代码\n\n{source_text}")
+            sections.append("")
+        elif artifacts.get("diff"):
             diff_text = artifacts["diff"]
             if len(diff_text) > 30000:
                 diff_text = diff_text[:30000] + "\n\n[... truncated ...]"
@@ -157,6 +163,44 @@ class Evaluator:
         )
 
 
+def _collect_source_files(work_dir: Path, max_total_chars: int = 80000) -> str:
+    """Collect source files from project directory for evaluation."""
+    extensions = {".ts", ".tsx", ".js", ".jsx", ".py", ".json", ".yml", ".yaml",
+                  ".css", ".html", ".prisma", ".sql", ".md"}
+    skip_dirs = {"node_modules", ".git", "dist", "build", ".arbor", "test-results"}
+    skip_names = {"package-lock.json", "yarn.lock", "pnpm-lock.yaml"}
+
+    files: list[tuple[str, str]] = []
+    for path in sorted(work_dir.rglob("*")):
+        if not path.is_file():
+            continue
+        if path.suffix not in extensions:
+            continue
+        if path.name in skip_names:
+            continue
+        if any(part in skip_dirs for part in path.relative_to(work_dir).parts):
+            continue
+        try:
+            content = path.read_text(encoding="utf-8")
+            rel = str(path.relative_to(work_dir))
+            files.append((rel, content))
+        except (UnicodeDecodeError, OSError):
+            continue
+
+    # Build output, respecting max size
+    output_parts: list[str] = []
+    total = 0
+    for rel, content in files:
+        entry = f"### {rel}\n\n```\n{content}\n```\n"
+        if total + len(entry) > max_total_chars:
+            output_parts.append(f"\n[... {len(files) - len(output_parts)} more files truncated ...]")
+            break
+        output_parts.append(entry)
+        total += len(entry)
+
+    return "\n".join(output_parts)
+
+
 def evaluate_run(
     run_dir: Path,
     dimensions: list[dict[str, Any]],
@@ -179,10 +223,10 @@ def evaluate_run(
     if task_candidates:
         artifacts["task_json"] = task_candidates[0].read_text(encoding="utf-8")
 
-    # Load diff
-    diff_path = run_dir / "diff.patch"
-    if diff_path.exists():
-        artifacts["diff"] = diff_path.read_text(encoding="utf-8")
+    # Load project source files instead of diff
+    source_content = _collect_source_files(work_dir)
+    if source_content:
+        artifacts["source_files"] = source_content
 
     # Load user request from summary
     summary_path = run_dir / "summary.json"

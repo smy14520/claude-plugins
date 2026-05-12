@@ -18,9 +18,12 @@ from .runner import PhaseResponse, receive_response
 
 
 def find_prd(work_dir: Path) -> Path | None:
-    """Find the first .arbor/tasks/*/prd.md file."""
-    prd_files = sorted(work_dir.glob(".arbor/tasks/*/prd.md"))
-    return prd_files[0] if prd_files else None
+    """Find the most recently modified .arbor/tasks/*/prd.md file."""
+    prd_files = list(work_dir.glob(".arbor/tasks/*/prd.md"))
+    if not prd_files:
+        return None
+    # Return the most recently modified prd.md (likely the one being actively worked on)
+    return max(prd_files, key=lambda p: p.stat().st_mtime)
 
 
 def read_task_state(prd_path: Path | None) -> dict[str, Any] | None:
