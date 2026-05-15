@@ -36,15 +36,33 @@ def create_sdd_client(
         SdkPluginConfig,
     )
 
+    phase_state = {"current": phase}
+
     async def auto_answer(tool_name: str, input_data: dict[str, Any], context: Any) -> Any:
         if tool_name != "AskUserQuestion":
             return PermissionResultAllow(updated_input=input_data)
-        if log_fn:
-            log_fn("ask_user_question_denied", question=str(input_data)[:200])
-        return PermissionResultDeny(
-            message="Scenario eval uses real conversational user replies. Ask in normal text instead of AskUserQuestion.",
-            interrupt=False,
-        )
+
+        if phase_state["current"] == "brainstorm":
+            if log_fn:
+                log_fn("ask_user_question_denied", question=str(input_data)[:200])
+            return PermissionResultDeny(
+                message="Scenario eval uses real conversational user replies. Ask in normal text instead of AskUserQuestion.",
+                interrupt=False,
+            )
+
+        # Non-brainstorm phases: auto-select first option (recommended)
+        questions = input_data.get("questions", [])
+        if questions:
+            answers = {}
+            for q in questions:
+                options = q.get("options", [])
+                if options:
+                    answers[q["question"]] = options[0]["label"]
+            if log_fn:
+                log_fn("ask_user_question_auto_answered", answers=answers)
+            return PermissionResultAllow(updated_input={**input_data, "answers": answers})
+
+        return PermissionResultAllow(updated_input=input_data)
 
     env: dict[str, str] = {}
     if api_key:
@@ -52,7 +70,7 @@ def create_sdd_client(
     if base_url:
         env["ANTHROPIC_BASE_URL"] = base_url
 
-    return ClaudeSDKClient(ClaudeAgentOptions(
+    client = ClaudeSDKClient(ClaudeAgentOptions(
         cwd=str(work_dir),
         plugins=[SdkPluginConfig(type="local", path=str(plugin_root))],
         permission_mode="bypassPermissions",
@@ -62,6 +80,8 @@ def create_sdd_client(
         env=env,
         stderr=lambda line: log_fn("stderr", line=line.strip()) if log_fn else None,
     ))
+    client._phase_state = phase_state
+    return client
 
 
 def create_direct_client(

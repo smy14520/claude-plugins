@@ -191,7 +191,11 @@ async def run_sdd_workflow(
 
             # Impl phase
             impl_loop_entered = True
+            if hasattr(client, '_phase_state'):
+                client._phase_state["current"] = "impl"
             impl_prompt = f"用 impl 执行这个 package PRD：{prd_path.parent.name}" if prd_path else "用 impl 执行当前 ready package"
+            if scenario.impl_instruction:
+                impl_prompt += f"\n\n{scenario.impl_instruction}"
             await asyncio.wait_for(client.query(impl_prompt), timeout=scenario.timeouts.query_timeout)
             log_event(paths, "tested_agent_query_sent", phase="impl", prompt=impl_prompt)
 

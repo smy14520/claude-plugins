@@ -81,6 +81,24 @@
 
 产出：双方初始架构主张、互相反驳后改变的判断、仍未收敛的分歧、当前证据、采纳/暂缓项、建议写入 PRD 的架构意图。
 
+## Slice-gated Review
+
+适合：impl 阶段质量要求高、slice 数量多（6+）、或用户希望每个 slice 完成后有独立视角验证。
+
+做法：impl lead 正常执行 slice；每完成一个 slice 后派一个 reviewer worker 对账该 slice 的 task 文件。reviewer 只看当前 slice，不看全局。
+
+reviewer 对账三件事：
+
+- task 文件 Acceptance 的每条 Then 是否有对应代码产物（文件、函数、路由、UI 元素）。
+- Verification 描述的行为是否能观测到（能跑的跑，不能自动化的检查代码路径是否存在）。
+- PRD Technical Framing 的承重约束在该 slice 涉及的代码里是否被遵守。
+
+reviewer 返回：pass / 缺口清单（具体到 "Acceptance 第 N 条 Then 缺对应实现"）。
+
+impl lead 收到缺口后补完再继续下一个 slice。如果 reviewer 连续 pass，后续 slice 可以跳过 review（lead 判断）。
+
+产出：每个 slice 的对账结果、累计缺口修复记录、最终 impl 质量置信度。
+
 ## Research Swarm
 
 适合：需要多来源、多假设或多代码区域的 research，但最终写入必须由主会话审计。

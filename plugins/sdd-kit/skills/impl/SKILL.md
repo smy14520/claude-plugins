@@ -43,9 +43,9 @@ PRD Technical Framing 写了 `详见 [[...]]` 形式的 wikilink 时：
 
 对每个未完成 slice：
 
-1. 读对应的 `slices/S-NNN.md` task 文件。以 **Acceptance** 的 Then 条件为目标，**Approach** 为推荐路径（可偏离），**Verification** 命令为 done 标准。
+1. 重读对应的 `slices/S-NNN.md` task 文件和 PRD 的 `Technical Framing` 段。以 **Acceptance** 的 Then 条件为当前目标，**Approach** 为推荐路径（可偏离），**Verification** 描述为 done 标准。
 2. 按 PRD Testing strategy 档位实现 + 测试（TDD：先测后写；核心路径：实现后补关键路径 + 边界；最小验收：happy path 跑通）。
-3. 运行 task 文件的 Verification 命令，确认通过。
+3. 运行或验证 task 文件的 Verification 描述——能自动化的跑命令，不能自动化的检查代码路径是否完整实现了该行为。
 4. 对账：Acceptance 的每条 Then 是否有对应可观测产物？特别注意 negative invariant——只证 positive action 不算对账通过。
 5. `sdd-arbor mark-slice <package> --id S-NNN --status done`；有差距用 `--status in_progress --note "<差距>"` 继续做，或接受妥协在最后 record 时写 `--concern`。
 

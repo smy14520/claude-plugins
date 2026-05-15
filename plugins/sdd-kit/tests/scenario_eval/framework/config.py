@@ -57,6 +57,7 @@ class ScenarioConfig:
     workflows: list[str] = field(default_factory=lambda: ["sdd-full", "direct"])
     project_brief: str = ""
     org_context: str = DEFAULT_ORG_CONTEXT
+    impl_instruction: str = ""  # extra instruction appended to impl prompt
     timeouts: TimeoutConfig = field(default_factory=TimeoutConfig)
     checks: ChecksConfig = field(default_factory=ChecksConfig)
     evaluation: EvaluationConfig = field(default_factory=EvaluationConfig)
@@ -148,6 +149,7 @@ def load_scenario(name: str) -> ScenarioConfig:
         workflows=raw.get("workflows", ["sdd-full", "direct"]),
         project_brief=raw.get("project_brief", ""),
         org_context=raw.get("org_context", DEFAULT_ORG_CONTEXT),
+        impl_instruction=raw.get("impl_instruction", ""),
         timeouts=timeouts,
         checks=checks,
         evaluation=evaluation,
