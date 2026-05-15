@@ -103,6 +103,28 @@ class ArborCliTests(unittest.TestCase):
         self.assertEqual(result.returncode, 0, result.stderr)
         return json.loads(result.stdout)
 
+    def record_all_required_checks(self, name="demo-package"):
+        self.assertEqual(self.run_cli("derive-required-checks", name, "--json"), 0)
+        data = self.task_json(name)
+        check_ids = []
+        for required in data["required_checks"]:
+            self.assertEqual(
+                self.run_cli(
+                    "run-check",
+                    name,
+                    "--required-check",
+                    required["id"],
+                    "--json",
+                    "--",
+                    sys.executable,
+                    "-c",
+                    "pass",
+                ),
+                0,
+            )
+            check_ids.append(self.task_json(name)["checks"][-1]["id"])
+        return check_ids
+
     def _create_slice_tasks(self, name="demo-package"):
         slices_dir = self.root / ".arbor" / "tasks" / name / "slices"
         slices_dir.mkdir(parents=True, exist_ok=True)
@@ -490,15 +512,113 @@ class ArborCliTests(unittest.TestCase):
         self.assertEqual(data["prd"]["status"], "draft")
         self.assertEqual(data["package_sizing"]["status"], "unchecked")
 
+    def test_required_checks_and_run_check_record_evidence(self):
+        self.finalize_single()
+        self.assertEqual(self.run_cli("derive-required-checks", "demo-package", "--json"), 0)
+        data = self.task_json()
+        self.assertEqual([item["id"] for item in data["required_checks"]], ["req_S001_001", "req_S002_001"])
+        self.assertEqual(data["required_checks"][0]["kind"], "test")
+        self.assertEqual(
+            self.run_cli(
+                "run-check",
+                "demo-package",
+                "--required-check",
+                "req_S001_001",
+                "--json",
+                "--",
+                sys.executable,
+                "-c",
+                "print('ok')",
+            ),
+            0,
+        )
+        data = self.task_json()
+        check = data["checks"][0]
+        self.assertEqual(check["status"], "passed")
+        self.assertEqual(check["required_check"], "req_S001_001")
+        self.assertEqual(check["exit_code"], 0)
+        self.assertTrue((self.package_dir() / check["stdout_path"]).exists())
+        self.assertTrue((self.package_dir() / check["stderr_path"]).exists())
+
+    def test_done_rejects_missing_or_manual_automated_required_checks(self):
+        self.finalize_single()
+        self.assertEqual(self.run_cli("derive-required-checks", "demo-package"), 0)
+        self.assertEqual(
+            self.run_cli(
+                "record-check",
+                "demo-package",
+                "--required-check",
+                "req_S001_001",
+                "--status",
+                "passed",
+                "--evidence",
+                "claimed manually",
+            ),
+            0,
+        )
+        manual_check = self.task_json()["checks"][0]["id"]
+        self.assertEqual(
+            self.run_cli(
+                "record-impl-result",
+                "demo-package",
+                "--state",
+                "done",
+                "--summary",
+                "implemented",
+                "--acceptance",
+                "S-001 done",
+                "--acceptance",
+                "S-002 done",
+                "--check",
+                manual_check,
+            ),
+            1,
+        )
+        self.assertIsNone(self.task_json().get("impl_result"))
+
+    def test_blocked_check_requires_reason_and_evidence(self):
+        self.finalize_single()
+        self.assertEqual(self.run_cli("derive-required-checks", "demo-package"), 0)
+        self.assertEqual(
+            self.run_cli(
+                "record-check",
+                "demo-package",
+                "--required-check",
+                "req_S001_001",
+                "--status",
+                "blocked",
+                "--reason",
+                "Docker unavailable",
+            ),
+            1,
+        )
+        self.assertEqual(
+            self.run_cli(
+                "record-check",
+                "demo-package",
+                "--required-check",
+                "req_S001_001",
+                "--status",
+                "blocked",
+                "--reason",
+                "Docker unavailable",
+                "--evidence",
+                "docker info exit_code=1",
+            ),
+            0,
+        )
+
     def test_record_impl_result_routes_structured_results(self):
         self.finalize_single()
-        self.assertEqual(self.run_cli("record-impl-result", "demo-package", "--state", "done_with_concerns", "--summary", "implemented behavior", "--acceptance", "S-001 golden path passes", "--acceptance", "S-002 validation passes", "--command", "pytest tests/test_demo.py", "--concern", "edge case needs review", "--json"), 0)
+        check_ids = self.record_all_required_checks()
+        self.assertEqual(self.run_cli("record-impl-result", "demo-package", "--state", "done_with_concerns", "--summary", "implemented behavior", "--acceptance", "S-001 golden path passes", "--acceptance", "S-002 validation passes", "--check", check_ids[0], "--check", check_ids[1], "--concern", "edge case needs review", "--json"), 0)
         data = self.task_json()
         self.assertEqual(data["state"], "done")
         self.assertEqual(data["impl_result"]["state"], "DONE_WITH_CONCERNS")
         self.assertEqual(data["impl_result"]["acceptance"], ["S-001 golden path passes", "S-002 validation passes"])
         self.assertEqual(data["impl_result"]["acceptance_coverage"]["S-001"], ["S-001 golden path passes"])
-        self.assertEqual(data["impl_result"]["commands"], ["pytest tests/test_demo.py"])
+        self.assertEqual(data["impl_result"]["checks"], check_ids)
+        self.assertEqual(data["impl_result"]["check_coverage"]["req_S001_001"]["status"], "passed")
         self.assertEqual(data["impl_result"]["concerns"], ["edge case needs review"])
         self.assertEqual(data["next_action"]["skill"], "review")
         self.assertEqual(data["phase_history"][-1]["phase"], "impl")
@@ -646,6 +766,7 @@ class ArborCliTests(unittest.TestCase):
 - 完成标志：validation passes
 """
         spec = {"kind": "single", "name": "demo-package", "title": "Demo", "prd": multi_marker_prd}
+        self._create_slice_tasks()
         self.assertEqual(
             self.run_cli(
                 "finalize-brainstorm",
@@ -655,6 +776,7 @@ class ArborCliTests(unittest.TestCase):
             ),
             0,
         )
+        check_ids = self.record_all_required_checks()
         self.assertEqual(
             self.run_cli(
                 "record-impl-result",
@@ -671,6 +793,10 @@ class ArborCliTests(unittest.TestCase):
                 "S-001.3: 重复报名 returns 409",
                 "--acceptance",
                 "S-002: validation passes",
+                "--check",
+                check_ids[0],
+                "--check",
+                check_ids[1],
             ),
             0,
         )
@@ -691,7 +817,8 @@ class ArborCliTests(unittest.TestCase):
 
     def test_record_review_stores_package_verdict_and_appends_review_md(self):
         self.finalize_single()
-        self.run_cli("record-impl-result", "demo-package", "--state", "done", "--summary", "implemented", "--acceptance", "S-001 implemented", "--acceptance", "S-002 validated")
+        check_ids = self.record_all_required_checks()
+        self.run_cli("record-impl-result", "demo-package", "--state", "done", "--summary", "implemented", "--acceptance", "S-001 implemented", "--acceptance", "S-002 validated", "--check", check_ids[0], "--check", check_ids[1])
         before = (self.package_dir() / "review.md").read_text(encoding="utf-8")
         self.assertEqual(self.run_cli("record-review", "demo-package", "--state", "approved_with_notes", "--summary", "approved", "--evidence", "unit tests pass", "--note", "keep an eye on edge", "--json"), 0)
         data = self.task_json()
@@ -773,7 +900,8 @@ class ArborCliTests(unittest.TestCase):
     def test_module_summary_has_stable_non_line_locators(self):
         self.finalize_single()
         self.run_cli("mark-slice", "demo-package", "--id", "S-001", "--status", "done")
-        self.run_cli("record-impl-result", "demo-package", "--state", "done", "--summary", "implemented", "--acceptance", "S-001 implemented", "--acceptance", "S-002 validated", "--command", "python -m unittest tests/test_demo.py")
+        check_ids = self.record_all_required_checks()
+        self.run_cli("record-impl-result", "demo-package", "--state", "done", "--summary", "implemented", "--acceptance", "S-001 implemented", "--acceptance", "S-002 validated", "--check", check_ids[0], "--check", check_ids[1])
         packet = arbor.module_summary(self.root, "demo-package", NOW)
         self.assertEqual(packet["kind"], "module-summary")
         self.assertEqual(packet["schema_version"], "sdd-module-summary-v1")
@@ -787,7 +915,7 @@ class ArborCliTests(unittest.TestCase):
         self.assertIn("src/demo.py", packet["important_files"])
         self.assertIn("app/demo/page.tsx", packet["important_files"])
         self.assertIn("tests/test_demo.py::test_baseline", packet["tests"])
-        self.assertIn("python -m unittest tests/test_demo.py", packet["tests"])
+        self.assertTrue(any(item.endswith("python -c pass") for item in packet["tests"]))
         self.assertEqual(packet["contracts"][0]["completion_marker"], "baseline behavior created and verified")
         self.assertEqual(packet["implementation"]["state"], "DONE")
         self.assertNotIn(":12", json.dumps(packet))

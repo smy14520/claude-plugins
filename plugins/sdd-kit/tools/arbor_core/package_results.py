@@ -5,6 +5,7 @@ from typing import Any
 
 from .errors import ArborError
 from .fs import load_package, save_package
+from .package_checks import validate_impl_checks
 from .prd_slices import collect_marker_ids_from_text, parse_prd_slices
 from .schema import SLICE_ID_RE, SLICE_STATUSES
 from .state import add_phase_history, route_package_state
@@ -127,6 +128,7 @@ def record_impl_result(
     summary: str,
     acceptance: list[str],
     commands: list[str],
+    checks: list[str],
     concerns: list[str],
     actor: str,
     timestamp: str,
@@ -138,16 +140,23 @@ def record_impl_result(
     pkg, data = load_package(root, name)
     old = data.get("state")
     acceptance_items = [item for item in acceptance if item]
+    check_items = [item for item in checks if item]
     result = {
         "state": _state_label(state),
         "at": timestamp,
         "summary": summary.strip(),
         "acceptance": acceptance_items,
         "commands": [item for item in commands if item],
+        "checks": check_items,
         "concerns": [item for item in concerns if item],
     }
     if state in {"done", "done_with_concerns"}:
         result["acceptance_coverage"] = _acceptance_coverage(pkg, acceptance_items)
+        check_result = validate_impl_checks(pkg, data, state, check_items, timestamp)
+        result["check_coverage"] = check_result["check_coverage"]
+        incomplete = check_result["incomplete_required_checks"]
+        if incomplete:
+            result["incomplete_required_checks"] = incomplete
     data["impl_result"] = result
     if state in {"done", "done_with_concerns"}:
         route_package_state(data, "done", timestamp, actor, summary.strip())

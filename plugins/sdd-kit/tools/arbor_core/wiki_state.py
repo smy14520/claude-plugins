@@ -402,11 +402,18 @@ def module_summary(root: Path, package: str, timestamp: str | None = None) -> di
     for command in impl_result.get("commands", []) if isinstance(impl_result.get("commands"), list) else []:
         if isinstance(command, str) and command not in tests:
             tests.append(command)
+    check_ids = impl_result.get("checks", []) if isinstance(impl_result.get("checks"), list) else []
+    for check in data.get("checks", []) if isinstance(data.get("checks"), list) else []:
+        if not isinstance(check, dict) or check.get("id") not in check_ids:
+            continue
+        command = check.get("command")
+        if isinstance(command, str) and command not in tests:
+            tests.append(command)
     verification = [{"ok": not errors, "source": "validate_package", "errors": errors}]
     if prd_errors:
         verification.append({"ok": False, "source": "parse_prd_slices", "errors": prd_errors})
     if impl_result:
-        verification.append({"ok": True, "source": "impl_result", "state": impl_result.get("state"), "commands": impl_result.get("commands", [])})
+        verification.append({"ok": True, "source": "impl_result", "state": impl_result.get("state"), "commands": impl_result.get("commands", []), "checks": impl_result.get("checks", [])})
     return {
         "kind": "module-summary",
         "schema_version": "sdd-module-summary-v1",
@@ -425,6 +432,8 @@ def module_summary(root: Path, package: str, timestamp: str | None = None) -> di
             "state": impl_result.get("state"),
             "acceptance": impl_result.get("acceptance", []),
             "commands": impl_result.get("commands", []),
+            "checks": impl_result.get("checks", []),
+            "check_coverage": impl_result.get("check_coverage", {}),
             "concerns": impl_result.get("concerns", []),
         },
         "verification": verification,

@@ -17,6 +17,7 @@ if str(TOOLS_DIR) not in sys.path:
 from arbor_core.brainstorm_finalize import finalize_brainstorm  # noqa: E402
 from arbor_core.cli import build_parser, main  # noqa: E402
 from arbor_core.doctor import doctor  # noqa: E402
+from arbor_core.package_checks import derive_required_checks, record_check, run_check  # noqa: E402
 from arbor_core.package_results import record_impl_result, record_review  # noqa: E402
 from arbor_core.package_state import list_packages, show_package  # noqa: E402
 from arbor_core.validation import validate_package  # noqa: E402

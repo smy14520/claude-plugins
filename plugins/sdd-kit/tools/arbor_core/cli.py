@@ -22,6 +22,9 @@ PUBLIC_COMMANDS = (
     "doctor",
     "set-status",
     "mark-slice",
+    "derive-required-checks",
+    "run-check",
+    "record-check",
     "record-impl-result",
     "record-review",
     "add-amendment",
@@ -109,10 +112,40 @@ def build_parser() -> argparse.ArgumentParser:
     record_impl.add_argument("--state", required=True)
     record_impl.add_argument("--summary", required=True)
     record_impl.add_argument("--acceptance", action="append", default=[])
-    record_impl.add_argument("--command", dest="commands", action="append", default=[])
+    record_impl.add_argument("--command", dest="commands", action="append", default=[], help="Legacy note only; use --check for verification evidence.")
+    record_impl.add_argument("--check", dest="checks", action="append", default=[], help="Check evidence id produced by run-check or record-check.")
     record_impl.add_argument("--concern", action="append", default=[])
     record_impl.add_argument("--actor", default="impl")
     record_impl.add_argument("--json", dest="json_output", action="store_true", help="Emit JSON output.")
+
+    derive_checks_parser = _public_command(sub, "derive-required-checks", help="Derive required verification checks from slice task files.")
+    derive_checks_parser.add_argument("name")
+    derive_checks_parser.add_argument("--actor", default="impl")
+    derive_checks_parser.add_argument("--json", dest="json_output", action="store_true", help="Emit JSON output.")
+
+    run_check_parser = _public_command(sub, "run-check", help="Run a verification command and record check evidence.")
+    run_check_parser.add_argument("name")
+    run_check_parser.add_argument("--required-check")
+    run_check_parser.add_argument("--kind")
+    run_check_parser.add_argument("--slice", dest="slice_id")
+    run_check_parser.add_argument("--cwd", default=".")
+    run_check_parser.add_argument("--timeout", type=int, default=120)
+    run_check_parser.add_argument("--actor", default="impl")
+    run_check_parser.add_argument("--json", dest="json_output", action="store_true", help="Emit JSON output.")
+
+    record_check_parser = _public_command(sub, "record-check", help="Record manual, blocked, or externally observed check evidence.")
+    record_check_parser.add_argument("name")
+    record_check_parser.add_argument("--required-check")
+    record_check_parser.add_argument("--kind")
+    record_check_parser.add_argument("--slice", dest="slice_id")
+    record_check_parser.add_argument("--status", required=True, choices=sorted(CHECK_STATUSES))
+    record_check_parser.add_argument("--summary", default="")
+    record_check_parser.add_argument("--evidence", action="append", default=[])
+    record_check_parser.add_argument("--reason", default="")
+    record_check_parser.add_argument("--command", dest="check_command")
+    record_check_parser.add_argument("--exit-code", type=int)
+    record_check_parser.add_argument("--actor", default="impl")
+    record_check_parser.add_argument("--json", dest="json_output", action="store_true", help="Emit JSON output.")
 
     mark_slice_parser = _public_command(sub, "mark-slice", help="Update slice progress in task.json.")
     mark_slice_parser.add_argument("name")
@@ -241,7 +274,16 @@ def build_parser() -> argparse.ArgumentParser:
 
 def main(argv: list[str] | None = None) -> int:
     parser = build_parser()
-    args = parser.parse_args(argv)
+    command_args: list[str] = []
+    parse_argv = argv
+    if argv is not None and "run-check" in argv:
+        command_index = argv.index("run-check")
+        tail = argv[command_index + 1:]
+        if "--" in tail:
+            separator_index = tail.index("--")
+            command_args = tail[separator_index + 1:]
+            parse_argv = argv[: command_index + 1 + separator_index]
+    args = parser.parse_args(parse_argv)
     root = args.root.resolve()
     timestamp = now_iso(args.now)
     json_output = getattr(args, "json_output", False) or args.json
@@ -317,11 +359,37 @@ def main(argv: list[str] | None = None) -> int:
             return 0
 
         if args.command == "record-impl-result":
-            result = record_impl_result(root, args.name, args.state, args.summary, args.acceptance, args.commands, args.concern, args.actor, timestamp)
+            result = record_impl_result(root, args.name, args.state, args.summary, args.acceptance, args.commands, args.checks, args.concern, args.actor, timestamp)
             if json_output:
                 print(json.dumps(result, ensure_ascii=False, indent=2))
             else:
                 print("ok")
+            return 0
+
+        if args.command == "derive-required-checks":
+            result = derive_required_checks(root, args.name, args.actor, timestamp)
+            if json_output:
+                print(json.dumps(result, ensure_ascii=False, indent=2))
+            else:
+                print(f"required checks: {len(result['required_checks'])}")
+            return 0
+
+        if args.command == "run-check":
+            result = run_check(root, args.name, args.required_check, args.kind, args.slice_id, args.cwd, args.timeout, command_args, args.actor, timestamp)
+            if json_output:
+                print(json.dumps(result, ensure_ascii=False, indent=2))
+            else:
+                check = result["check"]
+                print(f"{check['id']}: {check['status']}")
+            return 0 if result["check"]["status"] == "passed" else 1
+
+        if args.command == "record-check":
+            result = record_check(root, args.name, args.required_check, args.kind, args.slice_id, args.status, args.summary, args.evidence, args.reason, args.check_command, args.exit_code, args.actor, timestamp)
+            if json_output:
+                print(json.dumps(result, ensure_ascii=False, indent=2))
+            else:
+                check = result["check"]
+                print(f"{check['id']}: {check['status']}")
             return 0
 
         if args.command == "mark-slice":

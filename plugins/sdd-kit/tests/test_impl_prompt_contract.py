@@ -37,7 +37,11 @@ class ImplPromptContractTests(unittest.TestCase):
 
         self.assertIn("record-impl-result", text)
         self.assertIn("self-check", text)
-        self.assertIn("未运行可用 self-check，不得声称 DONE", text)
+        self.assertIn("derive-required-checks", text)
+        self.assertIn("run-check", text)
+        self.assertIn("record-check", text)
+        self.assertIn("DONE 必须逐项引用 passed check evidence", text)
+        self.assertIn("`--command` 仅为 legacy note，不是 verification evidence", text)
         self.assertIn("DONE_WITH_CONCERNS", text)
 
 
