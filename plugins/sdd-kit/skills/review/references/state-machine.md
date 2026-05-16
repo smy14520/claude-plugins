@@ -1,12 +1,12 @@
 # 四态审查状态机
 
-Review 衡量的是：**actual diff 是否在语义上满足 package PRD scope、Acceptance Criteria、Technical Framing 与 PRD 引用的承重命令**。Review verdict 不等于 PR approval、merge 或 release。
+Review 衡量的是：**actual diff 是否在语义上满足 package PRD scope、Acceptance Criteria、Technical Framing 与 required check evidence**。Review verdict 不等于 PR approval、merge 或 release。
 
 四态选哪个由 SKILL.md 「Verdict 决策树」按顺序判定，本文件只描述每态的语义边界与 CLI 入参。
 
 ## APPROVED
 
-**含义**：所有 slice 完成标志已对账（实现 + 测试 + 承重命令均到位），且 `impl_result.concerns` 与你 audit 出的妥协数一致，无遗漏 concern。
+**含义**：所有 slice 完成标志已对账（实现 + 测试 / check evidence 均到位），且 `impl_result.concerns` 与你 audit 出的妥协数一致，无遗漏 concern。
 
 CLI: `--state approved`
 
@@ -21,8 +21,8 @@ CLI: `--state approved_with_notes`
 **含义**：diff 与 PRD / impl evidence 之间存在语义缺口。常见触发条件：
 
 - 任一 slice 完成标志在 diff 中找不到对应实现；
-- 任一 slice 完成标志没有对应测试断言（且非纯展示）；
-- PRD 引用的承重命令未在 `impl_result.commands` 字段；
+- 任一 slice 完成标志没有对应测试断言或 check evidence（且非纯展示）；
+- 任一 required_check 没有 passed evidence，或 automated check 缺 `run-check` exit_code=0；
 - impl 漏了 ≥3 条 concern。
 
 Impl 必须按 review 报告里的「缺口」列重新处理当前 package。
