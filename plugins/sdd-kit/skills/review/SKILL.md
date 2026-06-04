@@ -9,11 +9,9 @@ description: "Audit one sdd-kit package PRD scope after impl. Reads PRD + impl e
 
 Arbor helper 入口、路径和常用命令见 [`../references/arbor-helper.md`](../references/arbor-helper.md)；运行前遵守其中约定。
 
-Review 检查 impl 的 DONE 声明是否真正满足 package PRD。它不是普通 code review、PR approval、自动修复器或 Team Auto panel。
+Review 检查 impl 的 DONE 声明是否真正满足 package PRD。它不是普通 code review、PR approval、自动修复器或自动修复面板。
 
-## Team Auto handoff
-
-如果用户明确要求 Team Auto / 多 agent / review panel，先使用 `team-auto` 选择阵型；Team 完成后主会话再按本 skill 给最终 verdict。
+如果用户明确要求多 reviewer / review panel，主会话可按 Claude Code 原生 workflow、subagent 或 Agent Team 能力自行编排；最终 verdict 仍按本 skill 的输入、审计流程和决策树收口。
 
 ## 输入
 
