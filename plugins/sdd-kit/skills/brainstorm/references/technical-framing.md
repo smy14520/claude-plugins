@@ -8,7 +8,9 @@
 
 - **Existing stack / framework**:沿用什么、不能引入什么。
 - **Auth / permissions**:谁能做什么,权限边界在哪里。
-- **Module / service boundaries**:按项目类型记录承重边界,例如页面、API、service、CLI、脚本、引擎子系统、模型 / 特征管线或设备接口。
+- **Implementation Shape / 实现形态**:本次实现应贴近哪些既有代码形态;功能如何由页面、组件、API、service、状态、数据层或运行时子系统组装;哪些职责不能混在一起。优先参考 repo / framework 已有成功形态;没有既有形态时,给出最小可维护结构。不要写成详细实现步骤或逐文件任务清单。
+- **Ownership / 责任归属**:哪一层 owns 哪些规则、状态和能力,例如权限、统计、导出、同步、缓存、渲染或交互状态。
+- **Source of truth / 事实源**:当 UI、API、数据库、缓存、配置或测试都能表达同一事实时,以谁为准。
 - **Data model / persistence**:新增 / 修改状态、数据结构、表、缓存、文件格式、迁移、幂等或版本兼容要求;结构较多时使用 package artifact 承载草案级 contract。
 - **Admin / ops surface**:管理后台、配置、观测、回滚入口。
 - **External integrations**:第三方、队列、支付、邮件、AI API 等边界。

@@ -10,7 +10,7 @@
   "plugins": [
     {
       "name": "sdd-kit",
-      "description": "PRD-first SDD workflow: brainstorm writes package PRD with technical framing, impl executes PRD scope, review audits. Supports ordered child package materialization, deterministic .arbor package state, and .wiki orientation notes. Skills: research / brainstorm / impl / review / wiki. Skill-first, no fixed agents; user controls transitions.",
+      "description": "PRD-first SDD workflow: brainstorm writes package PRD with technical framing and ordered slices, impl executes PRD scope, review audits. Deterministic .arbor package state and .wiki orientation notes. Skills: research / brainstorm / impl / review / wiki / doctor / rules.",
       "version": "0.6.0",
       "source": "./plugins/sdd-kit",
       "category": "development",

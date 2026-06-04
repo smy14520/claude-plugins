@@ -40,7 +40,7 @@ def evaluate(payload: dict[str, Any]) -> dict[str, Any]:
         if DESTRUCTIVE_RE.search(command):
             return {
                 "decision": "block",
-                "reason": "Destructive command detected; ask for explicit user authorization and prefer a safer helper if possible.",
+                "reason": "Destructive command detected; use a narrower safer helper or command instead.",
             }
     return {"decision": "allow"}
 
@@ -51,7 +51,9 @@ def main() -> int:
         result = evaluate(payload)
     except Exception as exc:  # pragma: no cover - hook should fail closed softly
         result = {"decision": "allow", "reason": f"arbor_guard could not parse payload: {exc}"}
-    print(json.dumps(result, ensure_ascii=False))
+    if result.get("decision") == "block":
+        print(result.get("reason", "Blocked by arbor guard"), file=sys.stderr)
+        return 2
     return 0
 
 

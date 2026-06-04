@@ -89,10 +89,9 @@ Impl / review 的结果状态是记录，不是 top-level state：
 用 review skill 审计 <package>
 用 wiki skill query / ingest / lint <content>
 用 doctor 检查当前 sdd-kit 项目状态
-这个 review 用 Team Auto 开多 agent 看看
 ```
 
-Slash command：`/sdd-kit:research`、`/sdd-kit:brainstorm`、`/sdd-kit:impl`、`/sdd-kit:review`、`/sdd-kit:wiki`、`/sdd-kit:doctor`、`/sdd-kit:rules`、`/sdd-kit:team-auto`。
+Slash command：`/sdd-kit:research`、`/sdd-kit:brainstorm`、`/sdd-kit:impl`、`/sdd-kit:review`、`/sdd-kit:wiki`、`/sdd-kit:doctor`、`/sdd-kit:rules`。
 
 ## `sdd-arbor` helper
 
@@ -120,10 +119,6 @@ sdd-arbor validate --all --json
 ```
 
 `create` 是低层 draft workspace helper，仅供 brainstorm seed `.arbor/tasks/<package>/prd.md` 草稿时使用；ready package 与 PRD readiness 统一走 `finalize-brainstorm`。`set-package-sizing` / `set-prd-status` 是 helper 内部命令，非日常入口。
-
-## Team Auto
-
-`team-auto` 是会话层 Agent Team playbook，不是 workflow 阶段，也不是 parallel runtime。只有用户明确说 Team Auto / 多 agent / 开 team / 双推 / 辩论 / review panel 时才触发；默认先根据当前任务给 2–4 个定制阵型选项。
 
 ## 设计原则
 
