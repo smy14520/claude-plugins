@@ -66,6 +66,17 @@ class ArborCliTests(unittest.TestCase):
     def run_bin(self, *args):
         return subprocess.run([str(BIN_PATH), "--root", str(self.root), "--now", NOW, *args], cwd=self.root, stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True, check=False)
 
+    def run_hook(self, payload):
+        return subprocess.run(
+            [sys.executable, str(HOOK_PATH)],
+            cwd=self.root,
+            input=json.dumps(payload),
+            stdout=subprocess.PIPE,
+            stderr=subprocess.PIPE,
+            text=True,
+            check=False,
+        )
+
     def package_dir(self, name="demo-package"):
         return self.root / ".arbor" / "tasks" / name
 
@@ -271,6 +282,7 @@ class ArborCliTests(unittest.TestCase):
 - Q: old question
 """
         spec = {"kind": "single", "name": "demo-package", "title": "Demo package", "prd": prd}
+        self._create_slice_tasks("demo-package")
         self.assertEqual(self.run_cli("finalize-brainstorm", "--input-json", json.dumps(spec)), 0)
         prd_text = (self.package_dir() / "prd.md").read_text(encoding="utf-8")
         self.assertIn("## Slices", prd_text)
@@ -301,6 +313,7 @@ class ArborCliTests(unittest.TestCase):
             "prd": prd_with_frontmatter,
             "decision": "single package with PRD-local Slices",
         }
+        self._create_slice_tasks("demo-package")
         self.assertEqual(
             self.run_cli("finalize-brainstorm", "--input-json", json.dumps(spec)),
             0,
@@ -338,6 +351,14 @@ class ArborCliTests(unittest.TestCase):
 
         self.assertEqual((self.package_dir() / "prd.md").read_text(encoding="utf-8"), READY_PRD)
         self.assertEqual(self.task_json()["prd"]["status"], "ready")
+
+    def test_finalize_brainstorm_requires_slice_task_files_before_finalize(self):
+        spec = {"kind": "single", "name": "demo-package", "title": "Demo package", "prd": READY_PRD}
+        result = self.run_bin("finalize-brainstorm", "--input-json", json.dumps(spec))
+
+        self.assertEqual(result.returncode, 1)
+        self.assertIn("slices/ directory does not exist", result.stderr)
+        self.assertFalse(self.package_dir().exists())
 
     def test_finalize_brainstorm_rejects_parent_child_package_splitting(self):
         spec = {
@@ -633,6 +654,18 @@ class ArborCliTests(unittest.TestCase):
         self.assertEqual(self.run_cli("record-impl-result", "demo-package", "--state", "done", "--summary", "implemented", "--acceptance", "All slices done"), 1)
         self.assertIsNone(self.task_json().get("impl_result"))
 
+    def _create_multi_marker_slice_tasks(self, name="demo-package"):
+        slices_dir = self.root / ".arbor" / "tasks" / name / "slices"
+        slices_dir.mkdir(parents=True, exist_ok=True)
+        (slices_dir / "S-001.md").write_text(
+            "# S-001: Registration with duplicate guard\n\n## Acceptance\n\nGiven:\n- setup\n\nWhen:\n- register\n\nThen:\n- registered\n- can cancel\n- duplicate blocked\n\n## Verification\n\n- run tests\n",
+            encoding="utf-8",
+        )
+        (slices_dir / "S-002.md").write_text(
+            "# S-002: Self-check\n\n## Acceptance\n\nGiven:\n- baseline\n\nWhen:\n- validate\n\nThen:\n- passes\n\n## Verification\n\n- run validation\n",
+            encoding="utf-8",
+        )
+
     def test_multi_marker_slice_rejects_bare_slice_id_coverage(self):
         """Multi-marker slices must be covered granularly — bare `S-NNN` does not suffice.
 
@@ -666,6 +699,7 @@ class ArborCliTests(unittest.TestCase):
             "title": "Demo",
             "prd": multi_marker_prd,
         }
+        self._create_multi_marker_slice_tasks("demo-package")
         self.assertEqual(
             self.run_cli(
                 "finalize-brainstorm",
@@ -715,6 +749,7 @@ class ArborCliTests(unittest.TestCase):
 - 完成标志：validation passes
 """
         spec = {"kind": "single", "name": "demo-package", "title": "Demo", "prd": multi_marker_prd}
+        self._create_multi_marker_slice_tasks("demo-package")
         self.assertEqual(
             self.run_cli(
                 "finalize-brainstorm",
@@ -915,7 +950,7 @@ class ArborCliTests(unittest.TestCase):
         self.assertIn("src/demo.py", packet["important_files"])
         self.assertIn("app/demo/page.tsx", packet["important_files"])
         self.assertIn("tests/test_demo.py::test_baseline", packet["tests"])
-        self.assertTrue(any(item.endswith("python -c pass") for item in packet["tests"]))
+        self.assertTrue(any(item.endswith("-c pass") for item in packet["tests"]))
         self.assertEqual(packet["contracts"][0]["completion_marker"], "baseline behavior created and verified")
         self.assertEqual(packet["implementation"]["state"], "DONE")
         self.assertNotIn(":12", json.dumps(packet))
@@ -1247,8 +1282,20 @@ last_updated: 2026-05-07
     def test_arbor_guard_blocks_destructive_bash_and_allows_safe_tools(self):
         blocked = arbor_guard.evaluate({"tool_name": "Bash", "tool_input": {"command": "git reset --hard HEAD"}})
         self.assertEqual(blocked["decision"], "block")
+        self.assertIn("narrower safer", blocked["reason"])
         allowed = arbor_guard.evaluate({"tool_name": "Read", "tool_input": {"file_path": str(self.root / "README.md")}})
         self.assertEqual(allowed["decision"], "allow")
+
+    def test_arbor_guard_hook_contract_uses_exit_code_and_stderr(self):
+        blocked = self.run_hook({"tool_name": "Bash", "tool_input": {"command": "git reset --hard HEAD"}})
+        self.assertEqual(blocked.returncode, 2)
+        self.assertEqual(blocked.stdout, "")
+        self.assertIn("narrower safer", blocked.stderr)
+
+        allowed = self.run_hook({"tool_name": "Bash", "tool_input": {"command": "git status --short"}})
+        self.assertEqual(allowed.returncode, 0)
+        self.assertEqual(allowed.stdout, "")
+        self.assertEqual(allowed.stderr, "")
 
 
 if __name__ == "__main__":

@@ -209,9 +209,7 @@ class BrainstormScenarioTests(unittest.TestCase):
 
     def test_slices_count_reasonable(self):
         """Should have at least 3 slices for this scenario."""
-        slice_count = self.prd_text.count("- [ ] S-")
-        # Also count completed slices in case brainstorm marks some
-        slice_count += self.prd_text.count("- [x] S-")
+        slice_count = len(re.findall(r"^### S-\d{3}:", self.prd_text, re.MULTILINE))
         self.assertGreaterEqual(slice_count, 3,
                                 f"Expected at least 3 slices, got {slice_count}")
 

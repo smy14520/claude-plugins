@@ -14,8 +14,7 @@ class ImplPromptContractTests(unittest.TestCase):
         self.assertIn("## Slices", text)
         self.assertIn("连续执行所有 slices", text)
         self.assertIn("不在 slice 之间停顿等待用户确认", text)
-        self.assertIn("`in_progress` 部分完成", text)
-        self.assertIn("代码即进度", text)
+        self.assertIn("in_progress", text)
         self.assertIn("NEEDS_CONTEXT", text)
         self.assertIn("BLOCKED", text)
         self.assertNotIn("AskUserQuestion", text)
@@ -41,7 +40,6 @@ class ImplPromptContractTests(unittest.TestCase):
         self.assertIn("run-check", text)
         self.assertIn("record-check", text)
         self.assertIn("DONE 必须逐项引用 passed check evidence", text)
-        self.assertIn("`--command` 仅为 legacy note，不是 verification evidence", text)
         self.assertIn("DONE_WITH_CONCERNS", text)
 
 

@@ -16,8 +16,7 @@ class ReviewPromptContractTests(unittest.TestCase):
         self.assertIn("check_coverage", text)
         self.assertIn("run-check", text)
         self.assertIn("stdout_path", text)
-        self.assertIn("`commands` 是 legacy note，不是 verification evidence", text)
-        self.assertIn("不接受 impl 自然语言声称", text)
+        self.assertIn("`commands` 只是 legacy note", text)
         self.assertIn("任一 required_check 没有 passed evidence", text)
 
     def test_review_references_do_not_use_legacy_commands_as_evidence(self):

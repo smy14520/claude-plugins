@@ -187,9 +187,9 @@ _TASK_VERIFICATION_RE = re.compile(r"^## Verification\b", re.MULTILINE)
 def validate_slice_tasks(root: Path, package_name: str, slice_ids: list[str]) -> list[str]:
     """Validate that each slice has a corresponding task file with required sections.
 
-    Returns errors if the slices/ directory exists but is missing files or sections.
-    If the package directory or slices/ directory does not exist yet, returns no errors
-    (the directory will be created during brainstorm and validated at finalize time).
+    Returns errors if slice task files are missing or lack required sections.
+    When the PRD defines slices but the slices/ directory does not exist,
+    returns an error requiring brainstorm to create the task files first.
     """
     from .fs import package_dir
 
@@ -197,9 +197,9 @@ def validate_slice_tasks(root: Path, package_name: str, slice_ids: list[str]) ->
     pkg_dir = package_dir(root, package_name)
     slices_dir = pkg_dir / "slices"
 
-    # If the package or slices dir doesn't exist yet, skip validation
-    # (package will be created by create_package after this check)
     if not slices_dir.exists():
+        if slice_ids:
+            errors.append(f"slices/ directory does not exist but PRD defines {len(slice_ids)} slices; create slice task files before finalize")
         return errors
 
     for slice_id in slice_ids:
