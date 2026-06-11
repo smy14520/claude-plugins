@@ -50,10 +50,12 @@ Artifact 是 PRD 的附属 contract，用于压实大数据模型、协议或接
 
 ## 状态边界
 
-Top-level package lifecycle 只有五态：
+Top-level package lifecycle 只有六态：
 
 ```text
 draft → ready → doing → done → reviewed
+                                  ↓
+任意状态 ──────────────────→ archived
 ```
 
 Impl / review 的结果状态是记录，不是 top-level state：
@@ -70,11 +72,13 @@ Impl / review 的结果状态是记录，不是 top-level state：
 - review `APPROVED` / `APPROVED_WITH_NOTES` → package `reviewed`
 - review `NEEDS_REWORK` → package `doing`，下一步 `impl`
 - review `BRAINSTORM_DRIFT` → package `draft`，下一步 `brainstorm`
+- 任意状态 `archived` → package `archived`，不再推进；doctor 跳过
 
 ## 状态来源
 
 - `.arbor/`：workflow source of truth。package lifecycle、context、impl/review 结果都由 `sdd-arbor` helper 维护。
-- `.wiki/`：project-local orientation/index layer。用于 module note、summary、locator 和关联检索；实现或 review 前必须回到代码和 `.arbor` 验证。
+- `prd.md` 是需求的 prose source of truth；finalize 和每次进入 `doing`（PRD 冻结边界）时，`## Slices` 被编译进 `task.json` 的 `prd.slices`，运行时命令只读这份物化快照，不再解析 markdown。
+- `.wiki/`：project-local orientation/index layer，由独立 CLI `sdd-wiki` 维护。用于 module note、summary、locator 和关联检索；实现或 review 前必须回到代码和 `.arbor` 验证。
 - code：实现 source of truth。`impl` 改代码；`review` 审 diff；wiki 不替代代码事实。
 
 ## 常用入口
@@ -111,14 +115,15 @@ sdd-arbor <subcommand> --help
 sdd-arbor doctor
 sdd-arbor finalize-brainstorm --input-json '<json>'
 sdd-arbor set-status <package> --state doing --actor impl --note "..."
-sdd-arbor record-impl-result <package> --state done --summary "..." --acceptance "..." --command "..."
+sdd-arbor impl-packet <package> --slice S-001
+sdd-arbor record-impl-result <package> --state done --summary "..." --functional-check chk_001
 sdd-arbor record-review <package> --state approved --summary "..." --evidence "..."
 sdd-arbor module-summary <package> --json
-sdd-arbor wiki-collect --query "balance refund" --limit 5 --json
+sdd-wiki collect --query "balance refund" --limit 5 --json
 sdd-arbor validate --all --json
 ```
 
-`create` 是低层 draft workspace helper，仅供 brainstorm seed `.arbor/tasks/<package>/prd.md` 草稿时使用；ready package 与 PRD readiness 统一走 `finalize-brainstorm`。`set-package-sizing` / `set-prd-status` 是 helper 内部命令，非日常入口。
+`create` 是低层 draft workspace helper，仅供 brainstorm seed `.arbor/tasks/<package>/prd.md` 草稿时使用；ready package 与 PRD readiness 统一走 `finalize-brainstorm`。
 
 ## 设计原则
 

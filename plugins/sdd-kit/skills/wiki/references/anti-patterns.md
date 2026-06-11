@@ -8,7 +8,7 @@
 
 不要根据 wiki 直接改代码或下 review 结论。wiki 可以提示要读哪些文件、symbol、contract、测试；真正实施前必须验证当前代码和 `.arbor`。
 
-正确做法：`wiki-collect` → 读取相关页面 → 验证代码/`.arbor` → 决策。
+正确做法：`sdd-wiki collect` → 读取相关页面 → 验证代码/`.arbor` → 决策。
 
 ---
 
@@ -17,9 +17,9 @@
 不要为 `.wiki` 构建向量库。sdd-kit 的检索入口是 deterministic helper：
 
 ```text
-sdd-arbor wiki-index --json
-sdd-arbor wiki-search "<query>" --json
-sdd-arbor wiki-collect --query "<query>" --limit 5 --json
+sdd-wiki index --json
+sdd-wiki search "<query>" --json
+sdd-wiki collect --query "<query>" --limit 5 --json
 ```
 
 原因：frontmatter、tags、summary、wikilinks、locators 已经提供可解释检索路径；embedding 会引入不可解释噪声和额外维护成本。
@@ -72,7 +72,7 @@ PRD 可以引用 wiki cross-cut 页面（如 `新增导出`、`API 路由注册`
 - 核心 scope（做什么、为什么、验收）在 PRD 自包含。
 - wikilink 仅承担"防漏点"职责，不承担"做什么"职责。
 - PRD 写明 fallback：清单缺失或与现状不一致时 impl 调研代码逐一识别。
-- brainstorm 写引用前先 `wiki-collect --query "<keyword>"`，只引用结果中实际存在的 page title/path，不要凭记忆写 wikilink。
+- brainstorm 写引用前先 `sdd-wiki collect --query "<keyword>"`，只引用结果中实际存在的 page title/path，不要凭记忆写 wikilink。
 
 PRD 引用 wiki 的标准三层结构见 `page-types.md` "PRD 引用 wiki 的范式"。
 
@@ -86,7 +86,7 @@ Wiki skill 不自动调用 research/brainstorm/impl/review；其他 skill 也不
 
 ## AP9 — 缺少 description / summary
 
-没有 `description` 的页面会降低 `wiki-index/search/collect` 的可用性。新页面至少写 `title`、`description`、`tags`、`type`、`summary`。
+没有 `description` 的页面会降低 `sdd-wiki index/search/collect` 的可用性。新页面至少写 `title`、`description`、`tags`、`type`、`summary`。
 
 ---
 
@@ -109,4 +109,4 @@ Wiki skill 不自动调用 research/brainstorm/impl/review；其他 skill 也不
 - 内容**跨模块才有意义**（命名映射、规则比较、跨域联动） → single source 在 cross-cut page。
 - 两边都不复制完整内容，只 anchor。
 
-`wiki-lint` 的 `broken_wikilink` error 只检测目标页面是否存在，不检测 section anchor。被引用 section 的标题需要人工保持稳定；重命名前先 `grep -r "[[页面名]]"` 找出所有引用点同步更新。
+`sdd-wiki lint` 的 `broken_wikilink` error 只检测目标页面是否存在，不检测 section anchor。被引用 section 的标题需要人工保持稳定；重命名前先 `grep -r "[[页面名]]"` 找出所有引用点同步更新。

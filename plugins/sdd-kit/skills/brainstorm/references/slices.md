@@ -134,9 +134,12 @@ Then:
 
 ## Verification
 
-- <构建验证：项目能构建无报错>
-- <行为验证：描述可观测的行为结果，impl 自行决定用什么方式验证>
+- [build] <构建验证：项目能构建无报错>
+- [test] <行为验证：描述可观测的行为结果>
+- [manual] <只能人工观察的验证>
 ```
+
+每条 Verification 项必须带 `[kind]` 标签（build / test / typecheck / lint / docker / api / browser / manual）。kind 由 brainstorm 判断并显式声明，不靠 CLI 猜：automated kind（build/test/typecheck/lint/docker/api）会要求 impl 用 `run-check` 提交命令证据；browser / manual 接受人工观察证据。finalize 会拒绝未标注的项。
 
 ### 三段职责
 

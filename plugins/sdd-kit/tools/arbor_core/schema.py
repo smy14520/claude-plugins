@@ -14,6 +14,7 @@ TOP_LEVEL_STATES = {
     "doing",
     "done",
     "reviewed",
+    "archived",
 }
 # Legacy states accepted for backward compatibility but routed to new states
 LEGACY_STATE_MAP = {

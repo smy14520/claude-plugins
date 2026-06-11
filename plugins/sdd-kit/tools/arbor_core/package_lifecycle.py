@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import re
+import subprocess
 from pathlib import Path
 from typing import Any
 
@@ -43,6 +44,35 @@ def _sync_prd_markdown_status(root: Path, name: str, status: str) -> None:
     )
 
 
+def _record_base_ref(root: Path, data: dict[str, Any]) -> None:
+    """Record git HEAD as the package diff anchor when impl starts.
+
+    Idempotent: an existing base_ref is never overwritten (rework keeps the
+    original anchor). Degrades silently when git is unavailable or the project
+    is not a repository. A dirty worktree at record time is flagged via
+    base_ref_dirty so review knows the anchor is not pristine.
+    """
+    execution = data.get("execution")
+    if not isinstance(execution, dict) or execution.get("base_ref"):
+        return
+    try:
+        head = subprocess.run(
+            ["git", "rev-parse", "HEAD"],
+            cwd=root, stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True, timeout=10, check=False,
+        )
+        if head.returncode != 0 or not head.stdout.strip():
+            return
+        execution["base_ref"] = head.stdout.strip()
+        status = subprocess.run(
+            ["git", "status", "--porcelain"],
+            cwd=root, stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True, timeout=10, check=False,
+        )
+        if status.returncode == 0 and status.stdout.strip():
+            execution["base_ref_dirty"] = True
+    except (OSError, subprocess.SubprocessError):
+        return
+
+
 def update_package_status(root: Path, name: str, state: str, actor: str, note: str, timestamp: str) -> dict[str, Any]:
     from .schema import LEGACY_STATE_MAP
     resolved = LEGACY_STATE_MAP.get(state, state)
@@ -51,6 +81,16 @@ def update_package_status(root: Path, name: str, state: str, actor: str, note: s
     pkg, data = load_package(root, name)
     old = data.get("state")
     route_package_state(data, resolved, timestamp, actor, note)
+    if resolved == "doing":
+        _record_base_ref(root, data)
+        # Re-compile PRD slices into the materialized snapshot at the freeze
+        # boundary: the PRD may have been edited since finalize (amendment /
+        # needs_context loop); entering doing freezes it, so this snapshot
+        # cannot go stale mid-execution.
+        from .package_checks import ensure_required_checks
+        from .slice_defs import materialize_slice_defs
+        materialize_slice_defs(pkg, data)
+        ensure_required_checks(pkg, data, timestamp)
     add_phase_history(data, timestamp, data.get("current_phase", "impl"), old, resolved, actor, note)
     save_package(pkg, data)
     return data
@@ -93,18 +133,6 @@ def set_package_sizing(root: Path, name: str, status: str, actor: str, note: str
     data["package_kind"] = "single"
     data["updated_at"] = timestamp
     add_phase_history(data, timestamp, sizing_phase, old, f"package_sizing:{status}", actor, note)
-    save_package(pkg, data)
-    return data
-
-
-def update_phase(root: Path, name: str, phase: str, actor: str, note: str, timestamp: str) -> dict[str, Any]:
-    if phase not in PHASES:
-        raise ArborError(f"Invalid phase '{phase}'.")
-    pkg, data = load_package(root, name)
-    old = data.get("current_phase")
-    data["current_phase"] = phase
-    data["updated_at"] = timestamp
-    add_phase_history(data, timestamp, phase, old, phase, actor, note)
     save_package(pkg, data)
     return data
 

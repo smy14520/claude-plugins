@@ -2,6 +2,14 @@
 
 存量项目中，代码阅读不是一次性动作，而是贯穿整个 brainstorm 的持续行为。
 
+## 项目画像推断
+
+**第一轮追问前**先推断项目画像，结果写入 PRD 的 `Technical Framing` 段的 `Project profile` 字段。画像决定后续 Technical Framing 需要覆盖哪些项（画像定义和关注方向见 `technical-framing.md`）。
+
+推断方式：读项目 manifest 的依赖和结构，匹配画像表。多画像可叠加；不匹配时从项目领域自行派生。信号不明确时用 `AskUserQuestion`，不要猜。
+
+新项目无 manifest 时，从用户描述的交付物类型推断。
+
 ## 入口读取
 
 已有代码、表结构、业务模块时,**第一轮追问前**先主动读取与需求相关的现有代码,把分析结论写入 PRD 的 `What I already know` 和 `Technical Framing`。
@@ -23,4 +31,4 @@
 
 ## 新项目
 
-无既有代码 / 数据库时按常规工作循环进行,不需要前置代码分析。
+无既有代码 / 数据库时不需要前置代码分析。画像从用户描述推断。通用项中 `Existing stack / framework` 改为 **Tech choices / 技术选型**。

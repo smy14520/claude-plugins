@@ -1,6 +1,6 @@
 # index.md 与根页面
 
-`.wiki/` 支持嵌套目录与 wikilinks。不要依赖人工逐页扫描；先用 `sdd-arbor wiki-index/search/collect` 形成 JSON，再选择性读取页面。
+`.wiki/` 支持嵌套目录与 wikilinks。不要依赖人工逐页扫描；先用 `sdd-wiki index/search/collect` 形成 JSON，再选择性读取页面。
 
 ## index.md
 

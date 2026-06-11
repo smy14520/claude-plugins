@@ -12,7 +12,7 @@
 
 ## Wiki 仅作 orientation
 
-`.wiki` 页面 / `sdd-arbor wiki-collect` 帮助 review 快速理解模块上下文，但不能用 wiki 推翻 PRD。PRD 是当前 package scope 的事实源。
+`.wiki` 页面 / `sdd-wiki collect` 帮助 review 快速理解模块上下文，但不能用 wiki 推翻 PRD。PRD 是当前 package scope 的事实源。
 
 ## PRD 描述不足但方向清楚
 

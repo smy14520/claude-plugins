@@ -33,8 +33,8 @@ Brainstorm 的唯一产物是 `.arbor/tasks/<package>/prd.md`：创建或定位 
 
 ## Reference pointers
 
-已有信息注入策略见 `references/context-first.md`。
-Technical Framing 覆盖范围与档位见 `references/technical-framing.md`。
+项目画像推断与已有信息注入策略见 `references/context-first.md`。
+Technical Framing 通用项、画像特定项与档位见 `references/technical-framing.md`。
 非平凡 schema / 协议 / 状态机 / 权限矩阵的 artifact 用法见 `references/artifacts.md`。
 Wiki 引用触发条件、三层结构与 fallback 见 `../wiki/references/page-types.md`。
 PRD 必须包含 `## Slices`，按行为级 checkpoint 切分。切分原则和反模式见 `references/slices.md`。

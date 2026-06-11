@@ -1,6 +1,6 @@
 ---
 name: wiki
-description: "Manage the project's `.wiki/` orientation layer: ingest explicit knowledge, query with sdd-arbor wiki-index/search/collect, lint wiki health, and publish module summaries. Invoke only on explicit user request."
+description: "Manage the project's `.wiki/` orientation layer: ingest explicit knowledge, query with sdd-wiki index/search/collect, lint wiki health, and publish module summaries. Invoke only on explicit user request."
 ---
 
 # Wiki — project-local orientation layer
@@ -21,16 +21,25 @@ code      # implementation source of truth
 2. 不把 `.arbor/` / `.claude/` / `.git/` 等隐藏目录的原始文件整理成 wiki 页面（helper 稳定输出例外）。
 3. 每页 frontmatter 必须有 `title` / `description` / `type`；建议有 `summary` / `tags` / `last_updated`。
 4. Module note 不写行号；locator 用 path + stable symbol / route / table / config / test / contract id。
-5. Query 前先用 `sdd-arbor wiki-collect`，看 summary / tags / links 再决定读哪些页面全文。
+5. Query 前先用 `sdd-wiki collect`，看 summary / tags / links 再决定读哪些页面全文。
 6. 实现或 review 前把 wiki 信息回代码和 `.arbor` 验证一次。
+
+## 自适应组织（按项目画像派生 area）
+
+页面有两个正交轴：
+
+- `type`（结构轴，封闭集合）：页面如何被机器和流程消费，跨项目不变。
+- `area`（领域轴，自由值）：页面属于**这个项目**架构的哪一块，按项目画像派生，不硬套模板。
+
+首次为项目建 wiki（或 area 明显缺失）时，先推断项目画像（参考 brainstorm 的 `references/technical-framing.md` 画像表），再从项目实际架构派生 3-8 个 area。示例方向：web → 权限 / 数据模型 / 集成 / 管理面；game → 渲染循环 / 资产管线 / 输入 / 存档 / 性能；cli → 命令契约 / 输出格式 / 分发；不匹配画像时从代码顶层结构派生。area 是导航用的软分类：用 `.wiki/index.md` 按 area 分组列页面，不为每个 area 强建目录；项目演化时合并或重命名 area，宁缺勿滥。
 
 ## Ingest（用户说「记一下 X」/「wiki ingest」）
 
-1. 分类 `type`：`module` / `cross_cut` / `entity` / `concept` / `gotcha` / `decision` / `source`。
+1. 分类 `type`：`module` / `cross_cut` / `entity` / `concept` / `gotcha` / `decision` / `source`；再判断 `area`（见上）。
 2. 路径：`module` → `.wiki/Modules/`；`cross_cut` → `.wiki/CrossCut/`；其它可按项目目录自然组织。
-3. `sdd-arbor wiki-index --json` 检查是否已有近似页面：已存在优先合并，主题独立时新建。
+3. `sdd-wiki index --json` 检查是否已有近似页面：已存在优先合并，主题独立时新建。
 4. 写 frontmatter（见下）+ 正文 + wikilinks 连接相关页面。
-5. 维护导航：确保 `.wiki/index.md` 存在；module note 更新 `.wiki/Modules/index.md`；cross_cut 更新 `.wiki/CrossCut/index.md`。
+5. 维护导航：确保 `.wiki/index.md` 存在并按 area 分组；module note 更新 `.wiki/Modules/index.md`；cross_cut 更新 `.wiki/CrossCut/index.md`。
 6. 可追加 `.wiki/log.md` 一行（`## [YYYY-MM-DD] ingest | <页面>`）。
 
 ### Frontmatter 最小契约
@@ -41,6 +50,7 @@ title: <中文标题>
 description: <中文一行检索提示>
 tags: [<domain>, ...]
 type: module | cross_cut | entity | concept | gotcha | decision | source
+area: <本项目的领域分区，如 渲染管线 / 权限 / 资产管线；自由值>
 summary: <中文紧凑摘要>
 last_updated: YYYY-MM-DD
 ---
@@ -51,7 +61,7 @@ last_updated: YYYY-MM-DD
 ## Query
 
 ```bash
-sdd-arbor wiki-collect --query "<keyword>" --limit 5 --json
+sdd-wiki collect --query "<keyword>" --limit 5 --json
 ```
 
 渐进式披露：先看候选页的 title / description / summary / tags / type / links / backlinks / locators，只读真正相关的页面全文。输出：已读页面、关键发现、可用 locators、需要验证的代码 / `.arbor` 位置。
@@ -71,7 +81,7 @@ sdd-arbor module-summary <package> --json
 ## Lint
 
 ```bash
-sdd-arbor wiki-lint --json
+sdd-wiki lint --json
 ```
 
 只读报告：metadata / broken wikilinks / 重复 title / stem / module package / orphan / 隐藏路径污染 / module 使用行号 locator。可以建议，不自动删除或修复页面。

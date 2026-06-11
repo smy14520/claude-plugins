@@ -1,14 +1,24 @@
+#!/usr/bin/env python3
+"""sdd-wiki — project-local `.wiki/` orientation layer CLI.
+
+Standalone tool: zero dependency on arbor / `.arbor` state. The wiki is a
+navigation layer, never a source of truth; this CLI only indexes, searches,
+collects, and lints markdown pages.
+
+Page model (two orthogonal axes):
+- `type`  — structural axis, closed set (how a page is consumed by tooling).
+- `area`  — domain axis, free-form (which part of THIS project it belongs to,
+  e.g. 渲染管线 / 权限 / 资产管线). Taxonomy adapts per project; the wiki
+  skill derives areas from the project profile, the CLI never validates them.
+"""
 from __future__ import annotations
 
+import argparse
+import json
 import re
+import sys
 from pathlib import Path
 from typing import Any
-
-from .errors import ArborError
-from .fs import *
-from .prd_slices import parse_prd_slices
-from .state import ensure_execution
-from .validation import validate_package
 
 WIKILINK_RE = re.compile(r"\[\[([^\]|#]+)(?:#[^\]|]+)?(?:\|[^\]]+)?\]\]")
 TOKEN_RE = re.compile(r"[\w]+", re.IGNORECASE)
@@ -19,6 +29,8 @@ VALID_PAGE_TYPES = {"entity", "concept", "gotcha", "decision", "source", "module
 LINE_LOCATOR_RE = re.compile(r"(?:^|[\s`])(?:[\w./-]+\.(?:py|ts|tsx|js|jsx|go|rs|java|rb|php|css|scss|md|json|yaml|yml)):(?:L)?\d+|\bline\s+\d+\b", re.IGNORECASE)
 
 
+class WikiError(Exception):
+    pass
 
 
 def wiki_root_path(root: Path, wiki_root: str | None = None) -> Path:
@@ -127,6 +139,7 @@ def _page_entry(root: Path, path: Path, include_content: bool) -> dict[str, Any]
         "summary": summary,
         "tags": _tags(meta),
         "type": meta.get("type") if isinstance(meta.get("type"), str) else None,
+        "area": meta.get("area") if isinstance(meta.get("area"), str) else None,
         "package": meta.get("package") if isinstance(meta.get("package"), str) else None,
         "source_checkpoint": meta.get("source_checkpoint") if isinstance(meta.get("source_checkpoint"), str) else None,
         "links": _links(body),
@@ -180,7 +193,7 @@ def _hidden_path_parts(relative_path: str) -> list[str]:
 
 def wiki_lint(root: Path, wiki_root: str | None = None) -> dict[str, Any]:
     directory = wiki_root_path(root, wiki_root)
-    wiki_root_value = directory.relative_to(root).as_posix() if directory.exists() and directory.is_relative_to(root) else (directory.relative_to(root).as_posix() if directory.is_relative_to(root) else str(directory))
+    wiki_root_value = directory.relative_to(root).as_posix() if directory.is_relative_to(root) else str(directory)
     errors: list[dict[str, Any]] = []
     warnings: list[dict[str, Any]] = []
     if not directory.exists():
@@ -265,13 +278,14 @@ def wiki_lint(root: Path, wiki_root: str | None = None) -> dict[str, Any]:
 def wiki_search(root: Path, query: str, wiki_root: str | None = None, limit: int | None = None) -> dict[str, Any]:
     query_tokens = _tokens(query)
     if not query_tokens:
-        raise ArborError("wiki-search query must contain at least one token.")
+        raise WikiError("wiki search query must contain at least one token.")
     indexed = wiki_index(root, wiki_root, include_content=True)
     results: list[dict[str, Any]] = []
     weights = {
         "type": 20,
         "title": 8,
         "tags": 6,
+        "area": 6,
         "description": 5,
         "summary": 4,
         "path": 2,
@@ -286,6 +300,7 @@ def wiki_search(root: Path, query: str, wiki_root: str | None = None, limit: int
             "title": page.get("title"),
             "type": page.get("type"),
             "tags": page.get("tags"),
+            "area": page.get("area"),
             "description": page.get("description"),
             "summary": page.get("summary"),
             "path": page.get("path"),
@@ -320,6 +335,7 @@ def wiki_collect(root: Path, query: str, wiki_root: str | None = None, limit: in
                 "description": item.get("description"),
                 "summary": item.get("summary"),
                 "type": item.get("type"),
+                "area": item.get("area"),
                 "tags": item.get("tags", []),
                 "links": item.get("links", []),
                 "backlinks": item.get("backlinks", []),
@@ -331,111 +347,74 @@ def wiki_collect(root: Path, query: str, wiki_root: str | None = None, limit: in
     return {"wiki_root": search["wiki_root"], "query": query, "selected": selected}
 
 
-def _strip_line_locator(value: str) -> str:
-    value = re.sub(r":(?:L)?\d+(?=\b|$)", "", value.strip())
-    return re.sub(r"\s+", " ", value).strip(" `")
+def build_parser() -> argparse.ArgumentParser:
+    parser = argparse.ArgumentParser(prog="sdd-wiki", description="Project-local .wiki orientation layer: index, search, collect, lint.")
+    parser.add_argument("--root", default=".", help="Project root containing the wiki directory.")
+    sub = parser.add_subparsers(dest="command", required=True)
+
+    index_parser = sub.add_parser("index", help="Index wiki markdown pages.")
+    index_parser.add_argument("--wiki-root", default=".wiki")
+    index_parser.add_argument("--tag")
+    index_parser.add_argument("--include-content", choices=["true", "false"], default="false")
+    index_parser.add_argument("--json", dest="json_output", action="store_true", help="Emit JSON output.")
+
+    search_parser = sub.add_parser("search", help="Search wiki pages with deterministic token scoring.")
+    search_parser.add_argument("query")
+    search_parser.add_argument("--wiki-root", default=".wiki")
+    search_parser.add_argument("--limit", type=int)
+    search_parser.add_argument("--json", dest="json_output", action="store_true", help="Emit JSON output.")
+
+    collect_parser = sub.add_parser("collect", help="Collect compact summaries for relevant wiki pages.")
+    collect_parser.add_argument("--query", required=True)
+    collect_parser.add_argument("--wiki-root", default=".wiki")
+    collect_parser.add_argument("--limit", type=int, default=5)
+    collect_parser.add_argument("--json", dest="json_output", action="store_true", help="Emit JSON output.")
+
+    lint_parser = sub.add_parser("lint", help="Lint wiki pages without modifying them.")
+    lint_parser.add_argument("--wiki-root", default=".wiki")
+    lint_parser.add_argument("--json", dest="json_output", action="store_true", help="Emit JSON output.")
+    return parser
 
 
-def _split_field_items(value: str) -> list[str]:
-    items: list[str] = []
-    for raw in re.split(r"[\n,，、;；]", value):
-        item = _strip_line_locator(raw.lstrip("- ").strip())
-        if item and item not in items:
-            items.append(item)
-    return items
+def main(argv: list[str] | None = None) -> int:
+    parser = build_parser()
+    args = parser.parse_args(argv)
+    root = Path(args.root).resolve()
+    json_output = getattr(args, "json_output", False)
+    try:
+        if args.command == "index":
+            result = wiki_index(root, args.wiki_root, args.tag, args.include_content == "true")
+            if json_output:
+                print(json.dumps(result, ensure_ascii=False, indent=2))
+            else:
+                for page in result["pages"]:
+                    print(f"{page['path']} [{page.get('type') or '-'}] {page['title']}")
+            return 0
+        if args.command == "search":
+            result = wiki_search(root, args.query, args.wiki_root, args.limit)
+            if json_output:
+                print(json.dumps(result, ensure_ascii=False, indent=2))
+            else:
+                for item in result["results"]:
+                    print(f"{item['score']:>4} {item['path']} — {item['reason']}")
+            return 0
+        if args.command == "collect":
+            result = wiki_collect(root, args.query, args.wiki_root, args.limit)
+            if json_output:
+                print(json.dumps(result, ensure_ascii=False, indent=2))
+            else:
+                for item in result["selected"]:
+                    print(f"{item['path']} [{item.get('type') or '-'}] {item['title']}")
+            return 0
+        if args.command == "lint":
+            result = wiki_lint(root, args.wiki_root)
+            print(json.dumps(result, ensure_ascii=False, indent=2) if json_output else f"ok={result['ok']} errors={result['summary']['error_count']} warnings={result['summary']['warning_count']}")
+            return 0 if result["ok"] else 1
+    except WikiError as exc:
+        print(str(exc), file=sys.stderr)
+        return 1
+    return 0
 
 
-def _slice_progress(data: dict[str, Any]) -> dict[str, dict[str, Any]]:
-    entries = data.get("slices")
-    if not isinstance(entries, list):
-        return {}
-    return {item.get("id"): item for item in entries if isinstance(item, dict) and isinstance(item.get("id"), str)}
-
-
-def _acceptance_by_slice(impl_result: dict[str, Any]) -> dict[str, list[str]]:
-    coverage = impl_result.get("acceptance_coverage")
-    if isinstance(coverage, dict):
-        return {key: value for key, value in coverage.items() if isinstance(key, str) and isinstance(value, list)}
-    return {}
-
-
-def module_summary(root: Path, package: str, timestamp: str | None = None) -> dict[str, Any]:
-    validate_name(package)
-    pkg, data = load_package(root, package)
-    execution = ensure_execution(data)
-    errors = validate_package(root, package)
-    prd_path = pkg / "prd.md"
-    prd_slices, prd_errors = parse_prd_slices(prd_path.read_text(encoding="utf-8")) if prd_path.exists() else ([], [f"Missing PRD file: {prd_path}"])
-    progress = _slice_progress(data)
-    impl_result = data.get("impl_result") if isinstance(data.get("impl_result"), dict) else {}
-    acceptance = _acceptance_by_slice(impl_result)
-    slices = [
-        {
-            "id": item.id,
-            "title": item.title,
-            "status": progress.get(item.id, {}).get("status", "pending"),
-            "completion_marker": item.completion_marker,
-            "acceptance": acceptance.get(item.id, []),
-        }
-        for item in prd_slices
-    ]
-    contracts = [
-        {
-            "slice": item.id,
-            "title": item.title,
-            "completion_marker": item.completion_marker,
-            "code_anchors": _split_field_items(item.code_anchors),
-            "data_schema": _split_field_items(item.data_schema),
-            "tests": _split_field_items(item.tests),
-        }
-        for item in prd_slices
-    ]
-    important_files: list[str] = []
-    tests: list[str] = []
-    for contract in contracts:
-        for anchor in contract["code_anchors"]:
-            if anchor and anchor not in important_files:
-                important_files.append(anchor)
-        for test in contract["tests"]:
-            if test and test not in tests:
-                tests.append(test)
-    for command in impl_result.get("commands", []) if isinstance(impl_result.get("commands"), list) else []:
-        if isinstance(command, str) and command not in tests:
-            tests.append(command)
-    check_ids = impl_result.get("checks", []) if isinstance(impl_result.get("checks"), list) else []
-    for check in data.get("checks", []) if isinstance(data.get("checks"), list) else []:
-        if not isinstance(check, dict) or check.get("id") not in check_ids:
-            continue
-        command = check.get("command")
-        if isinstance(command, str) and command not in tests:
-            tests.append(command)
-    verification = [{"ok": not errors, "source": "validate_package", "errors": errors}]
-    if prd_errors:
-        verification.append({"ok": False, "source": "parse_prd_slices", "errors": prd_errors})
-    if impl_result:
-        verification.append({"ok": True, "source": "impl_result", "state": impl_result.get("state"), "commands": impl_result.get("commands", []), "checks": impl_result.get("checks", [])})
-    return {
-        "kind": "module-summary",
-        "schema_version": "sdd-module-summary-v1",
-        "package": package,
-        "title": data.get("title") or package,
-        "status": data.get("state"),
-        "execution_status": execution.get("status"),
-        "package_kind": data.get("package_kind", "single"),
-        "important_files": important_files,
-        "invariants": [],
-        "slices": slices,
-        "contracts": contracts,
-        "tests": tests,
-        "implementation": {
-            "summary": impl_result.get("summary"),
-            "state": impl_result.get("state"),
-            "acceptance": impl_result.get("acceptance", []),
-            "commands": impl_result.get("commands", []),
-            "checks": impl_result.get("checks", []),
-            "check_coverage": impl_result.get("check_coverage", {}),
-            "concerns": impl_result.get("concerns", []),
-        },
-        "verification": verification,
-        "related_packages": [],
-    }
+if __name__ == "__main__":
+    raise SystemExit(main())

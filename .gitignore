@@ -7,3 +7,4 @@ __pycache__/
 *.py[cod]
 plugins/sdd-kit/tests/fixtures/_workdir/
 plugins/sdd-kit/tests/scenario_eval/runs/
+.pytest_cache/

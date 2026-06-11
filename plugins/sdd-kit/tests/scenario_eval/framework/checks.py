@@ -84,7 +84,7 @@ def _wiki_integration_checks(work_dir: Path, prd_text: str, scenario_name: str) 
     read_wiki_count = sum(1 for page in all_wiki_pages if page.as_posix() in combined_trace)
 
     return {
-        "wiki_brainstorm_collect_used": "wiki-collect" in combined_trace and "新增" in combined_trace and "导出" in combined_trace,
+        "wiki_brainstorm_collect_used": "sdd-wiki collect" in combined_trace and "新增" in combined_trace and "导出" in combined_trace,
         "wiki_prd_references_cross_cut": prd_has_wikilink,
         "wiki_prd_has_fallback": prd_has_wikilink and ("fallback" in prd_text.lower() or "与现状不一致" in prd_text or "逐一识别" in prd_text),
         "wiki_prd_scope_self_contained": all(token in prd_text for token in ("session", "Session", "EXPORT_REGISTRY")) and "/api/auth/session/export" in prd_text,

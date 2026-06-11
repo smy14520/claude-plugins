@@ -1,0 +1,7 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+BIN_DIR="$(CDPATH= cd -- "$(dirname -- "$0")" && pwd)"
+PLUGIN_ROOT="$(dirname "$BIN_DIR")"
+
+exec python3 "$PLUGIN_ROOT/tools/wiki.py" "$@"

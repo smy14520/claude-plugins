@@ -13,7 +13,7 @@ Wiki 默认根目录是项目内 `.wiki/`。它是 orientation/index layer，不
 1. 先排除隐藏目录来源：不把 `.arbor/`、`.claude/`、`.git/` 等隐藏目录里的原始文件、workflow 状态快照或规则配置整理成 wiki 页面；需要时直接读取 source of truth。明确 helper 输出（如 `sdd-arbor module-summary <package> --json`）除外。
 2. 分类：`module | cross_cut | entity | concept | gotcha | decision | source`。
 3. 确定页面路径：按项目目录自然组织，可嵌套；推荐 `module` 放 `.wiki/Modules/`，`cross_cut` 放 `.wiki/CrossCut/`。
-4. 先运行 `sdd-arbor wiki-index --json` 检查是否已有近似页面。
+4. 先运行 `sdd-wiki index --json` 检查是否已有近似页面。
 5. 已存在时优先追加/合并；只有主题独立时新建。
 6. 写 frontmatter：`title`、`description`、`tags`、`type`、`summary`、`last_updated`。
 7. 使用 wikilinks 连接相关页面。
@@ -51,14 +51,14 @@ last_updated: YYYY-MM-DD
 只读检索。优先使用 helper，避免主会话逐页盲读：
 
 ```text
-sdd-arbor wiki-collect --query "<query>" --limit 5 --json
+sdd-wiki collect --query "<query>" --limit 5 --json
 ```
 
 Wiki 查询采用渐进式披露：先看候选页面的 title、description、summary、tags、type、links/backlinks 和 locators，再只读取当前任务真正需要的页面全文。
 
 流程：
 
-1. `wiki-collect` 获取 selected summaries、paths、tags、links/backlinks、locators。
+1. `sdd-wiki collect` 获取 selected summaries、paths、tags、links/backlinks、locators。
 2. 只读取真正相关页面。
 3. 输出：已读页面、关键发现、可用 locators、需要验证的代码/`.arbor` 位置。
 4. 如果用于实现或 review，必须验证当前代码或 `.arbor`。
@@ -92,7 +92,7 @@ package 到达稳定 milestone 后发布模块卡片。
 审计 `.wiki` 健康度。只读报告，可以建议，不能擅自删除或 auto-fix。
 
 ```text
-sdd-arbor wiki-lint --json
+sdd-wiki lint --json
 ```
 
 首版检查 metadata、broken wikilinks、重复 title/stem/module package、orphan warning、隐藏路径污染和 module line-number locator。

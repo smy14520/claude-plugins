@@ -7,13 +7,14 @@ description: "Audit one sdd-kit package PRD scope after impl. Reads PRD + impl e
 Review 检查 impl 的 DONE 声明是否真正满足 package PRD。它不是普通 code review、PR approval、自动修复器或自动修复面板。
 ## 输入
 - package；裸 slice 名称不可视为执行单元。
-- 必读：`prd.md`、`task.json`、`required_checks`、`checks`、impl evidence、actual `git diff`。
+- 必读：`prd.md`、`task.json`、`required_checks`、`checks`、impl evidence、actual git diff——`execution.base_ref` 非空时用 `git diff <base_ref>` 锚定本包变更（含未提交工作树）；base_ref 为空或 `base_ref_dirty=true` 时在报告中说明锚点限制。已知限制：base_ref 只锚定本包首次进 doing 时的 HEAD，串行多 package 且用户未 commit 时 diff 会混入 sibling 改动，归属需结合 slices 证据与 impl 自报范围圈定并在报告中说明。
 - 可读：PRD 引用 artifacts、`context/review.jsonl`、相关 `.wiki` 页面；wiki 只作 orientation。
 ## 数据字段使用
 以下字段必须用于对账，不能只读自然语言：
 | 字段 | 用途 |
 |---|---|
 | `required_checks` / `checks` / `impl_result.checks` / `impl_result.check_coverage` | 对账 required_check 是否有本次交付引用的 passed evidence；automated 承重命令只认 `run-check`、`exit_code` 和输出文件，`commands` 只是 legacy note |
+| `slices[].acceptance` / `slices[].checks` / `slices[].concerns` | per-slice gate 的结算证据；逐 slice 对账时优先以它定位每个 marker 的证据来源；`concerns` 是 gate 结算的 blocked/not_run required check，存在时 impl_result 不应是 DONE |
 | `acceptance` / `acceptance_coverage[S-NNN]` | 对照 PRD 每个 slice 完成标志，逐条找代码位置、测试位置或 check evidence；不能只回引 acceptance 文本本身 |
 | `concerns` / `phase_history` | 计算 review 追加妥协与 impl 自报差距，并确认 impl 跑了几次 / 是否被退回过 |
 ## Audit 流程

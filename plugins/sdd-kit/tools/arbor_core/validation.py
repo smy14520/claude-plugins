@@ -132,8 +132,10 @@ def validate_execution(data: dict[str, Any], errors: list[str]) -> None:
         errors.append("execution.child_task_scope is obsolete in PRD-first model")
     if execution.get("status") not in EXECUTION_STATUSES:
         errors.append(f"Invalid execution.status: {execution.get('status')}")
-    for field in ["owner", "claimed_at", "released_at", "session", "updated_at", "updated_by", "note"]:
+    for field in ["owner", "claimed_at", "released_at", "session", "updated_at", "updated_by", "note", "base_ref"]:
         validate_optional_string(execution.get(field), f"execution.{field}", errors)
+    if "base_ref_dirty" in execution and not isinstance(execution.get("base_ref_dirty"), bool):
+        errors.append("execution.base_ref_dirty must be a boolean when present")
 
     branch = execution.get("branch")
     if not isinstance(branch, dict):
@@ -199,13 +201,9 @@ def validate_package(root: Path, name: str) -> list[str]:
         errors.append("task.md is obsolete in PRD-first model; remove it")
 
     prd_text: str | None = None
-    prd_slice_ids: set[str] | None = None
     prd_path = pkg / "prd.md"
     if prd_path.exists():
         prd_text = prd_path.read_text(encoding="utf-8")
-        parsed_slices, parse_errors = parse_prd_slices(prd_text)
-        if not parse_errors:
-            prd_slice_ids = {item.id for item in parsed_slices}
 
     if not (pkg / "task.json").exists():
         return errors
@@ -214,6 +212,32 @@ def validate_package(root: Path, name: str) -> list[str]:
         data = read_json(pkg / "task.json")
     except ArborError as exc:
         return errors + [str(exc)]
+
+    # Materialized slice defs are the runtime source; fall back to parsing
+    # prd.md only for legacy packages that have not been migrated yet.
+    prd_slice_ids: set[str] | None = None
+    prd_block = data.get("prd") if isinstance(data.get("prd"), dict) else {}
+    materialized = prd_block.get("slices")
+    if isinstance(materialized, list) and materialized:
+        ids: set[str] = set()
+        for index, entry in enumerate(materialized):
+            label = f"prd.slices[{index}]"
+            if not isinstance(entry, dict):
+                errors.append(f"{label} must be an object")
+                continue
+            sid = entry.get("id")
+            if not isinstance(sid, str) or not SLICE_ID_RE.match(sid):
+                errors.append(f"{label}.id must match S-NNN format")
+            else:
+                ids.add(sid)
+            markers = entry.get("completion_markers")
+            if not isinstance(markers, list) or not all(isinstance(item, str) and item for item in markers) or not markers:
+                errors.append(f"{label}.completion_markers must be a non-empty string array")
+        prd_slice_ids = ids
+    elif prd_text is not None:
+        parsed_slices, parse_errors = parse_prd_slices(prd_text)
+        if not parse_errors:
+            prd_slice_ids = {item.id for item in parsed_slices}
 
     if data.get("schema_version") != SCHEMA_VERSION:
         errors.append(f"Unsupported schema_version: {data.get('schema_version')}")
@@ -279,6 +303,9 @@ def validate_package(root: Path, name: str) -> list[str]:
                         errors.append(f"{label}.id {sid} is not defined in PRD ## Slices")
                 if entry.get("status") not in SLICE_STATUSES:
                     errors.append(f"{label}.status must be one of {sorted(SLICE_STATUSES)}")
+                for field in ("acceptance", "checks", "concerns"):
+                    if field in entry:
+                        validate_string_array(entry.get(field), f"{label}.{field}", errors)
 
     validate_package_sizing(data, errors)
     validate_package_kind(data, errors)
@@ -288,8 +315,8 @@ def validate_package(root: Path, name: str) -> list[str]:
 
     if data.get("state") == "doing" and isinstance(next_action, dict) and next_action.get("skill") not in {"impl", "brainstorm", "user"}:
         errors.append("top-level doing state should route to impl, brainstorm, or user")
-    if data.get("state") == "reviewed" and isinstance(next_action, dict) and next_action.get("skill") != "none":
-        errors.append("top-level reviewed state should have next_action.skill=none")
+    if data.get("state") in {"reviewed", "archived"} and isinstance(next_action, dict) and next_action.get("skill") != "none":
+        errors.append(f"top-level {data.get('state')} state should have next_action.skill=none")
 
     impl_entries = parse_jsonl(pkg / "context" / "impl.jsonl", errors, {"at", "actor", "kind", "summary"})
     review_entries = parse_jsonl(pkg / "context" / "review.jsonl", errors, {"at", "actor", "kind", "summary"})

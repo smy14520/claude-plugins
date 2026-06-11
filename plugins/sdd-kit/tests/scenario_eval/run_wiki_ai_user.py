@@ -31,6 +31,7 @@ PLUGIN_ROOT = Path(__file__).resolve().parents[2]
 TESTS_ROOT = PLUGIN_ROOT / "tests"
 RUNS_ROOT = TESTS_ROOT / "scenario_eval" / "runs"
 ARBOR = PLUGIN_ROOT / "bin" / "sdd-arbor"
+WIKI = PLUGIN_ROOT / "bin" / "sdd-wiki"
 DEFAULT_MODEL = os.environ.get("SCENARIO_TEST_MODEL", "claude-opus-4-6")
 SCENARIO_NAME = os.environ.get("SCENARIO_NAME", "wiki-cross-cut-export")
 
@@ -237,8 +238,8 @@ def default_initial_prompt() -> str:
    - 至少创建或更新一个 module note（auth 或 payment，推荐路径 `.wiki/Modules/<模块名>.md`），并用 wikilink 与 cross_cut 页面互相关联。
    - 维护 Obsidian 导航入口：`.wiki/index.md`、`.wiki/CrossCut/index.md`、`.wiki/Modules/index.md`。
    - 遵守 single-source，不要把完整函数清单复制到两个页面。
-3. 用 `sdd-arbor wiki-collect --query "新增 导出 cross_cut auth" --limit 5 --json` 查询，按渐进式披露先看候选 metadata，再只读需要的页面。
-4. 用 `sdd-arbor wiki-lint --json` 检查健康度。
+3. 用 `sdd-wiki collect --query "新增 导出 cross_cut auth" --limit 5 --json` 查询，按渐进式披露先看候选 metadata，再只读需要的页面。
+4. 用 `sdd-wiki lint --json` 检查健康度。
 5. 最后用简短中文说明：写了哪些页面、query 命中了什么、lint 是否通过、用于实现前还需要验证哪些代码位置。
 
 不要实现业务代码，不要创建 `.arbor` package，不要提交 git。
@@ -263,8 +264,8 @@ def todo_initial_prompt() -> str:
    - 至少创建或更新一个 module note（例如 Todo core/domain module，推荐路径 `.wiki/Modules/<模块名>.md`），并用 wikilink 与 cross_cut 页面互相关联。
    - 维护 Obsidian 导航入口：`.wiki/index.md`、`.wiki/CrossCut/index.md`、`.wiki/Modules/index.md`。
    - 遵守 single-source，不要把完整契约清单复制到两个页面。
-3. 用 `sdd-arbor wiki-collect --query "Todo cross_cut localStorage 完成 延期" --limit 5 --json` 查询，按渐进式披露先看候选 metadata，再只读需要的页面。
-4. 用 `sdd-arbor wiki-lint --json` 检查健康度。
+3. 用 `sdd-wiki collect --query "Todo cross_cut localStorage 完成 延期" --limit 5 --json` 查询，按渐进式披露先看候选 metadata，再只读需要的页面。
+4. 用 `sdd-wiki lint --json` 检查健康度。
 5. 最后用简短中文说明：写了哪些页面、query 命中了什么、lint 是否通过、用于实现前还需要验证哪些代码位置。
 
 不要实现业务代码，不要创建新的 `.arbor` package，不要提交 git。
@@ -309,8 +310,16 @@ async def receive_response(client: Any, paths: ScenarioPaths) -> tuple[str, str 
 
 
 def run_arbor(work_dir: Path, *args: str) -> tuple[int, dict[str, Any] | None, str]:
+    return run_json_tool(work_dir, ARBOR, *args)
+
+
+def run_wiki(work_dir: Path, *args: str) -> tuple[int, dict[str, Any] | None, str]:
+    return run_json_tool(work_dir, WIKI, *args)
+
+
+def run_json_tool(work_dir: Path, tool: Path, *args: str) -> tuple[int, dict[str, Any] | None, str]:
     proc = subprocess.run(
-        [str(ARBOR), *args],
+        [str(tool), *args],
         cwd=work_dir,
         text=True,
         stdout=subprocess.PIPE,
@@ -355,10 +364,10 @@ def scenario_query() -> str:
 def quality_checks(paths: ScenarioPaths, response_text: str, run_error: str | None) -> tuple[dict[str, bool], dict[str, Any]]:
     pages = read_wiki_pages(paths.work_dir)
     query = scenario_query()
-    lint_code, lint_json, lint_raw = run_arbor(paths.work_dir, "wiki-lint", "--json")
-    collect_code, collect_json, collect_raw = run_arbor(paths.work_dir, "wiki-collect", "--query", query, "--limit", "5", "--json")
-    search_code, search_json, search_raw = run_arbor(paths.work_dir, "wiki-search", "cross_cut", "--limit", "3", "--json")
-    index_code, index_json, index_raw = run_arbor(paths.work_dir, "wiki-index", "--json")
+    lint_code, lint_json, lint_raw = run_wiki(paths.work_dir, "lint", "--json")
+    collect_code, collect_json, collect_raw = run_wiki(paths.work_dir, "collect", "--query", query, "--limit", "5", "--json")
+    search_code, search_json, search_raw = run_wiki(paths.work_dir, "search", "cross_cut", "--limit", "3", "--json")
+    index_code, index_json, index_raw = run_wiki(paths.work_dir, "index", "--json")
 
     cross_cut_pages = [p for p in pages if p["meta"].get("type") == "cross_cut"]
     module_pages = [p for p in pages if p["meta"].get("type") == "module"]

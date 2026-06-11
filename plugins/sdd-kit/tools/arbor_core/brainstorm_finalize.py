@@ -10,6 +10,7 @@ from .fs import package_dir, validate_name, read_json, write_json, task_json_pat
 from .package_lifecycle import set_package_sizing, update_prd_status
 from .package_model import create_package
 from .prd_slices import parse_prd_slices, validate_prd_slice_structure, validate_slice_tasks
+from .slice_defs import materialize_slice_defs
 from .validation import validate_package
 
 _DRAFT_ONLY_SECTION_RE = re.compile(
@@ -148,14 +149,17 @@ def finalize_brainstorm(root: Path, spec: dict[str, Any], timestamp: str) -> dic
     set_package_sizing(root, name, "fits_package", "brainstorm", "brainstorm finalized package", timestamp, decision or "single package with PRD-local Slices", [], [], "brainstorm")
     update_prd_status(root, name, "ready", "brainstorm", "brainstorm finalized PRD", timestamp)
 
-    # Register slices in task.json
+    # Register slices in task.json: materialized definitions (parse-once
+    # boundary — runtime commands read prd.slices, never re-parse prd.md)
+    # plus the progress array.
     if slices:
         pkg = package_dir(root, name)
         tj = task_json_path(pkg)
         data = read_json(tj)
+        materialized = materialize_slice_defs(pkg, data)
         data["slices"] = [
             {"id": s.id, "title": s.title, "status": "pending"}
-            for s in slices
+            for s in materialized
         ]
         write_json(tj, data)
 

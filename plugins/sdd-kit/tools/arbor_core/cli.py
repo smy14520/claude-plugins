@@ -1,282 +1,29 @@
 from __future__ import annotations
 
-import argparse
 import json
 import sys
 from pathlib import Path
 
 from .brainstorm_finalize import finalize_brainstorm
+from .cli_parser import PUBLIC_COMMANDS, build_parser
 from .doctor import doctor
 from .errors import ArborError
 from .fs import now_iso
+from .module_summary import module_summary
+from .package_packet import impl_packet
 from .package_state import *
 from .printing import *
 from .schema import *
 from .validation import validate_package
-from .wiki_state import *
-
-
-PUBLIC_COMMANDS = (
-    "finalize-brainstorm",
-    "validate",
-    "doctor",
-    "set-status",
-    "mark-slice",
-    "derive-required-checks",
-    "run-check",
-    "record-check",
-    "record-impl-result",
-    "record-review",
-    "add-amendment",
-    "set-execution",
-    "set-pr",
-    "add-context",
-    "add-context-batch",
-    "module-summary",
-    "wiki-index",
-    "wiki-search",
-    "wiki-collect",
-    "wiki-lint",
-    "list",
-    "show",
-)
-
-
-def _public_command(sub: argparse._SubParsersAction, name: str, **kwargs) -> argparse.ArgumentParser:
-    return sub.add_parser(name, **kwargs)
-
-
-def _internal_command(sub: argparse._SubParsersAction, name: str, help_text: str) -> argparse.ArgumentParser:
-    parser = sub.add_parser(name, help=help_text, description=help_text)
-    sub._choices_actions = [action for action in sub._choices_actions if getattr(action, "dest", None) != name]
-    parser.set_defaults(internal_command=True)
-    return parser
-
-
-def build_parser() -> argparse.ArgumentParser:
-    parser = argparse.ArgumentParser(description="Manage sdd-kit Arbor PRD-first packages.")
-    parser.add_argument("--root", type=Path, default=Path.cwd(), help="Project root containing .arbor/.")
-    parser.add_argument("--now", help="Override timestamp for deterministic tests.")
-    parser.add_argument("--json", action="store_true", help="Emit JSON output.")
-    public_commands = ", ".join(PUBLIC_COMMANDS)
-    sub = parser.add_subparsers(dest="command", required=True, metavar="{" + public_commands + "}")
-
-    finalize_parser = _public_command(
-        sub,
-        "finalize-brainstorm",
-        help="Finalize PRD + package boundary from one JSON object.",
-        description="Finalize a brainstorm PRD into ready Arbor package state.",
-        epilog=(
-            "JSON schema:\n"
-            "  {\"name\"|\"package\": \"pkg-name\", \"kind\": \"single\", \"prd\"|\"prd_path\": \"...\", \"title\"?: \"...\", \"decision\"?: \"...\"}\n"
-            "Use prd_path for an existing .arbor/tasks/<package>/prd.md draft. Large scopes use PRD ## Slices."
-        ),
-        formatter_class=argparse.RawDescriptionHelpFormatter,
-    )
-    finalize_input = finalize_parser.add_mutually_exclusive_group(required=True)
-    finalize_input.add_argument("--input-json")
-    finalize_input.add_argument("--input-file", type=Path)
-    finalize_parser.add_argument("--json", dest="json_output", action="store_true", help="Emit JSON output.")
-
-    create = _internal_command(sub, "create", "Create a PRD package workspace.")
-    create.add_argument("name")
-    create.add_argument("--title")
-    create.add_argument("--source-type", choices=["new", "legacy-brainstorm", "ad-hoc"], default="new")
-    create.add_argument("--json", dest="json_output", action="store_true", help="Emit JSON output.")
-
-    validate = _public_command(sub, "validate", help="Validate one or all packages.")
-    target = validate.add_mutually_exclusive_group(required=True)
-    target.add_argument("name", nargs="?")
-    target.add_argument("--all", action="store_true")
-    validate.add_argument("--json", dest="json_output", action="store_true", help="Emit JSON output.")
-
-    doctor_parser = _public_command(sub, "doctor", help="Check project Arbor/wiki workflow health.")
-    doctor_parser.add_argument("--wiki-root", default=".wiki")
-    doctor_parser.add_argument("--strict", action="store_true", help="Return non-zero when warnings or blocked packages exist.")
-    doctor_parser.add_argument("--json", dest="json_output", action="store_true", help="Emit JSON output.")
-
-    set_status = _public_command(sub, "set-status", help="Update package state.")
-    set_status.add_argument("name")
-    set_status.add_argument("--state", required=True)
-    set_status.add_argument("--actor", required=True)
-    set_status.add_argument("--note", default="")
-
-    set_phase = _internal_command(sub, "set-phase", "Update current phase.")
-    set_phase.add_argument("name")
-    set_phase.add_argument("--phase", required=True)
-    set_phase.add_argument("--actor", required=True)
-    set_phase.add_argument("--note", default="")
-
-    record_impl = _public_command(sub, "record-impl-result", help="Record structured package implementation result evidence.")
-    record_impl.add_argument("name")
-    record_impl.add_argument("--state", required=True)
-    record_impl.add_argument("--summary", required=True)
-    record_impl.add_argument("--acceptance", action="append", default=[])
-    record_impl.add_argument("--command", dest="commands", action="append", default=[], help="Legacy note only; use --check for verification evidence.")
-    record_impl.add_argument("--check", dest="checks", action="append", default=[], help="Check evidence id produced by run-check or record-check.")
-    record_impl.add_argument("--concern", action="append", default=[])
-    record_impl.add_argument("--actor", default="impl")
-    record_impl.add_argument("--json", dest="json_output", action="store_true", help="Emit JSON output.")
-
-    derive_checks_parser = _public_command(sub, "derive-required-checks", help="Derive required verification checks from slice task files.")
-    derive_checks_parser.add_argument("name")
-    derive_checks_parser.add_argument("--actor", default="impl")
-    derive_checks_parser.add_argument("--json", dest="json_output", action="store_true", help="Emit JSON output.")
-
-    run_check_parser = _public_command(sub, "run-check", help="Run a verification command and record check evidence.")
-    run_check_parser.add_argument("name")
-    run_check_parser.add_argument("--required-check")
-    run_check_parser.add_argument("--kind")
-    run_check_parser.add_argument("--slice", dest="slice_id")
-    run_check_parser.add_argument("--cwd", default=".")
-    run_check_parser.add_argument("--timeout", type=int, default=120)
-    run_check_parser.add_argument("--actor", default="impl")
-    run_check_parser.add_argument("--json", dest="json_output", action="store_true", help="Emit JSON output.")
-
-    record_check_parser = _public_command(sub, "record-check", help="Record manual, blocked, or externally observed check evidence.")
-    record_check_parser.add_argument("name")
-    record_check_parser.add_argument("--required-check")
-    record_check_parser.add_argument("--kind")
-    record_check_parser.add_argument("--slice", dest="slice_id")
-    record_check_parser.add_argument("--status", required=True, choices=sorted(CHECK_STATUSES))
-    record_check_parser.add_argument("--summary", default="")
-    record_check_parser.add_argument("--evidence", action="append", default=[])
-    record_check_parser.add_argument("--reason", default="")
-    record_check_parser.add_argument("--command", dest="check_command")
-    record_check_parser.add_argument("--exit-code", type=int)
-    record_check_parser.add_argument("--actor", default="impl")
-    record_check_parser.add_argument("--json", dest="json_output", action="store_true", help="Emit JSON output.")
-
-    mark_slice_parser = _public_command(sub, "mark-slice", help="Update slice progress in task.json.")
-    mark_slice_parser.add_argument("name")
-    mark_slice_parser.add_argument("--id", required=True, help="Slice id (e.g. S-001).")
-    mark_slice_parser.add_argument("--status", required=True, choices=sorted(SLICE_STATUSES), help="Slice status.")
-    mark_slice_parser.add_argument("--note", default="", help="Optional progress note.")
-    mark_slice_parser.add_argument("--actor", default="impl")
-    mark_slice_parser.add_argument("--json", dest="json_output", action="store_true", help="Emit JSON output.")
-
-    record_review_parser = _public_command(sub, "record-review", help="Record structured package review verdict evidence.")
-    record_review_parser.add_argument("name")
-    record_review_parser.add_argument("--state", required=True)
-    record_review_parser.add_argument("--summary", required=True)
-    record_review_parser.add_argument("--evidence", action="append", default=[])
-    record_review_parser.add_argument("--note", action="append", default=[])
-    record_review_parser.add_argument("--actor", default="review")
-    record_review_parser.add_argument("--json", dest="json_output", action="store_true", help="Emit JSON output.")
-
-    set_prd = _internal_command(sub, "set-prd-status", "Update PRD readiness status.")
-    set_prd.add_argument("name")
-    set_prd.add_argument("--status", required=True, choices=["draft", "ready", "revising", "superseded"])
-    set_prd.add_argument("--actor", required=True)
-    set_prd.add_argument("--note", default="")
-
-    add_amendment_parser = _public_command(sub, "add-amendment", help="Record a forward-only PRD amendment.")
-    add_amendment_parser.add_argument("name")
-    add_amendment_parser.add_argument("--id")
-    add_amendment_parser.add_argument("--title", required=True)
-    add_amendment_parser.add_argument("--wrong", required=True)
-    add_amendment_parser.add_argument("--correct", required=True)
-    add_amendment_parser.add_argument("--affects", action="append", default=[])
-    add_amendment_parser.add_argument("--source", default="user")
-    add_amendment_parser.add_argument("--actor", default="brainstorm")
-
-    set_sizing = _internal_command(sub, "set-package-sizing", "Record package boundary sizing from brainstorm.")
-    set_sizing.add_argument("name")
-    set_sizing.add_argument("--status", required=True, choices=sorted(PACKAGE_SIZING_STATUSES))
-    set_sizing.add_argument("--decision")
-    set_sizing.add_argument("--signal", action="append", default=[])
-    set_sizing.add_argument("--recommended-package", action="append", default=[], help="name[:reason]")
-    set_sizing.add_argument("--phase", choices=sorted(PHASES), help="Lifecycle phase that made the boundary decision; inferred from actor when omitted.")
-    set_sizing.add_argument("--actor", required=True)
-    set_sizing.add_argument("--note", default="")
-
-    set_execution_parser = _public_command(sub, "set-execution", help="Record lightweight package execution metadata.")
-    set_execution_parser.add_argument("name")
-    set_execution_parser.add_argument("--status", choices=sorted(EXECUTION_STATUSES))
-    set_execution_parser.add_argument("--base-branch")
-    set_execution_parser.add_argument("--branch")
-    set_execution_parser.add_argument("--upstream")
-    set_execution_parser.add_argument("--worktree")
-    set_execution_parser.add_argument("--worktree-created-by")
-    set_execution_parser.add_argument("--actor", default="arbor")
-    set_execution_parser.add_argument("--note", default="")
-
-    set_pr_parser = _public_command(sub, "set-pr", help="Record package-level PR metadata.")
-    set_pr_parser.add_argument("name")
-    set_pr_parser.add_argument("--url")
-    set_pr_parser.add_argument("--number", type=int)
-    set_pr_parser.add_argument("--state", choices=sorted(PR_STATES))
-    set_pr_parser.add_argument("--actor", default="arbor")
-    set_pr_parser.add_argument("--note", default="")
-
-    repair_context_parser = _internal_command(sub, "repair-context", "Normalize recoverable impl/review context JSONL schema drift.")
-    repair_context_parser.add_argument("name")
-    repair_context_parser.add_argument("--type", required=True, choices=["impl", "review"])
-    repair_context_parser.add_argument("--actor", default="arbor")
-    repair_context_parser.add_argument("--json", dest="json_output", action="store_true", help="Emit JSON output.")
-
-    add_ctx = _public_command(sub, "add-context", help="Append context JSONL.")
-    add_ctx.add_argument("name")
-    add_ctx.add_argument("--type", required=True, choices=sorted(CONTEXT_TYPES))
-    add_ctx.add_argument("--kind", choices=sorted(CONTEXT_KINDS))
-    add_ctx.add_argument("--source")
-    add_ctx.add_argument("--summary")
-    add_ctx.add_argument("--actor", default="arbor")
-    add_ctx.add_argument("--source-id")
-    add_ctx.add_argument("--source-type", choices=sorted(SOURCE_TYPES))
-    add_ctx.add_argument("--location")
-    add_ctx.add_argument("--title")
-    add_ctx.add_argument("--why")
-
-    add_ctx_batch = _public_command(sub, "add-context-batch", help="Atomically append multiple context JSONL entries.")
-    add_ctx_batch.add_argument("name")
-    add_ctx_batch.add_argument("--type", required=True, choices=sorted(CONTEXT_TYPES))
-    add_ctx_batch.add_argument("--entry-json", action="append", default=[])
-    add_ctx_batch.add_argument("--entries-json")
-    add_ctx_batch.add_argument("--actor", default="arbor")
-    add_ctx_batch.add_argument("--json", dest="json_output", action="store_true", help="Emit JSON output.")
-
-    module_summary_parser = _public_command(sub, "module-summary", help="Emit a deterministic module summary packet for wiki publishing.")
-    module_summary_parser.add_argument("name")
-    module_summary_parser.add_argument("--json", dest="json_output", action="store_true", help="Emit JSON output.")
-
-    wiki_index_parser = _public_command(sub, "wiki-index", help="Index project-local .wiki markdown pages.")
-    wiki_index_parser.add_argument("--wiki-root", default=".wiki")
-    wiki_index_parser.add_argument("--tag")
-    wiki_index_parser.add_argument("--include-content", choices=["true", "false"], default="false")
-    wiki_index_parser.add_argument("--json", dest="json_output", action="store_true", help="Emit JSON output.")
-
-    wiki_search_parser = _public_command(sub, "wiki-search", help="Search project-local .wiki pages with deterministic token scoring.")
-    wiki_search_parser.add_argument("query")
-    wiki_search_parser.add_argument("--wiki-root", default=".wiki")
-    wiki_search_parser.add_argument("--limit", type=int)
-    wiki_search_parser.add_argument("--json", dest="json_output", action="store_true", help="Emit JSON output.")
-
-    wiki_collect_parser = _public_command(sub, "wiki-collect", help="Collect compact summaries for relevant .wiki pages.")
-    wiki_collect_parser.add_argument("--query", required=True)
-    wiki_collect_parser.add_argument("--wiki-root", default=".wiki")
-    wiki_collect_parser.add_argument("--limit", type=int, default=5)
-    wiki_collect_parser.add_argument("--json", dest="json_output", action="store_true", help="Emit JSON output.")
-
-    wiki_lint_parser = _public_command(sub, "wiki-lint", help="Lint project-local .wiki markdown pages without modifying them.")
-    wiki_lint_parser.add_argument("--wiki-root", default=".wiki")
-    wiki_lint_parser.add_argument("--json", dest="json_output", action="store_true", help="Emit JSON output.")
-
-    list_parser = _public_command(sub, "list", help="List packages.")
-    list_parser.add_argument("--json", dest="json_output", action="store_true", help="Emit JSON output.")
-
-    show = _public_command(sub, "show", help="Show one package.")
-    show.add_argument("name")
-    show.add_argument("--json", dest="json_output", action="store_true", help="Emit JSON output.")
-
-    return parser
 
 
 def main(argv: list[str] | None = None) -> int:
     parser = build_parser()
+    if argv is None:
+        argv = sys.argv[1:]
     command_args: list[str] = []
     parse_argv = argv
-    if argv is not None and "run-check" in argv:
+    if "run-check" in argv:
         command_index = argv.index("run-check")
         tail = argv[command_index + 1:]
         if "--" in tail:
@@ -336,7 +83,7 @@ def main(argv: list[str] | None = None) -> int:
             return 1 if all_errors else 0
 
         if args.command == "doctor":
-            result = doctor(root, args.wiki_root, timestamp)
+            result = doctor(root, timestamp)
             if json_output:
                 print(json.dumps(result, ensure_ascii=False, indent=2))
             else:
@@ -353,13 +100,8 @@ def main(argv: list[str] | None = None) -> int:
             print("ok")
             return 0
 
-        if args.command == "set-phase":
-            update_phase(root, args.name, args.phase, args.actor, args.note, timestamp)
-            print("ok")
-            return 0
-
         if args.command == "record-impl-result":
-            result = record_impl_result(root, args.name, args.state, args.summary, args.acceptance, args.commands, args.checks, args.concern, args.actor, timestamp)
+            result = record_impl_result(root, args.name, args.state, args.summary, args.acceptance, args.commands, args.checks, args.functional_checks, args.concern, args.actor, timestamp)
             if json_output:
                 print(json.dumps(result, ensure_ascii=False, indent=2))
             else:
@@ -392,12 +134,30 @@ def main(argv: list[str] | None = None) -> int:
                 print(f"{check['id']}: {check['status']}")
             return 0
 
+        if args.command == "impl-packet":
+            result = impl_packet(root, args.name, args.slice_id, timestamp)
+            if json_output:
+                print(json.dumps(result, ensure_ascii=False, indent=2))
+            elif args.slice_id:
+                slice_info = result["slice"]
+                print(f"{slice_info['id']} ({slice_info['status']}): {slice_info['title']}")
+                print(f"task_file: {slice_info['task_file']}")
+                print(f"required_checks: {', '.join(item['id'] for item in result['required_checks']) or 'none'}")
+                print("read_next: " + ", ".join(result["read_next"]))
+            else:
+                for row in result["slices"]:
+                    print(f"{row['id']} {row['status']} — {row['title']}")
+                print(f"next_slice: {result['next_slice'] or 'none'}")
+            return 0
+
         if args.command == "mark-slice":
-            result = mark_slice(root, args.name, args.id, args.status, args.note, args.actor, timestamp)
+            result = mark_slice(root, args.name, args.id, args.status, args.note, args.actor, timestamp, args.acceptance)
             if json_output:
                 print(json.dumps(result, ensure_ascii=False, indent=2))
             else:
                 print(f"{result['slice']}: {result['status']}")
+                for concern in result.get("concerns", []):
+                    print(f"concern: {concern}")
             return 0
 
         if args.command == "record-review":
@@ -408,18 +168,8 @@ def main(argv: list[str] | None = None) -> int:
                 print("ok")
             return 0
 
-        if args.command == "set-prd-status":
-            update_prd_status(root, args.name, args.status, args.actor, args.note, timestamp)
-            print("ok")
-            return 0
-
         if args.command == "add-amendment":
             add_amendment(root, args.name, args.id, args.title, args.wrong, args.correct, args.affects, args.source, args.actor, timestamp)
-            print("ok")
-            return 0
-
-        if args.command == "set-package-sizing":
-            set_package_sizing(root, args.name, args.status, args.actor, args.note, timestamp, args.decision, args.signal, args.recommended_package, args.phase)
             print("ok")
             return 0
 
@@ -442,25 +192,6 @@ def main(argv: list[str] | None = None) -> int:
             return 0
 
         if args.command == "add-context":
-            add_context(
-                root,
-                args.name,
-                args.type,
-                args.kind,
-                args.summary,
-                args.source,
-                args.actor,
-                timestamp,
-                args.source_id,
-                args.source_type,
-                args.location,
-                args.title,
-                args.why,
-            )
-            print("ok")
-            return 0
-
-        if args.command == "add-context-batch":
             entries = [parse_entry_json(raw) for raw in args.entry_json]
             if args.entries_json is not None:
                 entries.extend(parse_entries_json(args.entries_json))
@@ -475,40 +206,6 @@ def main(argv: list[str] | None = None) -> int:
             result = module_summary(root, args.name, timestamp=timestamp)
             print(json.dumps(result, ensure_ascii=False, indent=2) if json_output else result["title"])
             return 0
-
-        if args.command == "wiki-index":
-            result = wiki_index(root, args.wiki_root, args.tag, args.include_content == "true")
-            if json_output:
-                print(json.dumps(result, ensure_ascii=False, indent=2))
-            else:
-                print(f"pages: {len(result['pages'])}")
-            return 0
-
-        if args.command == "wiki-search":
-            result = wiki_search(root, args.query, args.wiki_root, args.limit)
-            if json_output:
-                print(json.dumps(result, ensure_ascii=False, indent=2))
-            else:
-                for item in result["results"]:
-                    print(f"{item['score']} {item['path']} — {item['title']}")
-            return 0
-
-        if args.command == "wiki-collect":
-            result = wiki_collect(root, args.query, args.wiki_root, args.limit)
-            if json_output:
-                print(json.dumps(result, ensure_ascii=False, indent=2))
-            else:
-                for item in result["selected"]:
-                    print(f"{item['path']} — {item['title']}")
-            return 0
-
-        if args.command == "wiki-lint":
-            result = wiki_lint(root, args.wiki_root)
-            if json_output:
-                print(json.dumps(result, ensure_ascii=False, indent=2))
-            else:
-                print_human_wiki_lint(result)
-            return 0 if result["ok"] else 1
 
         if args.command == "list":
             items = list_packages(root)

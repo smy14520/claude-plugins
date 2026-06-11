@@ -46,11 +46,11 @@ Evolving 内容吸收进已有正式结构，不创建平行 section：
 只有同时满足以下条件,才可以整理 PRD 并调用 `sdd-arbor finalize-brainstorm`:
 
 - Blocking questions 已解决,剩余 open questions 不阻塞 impl / review。
-- Technical Framing 已覆盖承重技术边界;未知承重项不能留给 impl 猜。
+- Technical Framing 已覆盖通用项和当前画像特定项的承重技术边界；未知承重项不能留给 impl 猜。
 - 扩展扫视已完成,结果已写入关键场景 / Out of scope。
 - 关键场景的成功判定和 Slices 的完成标志覆盖核心路径和关键失败 / 边界路径。
 - Slices 已写好，按依赖顺序列出当前 PRD 的实现切片；不能保留示例 slice 或 `<...>`。
-- 每个 slice 有对应的 `slices/S-NNN.md` task 文件，且包含非空的 `## Acceptance` 和 `## Verification` 段。
+- 每个 slice 有对应的 `slices/S-NNN.md` task 文件，且包含非空的 `## Acceptance` 和 `## Verification` 段；每条 Verification 项带显式 `[kind]` 标签（finalize 会拒绝未标注项）。
 - PRD 已从 evolving 区吸收进正式结构（场景、范围、Technical Framing、Slices），不残留独立的 Requirements 或 Acceptance Criteria section。
 - PRD 不再残留 `<...>` 模板占位符、示例 source、空 section;`背景与问题`、`目标`、`本次范围`、`关键场景`、`交付物清单`、`Package artifacts`、`Technical Framing`、`Slices`、`验证重点` 都必须是可执行内容。
 - 顶层 `Open Questions` 中没有 blocking question;若保留 non-blocking 问题,必须说明为什么不阻塞本次 impl / review。

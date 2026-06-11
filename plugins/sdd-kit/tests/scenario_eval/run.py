@@ -151,7 +151,7 @@ async def run_sdd_workflow(
 
         # Build initial prompt
         if scenario.name == "wiki-cross-cut-export-integration":
-            prompt = f"用 brainstorm grill-me {user_request}\n\n这个项目已有 `.wiki/`；如果需求涉及已有 module 或 cross-cut 模式，请按 brainstorm skill 先用 `sdd-arbor wiki-collect --query \"新增 导出 auth session\" --limit 5 --json` 渐进式查询，不要全量读取 wiki。PRD Technical Framing 应引用实际命中的 cross_cut 页面，核心 scope 保持自包含，并写 wiki 与当前代码不一致时由 impl 逐一识别的 fallback。"
+            prompt = f"用 brainstorm grill-me {user_request}\n\n这个项目已有 `.wiki/`；如果需求涉及已有 module 或 cross-cut 模式，请按 brainstorm skill 先用 `sdd-wiki collect --query \"新增 导出 auth session\" --limit 5 --json` 渐进式查询，不要全量读取 wiki。PRD Technical Framing 应引用实际命中的 cross_cut 页面，核心 scope 保持自包含，并写 wiki 与当前代码不一致时由 impl 逐一识别的 fallback。"
         else:
             prompt = f"用 brainstorm grill-me {user_request}\n\n注意：这是一个全新的空项目目录（{paths.work_dir}），当前没有任何已有 package 或代码。请从零开始 brainstorm，不要假设已有任何历史产物。所有 sdd-arbor 命令和文件操作都必须在当前目录下执行。"
 

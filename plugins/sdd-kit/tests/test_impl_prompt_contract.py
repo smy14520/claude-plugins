@@ -1,46 +1,61 @@
+import argparse
+import importlib.util
 import unittest
 from pathlib import Path
 
+from prompt_contract import assert_skill_structure, frontmatter_fields, headings
+
 PLUGIN_ROOT = Path(__file__).resolve().parents[1]
+MODULE_PATH = PLUGIN_ROOT / "tools" / "arbor.py"
+spec = importlib.util.spec_from_file_location("arbor_for_impl_contract", MODULE_PATH)
+arbor = importlib.util.module_from_spec(spec)
+spec.loader.exec_module(arbor)
+
+
+def all_cli_commands() -> tuple[str, ...]:
+    parser = arbor.build_parser()
+    sub = next(action for action in parser._actions if isinstance(action, argparse._SubParsersAction))
+    return tuple(sub.choices)
 
 
 class ImplPromptContractTests(unittest.TestCase):
-    def read_plugin_file(self, *parts):
-        return (PLUGIN_ROOT / Path(*parts)).read_text(encoding="utf-8")
+    """Structural contract only: frontmatter, resolvable references, real CLI commands.
 
-    def test_impl_executes_slices_without_user_confirmation(self):
-        text = self.read_plugin_file("skills", "impl", "SKILL.md")
+    Prose is intentionally not asserted — prompts must stay freely editable.
+    """
 
-        self.assertIn("## Slices", text)
-        self.assertIn("连续执行所有 slices", text)
-        self.assertIn("不在 slice 之间停顿等待用户确认", text)
-        self.assertIn("in_progress", text)
-        self.assertIn("NEEDS_CONTEXT", text)
-        self.assertIn("BLOCKED", text)
-        self.assertNotIn("AskUserQuestion", text)
-        self.assertNotIn("阻塞项预检", text)
-        self.assertNotIn("`[-]` 部分完成", text)
-        self.assertNotIn("Impl 只更新 [ ] / [-] / [x]", text)
+    def test_impl_skill_structure_and_command_references(self):
+        assert_skill_structure(self, PLUGIN_ROOT / "skills" / "impl", all_cli_commands())
 
-    def test_impl_uses_prd_scope_wording_not_minimal_code_change(self):
-        text = self.read_plugin_file("skills", "impl", "SKILL.md")
+    def test_impl_references_resolve_and_have_content(self):
+        references_dir = PLUGIN_ROOT / "skills" / "impl" / "references"
+        for path in references_dir.glob("*.md"):
+            text = path.read_text(encoding="utf-8")
+            self.assertTrue(headings(text), f"{path} has no headings")
 
-        self.assertIn("PRD 的目标、范围、Acceptance Criteria、Package artifacts 引用、Technical Framing", text)
-        self.assertIn("不修改 `prd.md`", text)
-        self.assertIn("PRD 是需求 source of truth", text)
-        self.assertIn("PRD blocking open questions", text)
-        self.assertNotIn("最小代码变更", text)
+    def test_impl_skill_mentions_closed_loop_commands(self):
+        text = (PLUGIN_ROOT / "skills" / "impl" / "SKILL.md").read_text(encoding="utf-8")
+        for token in ["impl-packet", "run-check", "record-check", "mark-slice", "record-impl-result", "--functional-check"]:
+            self.assertIn(token, text)
+        for result in ["DONE", "DONE_WITH_CONCERNS", "NEEDS_CONTEXT", "BLOCKED"]:
+            self.assertIn(result, text)
 
-    def test_impl_records_structured_result_and_self_check(self):
-        text = self.read_plugin_file("skills", "impl", "SKILL.md")
+    def test_prompt_contract_helper_detects_broken_reference(self):
+        """Negative self-test: the structural check must actually fail on breakage."""
+        import tempfile
 
-        self.assertIn("record-impl-result", text)
-        self.assertIn("self-check", text)
-        self.assertIn("derive-required-checks", text)
-        self.assertIn("run-check", text)
-        self.assertIn("record-check", text)
-        self.assertIn("DONE 必须逐项引用 passed check evidence", text)
-        self.assertIn("DONE_WITH_CONCERNS", text)
+        with tempfile.TemporaryDirectory() as tmp:
+            skill_dir = Path(tmp)
+            (skill_dir / "SKILL.md").write_text(
+                "---\nname: x\ndescription: y\n---\n\nSee [`references/missing.md`](references/missing.md).\n",
+                encoding="utf-8",
+            )
+            with self.assertRaises(AssertionError):
+                assert_skill_structure(self, skill_dir)
+            (skill_dir / "SKILL.md").write_text("# no frontmatter\n", encoding="utf-8")
+            self.assertEqual(frontmatter_fields((skill_dir / "SKILL.md").read_text(encoding="utf-8")), {})
+            with self.assertRaises(AssertionError):
+                assert_skill_structure(self, skill_dir)
 
 
 if __name__ == "__main__":

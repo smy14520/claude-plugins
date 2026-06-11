@@ -11,6 +11,7 @@ def default_execution(name: str) -> dict[str, Any]:
         "owner": None,
         "claimed_at": None,
         "released_at": None,
+        "base_ref": None,
         "branch": {
             "base": None,
             "name": None,
@@ -106,6 +107,9 @@ def route_package_state(data: dict[str, Any], state: str, timestamp: str | None 
         data["next_action"] = {"skill": "none", "reason": "已通过审计"}
         if execution.get("status") not in {"pr_open", "merged"}:
             execution["status"] = "reviewed"
+    elif state == "archived":
+        data["current_phase"] = data.get("current_phase", "brainstorm")
+        data["next_action"] = {"skill": "none", "reason": "已归档，不再推进"}
 
     if timestamp:
         data["updated_at"] = timestamp

@@ -182,14 +182,52 @@ def _field_value(body: str, labels: tuple[str, ...]) -> str:
 
 _TASK_ACCEPTANCE_RE = re.compile(r"^## Acceptance\b", re.MULTILINE)
 _TASK_VERIFICATION_RE = re.compile(r"^## Verification\b", re.MULTILINE)
+_VERIFICATION_HEADING_RE = re.compile(r"^##+\s+Verification\s*$", re.IGNORECASE)
+_HEADING_LINE_RE = re.compile(r"^##+\s+")
+_VERIFICATION_TAG_RE = re.compile(r"^\[([a-z]+)\]\s+(.+)$", re.DOTALL)
+
+# Check kind is declared by brainstorm in the slice task file, never inferred
+# by the CLI: kind decides whether the gate demands run-check evidence, which
+# is a policy decision, not a parsing heuristic.
+VERIFICATION_KINDS = {"build", "test", "typecheck", "lint", "docker", "api", "browser", "manual"}
+
+
+def parse_verification_items(text: str) -> list[tuple[str | None, str]]:
+    """Parse `## Verification` bullets into (kind, description) pairs.
+
+    Expected item format: `- [test] python -m pytest tests/`. Items without a
+    `[kind]` tag come back with kind=None; callers decide whether that is an
+    error (finalize and derive both reject untagged items).
+    """
+    items: list[tuple[str | None, str]] = []
+    in_verification = False
+    for raw_line in text.splitlines():
+        line = raw_line.strip()
+        if _HEADING_LINE_RE.match(line):
+            if in_verification:
+                break
+            in_verification = bool(_VERIFICATION_HEADING_RE.match(line))
+            continue
+        if not in_verification or not line.startswith("- "):
+            continue
+        item = line[2:].strip()
+        if not item:
+            continue
+        tag_match = _VERIFICATION_TAG_RE.match(item)
+        if tag_match and tag_match.group(1) in VERIFICATION_KINDS:
+            items.append((tag_match.group(1), tag_match.group(2).strip()))
+        else:
+            items.append((None, item))
+    return items
 
 
 def validate_slice_tasks(root: Path, package_name: str, slice_ids: list[str]) -> list[str]:
     """Validate that each slice has a corresponding task file with required sections.
 
-    Returns errors if slice task files are missing or lack required sections.
-    When the PRD defines slices but the slices/ directory does not exist,
-    returns an error requiring brainstorm to create the task files first.
+    Returns errors if slice task files are missing, lack required sections, or
+    contain Verification items without an explicit `[kind]` tag. When the PRD
+    defines slices but the slices/ directory does not exist, returns an error
+    requiring brainstorm to create the task files first.
     """
     from .fs import package_dir
 
@@ -202,6 +240,7 @@ def validate_slice_tasks(root: Path, package_name: str, slice_ids: list[str]) ->
             errors.append(f"slices/ directory does not exist but PRD defines {len(slice_ids)} slices; create slice task files before finalize")
         return errors
 
+    kinds = "/".join(sorted(VERIFICATION_KINDS))
     for slice_id in slice_ids:
         task_file = slices_dir / f"{slice_id}.md"
         if not task_file.exists():
@@ -212,5 +251,16 @@ def validate_slice_tasks(root: Path, package_name: str, slice_ids: list[str]) ->
             errors.append(f"slices/{slice_id}.md missing ## Acceptance section")
         if not _TASK_VERIFICATION_RE.search(content):
             errors.append(f"slices/{slice_id}.md missing ## Verification section")
+            continue
+        verification_items = parse_verification_items(content)
+        if not verification_items:
+            errors.append(f"slices/{slice_id}.md Verification must contain at least one `- [kind] ...` bullet")
+            continue
+        for kind, description in verification_items:
+            if kind is None:
+                errors.append(
+                    f"slices/{slice_id}.md Verification 项缺少 [kind] 标签: \"{description}\"；"
+                    f"写成 `- [test] ...` 形式，合法 kind: {kinds}"
+                )
 
     return errors

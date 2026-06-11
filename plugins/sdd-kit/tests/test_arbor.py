@@ -136,15 +136,35 @@ class ArborCliTests(unittest.TestCase):
             check_ids.append(self.task_json(name)["checks"][-1]["id"])
         return check_ids
 
+    def record_functional_check(self, name="demo-package", status="passed"):
+        args = [
+            "record-check",
+            name,
+            "--kind",
+            "functional",
+            "--status",
+            status,
+            "--summary",
+            "functional smoke",
+        ]
+        if status == "passed":
+            args.extend(["--evidence", "core path observed"])
+        elif status in {"blocked", "not_run"}:
+            args.extend(["--reason", "browser unavailable", "--evidence", "launch failed"])
+        elif status == "failed":
+            args.extend(["--evidence", "core path failed", "--exit-code", "1"])
+        self.assertEqual(self.run_cli(*args), 0)
+        return self.task_json(name)["checks"][-1]["id"]
+
     def _create_slice_tasks(self, name="demo-package"):
         slices_dir = self.root / ".arbor" / "tasks" / name / "slices"
         slices_dir.mkdir(parents=True, exist_ok=True)
         (slices_dir / "S-001.md").write_text(
-            "# S-001: First slice\n\n## Acceptance\n\nGiven:\n- setup\n\nWhen:\n- action\n\nThen:\n- result\n\n## Verification\n\n- run tests\n",
+            "# S-001: First slice\n\n## Acceptance\n\nGiven:\n- setup\n\nWhen:\n- action\n\nThen:\n- result\n\n## Verification\n\n- [test] run tests\n",
             encoding="utf-8",
         )
         (slices_dir / "S-002.md").write_text(
-            "# S-002: Self-check\n\n## Acceptance\n\nGiven:\n- baseline exists\n\nWhen:\n- validate\n\nThen:\n- passes\n\n## Verification\n\n- run validation\n",
+            "# S-002: Self-check\n\n## Acceptance\n\nGiven:\n- baseline exists\n\nWhen:\n- validate\n\nThen:\n- passes\n\n## Verification\n\n- [manual] run validation\n",
             encoding="utf-8",
         )
 
@@ -486,6 +506,26 @@ class ArborCliTests(unittest.TestCase):
         spec = {"kind": "single", "package": "demo-package", "prd_path": ".arbor/tasks/demo-package/prd.md"}
         self.assertEqual(self.run_cli("finalize-brainstorm", "--input-json", json.dumps(spec)), 1)
 
+    def test_finalize_brainstorm_rejects_empty_verification_section(self):
+        self.run_cli("create", "demo-package", "--title", "Demo package")
+        prd = self.package_dir() / "prd.md"
+        prd.write_text(READY_PRD, encoding="utf-8")
+        slices_dir = self.package_dir() / "slices"
+        slices_dir.mkdir(parents=True, exist_ok=True)
+        (slices_dir / "S-001.md").write_text(
+            "# S-001\n\n## Acceptance\n\nThen: result\n\n## Verification\n\n",
+            encoding="utf-8",
+        )
+        (slices_dir / "S-002.md").write_text(
+            "# S-002\n\n## Acceptance\n\nThen: result\n\n## Verification\n\n- [manual] run validation\n",
+            encoding="utf-8",
+        )
+        spec = {"kind": "single", "package": "demo-package", "prd_path": ".arbor/tasks/demo-package/prd.md"}
+        result = self.run_bin("finalize-brainstorm", "--input-json", json.dumps(spec))
+        self.assertEqual(result.returncode, 1)
+        self.assertIn("S-001", result.stderr)
+        self.assertIn("Verification", result.stderr)
+
     def test_finalize_brainstorm_passes_with_complete_slice_tasks(self):
         """When all slice task files have required sections, finalize succeeds."""
         self.run_cli("create", "demo-package", "--title", "Demo package")
@@ -526,9 +566,12 @@ class ArborCliTests(unittest.TestCase):
         self.assertEqual(self.task_json()["state"], "done")
 
     def test_ready_prd_requires_package_sizing(self):
+        from arbor_core.errors import ArborError
+        from arbor_core.package_lifecycle import update_prd_status
+
         self.run_cli("create", "demo-package")
-        code = self.run_cli("set-prd-status", "demo-package", "--status", "ready", "--actor", "brainstorm", "--note", "ready")
-        self.assertEqual(code, 1)
+        with self.assertRaises(ArborError):
+            update_prd_status(self.root, "demo-package", "ready", "brainstorm", "ready", NOW)
         data = self.task_json()
         self.assertEqual(data["prd"]["status"], "draft")
         self.assertEqual(data["package_sizing"]["status"], "unchecked")
@@ -560,6 +603,53 @@ class ArborCliTests(unittest.TestCase):
         self.assertEqual(check["exit_code"], 0)
         self.assertTrue((self.package_dir() / check["stdout_path"]).exists())
         self.assertTrue((self.package_dir() / check["stderr_path"]).exists())
+
+    def test_required_checks_refresh_when_slice_verification_changes(self):
+        self.finalize_single()
+        self.assertEqual(self.run_cli("derive-required-checks", "demo-package"), 0)
+        old_checks = self.task_json()["required_checks"]
+        old_fp = old_checks[0]["fingerprint"]
+        self.assertEqual(self.run_cli("run-check", "demo-package", "--required-check", "req_S001_001", "--", sys.executable, "-c", "pass"), 0)
+        old_check_id = self.task_json()["checks"][-1]["id"]
+        (self.package_dir() / "slices" / "S-001.md").write_text(
+            "# S-001: First slice\n\n## Acceptance\n\nThen:\n- result\n\n## Verification\n\n- [test] run new regression tests\n",
+            encoding="utf-8",
+        )
+        self.assertEqual(self.run_cli("set-status", "demo-package", "--state", "doing", "--actor", "impl", "--note", "refresh"), 0)
+        data = self.task_json()
+        self.assertNotEqual(data["required_checks"][0]["fingerprint"], old_fp)
+        rejected = self.run_bin(
+            "record-impl-result",
+            "demo-package",
+            "--state",
+            "done",
+            "--summary",
+            "stale evidence",
+            "--acceptance",
+            "S-001 done",
+            "--acceptance",
+            "S-002 done",
+            "--check",
+            old_check_id,
+        )
+        self.assertEqual(rejected.returncode, 1)
+        self.assertIn("stale", rejected.stderr)
+
+    def test_mark_slice_uses_latest_required_check_evidence(self):
+        self.finalize_single()
+        self.assertEqual(self.run_cli("run-check", "demo-package", "--required-check", "req_S001_001", "--", sys.executable, "-c", "pass"), 0)
+        stale_pass = self.task_json()["checks"][-1]["id"]
+        self.assertEqual(self.run_cli("run-check", "demo-package", "--required-check", "req_S001_001", "--", sys.executable, "-c", "raise SystemExit(1)"), 1)
+        failed = self.task_json()["checks"][-1]["id"]
+        self.assertNotEqual(stale_pass, failed)
+        rejected = self.run_bin("mark-slice", "demo-package", "--id", "S-001", "--status", "done", "--acceptance", "S-001: baseline verified")
+        self.assertEqual(rejected.returncode, 1)
+        self.assertIn("最新证据失败", rejected.stderr)
+        self.assertEqual(self.run_cli("run-check", "demo-package", "--required-check", "req_S001_001", "--", sys.executable, "-c", "pass"), 0)
+        latest_pass = self.task_json()["checks"][-1]["id"]
+        self.assertEqual(self.run_cli("mark-slice", "demo-package", "--id", "S-001", "--status", "done", "--acceptance", "S-001: baseline verified"), 0)
+        entry = next(item for item in self.task_json()["slices"] if item["id"] == "S-001")
+        self.assertEqual(entry["checks"], [latest_pass])
 
     def test_done_rejects_missing_or_manual_automated_required_checks(self):
         self.finalize_single()
@@ -632,7 +722,8 @@ class ArborCliTests(unittest.TestCase):
     def test_record_impl_result_routes_structured_results(self):
         self.finalize_single()
         check_ids = self.record_all_required_checks()
-        self.assertEqual(self.run_cli("record-impl-result", "demo-package", "--state", "done_with_concerns", "--summary", "implemented behavior", "--acceptance", "S-001 golden path passes", "--acceptance", "S-002 validation passes", "--check", check_ids[0], "--check", check_ids[1], "--concern", "edge case needs review", "--json"), 0)
+        functional_check = self.record_functional_check()
+        self.assertEqual(self.run_cli("record-impl-result", "demo-package", "--state", "done_with_concerns", "--summary", "implemented behavior", "--acceptance", "S-001 golden path passes", "--acceptance", "S-002 validation passes", "--check", check_ids[0], "--check", check_ids[1], "--functional-check", functional_check, "--concern", "edge case needs review", "--json"), 0)
         data = self.task_json()
         self.assertEqual(data["state"], "done")
         self.assertEqual(data["impl_result"]["state"], "DONE_WITH_CONCERNS")
@@ -658,11 +749,11 @@ class ArborCliTests(unittest.TestCase):
         slices_dir = self.root / ".arbor" / "tasks" / name / "slices"
         slices_dir.mkdir(parents=True, exist_ok=True)
         (slices_dir / "S-001.md").write_text(
-            "# S-001: Registration with duplicate guard\n\n## Acceptance\n\nGiven:\n- setup\n\nWhen:\n- register\n\nThen:\n- registered\n- can cancel\n- duplicate blocked\n\n## Verification\n\n- run tests\n",
+            "# S-001: Registration with duplicate guard\n\n## Acceptance\n\nGiven:\n- setup\n\nWhen:\n- register\n\nThen:\n- registered\n- can cancel\n- duplicate blocked\n\n## Verification\n\n- [test] run tests\n",
             encoding="utf-8",
         )
         (slices_dir / "S-002.md").write_text(
-            "# S-002: Self-check\n\n## Acceptance\n\nGiven:\n- baseline\n\nWhen:\n- validate\n\nThen:\n- passes\n\n## Verification\n\n- run validation\n",
+            "# S-002: Self-check\n\n## Acceptance\n\nGiven:\n- baseline\n\nWhen:\n- validate\n\nThen:\n- passes\n\n## Verification\n\n- [manual] run validation\n",
             encoding="utf-8",
         )
 
@@ -812,6 +903,7 @@ class ArborCliTests(unittest.TestCase):
             0,
         )
         check_ids = self.record_all_required_checks()
+        functional_check = self.record_functional_check()
         self.assertEqual(
             self.run_cli(
                 "record-impl-result",
@@ -832,6 +924,8 @@ class ArborCliTests(unittest.TestCase):
                 check_ids[0],
                 "--check",
                 check_ids[1],
+                "--functional-check",
+                functional_check,
             ),
             0,
         )
@@ -853,7 +947,8 @@ class ArborCliTests(unittest.TestCase):
     def test_record_review_stores_package_verdict_and_appends_review_md(self):
         self.finalize_single()
         check_ids = self.record_all_required_checks()
-        self.run_cli("record-impl-result", "demo-package", "--state", "done", "--summary", "implemented", "--acceptance", "S-001 implemented", "--acceptance", "S-002 validated", "--check", check_ids[0], "--check", check_ids[1])
+        functional_check = self.record_functional_check()
+        self.run_cli("record-impl-result", "demo-package", "--state", "done", "--summary", "implemented", "--acceptance", "S-001 implemented", "--acceptance", "S-002 validated", "--check", check_ids[0], "--check", check_ids[1], "--functional-check", functional_check)
         before = (self.package_dir() / "review.md").read_text(encoding="utf-8")
         self.assertEqual(self.run_cli("record-review", "demo-package", "--state", "approved_with_notes", "--summary", "approved", "--evidence", "unit tests pass", "--note", "keep an eye on edge", "--json"), 0)
         data = self.task_json()
@@ -879,6 +974,18 @@ class ArborCliTests(unittest.TestCase):
         self.assertEqual(data["state"], "draft")
         self.assertEqual(data["next_action"]["skill"], "brainstorm")
         self.assertEqual(self.run_cli("record-review", "demo-package", "--state", "done", "--summary", "bad"), 1)
+
+    def test_archived_state_routes_to_none_and_doctor_skips(self):
+        self.finalize_single()
+        self.assertEqual(self.run_cli("set-status", "demo-package", "--state", "archived", "--actor", "user", "--note", "no longer needed"), 0)
+        data = self.task_json()
+        self.assertEqual(data["state"], "archived")
+        self.assertEqual(data["next_action"]["skill"], "none")
+        self.assertIn("归档", data["next_action"]["reason"])
+        result = arbor.doctor(self.root, NOW)
+        self.assertTrue(result["ok"])
+        self.assertEqual(result["packages"]["count"], 0)
+        self.assertEqual(result["packages"]["archived_count"], 1)
 
     def test_add_amendment_routes_to_impl(self):
         self.finalize_single()
@@ -909,13 +1016,13 @@ class ArborCliTests(unittest.TestCase):
         self.assertEqual(data["phase_history"][-1]["to"], "amendment:AMD-001")
         self.assertEqual(self.run_cli("validate", "demo-package"), 0)
 
-    def test_add_context_batch_is_atomic_and_ordered(self):
+    def test_add_context_is_atomic_and_ordered(self):
         self.finalize_single()
-        self.assertEqual(self.run_cli("add-context-batch", "demo-package", "--type", "impl", "--entry-json", '{"kind":"note","summary":"first"}', "--entry-json", '{"kind":"decision","summary":"second"}'), 0)
+        self.assertEqual(self.run_cli("add-context", "demo-package", "--type", "impl", "--entry-json", '{"kind":"note","summary":"first"}', "--entry-json", '{"kind":"decision","summary":"second"}'), 0)
         lines = (self.package_dir() / "context" / "impl.jsonl").read_text(encoding="utf-8").strip().splitlines()
         self.assertEqual([json.loads(line)["summary"] for line in lines], ["first", "second"])
         before = (self.package_dir() / "context" / "review.jsonl").read_text(encoding="utf-8")
-        self.assertEqual(self.run_cli("add-context-batch", "demo-package", "--type", "review", "--entry-json", '{"kind":"bad","summary":"bad"}'), 1)
+        self.assertEqual(self.run_cli("add-context", "demo-package", "--type", "review", "--entry-json", '{"kind":"bad","summary":"bad"}'), 1)
         self.assertEqual((self.package_dir() / "context" / "review.jsonl").read_text(encoding="utf-8"), before)
 
     def test_repair_context_jsonl_removes_obsolete_task_id_and_adds_schema_fields(self):
@@ -934,9 +1041,11 @@ class ArborCliTests(unittest.TestCase):
 
     def test_module_summary_has_stable_non_line_locators(self):
         self.finalize_single()
-        self.run_cli("mark-slice", "demo-package", "--id", "S-001", "--status", "done")
-        check_ids = self.record_all_required_checks()
-        self.run_cli("record-impl-result", "demo-package", "--state", "done", "--summary", "implemented", "--acceptance", "S-001 implemented", "--acceptance", "S-002 validated", "--check", check_ids[0], "--check", check_ids[1])
+        self.record_all_required_checks()
+        self.run_cli("mark-slice", "demo-package", "--id", "S-001", "--status", "done", "--acceptance", "S-001: baseline verified")
+        check_ids = [item["id"] for item in self.task_json()["checks"]]
+        functional_check = self.record_functional_check()
+        self.run_cli("record-impl-result", "demo-package", "--state", "done", "--summary", "implemented", "--acceptance", "S-001 implemented", "--acceptance", "S-002 validated", "--check", check_ids[0], "--check", check_ids[1], "--functional-check", functional_check)
         packet = arbor.module_summary(self.root, "demo-package", NOW)
         self.assertEqual(packet["kind"], "module-summary")
         self.assertEqual(packet["schema_version"], "sdd-module-summary-v1")
@@ -957,220 +1066,11 @@ class ArborCliTests(unittest.TestCase):
         self.assertNotIn(":L8", json.dumps(packet))
         self.assertEqual(self.run_cli("module-summary", "demo-package", "--json"), 0)
 
-    def test_wiki_index_search_and_collect_nested_pages(self):
-        wiki = self.root / ".wiki" / "Modules"
-        wiki.mkdir(parents=True)
-        (wiki / "Balance Ledger.md").write_text("""---
-title: Balance Ledger
-description: 余额账户、充值、扣款、退款 contract
-tags: [module, backend, ledger]
-type: module
-package: balance-ledger
-summary: Balance ledger owns account balance and refund invariants.
-last_updated: 2026-05-07
----
-
-# Balance Ledger
-
-## Public contracts
-
-Uses `BalanceLedgerService.recharge` and links to [[User Role Access]].
-""", encoding="utf-8")
-        (wiki / "User Role Access.md").write_text("""---
-title: User Role Access
-description: 用户角色权限模块
-tags: [module, auth]
-type: module
-summary: User role access owns instructor/admin authorization.
-last_updated: 2026-05-07
----
-
-# User Role Access
-
-## Routes
-
-Provides `RoleGate.canManageCourse`.
-""", encoding="utf-8")
-        indexed = arbor.wiki_index(self.root)
-        self.assertEqual([page["title"] for page in indexed["pages"]], ["Balance Ledger", "User Role Access"])
-        ledger = indexed["pages"][0]
-        self.assertEqual(ledger["path"], ".wiki/Modules/Balance Ledger.md")
-        self.assertIn("ledger", ledger["tags"])
-        self.assertIn({"kind": "heading", "level": "2", "name": "Public contracts"}, ledger["locators"])
-        self.assertIn({"kind": "symbol", "name": "BalanceLedgerService.recharge"}, ledger["locators"])
-        access = indexed["pages"][1]
-        self.assertEqual(access["backlinks"], ["Balance Ledger"])
-        search = arbor.wiki_search(self.root, "balance 退款 course")
-        self.assertEqual(search["results"][0]["title"], "Balance Ledger")
-        self.assertIn("description", search["results"][0]["matched_fields"])
-        collected = arbor.wiki_collect(self.root, "role course", limit=1)
-        self.assertEqual(len(collected["selected"]), 1)
-        self.assertIn(collected["selected"][0]["title"], {"Balance Ledger", "User Role Access"})
-        self.assertEqual(collected["selected"][0]["type"], "module")
-        self.assertEqual(self.run_cli("wiki-index", "--json"), 0)
-        self.assertEqual(self.run_cli("wiki-search", "balance refund", "--json"), 0)
-        self.assertEqual(self.run_cli("wiki-collect", "--query", "balance refund", "--json"), 0)
-
-    def test_wiki_lint_reports_errors_and_warnings(self):
-        wiki = self.root / ".wiki"
-        (wiki / "Modules").mkdir(parents=True)
-        (wiki / "Modules" / "Ledger.md").write_text("""---
-title: Ledger
-description: Ledger module
-type: module
-tags: [module]
-package: ledger
-source_checkpoint: abc123
-summary: Stable module note.
-last_updated: 2026-05-07
----
-
-# Ledger
-
-See [[Missing Page]].
-
-Locator `src/ledger.py:12`.
-""", encoding="utf-8")
-        (wiki / "Other" ).mkdir()
-        (wiki / "Other" / "Ledger.md").write_text("""---
-title: Ledger
-description: Duplicate title
-type: module
-tags: [module]
-package: ledger
-summary: Duplicate module package.
-last_updated: 2026-05-07
----
-
-# Ledger duplicate
-""", encoding="utf-8")
-        (wiki / "Loose.md").write_text("# Loose\n", encoding="utf-8")
-        result = arbor.wiki_lint(self.root)
-        self.assertFalse(result["ok"])
-        error_codes = {item["code"] for item in result["errors"]}
-        warning_codes = {item["code"] for item in result["warnings"]}
-        self.assertIn("broken_wikilink", error_codes)
-        self.assertIn("duplicate_title", error_codes)
-        self.assertIn("duplicate_stem", error_codes)
-        self.assertIn("duplicate_module_package", error_codes)
-        self.assertIn("missing_frontmatter", error_codes)
-        self.assertIn("module_missing_source_checkpoint", warning_codes)
-        self.assertIn("module_line_locator", warning_codes)
-        self.assertEqual(self.run_cli("wiki-lint", "--json"), 1)
-
-    def test_wiki_search_matches_on_type_field(self):
-        wiki = self.root / ".wiki"
-        wiki.mkdir(parents=True, exist_ok=True)
-        (wiki / "Export Touchpoints.md").write_text("""---
-title: Export Touchpoints
-description: Project-wide export touchpoints
-type: cross_cut
-tags: [exports]
-summary: Cross-module export checklist.
-last_updated: 2026-05-07
----
-
-# Export Touchpoints
-
-## Touchpoints
-- `services/auth/exports.py`
-""", encoding="utf-8")
-        result = arbor.wiki_search(self.root, "cross_cut")
-        self.assertEqual(1, len(result["results"]))
-        match = result["results"][0]
-        self.assertIn("type", match["matched_fields"])
-        self.assertEqual("Export Touchpoints", match["title"])
-
-    def test_wiki_search_prioritizes_explicit_type_match(self):
-        wiki = self.root / ".wiki"
-        (wiki / "Modules").mkdir(parents=True, exist_ok=True)
-        (wiki / "CrossCut").mkdir(parents=True, exist_ok=True)
-        (wiki / "Modules" / "Auth.md").write_text("""---
-title: Auth
-description: auth module export implementation and routes
-type: module
-tags: [module, auth, exports]
-package: auth
-source_checkpoint: abc123
-summary: auth export functions and route anchors.
-last_updated: 2026-05-07
----
-
-# Auth
-
-## Anchors
-- `services/auth/exports.py`
-- `api/auth_routes.py`
-""", encoding="utf-8")
-        (wiki / "CrossCut" / "Export Touchpoints.md").write_text("""---
-title: Export Touchpoints
-description: Project-wide export touchpoints
-type: cross_cut
-tags: [cross-cut, exports]
-summary: Cross-module export checklist for auth and payment.
-last_updated: 2026-05-07
----
-
-# Export Touchpoints
-
-## Touchpoints
-- `services/auth/exports.py`
-""", encoding="utf-8")
-        result = arbor.wiki_search(self.root, "cross_cut auth export")
-        self.assertEqual("Export Touchpoints", result["results"][0]["title"])
-        self.assertIn("type", result["results"][0]["matched_fields"])
-
-    def test_wiki_lint_allows_group_index_pages(self):
-        wiki = self.root / ".wiki"
-        (wiki / "Modules").mkdir(parents=True, exist_ok=True)
-        (wiki / "CrossCut").mkdir(parents=True, exist_ok=True)
-        for path, title in (
-            (wiki / "index.md", "Wiki 入口"),
-            (wiki / "Modules" / "index.md", "Modules"),
-            (wiki / "CrossCut" / "index.md", "CrossCut"),
-        ):
-            path.write_text(f"""---
-title: {title}
-description: Obsidian navigation entry
-type: entity
-tags: [index]
-summary: Navigation entry.
-last_updated: 2026-05-07
----
-
-# {title}
-""", encoding="utf-8")
-        result = arbor.wiki_lint(self.root)
-        duplicate_stem_errors = [item for item in result["errors"] if item["code"] == "duplicate_stem"]
-        self.assertEqual([], duplicate_stem_errors)
-
-    def test_wiki_lint_accepts_cross_cut_type(self):
-        wiki = self.root / ".wiki"
-        wiki.mkdir(parents=True, exist_ok=True)
-        (wiki / "Export Touchpoints.md").write_text("""---
-title: Export Touchpoints
-description: 新增导出函数与路由时全项目需同步修改的位置与命名规则
-type: cross_cut
-tags: [exports, backend]
-summary: 新增/修改导出时必须同步检查的位置与命名规则。
-last_updated: 2026-05-07
----
-
-# Export Touchpoints
-
-## Touchpoints
-- `services/auth/exports.py`
-- `api/auth_routes.py`
-""", encoding="utf-8")
-        result = arbor.wiki_lint(self.root)
-        invalid_type_errors = [item for item in result["errors"] if item["code"] == "invalid_type"]
-        self.assertEqual([], invalid_type_errors)
-
-    def test_doctor_skips_missing_wiki_and_reports_next_action(self):
+    def test_doctor_reports_next_action(self):
         self.finalize_single()
         result = arbor.doctor(self.root, timestamp=NOW)
         self.assertTrue(result["ok"])
-        self.assertTrue(result["wiki"]["skipped"])
+        self.assertNotIn("wiki", result)
         self.assertEqual(result["summary"]["error_count"], 0)
         self.assertEqual(result["next_action"]["skill"], "impl")
         self.assertEqual(result["next_action"]["package"], "demo-package")
@@ -1215,11 +1115,15 @@ last_updated: 2026-05-07
         self.assertEqual(data["slices"][0]["id"], "S-001")
         self.assertEqual(data["slices"][0]["status"], "in_progress")
         self.assertEqual(data["slices"][0]["note"], "API done, page pending")
-        self.assertEqual(self.run_cli("mark-slice", "demo-package", "--id", "S-001", "--status", "done", "--json"), 0)
+        # mark-slice done is gated: record check evidence first, then settle with acceptance
+        self.record_all_required_checks()
+        self.assertEqual(self.run_cli("mark-slice", "demo-package", "--id", "S-001", "--status", "done", "--acceptance", "S-001: baseline verified", "--json"), 0)
         data = self.task_json()
         self.assertEqual(len(data["slices"]), 2)
         self.assertEqual(data["slices"][0]["status"], "done")
-        self.assertEqual(self.run_cli("mark-slice", "demo-package", "--id", "S-002", "--status", "done", "--json"), 0)
+        self.assertEqual(data["slices"][0]["acceptance"], ["S-001: baseline verified"])
+        self.assertTrue(data["slices"][0]["checks"])
+        self.assertEqual(self.run_cli("mark-slice", "demo-package", "--id", "S-002", "--status", "done", "--acceptance", "S-002: validation passes", "--json"), 0)
         data = self.task_json()
         self.assertEqual(len(data["slices"]), 2)
         self.assertEqual([s["id"] for s in data["slices"]], ["S-001", "S-002"])
@@ -1247,7 +1151,8 @@ last_updated: 2026-05-07
 
     def test_show_includes_slices(self):
         self.finalize_single()
-        self.run_cli("mark-slice", "demo-package", "--id", "S-001", "--status", "done")
+        self.record_all_required_checks()
+        self.run_cli("mark-slice", "demo-package", "--id", "S-001", "--status", "done", "--acceptance", "S-001: baseline verified")
         shown = arbor.show_package(self.root, "demo-package")
         self.assertIsNotNone(shown.get("slices"))
         self.assertEqual(shown["slices"][0]["id"], "S-001")
@@ -1277,12 +1182,27 @@ last_updated: 2026-05-07
         self.assertIn("helpers", control["reason"])
         context = arbor_guard.evaluate({"tool_name": "Edit", "tool_input": {"file_path": str(self.root / ".arbor" / "tasks" / "demo-package" / "context" / "impl.jsonl")}})
         self.assertEqual(context["decision"], "block")
-        self.assertIn("add-context-batch", context["reason"])
+        self.assertIn("add-context", context["reason"])
+
+    def test_arbor_guard_blocks_direct_checks_dir_edits(self):
+        checks = arbor_guard.evaluate({"tool_name": "Write", "tool_input": {"file_path": str(self.root / ".arbor" / "tasks" / "demo-package" / "checks" / "chk_001.stdout")}})
+        self.assertEqual(checks["decision"], "block")
+        self.assertIn("run-check", checks["reason"])
 
     def test_arbor_guard_blocks_destructive_bash_and_allows_safe_tools(self):
         blocked = arbor_guard.evaluate({"tool_name": "Bash", "tool_input": {"command": "git reset --hard HEAD"}})
         self.assertEqual(blocked["decision"], "block")
         self.assertIn("narrower safer", blocked["reason"])
+        for discard in ("git checkout -- .", "git checkout .", "git restore .", "git restore -- ."):
+            verdict = arbor_guard.evaluate({"tool_name": "Bash", "tool_input": {"command": discard}})
+            self.assertEqual(verdict["decision"], "block", discard)
+        for clean in ("git clean -fd", "git clean -df", "git clean -fdx", "git clean -xdf", "git clean -ffdx", "git clean -f -d"):
+            verdict = arbor_guard.evaluate({"tool_name": "Bash", "tool_input": {"command": clean}})
+            self.assertEqual(verdict["decision"], "block", clean)
+        # path-scoped checkout/restore and dry-run clean stay allowed; the guard only blocks mass discard
+        for scoped in ("git checkout feature-branch", "git checkout ./docs/readme.md", "git restore --staged file.py", "git clean -nfd", "git clean --dry-run -fd"):
+            verdict = arbor_guard.evaluate({"tool_name": "Bash", "tool_input": {"command": scoped}})
+            self.assertEqual(verdict["decision"], "allow", scoped)
         allowed = arbor_guard.evaluate({"tool_name": "Read", "tool_input": {"file_path": str(self.root / "README.md")}})
         self.assertEqual(allowed["decision"], "allow")
 
@@ -1296,6 +1216,459 @@ last_updated: 2026-05-07
         self.assertEqual(allowed.returncode, 0)
         self.assertEqual(allowed.stdout, "")
         self.assertEqual(allowed.stderr, "")
+
+
+    def _init_git_repo(self, commit_all=True):
+        subprocess.run(["git", "init", "-q"], cwd=self.root, check=True)
+        if commit_all:
+            subprocess.run(["git", "add", "-A"], cwd=self.root, check=True)
+        subprocess.run(
+            ["git", "-c", "user.email=test@test", "-c", "user.name=test", "commit", "--allow-empty", "-q", "-m", "init"],
+            cwd=self.root,
+            check=True,
+        )
+        return subprocess.run(
+            ["git", "rev-parse", "HEAD"], cwd=self.root, stdout=subprocess.PIPE, text=True, check=True
+        ).stdout.strip()
+
+    def test_set_status_doing_records_base_ref_and_never_overwrites(self):
+        self.finalize_single()
+        head = self._init_git_repo()
+        self.assertEqual(self.run_cli("set-status", "demo-package", "--state", "doing", "--actor", "impl", "--note", "start"), 0)
+        data = self.task_json()
+        self.assertEqual(data["execution"]["base_ref"], head)
+        self.assertNotIn("base_ref_dirty", data["execution"])
+        self.assertEqual(self.run_cli("validate", "demo-package"), 0)
+        # HEAD moves on, package re-enters doing (e.g. rework): anchor must not move.
+        subprocess.run(
+            ["git", "-c", "user.email=test@test", "-c", "user.name=test", "commit", "--allow-empty", "-q", "-m", "second"],
+            cwd=self.root,
+            check=True,
+        )
+        self.assertEqual(self.run_cli("set-status", "demo-package", "--state", "doing", "--actor", "impl", "--note", "rework"), 0)
+        self.assertEqual(self.task_json()["execution"]["base_ref"], head)
+
+    def test_set_status_doing_flags_dirty_worktree(self):
+        self.finalize_single()
+        head = self._init_git_repo()
+        (self.root / "uncommitted.txt").write_text("dirty", encoding="utf-8")
+        self.assertEqual(self.run_cli("set-status", "demo-package", "--state", "doing", "--actor", "impl", "--note", "start"), 0)
+        data = self.task_json()
+        self.assertEqual(data["execution"]["base_ref"], head)
+        self.assertTrue(data["execution"]["base_ref_dirty"])
+        self.assertEqual(self.run_cli("validate", "demo-package"), 0)
+
+    def test_set_status_doing_without_git_degrades_to_null_base_ref(self):
+        self.finalize_single()
+        self.assertEqual(self.run_cli("set-status", "demo-package", "--state", "doing", "--actor", "impl", "--note", "start"), 0)
+        data = self.task_json()
+        self.assertIsNone(data["execution"]["base_ref"])
+        self.assertNotIn("base_ref_dirty", data["execution"])
+        self.assertEqual(self.run_cli("validate", "demo-package"), 0)
+
+
+    def test_mark_slice_done_gate_rejects_missing_check_evidence_with_outlet(self):
+        self.finalize_single()
+        result = self.run_bin("mark-slice", "demo-package", "--id", "S-001", "--status", "done", "--acceptance", "S-001: baseline verified")
+        self.assertEqual(result.returncode, 1)
+        self.assertIn("req_S001_001", result.stderr)
+        self.assertIn("run-check", result.stderr)
+        self.assertIn("in_progress", result.stderr)
+        # gate failure must not mutate slice progress
+        self.assertEqual(self.task_json()["slices"][0]["status"], "pending")
+        # gate auto-derives required checks as a side effect
+        self.assertTrue(self.task_json()["required_checks"])
+
+    def test_mark_slice_done_gate_rejects_missing_acceptance_with_format_hint(self):
+        self.finalize_single()
+        self.record_all_required_checks()
+        result = self.run_bin("mark-slice", "demo-package", "--id", "S-001", "--status", "done")
+        self.assertEqual(result.returncode, 1)
+        self.assertIn("S-001", result.stderr)
+        self.assertIn("--acceptance", result.stderr)
+        self.assertEqual(self.task_json()["slices"][0]["status"], "pending")
+
+    def test_mark_slice_done_gate_rejects_foreign_marker_reference(self):
+        self.finalize_single()
+        self.record_all_required_checks()
+        result = self.run_bin("mark-slice", "demo-package", "--id", "S-001", "--status", "done", "--acceptance", "S-002: wrong slice evidence")
+        self.assertEqual(result.returncode, 1)
+        self.assertIn("S-002", result.stderr)
+        # prose mention of another slice is fine when the item names an own marker
+        self.assertEqual(
+            self.run_cli("mark-slice", "demo-package", "--id", "S-001", "--status", "done", "--acceptance", "S-001: baseline verified, 接口契约与 S-002 对齐"),
+            0,
+        )
+
+    def test_mark_slice_in_progress_is_not_gated(self):
+        self.finalize_single()
+        self.assertEqual(self.run_cli("mark-slice", "demo-package", "--id", "S-001", "--status", "in_progress", "--note", "halfway"), 0)
+        self.assertEqual(self.task_json()["slices"][0]["status"], "in_progress")
+
+    def test_mark_slice_done_records_evidence_and_passes_validation(self):
+        self.finalize_single()
+        self.record_all_required_checks()
+        self.assertEqual(self.run_cli("mark-slice", "demo-package", "--id", "S-001", "--status", "done", "--acceptance", "S-001: baseline verified"), 0)
+        entry = self.task_json()["slices"][0]
+        self.assertEqual(entry["status"], "done")
+        self.assertEqual(entry["acceptance"], ["S-001: baseline verified"])
+        self.assertTrue(entry["checks"])
+        self.assertTrue(all(check_id.startswith("chk_") for check_id in entry["checks"]))
+        self.assertEqual(self.run_cli("validate", "demo-package"), 0)
+
+    def test_mark_slice_rollback_clears_done_evidence(self):
+        self.finalize_single()
+        self.record_all_required_checks()
+        self.assertEqual(self.run_cli("mark-slice", "demo-package", "--id", "S-001", "--status", "done", "--acceptance", "S-001: baseline verified"), 0)
+        entry = next(item for item in self.task_json()["slices"] if item["id"] == "S-001")
+        self.assertIn("acceptance", entry)
+        self.assertIn("checks", entry)
+        self.assertEqual(self.run_cli("mark-slice", "demo-package", "--id", "S-001", "--status", "in_progress", "--note", "rework"), 0)
+        entry = next(item for item in self.task_json()["slices"] if item["id"] == "S-001")
+        self.assertEqual(entry["status"], "in_progress")
+        self.assertNotIn("acceptance", entry)
+        self.assertNotIn("checks", entry)
+        self.assertNotIn("concerns", entry)
+
+    def test_run_check_double_dash_works_via_bin_wrapper(self):
+        """Regression: main() must normalize argv so `run-check ... -- cmd` works outside tests."""
+        self.finalize_single()
+        self.assertEqual(self.run_cli("derive-required-checks", "demo-package"), 0)
+        result = self.run_bin("run-check", "demo-package", "--required-check", "req_S001_001", "--", sys.executable, "-c", "pass")
+        self.assertEqual(result.returncode, 0, result.stderr)
+        self.assertIn("passed", result.stdout)
+
+
+    def _settle_all_slices(self, name="demo-package"):
+        self.record_all_required_checks(name)
+        self.assertEqual(self.run_cli("mark-slice", name, "--id", "S-001", "--status", "done", "--acceptance", "S-001: baseline verified"), 0)
+        self.assertEqual(self.run_cli("mark-slice", name, "--id", "S-002", "--status", "done", "--acceptance", "S-002: validation passes"), 0)
+
+    def test_record_impl_result_thin_summary_aggregates_slice_evidence(self):
+        self.finalize_single()
+        self._settle_all_slices()
+        functional_check = self.record_functional_check()
+        self.assertEqual(self.run_cli("record-impl-result", "demo-package", "--state", "done", "--summary", "implemented via per-slice gate", "--functional-check", functional_check), 0)
+        data = self.task_json()
+        result = data["impl_result"]
+        self.assertEqual(result["state"], "DONE")
+        self.assertEqual(result["acceptance"], ["S-001: baseline verified", "S-002: validation passes"])
+        self.assertTrue(result["checks"])
+        self.assertEqual(sorted(result["acceptance_coverage"].keys()), ["S-001", "S-002"])
+        self.assertEqual(data["state"], "done")
+        self.assertEqual(data["next_action"]["skill"], "review")
+        self.assertEqual(self.run_cli("validate", "demo-package"), 0)
+
+    def test_record_impl_result_thin_summary_rejects_unsettled_slices(self):
+        self.finalize_single()
+        self.record_all_required_checks()
+        self.assertEqual(self.run_cli("mark-slice", "demo-package", "--id", "S-001", "--status", "done", "--acceptance", "S-001: baseline verified"), 0)
+        result = self.run_bin("record-impl-result", "demo-package", "--state", "done", "--summary", "partial")
+        self.assertEqual(result.returncode, 1)
+        self.assertIn("S-002", result.stderr)
+        self.assertIn("mark-slice", result.stderr)
+        self.assertIsNone(self.task_json()["impl_result"])
+
+    def test_record_impl_result_manual_path_still_works_without_slice_settlement(self):
+        """Legacy packages without per-slice evidence keep the explicit --acceptance/--check path."""
+        self.finalize_single()
+        check_ids = self.record_all_required_checks()
+        functional_check = self.record_functional_check()
+        code = self.run_cli(
+            "record-impl-result", "demo-package", "--state", "done", "--summary", "manual evidence",
+            "--acceptance", "S-001 implemented", "--acceptance", "S-002 validated",
+            "--check", check_ids[0], "--check", check_ids[1], "--functional-check", functional_check,
+        )
+        self.assertEqual(code, 0)
+        self.assertEqual(self.task_json()["impl_result"]["state"], "DONE")
+
+    def test_record_impl_result_requires_functional_check(self):
+        self.finalize_single()
+        self._settle_all_slices()
+        missing = self.run_bin("record-impl-result", "demo-package", "--state", "done", "--summary", "no smoke")
+        self.assertEqual(missing.returncode, 1)
+        self.assertIn("--functional-check", missing.stderr)
+        failed_functional = self.record_functional_check(status="failed")
+        failed = self.run_bin("record-impl-result", "demo-package", "--state", "done", "--summary", "failed smoke", "--functional-check", failed_functional)
+        self.assertEqual(failed.returncode, 1)
+        self.assertIn("Functional", failed.stderr)
+        passed_functional = self.record_functional_check(status="passed")
+        self.assertEqual(self.run_cli("record-impl-result", "demo-package", "--state", "done", "--summary", "smoke passed", "--functional-check", passed_functional), 0)
+
+    def test_done_with_concerns_requires_concern_for_incomplete_checks(self):
+        self.finalize_single()
+        self._settle_with_blocked_check()
+        self.assertEqual(self.run_cli("mark-slice", "demo-package", "--id", "S-002", "--status", "done", "--acceptance", "S-002: validation passes"), 0)
+        functional_check = self.record_functional_check()
+        data = self.task_json()
+        result = self.run_bin(
+            "record-impl-result",
+            "demo-package",
+            "--state",
+            "done_with_concerns",
+            "--summary",
+            "explicit evidence but no concern",
+            "--acceptance",
+            "S-001: baseline verified",
+            "--acceptance",
+            "S-002: validation passes",
+            "--check",
+            data["slices"][0]["checks"][0],
+            "--check",
+            data["slices"][1]["checks"][0],
+            "--functional-check",
+            functional_check,
+        )
+        self.assertEqual(result.returncode, 1)
+        self.assertIn("--concern", result.stderr)
+
+    def _settle_with_blocked_check(self, reason="sandbox 无法启动 validation 服务"):
+        """Settle S-001 with passed evidence and S-002 via a blocked check concern."""
+        self.assertEqual(self.run_cli("derive-required-checks", "demo-package"), 0)
+        required = self.task_json()["required_checks"]
+        s1_req = next(item["id"] for item in required if item["slice"] == "S-001")
+        s2_req = next(item["id"] for item in required if item["slice"] == "S-002")
+        self.assertEqual(self.run_cli("run-check", "demo-package", "--required-check", s1_req, "--", sys.executable, "-c", "pass"), 0)
+        self.assertEqual(self.run_cli("record-check", "demo-package", "--required-check", s2_req, "--status", "blocked", "--reason", reason, "--evidence", "启动尝试输出: connection refused"), 0)
+        self.assertEqual(self.run_cli("mark-slice", "demo-package", "--id", "S-001", "--status", "done", "--acceptance", "S-001: baseline verified"), 0)
+        return s2_req
+
+    def test_mark_slice_done_settles_blocked_check_as_concern(self):
+        self.finalize_single()
+        self.assertEqual(self.run_cli("derive-required-checks", "demo-package"), 0)
+        required = self.task_json()["required_checks"]
+        s2_req = next(item["id"] for item in required if item["slice"] == "S-002")
+        # record-check itself refuses blocked without a concrete reason
+        no_reason = self.run_bin("record-check", "demo-package", "--required-check", s2_req, "--status", "blocked", "--evidence", "some output")
+        self.assertEqual(no_reason.returncode, 1)
+        self.assertIn("--reason", no_reason.stderr)
+        # gate rejection names the blocked outlet
+        rejected = self.run_bin("mark-slice", "demo-package", "--id", "S-002", "--status", "done", "--acceptance", "S-002: validation passes")
+        self.assertEqual(rejected.returncode, 1)
+        self.assertIn("--reason", rejected.stderr)
+        # blocked WITH reason settles the slice and lands as a slice-level concern
+        self.assertEqual(self.run_cli("record-check", "demo-package", "--required-check", s2_req, "--status", "blocked", "--reason", "外部服务不可达", "--evidence", "curl: connection refused"), 0)
+        self.assertEqual(self.run_cli("mark-slice", "demo-package", "--id", "S-002", "--status", "done", "--acceptance", "S-002: validation passes"), 0)
+        entry = next(item for item in self.task_json()["slices"] if item["id"] == "S-002")
+        self.assertEqual(entry["status"], "done")
+        self.assertEqual(len(entry["concerns"]), 1)
+        self.assertIn(s2_req, entry["concerns"][0])
+        self.assertIn("外部服务不可达", entry["concerns"][0])
+        self.assertEqual(self.run_cli("validate", "demo-package"), 0)
+        # re-settling after a passing run clears the stale concern
+        self.assertEqual(self.run_cli("run-check", "demo-package", "--required-check", s2_req, "--", sys.executable, "-c", "pass"), 0)
+        self.assertEqual(self.run_cli("mark-slice", "demo-package", "--id", "S-002", "--status", "done", "--acceptance", "S-002: validation passes"), 0)
+        entry = next(item for item in self.task_json()["slices"] if item["id"] == "S-002")
+        self.assertNotIn("concerns", entry)
+
+    def test_record_impl_result_thin_summary_rejects_done_with_slice_concerns(self):
+        self.finalize_single()
+        self._settle_with_blocked_check()
+        self.assertEqual(self.run_cli("mark-slice", "demo-package", "--id", "S-002", "--status", "done", "--acceptance", "S-002: validation passes"), 0)
+        result = self.run_bin("record-impl-result", "demo-package", "--state", "done", "--summary", "claiming clean done")
+        self.assertEqual(result.returncode, 1)
+        self.assertIn("done_with_concerns", result.stderr)
+        self.assertIsNone(self.task_json()["impl_result"])
+
+    def test_record_impl_result_thin_summary_aggregates_slice_concerns(self):
+        self.finalize_single()
+        s2_req = self._settle_with_blocked_check()
+        self.assertEqual(self.run_cli("mark-slice", "demo-package", "--id", "S-002", "--status", "done", "--acceptance", "S-002: validation passes"), 0)
+        functional_check = self.record_functional_check()
+        self.assertEqual(self.run_cli("record-impl-result", "demo-package", "--state", "done_with_concerns", "--summary", "validation blocked by env", "--functional-check", functional_check), 0)
+        data = self.task_json()
+        result = data["impl_result"]
+        self.assertEqual(result["state"], "DONE_WITH_CONCERNS")
+        self.assertEqual(result["acceptance"], ["S-001: baseline verified", "S-002: validation passes"])
+        self.assertEqual(len(result["concerns"]), 1)
+        self.assertIn(s2_req, result["concerns"][0])
+        self.assertEqual(result["incomplete_required_checks"][0]["id"], s2_req)
+        self.assertEqual(data["state"], "done")
+        self.assertEqual(data["next_action"]["skill"], "review")
+        self.assertEqual(self.run_cli("validate", "demo-package"), 0)
+
+
+    def test_impl_packet_slice_aggregates_execution_context(self):
+        self.finalize_single()
+        packet = arbor.impl_packet(self.root, "demo-package", "S-001", NOW)
+        self.assertEqual(packet["kind"], "impl-packet")
+        self.assertEqual(packet["slice"]["id"], "S-001")
+        self.assertEqual(packet["slice"]["task_file"], "slices/S-001.md")
+        self.assertIn("## Acceptance", packet["slice"]["task_content"])
+        self.assertEqual(packet["slice"]["markers"], ["S-001"])
+        self.assertTrue(all(item["slice"] == "S-001" for item in packet["required_checks"]))
+        self.assertTrue(packet["required_checks"])
+        self.assertIn("prd.md#Technical Framing", packet["read_next"])
+        self.assertIn("last_done_slice", packet["prior"])
+        # auto-derive persisted required checks as a side effect
+        self.assertTrue(self.task_json()["required_checks"])
+
+    def test_impl_packet_entry_lists_slice_statuses_and_next_slice(self):
+        self.finalize_single()
+        self.record_all_required_checks()
+        self.run_cli("mark-slice", "demo-package", "--id", "S-001", "--status", "done", "--acceptance", "S-001: baseline verified")
+        packet = arbor.impl_packet(self.root, "demo-package", None, NOW)
+        self.assertEqual([row["id"] for row in packet["slices"]], ["S-001", "S-002"])
+        self.assertEqual(packet["slices"][0]["status"], "done")
+        self.assertEqual(packet["next_slice"], "S-002")
+        self.assertIn("base_ref", packet)
+        self.assertEqual(self.run_cli("impl-packet", "demo-package", "--json"), 0)
+        self.assertEqual(self.run_cli("impl-packet", "demo-package", "--slice", "S-002", "--json"), 0)
+
+    def test_impl_packet_rejects_missing_task_file_and_unknown_slice(self):
+        self.finalize_single()
+        unknown = self.run_bin("impl-packet", "demo-package", "--slice", "S-999")
+        self.assertEqual(unknown.returncode, 1)
+        self.assertIn("S-999", unknown.stderr)
+        (self.package_dir() / "slices" / "S-001.md").unlink()
+        result = self.run_bin("impl-packet", "demo-package", "--slice", "S-001")
+        self.assertEqual(result.returncode, 1)
+        self.assertIn("slices/S-001.md", result.stderr)
+
+    def test_impl_packet_rejects_prd_without_slices(self):
+        self.run_cli("create", "demo-package")
+        (self.package_dir() / "prd.md").write_text("# no slices here\n", encoding="utf-8")
+        result = self.run_bin("impl-packet", "demo-package")
+        self.assertEqual(result.returncode, 1)
+        self.assertIn("Slices", result.stderr)
+
+
+    def test_arbor_guard_freezes_prd_during_impl_and_review(self):
+        self.finalize_single()
+        prd_path = str(self.package_dir() / "prd.md")
+        payload = {"tool_name": "Edit", "tool_input": {"file_path": prd_path}}
+        # ready: editable (e.g. brainstorm refinement before impl)
+        self.assertEqual(arbor_guard.evaluate(payload)["decision"], "allow")
+        self.run_cli("set-status", "demo-package", "--state", "doing", "--actor", "impl", "--note", "start")
+        blocked = arbor_guard.evaluate(payload)
+        self.assertEqual(blocked["decision"], "block")
+        self.assertIn("add-amendment", blocked["reason"])
+        self.assertIn("needs_context", blocked["reason"])
+        # needs_context keeps state=doing but routes to brainstorm: PRD must unfreeze,
+        # otherwise brainstorm cannot update its own artifact during the interview.
+        self.run_cli("record-impl-result", "demo-package", "--state", "needs_context", "--summary", "missing framing decision")
+        self.assertEqual(self.task_json()["next_action"]["skill"], "brainstorm")
+        self.assertEqual(arbor_guard.evaluate(payload)["decision"], "allow")
+        # impl resumes: frozen again
+        self.run_cli("set-status", "demo-package", "--state", "doing", "--actor", "impl", "--note", "resume")
+        self.assertEqual(arbor_guard.evaluate(payload)["decision"], "block")
+        self.run_cli("set-status", "demo-package", "--state", "done", "--actor", "impl", "--note", "impl done")
+        self.assertEqual(arbor_guard.evaluate(payload)["decision"], "block")
+        self.run_cli("set-status", "demo-package", "--state", "reviewed", "--actor", "review", "--note", "approved")
+        self.assertEqual(arbor_guard.evaluate(payload)["decision"], "allow")
+
+    def test_arbor_guard_prd_freeze_fails_open_without_task_json(self):
+        pkg = self.root / ".arbor" / "tasks" / "orphan-pkg"
+        pkg.mkdir(parents=True)
+        (pkg / "prd.md").write_text("# orphan\n", encoding="utf-8")
+        payload = {"tool_name": "Write", "tool_input": {"file_path": str(pkg / "prd.md")}}
+        self.assertEqual(arbor_guard.evaluate(payload)["decision"], "allow")
+        # corrupted task.json must also fail open
+        (pkg / "task.json").write_text("{not json", encoding="utf-8")
+        self.assertEqual(arbor_guard.evaluate(payload)["decision"], "allow")
+
+
+    def test_finalize_materializes_slice_defs(self):
+        self.finalize_single()
+        materialized = self.task_json()["prd"]["slices"]
+        self.assertEqual([entry["id"] for entry in materialized], ["S-001", "S-002"])
+        self.assertEqual(materialized[0]["title"], "First slice — create baseline behavior")
+        self.assertEqual(materialized[0]["completion_markers"], ["baseline behavior created and verified"])
+        self.assertEqual(self.run_cli("validate", "demo-package"), 0)
+
+    def test_set_status_doing_recompiles_slice_defs_at_freeze_boundary(self):
+        self.finalize_single()
+        # ready: PRD editable; brainstorm appends a slice + its task file
+        prd_path = self.package_dir() / "prd.md"
+        prd_path.write_text(prd_path.read_text(encoding="utf-8") + """
+### S-003: Added during ready
+
+- 完成标志：extra behavior verified
+""", encoding="utf-8")
+        (self.package_dir() / "slices" / "S-003.md").write_text(
+            "# S-003: Added during ready\n\n## Acceptance\n\nGiven:\n- x\n\nWhen:\n- y\n\nThen:\n- z\n\n## Verification\n\n- [test] run extra tests\n",
+            encoding="utf-8",
+        )
+        self.assertEqual(self.run_cli("set-status", "demo-package", "--state", "doing", "--actor", "impl", "--note", "start"), 0)
+        materialized = self.task_json()["prd"]["slices"]
+        self.assertEqual([entry["id"] for entry in materialized], ["S-001", "S-002", "S-003"])
+
+    def test_runtime_reads_materialized_defs_not_prd(self):
+        """Parse-once: after entering doing, runtime commands never re-parse prd.md."""
+        self.finalize_single()
+        self.assertEqual(self.run_cli("set-status", "demo-package", "--state", "doing", "--actor", "impl", "--note", "start"), 0)
+        # simulate prd.md becoming unreadable as markdown (runtime must not care)
+        (self.package_dir() / "prd.md").write_text("# prose only, no slices section\n", encoding="utf-8")
+        packet = arbor.impl_packet(self.root, "demo-package", "S-001", NOW)
+        self.assertEqual(packet["slice"]["id"], "S-001")
+        self.record_all_required_checks()
+        self.assertEqual(self.run_cli("mark-slice", "demo-package", "--id", "S-001", "--status", "done", "--acceptance", "S-001: baseline verified"), 0)
+
+    def test_legacy_package_lazily_migrates_slice_defs(self):
+        self.finalize_single()
+        data = self.task_json()
+        del data["prd"]["slices"]
+        (self.package_dir() / "task.json").write_text(json.dumps(data), encoding="utf-8")
+        packet = arbor.impl_packet(self.root, "demo-package", None, NOW)
+        self.assertEqual(packet["next_slice"], "S-001")
+        self.assertEqual([entry["id"] for entry in self.task_json()["prd"]["slices"]], ["S-001", "S-002"])
+
+    def test_finalize_rejects_untagged_verification_items(self):
+        slices_dir = self.root / ".arbor" / "tasks" / "demo-package" / "slices"
+        slices_dir.mkdir(parents=True, exist_ok=True)
+        (slices_dir / "S-001.md").write_text(
+            "# S-001: First slice\n\n## Acceptance\n\nGiven:\n- a\n\nWhen:\n- b\n\nThen:\n- c\n\n## Verification\n\n- run tests without tag\n",
+            encoding="utf-8",
+        )
+        (slices_dir / "S-002.md").write_text(
+            "# S-002: Self-check\n\n## Acceptance\n\nGiven:\n- a\n\nWhen:\n- b\n\nThen:\n- c\n\n## Verification\n\n- [manual] run validation\n",
+            encoding="utf-8",
+        )
+        spec = {"kind": "single", "name": "demo-package", "title": "Demo package", "prd": READY_PRD}
+        result = self.run_bin("finalize-brainstorm", "--input-json", json.dumps(spec))
+        self.assertEqual(result.returncode, 1)
+        self.assertIn("[kind]", result.stderr)
+        self.assertIn("run tests without tag", result.stderr)
+
+    def test_derive_rejects_untagged_verification_with_outlet(self):
+        self.finalize_single()
+        (self.package_dir() / "slices" / "S-001.md").write_text(
+            "# S-001: First slice\n\n## Acceptance\n\nGiven:\n- a\n\nWhen:\n- b\n\nThen:\n- c\n\n## Verification\n\n- untagged item\n",
+            encoding="utf-8",
+        )
+        result = self.run_bin("derive-required-checks", "demo-package")
+        self.assertEqual(result.returncode, 1)
+        self.assertIn("[kind]", result.stderr)
+        self.assertIn("- [test]", result.stderr)
+
+
+    def test_impl_closed_loop_end_to_end(self):
+        """Integration: finalize → doing(base_ref) → gate reject → settle → thin summary."""
+        self.finalize_single()
+        head = self._init_git_repo()
+        # entering doing records the diff anchor
+        self.assertEqual(self.run_cli("set-status", "demo-package", "--state", "doing", "--actor", "impl", "--note", "start"), 0)
+        self.assertEqual(self.task_json()["execution"]["base_ref"], head)
+        # entry packet points at the first unfinished slice
+        entry = arbor.impl_packet(self.root, "demo-package", None, NOW)
+        self.assertEqual(entry["next_slice"], "S-001")
+        self.assertEqual(entry["base_ref"], head)
+        # gate rejects an unsettled slice and names the outlet
+        rejected = self.run_bin("mark-slice", "demo-package", "--id", "S-001", "--status", "done", "--acceptance", "S-001: baseline verified")
+        self.assertEqual(rejected.returncode, 1)
+        self.assertIn("run-check", rejected.stderr)
+        # settle both slices with real evidence
+        self.record_all_required_checks()
+        self.assertEqual(self.run_cli("mark-slice", "demo-package", "--id", "S-001", "--status", "done", "--acceptance", "S-001: baseline verified"), 0)
+        self.assertEqual(self.run_cli("mark-slice", "demo-package", "--id", "S-002", "--status", "done", "--acceptance", "S-002: validation passes"), 0)
+        # thin summary aggregates everything
+        functional_check = self.record_functional_check()
+        self.assertEqual(self.run_cli("record-impl-result", "demo-package", "--state", "done", "--summary", "closed loop e2e", "--functional-check", functional_check), 0)
+        data = self.task_json()
+        self.assertEqual(data["state"], "done")
+        self.assertEqual(data["next_action"]["skill"], "review")
+        self.assertEqual(len(data["impl_result"]["acceptance"]), 2)
+        self.assertEqual(self.run_cli("validate", "demo-package"), 0)
 
 
 if __name__ == "__main__":

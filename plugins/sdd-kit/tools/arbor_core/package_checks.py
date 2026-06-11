@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+import hashlib
+import json
 import re
 import shlex
 import subprocess
@@ -8,16 +10,16 @@ from typing import Any
 
 from .errors import ArborError
 from .fs import load_package, save_package
-from .prd_slices import parse_prd_slices
+from .prd_slices import VERIFICATION_KINDS, parse_verification_items
 from .schema import SLICE_ID_RE
 
 CHECK_STATUSES = {"passed", "failed", "blocked", "not_run"}
 AUTOMATED_CHECK_KINDS = {"build", "test", "typecheck", "lint", "docker", "api"}
+FUNCTIONAL_CHECK_KIND = "functional"
 
-_VERIFICATION_HEADING_RE = re.compile(r"^##+\s+Verification\s*$", re.IGNORECASE)
-_HEADING_RE = re.compile(r"^##+\s+")
 _BACKTICK_RE = re.compile(r"`([^`]+)`")
 _CHECK_ID_RE = re.compile(r"^chk_(\d{3})$")
+_REQUIRED_CHECK_FIELDS = ("id", "slice", "kind", "description", "required", "source", "command_hint", "fingerprint")
 
 
 def _slice_files(pkg: Path) -> list[Path]:
@@ -27,25 +29,6 @@ def _slice_files(pkg: Path) -> list[Path]:
     return sorted(path for path in slices_dir.glob("S-*.md") if SLICE_ID_RE.match(path.stem))
 
 
-def _verification_items(text: str) -> list[str]:
-    items: list[str] = []
-    in_verification = False
-    for raw_line in text.splitlines():
-        line = raw_line.strip()
-        if _HEADING_RE.match(line):
-            if in_verification:
-                break
-            in_verification = bool(_VERIFICATION_HEADING_RE.match(line))
-            continue
-        if not in_verification:
-            continue
-        if line.startswith("- "):
-            item = line[2:].strip()
-            if item:
-                items.append(item)
-    return items
-
-
 def _command_hint(description: str) -> str | None:
     match = _BACKTICK_RE.search(description)
     if not match:
@@ -53,78 +36,71 @@ def _command_hint(description: str) -> str | None:
     return match.group(1).strip() or None
 
 
-def _infer_kind(description: str, command_hint: str | None) -> str:
-    text = f"{description} {command_hint or ''}".lower()
-    if "docker" in text or "compose" in text or "container" in text or "容器" in text:
-        return "docker"
-    if "typecheck" in text or "type check" in text or "tsc" in text or "类型" in text:
-        return "typecheck"
-    if "lint" in text:
-        return "lint"
-    if "test" in text or "pytest" in text or "php artisan test" in text or "vitest" in text or "测试" in text:
-        return "test"
-    if "build" in text or "构建" in text or "编译" in text:
-        return "build"
-    if "curl" in text or "/api/" in text or " api" in text or "http " in text or "http 200" in text:
-        return "api"
-    if "browser" in text or "页面" in text or "ui" in text or "点击" in text or "可访问" in text:
-        return "browser"
-    return "manual"
-
-
 def _required_check_id(slice_id: str, index: int) -> str:
     return f"req_{slice_id.replace('-', '')}_{index:03d}"
 
 
+def _required_fingerprint(check: dict[str, Any]) -> str:
+    payload = {
+        "slice": check.get("slice"),
+        "kind": check.get("kind"),
+        "description": check.get("description"),
+        "source": check.get("source"),
+        "command_hint": check.get("command_hint"),
+    }
+    encoded = json.dumps(payload, sort_keys=True, ensure_ascii=False, separators=(",", ":"))
+    return hashlib.sha256(encoded.encode("utf-8")).hexdigest()[:16]
+
+
+def _required_signature(checks: list[dict[str, Any]]) -> list[dict[str, Any]]:
+    return [{field: item.get(field) for field in _REQUIRED_CHECK_FIELDS if field in item} for item in checks]
+
+
 def _derive_required_checks_from_pkg(pkg: Path) -> list[dict[str, Any]]:
+    """Derive required checks from slice task `## Verification` sections.
+
+    Kind is read from the explicit `[kind]` tag declared by brainstorm; the
+    CLI never infers it — kind decides gate strictness (automated kinds demand
+    run-check evidence), which is policy, not parsing.
+    """
     required: list[dict[str, Any]] = []
+    untagged: list[str] = []
     for slice_file in _slice_files(pkg):
         slice_id = slice_file.stem
         text = slice_file.read_text(encoding="utf-8")
-        for index, item in enumerate(_verification_items(text), start=1):
+        for index, (kind, item) in enumerate(parse_verification_items(text), start=1):
+            if kind is None:
+                untagged.append(f"slices/{slice_file.name}: \"{item}\"")
+                continue
             command_hint = _command_hint(item)
             check: dict[str, Any] = {
                 "id": _required_check_id(slice_id, index),
                 "slice": slice_id,
-                "kind": _infer_kind(item, command_hint),
+                "kind": kind,
                 "description": item,
                 "required": True,
                 "source": f"slices/{slice_file.name}#Verification",
             }
             if command_hint:
                 check["command_hint"] = command_hint
+            check["fingerprint"] = _required_fingerprint(check)
             required.append(check)
-    if required:
-        return required
-
-    prd_path = pkg / "prd.md"
-    if prd_path.exists():
-        slices, errors = parse_prd_slices(prd_path.read_text(encoding="utf-8"))
-        if errors:
-            raise ArborError("Cannot read PRD slices for required checks: " + "; ".join(errors))
-        for item in slices:
-            for index, test in enumerate(getattr(item, "tests", []), start=1):
-                command_hint = test.strip()
-                check = {
-                    "id": _required_check_id(item.id, index),
-                    "slice": item.id,
-                    "kind": _infer_kind(command_hint, command_hint),
-                    "description": command_hint,
-                    "required": True,
-                    "source": "prd.md#Slices",
-                    "command_hint": command_hint,
-                }
-                required.append(check)
+    if untagged:
+        kinds = "/".join(sorted(VERIFICATION_KINDS))
+        raise ArborError(
+            "Verification 项缺少显式 [kind] 标签: " + "; ".join(untagged)
+            + f"。在 slice task 文件中写成 `- [test] ...` 形式，合法 kind: {kinds}。"
+        )
     if not required:
         raise ArborError("No required checks found. Add ## Verification bullets to slice task files before recording DONE.")
     return required
 
 
 def ensure_required_checks(pkg: Path, data: dict[str, Any], timestamp: str) -> list[dict[str, Any]]:
-    existing = data.get("required_checks")
-    if isinstance(existing, list) and existing:
-        return existing
     required = _derive_required_checks_from_pkg(pkg)
+    existing = data.get("required_checks")
+    if isinstance(existing, list) and _required_signature([item for item in existing if isinstance(item, dict)]) == _required_signature(required):
+        return existing
     data["required_checks"] = required
     data["updated_at"] = timestamp
     return required
@@ -213,8 +189,9 @@ def record_check(
         "at": timestamp,
         "actor": actor,
     }
-    if required_check:
+    if req is not None:
         entry["required_check"] = required_check
+        entry["required_check_fingerprint"] = req.get("fingerprint")
     if slice_id:
         entry["slice"] = slice_id
     if reason.strip():
@@ -309,8 +286,9 @@ def run_check(
         "at": timestamp,
         "actor": actor,
     }
-    if required_check:
+    if req is not None:
         entry["required_check"] = required_check
+        entry["required_check_fingerprint"] = req.get("fingerprint")
     if slice_id:
         entry["slice"] = slice_id
     checks.append(entry)
@@ -319,45 +297,186 @@ def run_check(
     return {"package": name, "check": entry}
 
 
+def _checks_list(data: dict[str, Any]) -> list[dict[str, Any]]:
+    checks = data.get("checks")
+    return [item for item in checks if isinstance(item, dict)] if isinstance(checks, list) else []
+
+
+def _matches_current_required(entry: dict[str, Any], req: dict[str, Any]) -> bool:
+    if entry.get("required_check") != req.get("id"):
+        return False
+    return entry.get("required_check_fingerprint") == req.get("fingerprint")
+
+
+def _latest_required_entry(checks: list[dict[str, Any]], req: dict[str, Any]) -> dict[str, Any] | None:
+    latest: dict[str, Any] | None = None
+    for entry in checks:
+        if _matches_current_required(entry, req):
+            latest = entry
+    return latest
+
+
+def _has_block_context(entry: dict[str, Any]) -> bool:
+    return bool(str(entry.get("reason", "")).strip()) and bool(entry.get("evidence") or entry.get("command"))
+
+
+def _automated_required(req: dict[str, Any]) -> bool:
+    return bool(req.get("command_hint")) or str(req.get("kind")) in AUTOMATED_CHECK_KINDS
+
+
+def _check_label(req: dict[str, Any]) -> str:
+    return f"{req.get('id')} ({req.get('description')})"
+
+
+def validate_slice_checks(pkg: Path, data: dict[str, Any], slice_id: str, timestamp: str) -> tuple[list[str], list[str]]:
+    """Per-slice gate: every required check of this slice must have settled evidence.
+
+    Settled means latest matching evidence passed (run-check for automated kinds),
+    or latest matching evidence is blocked/not_run with concrete reason and
+    evidence/command. Historical passed checks stop counting once a newer entry
+    for the same current required_check exists.
+    """
+    required_checks = ensure_required_checks(pkg, data, timestamp)
+    slice_required = [item for item in required_checks if item.get("slice") == slice_id]
+    checks = _checks_list(data)
+    satisfied: list[str] = []
+    concerns: list[str] = []
+    missing: list[dict[str, Any]] = []
+    failed: list[dict[str, Any]] = []
+    for req in slice_required:
+        entry = _latest_required_entry(checks, req)
+        if entry is None:
+            missing.append(req)
+            continue
+        status = entry.get("status")
+        if status == "passed":
+            if not _automated_required(req) or entry.get("source") == "run-check":
+                satisfied.append(str(entry.get("id")))
+                continue
+        if status in {"blocked", "not_run"} and _has_block_context(entry):
+            satisfied.append(str(entry.get("id")))
+            concerns.append(
+                f"{req.get('id')} ({req.get('description')}): {entry.get('status')} — {str(entry.get('reason')).strip()}"
+            )
+            continue
+        if status == "failed":
+            failed.append(req)
+        else:
+            missing.append(req)
+    if failed:
+        gaps = "; ".join(_check_label(item) for item in failed)
+        raise ArborError(
+            f"Slice {slice_id} 不能标记 done，required checks 最新证据失败: {gaps}。"
+            "出路：重新 run-check 取得 passed 证据；或确实无法执行时用 record-check --required-check <id> --status blocked|not_run "
+            '--reason "<原因>" --evidence "<尝试/错误输出>" 结算为 concern。'
+        )
+    if missing:
+        gaps = "; ".join(_check_label(item) for item in missing)
+        raise ArborError(
+            f"Slice {slice_id} 不能标记 done，required checks 缺结算证据: {gaps}。"
+            "出路：run-check --required-check <id> -- <command> 补 passed 证据；"
+            '确实无法执行用 record-check --required-check <id> --status blocked|not_run --reason "<原因>" --evidence "<尝试/错误输出>"（或 --command "<尝试命令>"）结算为 slice concern，包结果导向 done_with_concerns；'
+            "slice 未完成用 mark-slice --status in_progress --note。"
+        )
+    deduped: list[str] = []
+    for check_id in satisfied:
+        if check_id not in deduped:
+            deduped.append(check_id)
+    return deduped, concerns
+
+
 def validate_impl_checks(pkg: Path, data: dict[str, Any], state: str, check_ids: list[str], timestamp: str) -> dict[str, Any]:
     required_checks = ensure_required_checks(pkg, data, timestamp)
     if not check_ids:
         raise ArborError("Impl result DONE/DONE_WITH_CONCERNS requires --check evidence ids; free-text --command is not verification evidence.")
-    checks = data.get("checks")
-    if not isinstance(checks, list):
-        raise ArborError("task.json checks must be a list before recording impl result.")
-    by_id = {str(item.get("id")): item for item in checks if isinstance(item, dict)}
+    checks = _checks_list(data)
+    by_id = {str(item.get("id")): item for item in checks}
     unknown = [check_id for check_id in check_ids if check_id not in by_id]
     if unknown:
         raise ArborError("Impl result references unknown check ids: " + ", ".join(unknown))
-    by_required: dict[str, list[dict[str, Any]]] = {str(item.get("id")): [] for item in required_checks}
+
+    latest_by_required = {str(req.get("id")): _latest_required_entry(checks, req) for req in required_checks}
+    current_by_required = {str(req.get("id")): req for req in required_checks}
+    outdated: list[str] = []
+    stale: list[str] = []
+    referenced_latest: set[str] = set()
     for check_id in check_ids:
         entry = by_id[check_id]
-        req_id = entry.get("required_check")
-        if req_id in by_required:
-            by_required[str(req_id)].append(entry)
-    missing = [req for req in required_checks if not by_required[str(req.get("id"))]]
+        req_id = str(entry.get("required_check", ""))
+        req = current_by_required.get(req_id)
+        if req is None or not _matches_current_required(entry, req):
+            stale.append(check_id)
+            continue
+        latest = latest_by_required[req_id]
+        if latest is None or latest.get("id") != check_id:
+            latest_id = latest.get("id") if latest else "none"
+            outdated.append(f"{check_id} (latest: {latest_id})")
+            continue
+        referenced_latest.add(req_id)
+    if stale:
+        raise ArborError("Impl result references stale check evidence for changed required checks: " + ", ".join(stale))
+    if outdated:
+        raise ArborError("Impl result must reference latest check evidence for each required check: " + "; ".join(outdated))
+
+    missing = [req for req in required_checks if str(req.get("id")) not in referenced_latest]
     if missing:
-        raise ArborError("Impl result missing check evidence for required checks: " + "; ".join(f"{item.get('id')} ({item.get('description')})" for item in missing))
+        raise ArborError("Impl result missing latest check evidence for required checks: " + "; ".join(_check_label(item) for item in missing))
+
     coverage: dict[str, dict[str, Any]] = {}
     incomplete: list[dict[str, Any]] = []
+    failed: list[dict[str, Any]] = []
     for req in required_checks:
         req_id = str(req.get("id"))
-        entries = by_required[req_id]
-        automated = bool(req.get("command_hint")) or str(req.get("kind")) in AUTOMATED_CHECK_KINDS
-        passed_entries = [entry for entry in entries if entry.get("status") == "passed"]
-        if automated:
-            ok = any(entry.get("source") == "run-check" for entry in passed_entries)
-        else:
-            ok = bool(passed_entries)
+        entry = latest_by_required[req_id]
+        entries = [entry] if entry else []
+        ok = False
+        if entry is not None:
+            if entry.get("status") == "passed":
+                ok = (not _automated_required(req)) or entry.get("source") == "run-check"
+            elif entry.get("status") in {"blocked", "not_run"} and _has_block_context(entry):
+                incomplete.append(req)
+            elif entry.get("status") == "failed":
+                failed.append(req)
         coverage[req_id] = {
-            "status": "passed" if ok else "incomplete",
+            "status": "passed" if ok else ("failed" if entry and entry.get("status") == "failed" else "incomplete"),
             "kind": req.get("kind"),
             "slice": req.get("slice"),
-            "checks": [entry.get("id") for entry in entries],
+            "checks": [item.get("id") for item in entries if item],
         }
-        if not ok:
+        if not ok and entry is not None and entry.get("status") not in {"blocked", "not_run", "failed"}:
             incomplete.append(req)
+    if failed:
+        raise ArborError("Impl result references failed latest check evidence for required checks: " + "; ".join(_check_label(item) for item in failed))
     if state == "done" and incomplete:
-        raise ArborError("DONE requires passed check evidence for required checks: " + "; ".join(f"{item.get('id')} ({item.get('description')})" for item in incomplete))
+        raise ArborError("DONE requires passed check evidence for required checks: " + "; ".join(_check_label(item) for item in incomplete))
     return {"check_coverage": coverage, "incomplete_required_checks": incomplete}
+
+
+def validate_functional_checks(data: dict[str, Any], state: str, check_ids: list[str]) -> dict[str, Any]:
+    if not check_ids:
+        raise ArborError("Impl result DONE/DONE_WITH_CONCERNS requires --functional-check evidence for final functional verification.")
+    checks = _checks_list(data)
+    by_id = {str(item.get("id")): item for item in checks}
+    unknown = [check_id for check_id in check_ids if check_id not in by_id]
+    if unknown:
+        raise ArborError("Impl result references unknown functional check ids: " + ", ".join(unknown))
+    referenced = [by_id[check_id] for check_id in check_ids]
+    wrong_kind = [str(item.get("id")) for item in referenced if item.get("kind") != FUNCTIONAL_CHECK_KIND]
+    if wrong_kind:
+        raise ArborError("Functional verification must reference checks recorded with --kind functional: " + ", ".join(wrong_kind))
+    latest: dict[str, Any] | None = None
+    for entry in checks:
+        if entry.get("kind") == FUNCTIONAL_CHECK_KIND:
+            latest = entry
+    if latest is None or str(latest.get("id")) not in check_ids:
+        latest_id = latest.get("id") if latest else "none"
+        raise ArborError(f"Impl result must reference latest functional check evidence (latest: {latest_id}).")
+    if latest.get("status") == "passed":
+        return {"functional_checks": check_ids, "incomplete_functional_checks": []}
+    if latest.get("status") == "failed":
+        raise ArborError("Functional verification latest check failed; continue implementation or record BLOCKED instead of DONE/DONE_WITH_CONCERNS.")
+    if latest.get("status") in {"blocked", "not_run"} and _has_block_context(latest):
+        if state == "done":
+            raise ArborError("DONE requires passed functional verification evidence.")
+        return {"functional_checks": check_ids, "incomplete_functional_checks": [latest]}
+    raise ArborError("Functional verification latest check is incomplete; record passed evidence or blocked/not_run with --reason and --evidence/--command.")

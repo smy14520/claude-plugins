@@ -13,9 +13,9 @@ description: Workflow, helper, hook, and state-boundary design principles for th
 例如：
 
 ```text
-arbor.py add-context-batch <package> --type impl --entry-json '{...}'
-arbor.py record-contract-request <initiative> --consumer <package-b> --producer <package-a> --request "..." --status open
-arbor.py wiki-collect --query "<query>" --limit 5 --json
+sdd-arbor add-context <package> --type impl --entry-json '{...}'
+sdd-arbor impl-packet <package> --slice S-003
+sdd-wiki collect --query "<query>" --limit 5 --json
 ```
 
 比“不要手工 patch；不要覆盖 task.json；记得记录 context……”更稳定。重复上下文交接也一样：优先做成 module-summary packet / collect JSON，而不是在 prompt 里反复提醒。

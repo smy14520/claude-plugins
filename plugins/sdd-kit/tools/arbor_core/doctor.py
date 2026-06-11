@@ -5,20 +5,20 @@ from typing import Any
 
 from .package_queries import list_packages
 from .validation import validate_package
-from .wiki_state import wiki_lint, wiki_root_path
 
 
 def _validate_packages(root: Path) -> dict[str, Any]:
     errors: dict[str, list[str]] = {}
     packages = list_packages(root)
-    for item in packages:
+    active_packages = [item for item in packages if item.get("state") != "archived"]
+    for item in active_packages:
         name = item.get("name")
         if not isinstance(name, str):
             continue
         package_errors = validate_package(root, name)
         if package_errors:
             errors[name] = package_errors
-    return {"ok": not errors, "errors": errors, "count": len(packages), "items": packages}
+    return {"ok": not errors, "errors": errors, "count": len(active_packages), "items": active_packages, "archived_count": len(packages) - len(active_packages)}
 
 
 def _next_action(packages: list[dict[str, Any]], errors: dict[str, list[str]]) -> dict[str, Any]:
@@ -32,21 +32,10 @@ def _next_action(packages: list[dict[str, Any]], errors: dict[str, list[str]]) -
     return {"skill": "none", "package": None, "reason": "没有待推进的 package"}
 
 
-def _lint_wiki(root: Path, wiki_root: str) -> dict[str, Any]:
-    directory = wiki_root_path(root, wiki_root)
-    if not directory.exists():
-        wiki_root_value = directory.relative_to(root).as_posix() if directory.is_relative_to(root) else str(directory)
-        return {"ok": True, "skipped": True, "wiki_root": wiki_root_value, "errors": [], "warnings": [], "summary": {"error_count": 0, "warning_count": 0}}
-    result = wiki_lint(root, wiki_root)
-    result["skipped"] = False
-    return result
-
-
-def doctor(root: Path, wiki_root: str = ".wiki", timestamp: str = "") -> dict[str, Any]:
+def doctor(root: Path, timestamp: str = "") -> dict[str, Any]:
+    """Check `.arbor` package health. Wiki health lives in `sdd-wiki lint`."""
     packages = _validate_packages(root)
-    wiki = _lint_wiki(root, wiki_root)
     package_error_count = sum(len(errors) for errors in packages["errors"].values())
-    wiki_summary = wiki.get("summary", {}) if isinstance(wiki.get("summary"), dict) else {}
     next_action = _next_action(packages.get("items", []), packages["errors"])
     blocked_count = sum(
         1
@@ -54,14 +43,13 @@ def doctor(root: Path, wiki_root: str = ".wiki", timestamp: str = "") -> dict[st
         if isinstance(item.get("next_action"), dict) and item["next_action"].get("skill") == "user"
     )
     summary = {
-        "error_count": package_error_count + int(wiki_summary.get("error_count", 0)),
-        "warning_count": int(wiki_summary.get("warning_count", 0)),
+        "error_count": package_error_count,
+        "warning_count": 0,
         "blocked_count": blocked_count,
     }
     return {
-        "ok": packages["ok"] and wiki["ok"],
+        "ok": packages["ok"],
         "packages": packages,
-        "wiki": wiki,
         "summary": summary,
         "next_action": next_action,
     }
