@@ -1,0 +1,9 @@
+{
+  "name": "sdd-next",
+  "version": "0.1.0-design",
+  "description": "Lightweight PRD-first SDD workflow: explicit research, brainstorm, impl, review, and wiki skills with minimal state and user-controlled phase transitions.",
+  "author": {
+    "name": "camellia"
+  },
+  "skills": ["./skills/"]
+}
