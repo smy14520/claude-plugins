@@ -76,7 +76,8 @@ sdd-kit 多轮迭代后的病：
 ```
 .seed/
 ├── tasks/<task>/
-│   ├── prd.md        # 需求 + AC + ## Slices(checkbox) = 唯一状态
+│   ├── prd.md        # 需求 + AC + ## Slices(有序 checkbox 索引) = 唯一状态
+│   ├── slices/       # S-NNN.md：每个 slice 的验收与验证项（内容唯一的家）
 │   ├── review.md     # review 追加记录
 │   ├── evidence/     # run-check 落盘：S-NNN/<check>.json + .log
 │   └── notes/        # impl 过程备注（可选）
@@ -87,10 +88,12 @@ sdd-kit 多轮迭代后的病：
 .wiki/                # 项目知识层（独立于 .seed，跟项目走）
 ```
 
-### prd.md 骨架
+### prd.md 与 slice 文件骨架
+
+单一归属，防止大需求膨胀 prd.md，也防止 sdd-kit 时代"同一事实两个家"的同步漂移：**顺序与状态住在 prd.md 索引，验收与验证住在 slice 文件**，没有任何内容写两遍。共享上下文（背景 / AC / Framing）留在 prd.md——它是每个 slice 都需要的，拆到哪都得读；按 task 再拆只会制造互相引用。impl 的阅读模型：通读 prd.md（薄）建立整体理解，干活时只读当前 slice 文件。
 
 ```markdown
-# <标题>
+# <标题>                            # prd.md
 
 ## 背景与目标
 ## 需求与验收标准
@@ -99,22 +102,29 @@ sdd-kit 多轮迭代后的病：
 <!-- 轻量：选型、边界、不做什么 -->
 ## Slices
 ### [ ] S-001 <标题>
-- 验收: <对应哪几条 AC>
-- 验证:
-  - `npm test -- --filter foo`
-  - [manual] 浏览器验证 xxx（需 --manual 记录理由与证据）
+<!-- 只放索引行；内容在 slices/S-NNN.md，标题须一致（seed status 校验） -->
 ## 变更记录
 <!-- 一行一条：日期 + 改了什么 + 为什么 -->
+```
+
+```markdown
+# S-001 <标题>                      # slices/S-001.md
+
+## 验收
+<!-- 对应哪几条 AC；必要时展开 GWT 细节与失败路径 -->
+## 验证
+- `npm test -- --filter foo`
+- [manual] 浏览器验证 xxx（需 --manual 记录理由与证据）
 ```
 
 ## helper 命令面（共 4 个 + wiki 家族）
 
 | 命令 | 做什么 |
 |---|---|
-| `seed new <task>` | 脚手架 `.seed/tasks/<task>/`，校验 prd.md 的 `## Slices` 结构合法（仅结构，不做语义判断） |
-| `seed status [<task>]` | 解析 prd.md，输出 slice 进度 / evidence 摘要 / 下一个未完成 slice（断点续作与编排的唯一入口） |
+| `seed new <task>` | 脚手架 `.seed/tasks/<task>/`（prd.md + slices/S-001.md 模板） |
+| `seed status [<task>]` | 解析 prd.md 索引与 slices/，输出 slice 进度 / evidence 摘要 / 下一个未完成 slice，并机械校验索引行 ↔ slice 文件一致（断点续作与编排的唯一入口） |
 | `seed run-check <task> --slice S-NNN -- <cmd>` | 真实执行命令，落盘 `evidence/S-NNN/` 下的 exit_code + 输出；`--manual --note --evidence` 记录人工验证（强制理由 + 证据指针） |
-| `seed done <task> --slice S-NNN` | gate：该 slice 声明的全部验证项都有 passed / 已记录的 manual 证据 → 由 helper 勾选 checkbox；否则拒绝并列出缺口 |
+| `seed done <task> --slice S-NNN` | gate：该 slice 文件声明的全部验证项都有 passed / 已记录的 manual 证据 → 由 helper 勾选索引 checkbox；否则拒绝并列出缺口 |
 | `seed wiki index / search / collect / lint` | 沿用 sdd-wiki（已是零依赖独立模块） |
 
 没有 set-status、没有 record-impl-result、没有 record-review、没有 amendment 命令、没有内部隐藏命令。

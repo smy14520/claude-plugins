@@ -2,10 +2,13 @@
 """seed — minimal PRD-checkbox state helper for seed-kit.
 
 State model: `.seed/tasks/<task>/prd.md` slice checkboxes + `evidence/` are the
-only durable state. No task.json, no state machine. The single hard gate:
-`seed done` flips a slice checkbox only when every verification item declared
-in the PRD has recorded evidence (automated: a real passed run with exit_code 0;
-manual: a record with note + evidence pointer).
+only durable state. No task.json, no state machine. Single ownership: the
+`## Slices` section in prd.md is an ordered checkbox index (one line per
+slice); each slice's acceptance + verification items live only in
+`slices/S-NNN.md`. The single hard gate: `seed done` flips a slice checkbox
+only when every verification item declared in the slice file has recorded
+evidence (automated: a real passed run with exit_code 0; manual: a record with
+note + evidence pointer).
 """
 from __future__ import annotations
 
@@ -22,7 +25,9 @@ from pathlib import Path
 SLICE_HEADING_RE = re.compile(r"^### \[([ x])\] (S-\d{3})\s+(.+?)\s*$")
 BAD_SLICE_HEADING_RE = re.compile(r"^###\s")
 TASK_NAME_RE = re.compile(r"^[a-z0-9][a-z0-9._-]*$")
-VERIFY_LABEL_RE = re.compile(r"^-\s*(?:验证|Verification)\s*[:：]\s*$")
+SLICE_FILE_H1_RE = re.compile(r"^# (S-\d{3})\s+(.+?)\s*$")
+ACCEPT_HEADING_RE = re.compile(r"^## (?:验收|Acceptance)")
+VERIFY_HEADING_RE = re.compile(r"^## (?:验证|Verification)")
 COMMAND_ITEM_RE = re.compile(r"^`(.+)`$")
 MANUAL_ITEM_RE = re.compile(r"^\[manual\]\s*(.+)$")
 SLICES_SECTION = "## Slices"
@@ -76,58 +81,42 @@ def prd_path(root: Path, task: str) -> Path:
 
 
 def parse_prd(path: Path) -> tuple[list[Slice], list[str]]:
-    """Parse `## Slices` out of prd.md. Returns (slices, structural errors)."""
+    """Parse the `## Slices` checkbox index in prd.md plus each slices/S-NNN.md.
+
+    prd.md owns order + status (one `### [ ] S-NNN 标题` line per slice);
+    slices/S-NNN.md owns acceptance + verification items. Nothing is stated twice.
+    Returns (slices, structural errors).
+    """
     if not path.is_file():
         raise SeedError(f"未找到 {path}；先用 `seed new <task>` 创建任务")
     lines = path.read_text(encoding="utf-8").splitlines()
     slices: list[Slice] = []
     errors: list[str] = []
     in_slices = False
-    current: Slice | None = None
-    in_verify = False
-    for idx, line in enumerate(lines):
+    for idx, line in _content_lines(lines):
+        stripped = line.strip()
         if line.startswith("## "):
-            in_slices = line.strip() == SLICES_SECTION
-            current = None
-            in_verify = False
+            in_slices = stripped == SLICES_SECTION
             continue
-        if not in_slices:
+        if not in_slices or not stripped:
             continue
         heading = SLICE_HEADING_RE.match(line)
         if heading:
-            current = Slice(
-                id=heading.group(2),
-                title=heading.group(3),
-                done=heading.group(1) == "x",
-                line_no=idx,
+            slices.append(
+                Slice(
+                    id=heading.group(2),
+                    title=heading.group(3),
+                    done=heading.group(1) == "x",
+                    line_no=idx,
+                )
             )
-            slices.append(current)
-            in_verify = False
             continue
         if BAD_SLICE_HEADING_RE.match(line):
-            errors.append(f"第 {idx + 1} 行：slice 标题必须是 `### [ ] S-NNN 标题`：{line.strip()}")
-            current = None
-            in_verify = False
+            errors.append(f"第 {idx + 1} 行：slice 索引行必须是 `### [ ] S-NNN 标题`：{stripped}")
             continue
-        if current is None:
-            continue
-        stripped = line.strip()
-        if not stripped:
-            continue
-        indent = len(line) - len(line.lstrip(" "))
-        if stripped.startswith("- ") and indent == 0:
-            in_verify = bool(VERIFY_LABEL_RE.match(stripped))
-            continue
-        if in_verify and stripped.startswith("- ") and indent > 0:
-            item = stripped[2:].strip()
-            cmd = COMMAND_ITEM_RE.match(item)
-            manual = MANUAL_ITEM_RE.match(item)
-            if cmd:
-                current.checks.append(Check("automated", normalize_command(cmd.group(1)), item))
-            elif manual:
-                current.checks.append(Check("manual", normalize_text(manual.group(1)), item))
-            else:
-                errors.append(f"{current.id} 验证项无法识别（需为 `命令` 或 [manual] 描述）：{item}")
+        errors.append(
+            f"第 {idx + 1} 行：`## Slices` 只放索引行，slice 内容写在 slices/S-NNN.md：{stripped}"
+        )
     if not slices:
         errors.append("prd.md 缺少 `## Slices` 或其中没有任何 slice")
     seen: set[str] = set()
@@ -135,9 +124,74 @@ def parse_prd(path: Path) -> tuple[list[Slice], list[str]]:
         if sl.id in seen:
             errors.append(f"重复的 slice id：{sl.id}")
         seen.add(sl.id)
-        if not sl.checks:
-            errors.append(f"{sl.id} 缺少验证项：每个 slice 必须声明至少一条 `命令` 或 [manual] 验证")
+        errors.extend(_load_slice_file(path.parent / "slices", sl))
     return slices, errors
+
+
+def _content_lines(lines: list[str]) -> list[tuple[int, str]]:
+    """Drop HTML comment blocks; return (original index, line) for the rest."""
+    out: list[tuple[int, str]] = []
+    in_comment = False
+    for idx, line in enumerate(lines):
+        stripped = line.strip()
+        if in_comment:
+            if "-->" in stripped:
+                in_comment = False
+            continue
+        if stripped.startswith("<!--"):
+            if "-->" not in stripped:
+                in_comment = True
+            continue
+        out.append((idx, line))
+    return out
+
+
+def _load_slice_file(slices_dir: Path, sl: Slice) -> list[str]:
+    """Parse slices/S-NNN.md into sl.checks. Returns structural errors."""
+    rel = f"slices/{sl.id}.md"
+    file_path = slices_dir / f"{sl.id}.md"
+    if not file_path.is_file():
+        return [f"缺少 {rel}：slice 的验收与验证项住在这个文件里"]
+    errors: list[str] = []
+    content = _content_lines(file_path.read_text(encoding="utf-8").splitlines())
+    body = [(idx, line) for idx, line in content if line.strip()]
+    if not body:
+        return [f"{rel} 是空的"]
+    h1 = SLICE_FILE_H1_RE.match(body[0][1])
+    if not h1:
+        errors.append(f"{rel} 第一行必须是 `# {sl.id} 标题`")
+    else:
+        if h1.group(1) != sl.id:
+            errors.append(f"{rel} 标题 id（{h1.group(1)}）与文件名不符")
+        if normalize_text(h1.group(2)) != normalize_text(sl.title):
+            errors.append(f"{rel} 标题与 prd.md 索引行不一致：{h1.group(2)!r} ≠ {sl.title!r}")
+    has_accept = False
+    in_verify = False
+    for idx, line in content:
+        stripped = line.strip()
+        if line.startswith("## "):
+            has_accept = has_accept or bool(ACCEPT_HEADING_RE.match(stripped))
+            in_verify = bool(VERIFY_HEADING_RE.match(stripped))
+            continue
+        if not in_verify or not stripped:
+            continue
+        if not stripped.startswith(("- ", "* ")):
+            errors.append(f"{rel} `## 验证` 下第 {idx + 1} 行不是 `- ` 列表项：{stripped}")
+            continue
+        item = stripped[2:].strip()
+        cmd = COMMAND_ITEM_RE.match(item)
+        manual = MANUAL_ITEM_RE.match(item)
+        if cmd:
+            sl.checks.append(Check("automated", normalize_command(cmd.group(1)), item))
+        elif manual:
+            sl.checks.append(Check("manual", normalize_text(manual.group(1)), item))
+        else:
+            errors.append(f"{rel} 验证项无法识别（需为 `命令` 或 [manual] 描述）：{item}")
+    if not has_accept:
+        errors.append(f"{rel} 缺少 `## 验收` 段")
+    if not sl.checks:
+        errors.append(f"{rel} 缺少验证项：`## 验证` 至少声明一条 `命令` 或 [manual]")
+    return errors
 
 
 def _require_valid_prd(root: Path, task: str) -> list[Slice]:
@@ -216,13 +270,16 @@ def cmd_new(root: Path, task: str) -> int:
     task_dir = task_dir_path(root, task)
     if task_dir.exists():
         raise SeedError(f"{task_dir} 已存在；用 `seed status {task}` 查看进度")
-    template_path = Path(__file__).resolve().parent.parent / "templates" / "prd.md"
-    template = template_path.read_text(encoding="utf-8")
+    template_dir = Path(__file__).resolve().parent.parent / "templates"
+    template = (template_dir / "prd.md").read_text(encoding="utf-8")
     (task_dir / "evidence").mkdir(parents=True)
     (task_dir / "notes").mkdir()
+    (task_dir / "slices").mkdir()
     prd_path(root, task).write_text(template.replace("{{TITLE}}", task), encoding="utf-8")
+    slice_template = (template_dir / "slice.md").read_text(encoding="utf-8")
+    (task_dir / "slices" / "S-001.md").write_text(slice_template, encoding="utf-8")
     print(f"已创建 {task_dir.relative_to(root)}/")
-    print(f"下一步：填写 prd.md，然后 `seed status {task}` 校验结构")
+    print(f"下一步：填写 prd.md 与 slices/S-NNN.md，然后 `seed status {task}` 校验结构")
     return 0
 
 
@@ -232,6 +289,7 @@ def _slice_report(root: Path, task: str, sl: Slice) -> dict:
         "id": sl.id,
         "title": sl.title,
         "done": sl.done,
+        "file": f"slices/{sl.id}.md",
         "checks": [
             {"kind": check.kind, "target": check.target, "state": check_state(check, records)}
             for check in sl.checks
@@ -302,7 +360,7 @@ def cmd_run_check(
         if not declared:
             options = [c.target for c in sl.checks if c.kind == "manual"] or ["（无）"]
             raise SeedError(
-                f"{slice_id} 未声明这条 manual 验证项；PRD 中声明的 manual 项：\n"
+                f"{slice_id} 未声明这条 manual 验证项；slices/{slice_id}.md 中声明的 manual 项：\n"
                 + "\n".join(f"  - {opt}" for opt in options)
             )
         if not note or not evidence:
@@ -327,7 +385,7 @@ def cmd_run_check(
     if not declared:
         options = [c.target for c in sl.checks if c.kind == "automated"] or ["（无）"]
         raise SeedError(
-            f"{slice_id} 未声明这条验证命令（命令必须与 PRD 声明一致，不接受替代/弱化命令）；声明的命令：\n"
+            f"{slice_id} 未声明这条验证命令（命令必须与 slices/{slice_id}.md 声明一致，不接受替代/弱化命令）；声明的命令：\n"
             + "\n".join(f"  - {opt}" for opt in options)
         )
     try:
@@ -397,20 +455,20 @@ def build_parser() -> argparse.ArgumentParser:
     parser.add_argument("--root", default=".", help="项目根目录（含 .seed/）")
     sub = parser.add_subparsers(dest="command", required=True)
 
-    new_parser = sub.add_parser("new", help="脚手架 .seed/tasks/<task>/ 与 prd.md 模板")
+    new_parser = sub.add_parser("new", help="脚手架 .seed/tasks/<task>/：prd.md 模板 + slices/S-001.md")
     new_parser.add_argument("task")
 
-    status_parser = sub.add_parser("status", help="解析 prd.md：进度、证据状态、结构校验、下一个 slice")
+    status_parser = sub.add_parser("status", help="解析 prd.md 索引与 slices/：进度、证据状态、结构校验、下一个 slice")
     status_parser.add_argument("task", nargs="?")
     status_parser.add_argument("--json", dest="json_output", action="store_true")
 
     rc_parser = sub.add_parser(
         "run-check",
-        help="真实执行 PRD 声明的验证命令并落盘证据；或 --manual 记录人工验证",
+        help="真实执行 slices/S-NNN.md 声明的验证命令并落盘证据；或 --manual 记录人工验证",
     )
     rc_parser.add_argument("task")
     rc_parser.add_argument("--slice", dest="slice_id", required=True)
-    rc_parser.add_argument("--manual", help="PRD 中声明的 [manual] 验证项原文")
+    rc_parser.add_argument("--manual", help="slices/S-NNN.md 中声明的 [manual] 验证项原文")
     rc_parser.add_argument("--note", help="manual：验证了什么、结论")
     rc_parser.add_argument("--evidence", help="manual：证据指针（截图路径/输出位置）")
     rc_parser.add_argument("--timeout", type=int, default=600)
