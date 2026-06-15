@@ -32,7 +32,7 @@ sdd-kit 多轮迭代后的病：
 
 职责：把一个需求的外部世界整理成 AI 可读的资料。竞品调研（哪家测评网站做得好、好在哪、数据源和字段有哪些）、外部 API 摸底（小红书客服接口、接入流程）都属于这里。
 
-- 工作区：`.seed/research/<topic>/`，index-first：`index.md`（导航与结论）+ `raw/`（原始抓取）+ `notes/`（整理后的可读笔记）。
+- 工作区：`.arbor/research/<topic>/`，index-first：`index.md`（导航与结论）+ `raw/`（原始抓取）+ `notes/`（整理后的可读笔记）。
 - 不做设计决策、不写 PRD；产出是"资料已足够支撑后续讨论"。
 - 只在用户显式要求时触发。
 
@@ -41,7 +41,7 @@ sdd-kit 多轮迭代后的病：
 职责：把模糊想法收敛成可执行的 PRD。从 0 的项目（"我想做个 Steam 模拟游戏"）引导用户做技术选型、玩法、2D/3D 等关键决策；已有项目（"加小红书 AI 客服"）先读代码理解现状再提问边界与接入方式。
 
 - 交互循环：一次只问一个高价值问题，每个问题给出推荐答案和理由；能从代码确认的事实先自行查证，不问用户。
-- 用户可主动指定读 `.seed/research/<topic>/` 或 `.wiki/`；skill 自己不会去搜。
+- 用户可主动指定读 `.arbor/research/<topic>/` 或 `.wiki/`；skill 自己不会去搜。
 - 终点：`seed new <task>` 脚手架 + 写入 `prd.md`（需求、可证伪 AC、轻量 Technical Framing、ordered Slices）。
 - PRD 后续可以直接修改；改动在 prd.md 底部"变更记录"留一行即可，不设 amendment 编号仪式。
 
@@ -74,7 +74,7 @@ sdd-kit 多轮迭代后的病：
 ## Artifact 结构
 
 ```
-.seed/
+.arbor/
 ├── tasks/<task>/
 │   ├── prd.md        # 需求 + AC + ## Slices(有序 checkbox 索引) = 唯一状态
 │   ├── slices/       # S-NNN.md：每个 slice 的验收与验证项（内容唯一的家）
@@ -85,7 +85,7 @@ sdd-kit 多轮迭代后的病：
     ├── index.md      # 导航与结论
     ├── raw/          # 原始资料
     └── notes/        # 整理后的笔记
-.wiki/                # 项目知识层（独立于 .seed，跟项目走）
+.wiki/                # 项目知识层（独立于 .arbor，跟项目走）
 ```
 
 ### prd.md 与 slice 文件骨架
@@ -121,7 +121,7 @@ sdd-kit 多轮迭代后的病：
 
 | 命令 | 做什么 |
 |---|---|
-| `seed new <task>` | 脚手架 `.seed/tasks/<task>/`（prd.md + slices/S-001.md 模板） |
+| `seed new <task>` | 脚手架 `.arbor/tasks/<task>/`（prd.md + slices/S-001.md 模板） |
 | `seed status [<task>]` | 解析 prd.md 索引与 slices/，输出 slice 进度 / evidence 摘要 / 下一个未完成 slice，并机械校验索引行 ↔ slice 文件一致（断点续作与编排的唯一入口） |
 | `seed run-check <task> --slice S-NNN -- <cmd>` | 真实执行命令，落盘 `evidence/S-NNN/` 下的 exit_code + 输出；`--manual --note --evidence` 记录人工验证（强制理由 + 证据指针） |
 | `seed done <task> --slice S-NNN` | gate：该 slice 文件声明的全部验证项都有 passed / 已记录的 manual 证据 → 由 helper 勾选索引 checkbox；否则拒绝并列出缺口 |

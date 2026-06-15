@@ -14,7 +14,7 @@ def edit_payload(path: str, old: str, new: str) -> dict:
 
 def test_blocks_checkbox_flip_via_edit():
     result = seed_guard.evaluate(
-        edit_payload("/repo/.seed/tasks/demo/prd.md", "### [ ] S-001 步骤", "### [x] S-001 步骤")
+        edit_payload("/repo/.arbor/tasks/demo/prd.md", "### [ ] S-001 步骤", "### [x] S-001 步骤")
     )
     assert result["decision"] == "block"
     assert "seed done" in result["reason"]
@@ -22,7 +22,7 @@ def test_blocks_checkbox_flip_via_edit():
 
 def test_allows_normal_prd_edit():
     result = seed_guard.evaluate(
-        edit_payload("/repo/.seed/tasks/demo/prd.md", "## 背景与目标", "## 背景与目标\n\n补充一句")
+        edit_payload("/repo/.arbor/tasks/demo/prd.md", "## 背景与目标", "## 背景与目标\n\n补充一句")
     )
     assert result["decision"] == "allow"
 
@@ -30,13 +30,13 @@ def test_allows_normal_prd_edit():
 def test_allows_unflipping_checkbox():
     # [x] → [ ]（回退）不增加勾选数，不拦截
     result = seed_guard.evaluate(
-        edit_payload("/repo/.seed/tasks/demo/prd.md", "### [x] S-001 步骤", "### [ ] S-001 步骤")
+        edit_payload("/repo/.arbor/tasks/demo/prd.md", "### [x] S-001 步骤", "### [ ] S-001 步骤")
     )
     assert result["decision"] == "allow"
 
 
 def test_blocks_checkbox_increase_via_write(tmp_path: Path):
-    prd = tmp_path / ".seed" / "tasks" / "demo" / "prd.md"
+    prd = tmp_path / ".arbor" / "tasks" / "demo" / "prd.md"
     prd.parent.mkdir(parents=True)
     prd.write_text("### [ ] S-001 步骤\n", encoding="utf-8")
     payload = {"tool_name": "Write", "tool_input": {"file_path": str(prd), "content": "### [x] S-001 步骤\n"}}
@@ -44,7 +44,7 @@ def test_blocks_checkbox_increase_via_write(tmp_path: Path):
 
 
 def test_allows_write_preserving_checked_count(tmp_path: Path):
-    prd = tmp_path / ".seed" / "tasks" / "demo" / "prd.md"
+    prd = tmp_path / ".arbor" / "tasks" / "demo" / "prd.md"
     prd.parent.mkdir(parents=True)
     prd.write_text("### [x] S-001 步骤\n", encoding="utf-8")
     payload = {"tool_name": "Write", "tool_input": {"file_path": str(prd), "content": "### [x] S-001 步骤\n\n补充说明\n"}}
@@ -54,7 +54,7 @@ def test_allows_write_preserving_checked_count(tmp_path: Path):
 def test_blocks_manual_evidence_write():
     payload = {
         "tool_name": "Write",
-        "tool_input": {"file_path": "/repo/.seed/tasks/demo/evidence/S-001/001-automated.json", "content": "{}"},
+        "tool_input": {"file_path": "/repo/.arbor/tasks/demo/evidence/S-001/001-automated.json", "content": "{}"},
     }
     result = seed_guard.evaluate(payload)
     assert result["decision"] == "block"
@@ -64,7 +64,7 @@ def test_blocks_manual_evidence_write():
 def test_blocks_evidence_shell_redirect():
     payload = {
         "tool_name": "Bash",
-        "tool_input": {"command": "echo '{}' > .seed/tasks/demo/evidence/S-001/fake.json"},
+        "tool_input": {"command": "echo '{}' > .arbor/tasks/demo/evidence/S-001/fake.json"},
     }
     assert seed_guard.evaluate(payload)["decision"] == "block"
 

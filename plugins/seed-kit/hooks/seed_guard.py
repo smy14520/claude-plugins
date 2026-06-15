@@ -14,9 +14,9 @@ import sys
 from pathlib import Path
 from typing import Any
 
-PRD_RE = re.compile(r"(^|/)\.seed/tasks/[^/]+/prd\.md$")
-EVIDENCE_PATH_RE = re.compile(r"(^|/)\.seed/tasks/[^/]+/evidence/")
-EVIDENCE_REDIRECT_RE = re.compile(r"\.seed/tasks/[^\s]*?/evidence/[^\s]*")
+PRD_RE = re.compile(r"(^|/)\.arbor/tasks/[^/]+/prd\.md$")
+EVIDENCE_PATH_RE = re.compile(r"(^|/)\.arbor/tasks/[^/]+/evidence/")
+EVIDENCE_REDIRECT_RE = re.compile(r"\.arbor/tasks/[^\s]*?/evidence/[^\s]*")
 DESTRUCTIVE_RE = re.compile(r"\b(git\s+reset\s+--hard|git\s+clean\s+-|git\s+push\s+--force|rm\s+-rf)\b")
 CHECKED_HEADING_RE = re.compile(r"^### \[x\] ", re.MULTILINE)
 

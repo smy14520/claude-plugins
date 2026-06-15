@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """seed — minimal PRD-checkbox state helper for seed-kit.
 
-State model: `.seed/tasks/<task>/prd.md` slice checkboxes + `evidence/` are the
+State model: `.arbor/tasks/<task>/prd.md` slice checkboxes + `evidence/` are the
 only durable state. No task.json, no state machine. Single ownership: the
 `## Slices` section in prd.md is an ordered checkbox index (one line per
 slice); each slice's acceptance + verification items live only in
@@ -150,7 +150,7 @@ class Slice:
 
 
 def tasks_root(root: Path) -> Path:
-    return root / ".seed" / "tasks"
+    return root / ".arbor" / "tasks"
 
 
 def task_dir_path(root: Path, task: str) -> Path:
@@ -598,10 +598,10 @@ def build_parser() -> argparse.ArgumentParser:
         prog="seed",
         description="seed-kit helper：prd.md checkbox + evidence 是唯一状态；done 只认 run-check 落盘的证据。",
     )
-    parser.add_argument("--root", default=".", help="项目根目录（含 .seed/）")
+    parser.add_argument("--root", default=".", help="项目根目录（含 .arbor/）")
     sub = parser.add_subparsers(dest="command", required=True)
 
-    new_parser = sub.add_parser("new", help="脚手架 .seed/tasks/<task>/：prd.md 模板 + slices/S-001.md")
+    new_parser = sub.add_parser("new", help="脚手架 .arbor/tasks/<task>/：prd.md 模板 + slices/S-001.md")
     new_parser.add_argument("task")
 
     status_parser = sub.add_parser("status", help="解析 prd.md 索引与 slices/：进度、证据状态、结构校验、下一个 slice")

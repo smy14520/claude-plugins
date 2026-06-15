@@ -11,8 +11,8 @@
 ## 目录
 
 ```
-.seed/tasks/<task>/      # prd.md / slices/ / review.md / evidence/ / notes/
-.seed/research/<topic>/  # index.md / raw/ / notes/
+.arbor/tasks/<task>/      # prd.md / slices/ / review.md / evidence/ / notes/
+.arbor/research/<topic>/  # index.md / raw/ / notes/
 .wiki/                   # 项目知识层（导航层，非 source of truth）
 ```
 

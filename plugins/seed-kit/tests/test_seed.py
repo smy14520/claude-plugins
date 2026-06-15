@@ -64,7 +64,7 @@ def make_task(
     prd: str = PRD_INDEX,
     slices: dict[str, str] | None = None,
 ) -> Path:
-    task_dir = root / ".seed" / "tasks" / name
+    task_dir = root / ".arbor" / "tasks" / name
     (task_dir / "evidence").mkdir(parents=True)
     (task_dir / "notes").mkdir()
     (task_dir / "slices").mkdir()
@@ -87,7 +87,7 @@ def run(root: Path, *argv: str) -> int:
 
 def test_new_scaffolds_task(project: Path, capsys):
     assert run(project, "new", "demo") == 0
-    task_dir = project / ".seed" / "tasks" / "demo"
+    task_dir = project / ".arbor" / "tasks" / "demo"
     assert (task_dir / "prd.md").is_file()
     assert (task_dir / "evidence").is_dir()
     assert (task_dir / "notes").is_dir()
@@ -234,7 +234,7 @@ def test_run_check_rejects_undeclared_command(project: Path, capsys):
 def test_run_check_records_passed_evidence(project: Path, capsys):
     make_task(project)
     assert run(project, "run-check", "demo", "--slice", "S-001", "--", "echo", "hi") == 0
-    evidence = project / ".seed" / "tasks" / "demo" / "evidence" / "S-001"
+    evidence = project / ".arbor" / "tasks" / "demo" / "evidence" / "S-001"
     records = sorted(evidence.glob("*.json"))
     assert len(records) == 1
     data = json.loads(records[0].read_text(encoding="utf-8"))
@@ -248,7 +248,7 @@ def test_run_check_records_failed_evidence(project: Path, capsys):
     slice_md = "# S-001 失败步\n\n## 验收\n\nAC-1\n\n## 验证\n\n- `false`\n"
     single_slice_task(project, "### [ ] S-001 失败步", slice_md)
     assert run(project, "run-check", "demo", "--slice", "S-001", "--", "false") == 1
-    evidence = project / ".seed" / "tasks" / "demo" / "evidence" / "S-001"
+    evidence = project / ".arbor" / "tasks" / "demo" / "evidence" / "S-001"
     data = json.loads(sorted(evidence.glob("*.json"))[0].read_text(encoding="utf-8"))
     assert data["status"] == "failed"
     assert data["exit_code"] != 0
@@ -280,7 +280,7 @@ def test_manual_records_evidence(project: Path, capsys):
         "--evidence", "notes/screenshot-home.png",
     )
     assert code == 0
-    evidence = project / ".seed" / "tasks" / "demo" / "evidence" / "S-002"
+    evidence = project / ".arbor" / "tasks" / "demo" / "evidence" / "S-002"
     data = json.loads(sorted(evidence.glob("*.json"))[0].read_text(encoding="utf-8"))
     assert data["kind"] == "human"  # [manual] is a legacy alias for [human]
     assert data["status"] == "recorded"
@@ -294,7 +294,7 @@ def test_done_blocked_without_evidence(project: Path, capsys):
     err = capsys.readouterr().err
     assert "缺少证据" in err
     assert "echo hi" in err
-    prd = (project / ".seed" / "tasks" / "demo" / "prd.md").read_text(encoding="utf-8")
+    prd = (project / ".arbor" / "tasks" / "demo" / "prd.md").read_text(encoding="utf-8")
     assert "### [x]" not in prd
 
 
@@ -312,7 +312,7 @@ def test_done_flips_checkbox_when_evidence_complete(project: Path, capsys):
     assert run(project, "done", "demo", "--slice", "S-001") == 0
     out = capsys.readouterr().out
     assert "next: S-002" in out
-    prd = (project / ".seed" / "tasks" / "demo" / "prd.md").read_text(encoding="utf-8")
+    prd = (project / ".arbor" / "tasks" / "demo" / "prd.md").read_text(encoding="utf-8")
     assert "### [x] S-001 输出问候" in prd
     assert "### [ ] S-002" in prd
 
@@ -333,7 +333,7 @@ def test_done_full_flow_with_manual(project: Path, capsys):
         "--note", "ok", "--evidence", "shot.png",
     )
     assert run(project, "done", "demo", "--slice", "S-002") == 0
-    prd = (project / ".seed" / "tasks" / "demo" / "prd.md").read_text(encoding="utf-8")
+    prd = (project / ".arbor" / "tasks" / "demo" / "prd.md").read_text(encoding="utf-8")
     assert "### [x] S-002" in prd
 
 
@@ -381,7 +381,7 @@ AC-1
 
 
 def _latest_record(root: Path, task: str, slice_id: str) -> dict:
-    ev = root / ".seed" / "tasks" / task / "evidence" / slice_id
+    ev = root / ".arbor" / "tasks" / task / "evidence" / slice_id
     return json.loads(sorted(ev.glob("*.json"))[-1].read_text(encoding="utf-8"))
 
 
@@ -441,7 +441,7 @@ def test_judge_fail_blocks_done(project: Path, capsys):
     assert run(project, "done", "demo", "--slice", "S-001") == 1
     err = capsys.readouterr().err
     assert "judge" in err and "failed" in err
-    prd = (project / ".seed" / "tasks" / "demo" / "prd.md").read_text(encoding="utf-8")
+    prd = (project / ".arbor" / "tasks" / "demo" / "prd.md").read_text(encoding="utf-8")
     assert "### [x]" not in prd
 
 
@@ -458,7 +458,7 @@ def test_human_signoff_satisfies_gate(project: Path, capsys):
         "涉众确认邀请邮件文案", "--note", "文案定稿", "--by", "PM-alice",
     ) == 0
     assert run(project, "done", "demo", "--slice", "S-001") == 0
-    prd = (project / ".seed" / "tasks" / "demo" / "prd.md").read_text(encoding="utf-8")
+    prd = (project / ".arbor" / "tasks" / "demo" / "prd.md").read_text(encoding="utf-8")
     assert "### [x] S-001 三类验证" in prd
 
 
