@@ -268,7 +268,7 @@ def test_manual_must_match_declared_item(project: Path, capsys):
         "--manual", "随便看看", "--note", "n", "--evidence", "e",
     )
     assert code == 1
-    assert "未声明这条 manual" in capsys.readouterr().err
+    assert "未声明" in capsys.readouterr().err
 
 
 def test_manual_records_evidence(project: Path, capsys):
@@ -282,7 +282,7 @@ def test_manual_records_evidence(project: Path, capsys):
     assert code == 0
     evidence = project / ".seed" / "tasks" / "demo" / "evidence" / "S-002"
     data = json.loads(sorted(evidence.glob("*.json"))[0].read_text(encoding="utf-8"))
-    assert data["kind"] == "manual"
+    assert data["kind"] == "human"  # [manual] is a legacy alias for [human]
     assert data["status"] == "recorded"
 
 
@@ -321,7 +321,7 @@ def test_done_requires_manual_recorded(project: Path, capsys):
     make_task(project)
     run(project, "run-check", "demo", "--slice", "S-002", "--", "echo", "step2")
     assert run(project, "done", "demo", "--slice", "S-002") == 1
-    assert "manual" in capsys.readouterr().err
+    assert "human" in capsys.readouterr().err
 
 
 def test_done_full_flow_with_manual(project: Path, capsys):
@@ -362,3 +362,130 @@ def test_status_resume_after_partial_progress(project: Path, capsys):
     data = json.loads(capsys.readouterr().out)
     assert data["slices"][0]["done"] is True
     assert data["next"] == "S-002"
+
+
+# --- verification kinds (assert / judge / human) ----------------------------
+
+KINDS_SLICE = """# S-001 三类验证
+
+## 验收
+
+AC-1
+
+## 验证
+
+- [assert] `test 0 -eq 0`
+- [judge] 注册→登录 UI 旅程，按 rubrics/s-001.md
+- [human] 涉众确认邀请邮件文案
+"""
+
+
+def _latest_record(root: Path, task: str, slice_id: str) -> dict:
+    ev = root / ".seed" / "tasks" / task / "evidence" / slice_id
+    return json.loads(sorted(ev.glob("*.json"))[-1].read_text(encoding="utf-8"))
+
+
+def test_classifies_three_kinds(project: Path, capsys):
+    single_slice_task(project, "### [ ] S-001 三类验证", KINDS_SLICE)
+    assert run(project, "status", "demo", "--json") == 0
+    data = json.loads(capsys.readouterr().out)
+    checks = data["slices"][0]["checks"]
+    assert [c["kind"] for c in checks] == ["assert", "judge", "human"]
+    assert all(c["state"] == "missing" for c in checks)
+
+
+def test_assert_prefix_runs_command(project: Path, capsys):
+    single_slice_task(project, "### [ ] S-001 三类验证", KINDS_SLICE)
+    assert run(project, "run-check", "demo", "--slice", "S-001", "--", "test", "0", "-eq", "0") == 0
+    rec = _latest_record(project, "demo", "S-001")
+    assert rec["kind"] == "assert"
+    assert rec["status"] == "passed"
+
+
+def test_judge_pass_records_verdict(project: Path, capsys):
+    single_slice_task(project, "### [ ] S-001 三类验证", KINDS_SLICE)
+    code = run(
+        project, "run-check", "demo", "--slice", "S-001",
+        "--judge", "注册→登录 UI 旅程，按 rubrics/s-001.md",
+        "--verdict", "pass",
+        "--trace", "rubrics/s-001.md + shots/login.png",
+        "--by", "judge-agent-2",
+    )
+    assert code == 0
+    rec = _latest_record(project, "demo", "S-001")
+    assert rec["kind"] == "judge"
+    assert rec["verdict"] == "pass"
+    assert rec["status"] == "passed"
+    assert rec["by"] == "judge-agent-2"
+
+
+def test_judge_requires_verdict_and_trace(project: Path, capsys):
+    single_slice_task(project, "### [ ] S-001 三类验证", KINDS_SLICE)
+    assert run(
+        project, "run-check", "demo", "--slice", "S-001",
+        "--judge", "注册→登录 UI 旅程，按 rubrics/s-001.md",
+    ) == 1
+    assert "--verdict" in capsys.readouterr().err
+
+
+def test_judge_fail_blocks_done(project: Path, capsys):
+    single_slice_task(project, "### [ ] S-001 三类验证", KINDS_SLICE)
+    run(project, "run-check", "demo", "--slice", "S-001", "--", "test", "0", "-eq", "0")
+    run(project, "run-check", "demo", "--slice", "S-001", "--human",
+        "涉众确认邀请邮件文案", "--note", "ok")
+    run(
+        project, "run-check", "demo", "--slice", "S-001",
+        "--judge", "注册→登录 UI 旅程，按 rubrics/s-001.md",
+        "--verdict", "fail", "--trace", "rubrics/s-001.md；按钮无障碍失败",
+    )
+    assert run(project, "done", "demo", "--slice", "S-001") == 1
+    err = capsys.readouterr().err
+    assert "judge" in err and "failed" in err
+    prd = (project / ".seed" / "tasks" / "demo" / "prd.md").read_text(encoding="utf-8")
+    assert "### [x]" not in prd
+
+
+def test_human_signoff_satisfies_gate(project: Path, capsys):
+    single_slice_task(project, "### [ ] S-001 三类验证", KINDS_SLICE)
+    run(project, "run-check", "demo", "--slice", "S-001", "--", "test", "0", "-eq", "0")
+    run(
+        project, "run-check", "demo", "--slice", "S-001",
+        "--judge", "注册→登录 UI 旅程，按 rubrics/s-001.md",
+        "--verdict", "pass", "--trace", "rubrics/s-001.md",
+    )
+    assert run(
+        project, "run-check", "demo", "--slice", "S-001", "--human",
+        "涉众确认邀请邮件文案", "--note", "文案定稿", "--by", "PM-alice",
+    ) == 0
+    assert run(project, "done", "demo", "--slice", "S-001") == 0
+    prd = (project / ".seed" / "tasks" / "demo" / "prd.md").read_text(encoding="utf-8")
+    assert "### [x] S-001 三类验证" in prd
+
+
+# --- smoke detection ---------------------------------------------------------
+
+def test_smoke_detection():
+    assert seed.looks_like_smoke("curl -s http://localhost:8000/api/health")[0] is True
+    assert seed.looks_like_smoke("curl -sf http://x")[0] is False
+    assert seed.looks_like_smoke("curl -s http://x | grep ok")[0] is False
+    assert seed.looks_like_smoke("echo hi")[0] is True
+    assert seed.looks_like_smoke("true")[0] is True
+    assert seed.looks_like_smoke("php artisan test --filter=Ledger")[0] is False
+    assert seed.looks_like_smoke("test 0 -eq 0")[0] is False
+
+
+def test_run_check_warns_on_smoke(project: Path, capsys):
+    slice_md = "# S-001 烟雾\n\n## 验收\n\nAC\n\n## 验证\n\n- `echo hi`\n"
+    single_slice_task(project, "### [ ] S-001 烟雾", slice_md)
+    assert run(project, "run-check", "demo", "--slice", "S-001", "--", "echo", "hi") == 0
+    captured = capsys.readouterr()
+    assert "烟雾警告" in captured.err
+    assert "不构成有效验证" in captured.err
+
+
+def test_status_flags_smoke_in_report(project: Path, capsys):
+    slice_md = "# S-001 烟雾\n\n## 验收\n\nAC\n\n## 验证\n\n- `curl -s http://localhost:8000/health`\n"
+    single_slice_task(project, "### [ ] S-001 烟雾", slice_md)
+    assert run(project, "status", "demo", "--json") == 0
+    data = json.loads(capsys.readouterr().out)
+    assert data["slices"][0]["checks"][0]["smoke"] is True

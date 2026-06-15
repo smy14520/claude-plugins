@@ -5,10 +5,30 @@ State model: `.seed/tasks/<task>/prd.md` slice checkboxes + `evidence/` are the
 only durable state. No task.json, no state machine. Single ownership: the
 `## Slices` section in prd.md is an ordered checkbox index (one line per
 slice); each slice's acceptance + verification items live only in
-`slices/S-NNN.md`. The single hard gate: `seed done` flips a slice checkbox
-only when every verification item declared in the slice file has recorded
-evidence (automated: a real passed run with exit_code 0; manual: a record with
-note + evidence pointer).
+`slices/S-NNN.md`.
+
+Verification has three kinds — the closed vocabulary for "what makes passed
+trustworthy, and who/what asserts it":
+
+- `assert`  — an executable command that genuinely asserts (it must exit
+  non-zero on failure: a test suite, a contract replay, a Playwright spec).
+  Gate: exit_code == 0 → passed. A bare probe (`curl` without `--fail`, `echo`)
+  only proves "it ran", not "it is correct"; seed flags such shapes as a
+  *smoke warning* (soft, never blocks) — real verification needs an asserting
+  command.
+- `judge`  — assessed by an independent agent (生成者 ≠ 验证者) against an
+  AC rubric, in a fresh session. Gate: a recorded verdict == pass. The helper
+  only records/validates the verdict; the judging itself is a skill-layer
+  action (the helper never calls an LLM).
+- `human`  — genuine stakeholder sign-off (taste, compliance, things that by
+  definition can't be automated). Gate: a recorded sign-off with note + who.
+
+Legacy forms keep working: a bare `` `command` `` item is `assert`; a
+`[manual]` item is `human`.
+
+The single hard gate: `seed done` flips a slice checkbox only when every
+verification item declared in the slice file has recorded evidence of the
+right shape for its kind (assert: passed; judge: pass verdict; human: sign-off).
 """
 from __future__ import annotations
 
@@ -30,7 +50,15 @@ ACCEPT_HEADING_RE = re.compile(r"^## (?:验收|Acceptance)")
 VERIFY_HEADING_RE = re.compile(r"^## (?:验证|Verification)")
 COMMAND_ITEM_RE = re.compile(r"^`(.+)`$")
 MANUAL_ITEM_RE = re.compile(r"^\[manual\]\s*(.+)$")
+KIND_PREFIX_RE = re.compile(r"^\[(assert|judge|human)\]\s*(.*)$", re.DOTALL)
 SLICES_SECTION = "## Slices"
+
+# On-disk evidence `kind` aliases for back-compat with records written before
+# the three-kind vocabulary existed.
+KIND_ALIASES = {"automated": "assert", "manual": "human"}
+
+# Commands that "exit 0 no matter what the feature did" — flagged as smoke.
+SMOKE_TOOL_RE = re.compile(r"(?:^|[\s|&;])(curl|wget)(?:[\s|&;]|$)")
 
 
 class SeedError(Exception):
@@ -52,10 +80,63 @@ def normalize_text(text: str) -> str:
     return " ".join(text.split())
 
 
+def _has_fail_flag(command: str) -> bool:
+    """curl/wget --fail (or -f, including clustered like -sf) present."""
+    for tok in command.split():
+        if tok == "--fail" or tok.startswith("--fail="):
+            return True
+        if tok.startswith("-") and not tok.startswith("--") and "f" in tok:
+            return True
+    return False
+
+
+def looks_like_smoke(command: str) -> tuple[bool, str]:
+    """High-precision smoke heuristic: True only for shapes that exit 0
+    regardless of correctness. Conservative — false negatives are fine, false
+    positives are not."""
+    if not command.strip():
+        return False, ""
+    first = command.strip().split()[0]
+    # bare curl/wget with no --fail and no pipe/chain to an asserting tool
+    if SMOKE_TOOL_RE.search(command):
+        if _has_fail_flag(command):
+            return False, ""
+        if any(op in command for op in ("|", "&&", "||")):
+            return False, ""
+        return True, "curl/wget 无 --fail 且无管道/链式断言：只证路由可达，不证语义正确"
+    # echo / true / : with no downstream assertion
+    if first in ("echo", "true", ":") and not any(op in command for op in ("|", "&&", "||")):
+        return True, f"裸 `{first}` 不是断言：只证明命令执行了"
+    return False, ""
+
+
+def classify_check(item: str) -> tuple[str, str] | None:
+    r"""Classify a verification list-item into (kind, target) or None.
+
+    Recognizes [assert] <cmd>, [judge] desc, [human] desc, a legacy bare
+    backticked command (-> assert), and legacy [manual] desc (-> human)."""
+    prefixed = KIND_PREFIX_RE.match(item)
+    if prefixed:
+        kind, rest = prefixed.group(1), prefixed.group(2).strip()
+        if not rest:
+            return None
+        if kind == "assert":
+            cmd = COMMAND_ITEM_RE.match(rest)
+            return ("assert", normalize_command(cmd.group(1))) if cmd else None
+        return (kind, normalize_text(rest))
+    cmd = COMMAND_ITEM_RE.match(item)
+    if cmd:
+        return ("assert", normalize_command(cmd.group(1)))
+    manual = MANUAL_ITEM_RE.match(item)
+    if manual:
+        return ("human", normalize_text(manual.group(1)))
+    return None
+
+
 @dataclass
 class Check:
-    kind: str  # "automated" | "manual"
-    target: str  # normalized command, or normalized manual item text
+    kind: str  # "assert" | "judge" | "human"
+    target: str  # normalized command (assert) or text (judge/human)
     raw: str
 
 
@@ -179,18 +260,19 @@ def _load_slice_file(slices_dir: Path, sl: Slice) -> list[str]:
             errors.append(f"{rel} `## 验证` 下第 {idx + 1} 行不是 `- ` 列表项：{stripped}")
             continue
         item = stripped[2:].strip()
-        cmd = COMMAND_ITEM_RE.match(item)
-        manual = MANUAL_ITEM_RE.match(item)
-        if cmd:
-            sl.checks.append(Check("automated", normalize_command(cmd.group(1)), item))
-        elif manual:
-            sl.checks.append(Check("manual", normalize_text(manual.group(1)), item))
+        classified = classify_check(item)
+        if classified:
+            kind, target = classified
+            sl.checks.append(Check(kind, target, item))
         else:
-            errors.append(f"{rel} 验证项无法识别（需为 `命令` 或 [manual] 描述）：{item}")
+            errors.append(
+                f"{rel} 验证项无法识别（需为 `[assert] \\`命令\\`` / `[judge] 描述` / "
+                f"`[human] 描述`，或旧式 `\\`命令\\`` / `[manual] 描述`）：{item}"
+            )
     if not has_accept:
         errors.append(f"{rel} 缺少 `## 验收` 段")
     if not sl.checks:
-        errors.append(f"{rel} 缺少验证项：`## 验证` 至少声明一条 `命令` 或 [manual]")
+        errors.append(f"{rel} 缺少验证项：`## 验证` 至少声明一条 `[assert] \\`命令\\`` / `[judge]` / `[human]`")
     return errors
 
 
@@ -244,20 +326,33 @@ def _write_evidence(root: Path, task: str, slice_id: str, record: dict, log_text
     return json_path
 
 
+def _record_kind(record: dict) -> str:
+    return KIND_ALIASES.get(record.get("kind"), record.get("kind"))
+
+
+def expected_state(kind: str) -> str:
+    if kind == "human":
+        return "recorded"
+    return "passed"  # assert and judge both gate on a passing result
+
+
 def check_state(check: Check, records: list[dict]) -> str:
     """passed | failed | recorded | missing — based on the latest matching record."""
     state = "missing"
     for record in records:
-        if check.kind == "automated":
-            if record.get("kind") == "automated" and record.get("command") == check.target:
+        rk = _record_kind(record)
+        if check.kind == "assert":
+            if rk == "assert" and record.get("command") == check.target:
                 state = "passed" if record.get("exit_code") == 0 else "failed"
-        else:
-            if (
-                record.get("kind") == "manual"
-                and record.get("item") == check.target
-                and record.get("note")
-                and record.get("evidence")
-            ):
+        elif check.kind == "judge":
+            if rk == "judge" and record.get("item") == check.target:
+                verdict = record.get("verdict")
+                if verdict == "pass":
+                    state = "passed"
+                elif verdict == "fail":
+                    state = "failed"
+        else:  # human
+            if rk == "human" and record.get("item") == check.target and record.get("note"):
                 state = "recorded"
     return state
 
@@ -285,15 +380,20 @@ def cmd_new(root: Path, task: str) -> int:
 
 def _slice_report(root: Path, task: str, sl: Slice) -> dict:
     records = load_evidence(root, task, sl.id)
+    checks = []
+    for check in sl.checks:
+        entry = {"kind": check.kind, "target": check.target, "state": check_state(check, records)}
+        if check.kind == "assert":
+            smoke, _ = looks_like_smoke(check.target)
+            if smoke:
+                entry["smoke"] = True
+        checks.append(entry)
     return {
         "id": sl.id,
         "title": sl.title,
         "done": sl.done,
         "file": f"slices/{sl.id}.md",
-        "checks": [
-            {"kind": check.kind, "target": check.target, "state": check_state(check, records)}
-            for check in sl.checks
-        ],
+        "checks": checks,
     }
 
 
@@ -332,6 +432,8 @@ def cmd_status(root: Path, task: str | None, json_output: bool) -> int:
         print(f"[{mark}] {report['id']} {report['title']}")
         for check in report["checks"]:
             print(f"      {check['state']:<8} [{check['kind']}] {check['target']}")
+            if check.get("smoke"):
+                print("        ⚠ 疑似烟雾测试（只证可达/可执行，不证语义）；建议改成会失败的断言或换 [judge]/[human]")
     if errors:
         print("结构问题：")
         for err in errors:
@@ -346,44 +448,86 @@ def cmd_run_check(
     task: str,
     slice_id: str,
     cmd_tokens: list[str],
-    manual: str | None,
+    *,
+    mode: str,
+    manual_item: str | None,
+    judge_item: str | None,
+    verdict: str | None,
+    grade: str | None,
+    trace: str | None,
     note: str | None,
     evidence: str | None,
+    by: str | None,
     timeout: int,
 ) -> int:
     slices = _require_valid_prd(root, task)
     sl = _find_slice(slices, slice_id)
 
-    if manual is not None:
-        item = normalize_text(manual)
-        declared = [c for c in sl.checks if c.kind == "manual" and c.target == item]
+    if mode == "judge":
+        item = normalize_text(judge_item or "")
+        declared = [c for c in sl.checks if c.kind == "judge" and c.target == item]
         if not declared:
-            options = [c.target for c in sl.checks if c.kind == "manual"] or ["（无）"]
+            options = [c.target for c in sl.checks if c.kind == "judge"] or ["（无）"]
             raise SeedError(
-                f"{slice_id} 未声明这条 manual 验证项；slices/{slice_id}.md 中声明的 manual 项：\n"
+                f"{slice_id} 未声明这条 judge 验证项；slices/{slice_id}.md 中声明的 judge 项：\n"
                 + "\n".join(f"  - {opt}" for opt in options)
             )
-        if not note or not evidence:
-            raise SeedError("manual 记录必须同时带 --note（验证了什么、结论）和 --evidence（截图路径/输出位置等证据指针）")
+        if verdict not in ("pass", "fail"):
+            raise SeedError("judge 记录必须带 --verdict pass|fail")
+        if not trace:
+            raise SeedError("judge 记录必须带 --trace（裁判依据/证据指针，例如 rubric 文件 + 截图/输出位置）")
         record = {
             "slice": slice_id,
-            "kind": "manual",
+            "kind": "judge",
+            "item": item,
+            "verdict": verdict,
+            "trace": trace,
+            "status": "passed" if verdict == "pass" else "failed",
+            "by": by or "independent-judge",
+            "created_at": _now(),
+        }
+        if grade:
+            record["grade"] = grade
+        if note:
+            record["note"] = note
+        path = _write_evidence(root, task, slice_id, record, None)
+        print(f"{record['status']} (verdict={verdict}) → {path.relative_to(root)}")
+        return 0 if verdict == "pass" else 1
+
+    if mode == "human":
+        item = normalize_text(manual_item or "")
+        declared = [c for c in sl.checks if c.kind == "human" and c.target == item]
+        if not declared:
+            options = [c.target for c in sl.checks if c.kind == "human"] or ["（无）"]
+            raise SeedError(
+                f"{slice_id} 未声明这条 human 验证项（[manual] 视为 [human]）；"
+                f"slices/{slice_id}.md 中声明的 human 项：\n"
+                + "\n".join(f"  - {opt}" for opt in options)
+            )
+        if not note:
+            raise SeedError("human 记录必须带 --note（验证了什么、结论）")
+        record = {
+            "slice": slice_id,
+            "kind": "human",
             "item": item,
             "note": note,
-            "evidence": evidence,
+            "by": by or "user",
             "status": "recorded",
             "created_at": _now(),
         }
+        if evidence:
+            record["evidence"] = evidence
         path = _write_evidence(root, task, slice_id, record, None)
         print(f"recorded → {path.relative_to(root)}")
         return 0
 
+    # assert
     if not cmd_tokens:
         raise SeedError("缺少要执行的命令：seed run-check <task> --slice S-NNN -- <command>")
     command = normalize_command(shlex.join(cmd_tokens))
-    declared = [c for c in sl.checks if c.kind == "automated" and c.target == command]
+    declared = [c for c in sl.checks if c.kind == "assert" and c.target == command]
     if not declared:
-        options = [c.target for c in sl.checks if c.kind == "automated"] or ["（无）"]
+        options = [c.target for c in sl.checks if c.kind == "assert"] or ["（无）"]
         raise SeedError(
             f"{slice_id} 未声明这条验证命令（命令必须与 slices/{slice_id}.md 声明一致，不接受替代/弱化命令）；声明的命令：\n"
             + "\n".join(f"  - {opt}" for opt in options)
@@ -405,14 +549,17 @@ def cmd_run_check(
         output = (exc.stdout or "") + f"\n[seed] 超时（>{timeout}s），按失败记录\n"
     record = {
         "slice": slice_id,
-        "kind": "automated",
+        "kind": "assert",
         "command": command,
         "exit_code": exit_code,
         "status": "passed" if exit_code == 0 else "failed",
         "created_at": _now(),
     }
+    smoke, reason = looks_like_smoke(command)
     path = _write_evidence(root, task, slice_id, record, output)
     print(f"{record['status']} (exit {exit_code}) → {path.relative_to(root)}")
+    if smoke and exit_code == 0:
+        print(f"⚠ 烟雾警告：{reason}。这条命令即使功能错误也会 exit 0，不构成有效验证。", file=sys.stderr)
     return 0 if exit_code == 0 else 1
 
 
@@ -426,8 +573,7 @@ def cmd_done(root: Path, task: str, slice_id: str) -> int:
     gaps: list[str] = []
     for check in sl.checks:
         state = check_state(check, records)
-        expected = "recorded" if check.kind == "manual" else "passed"
-        if state != expected:
+        if state != expected_state(check.kind):
             gaps.append(f"[{check.kind}] {check.target} → {state}")
     if gaps:
         print(f"{slice_id} 还不能标记完成，缺少证据：", file=sys.stderr)
@@ -464,13 +610,19 @@ def build_parser() -> argparse.ArgumentParser:
 
     rc_parser = sub.add_parser(
         "run-check",
-        help="真实执行 slices/S-NNN.md 声明的验证命令并落盘证据；或 --manual 记录人工验证",
+        help="assert：执行 slices/S-NNN.md 声明的命令并落盘证据；judge/human：记录裁决/签收",
     )
     rc_parser.add_argument("task")
     rc_parser.add_argument("--slice", dest="slice_id", required=True)
-    rc_parser.add_argument("--manual", help="slices/S-NNN.md 中声明的 [manual] 验证项原文")
-    rc_parser.add_argument("--note", help="manual：验证了什么、结论")
-    rc_parser.add_argument("--evidence", help="manual：证据指针（截图路径/输出位置）")
+    rc_parser.add_argument("--judge", help="[judge] 验证项原文（由独立 agent 在 fresh session 裁决后记录）")
+    rc_parser.add_argument("--verdict", choices=["pass", "fail"], help="judge：裁决结果")
+    rc_parser.add_argument("--grade", help="judge：评分/等级（可选）")
+    rc_parser.add_argument("--trace", help="judge：裁决依据/证据指针（rubric + 截图/输出位置）")
+    rc_parser.add_argument("--human", help="[human] 验证项原文")
+    rc_parser.add_argument("--manual", help="[manual] 验证项原文（旧式，等同 --human）")
+    rc_parser.add_argument("--note", help="human/judge：验证了什么、结论")
+    rc_parser.add_argument("--evidence", help="human：证据指针（截图路径/输出位置，可选）")
+    rc_parser.add_argument("--by", help="human/judge：签收人/裁决者（默认 user / independent-judge）")
     rc_parser.add_argument("--timeout", type=int, default=600)
 
     done_parser = sub.add_parser("done", help="证据齐备后勾选 slice checkbox（唯一合法勾选入口）")
@@ -499,15 +651,27 @@ def main(argv: list[str] | None = None) -> int:
         if args.command == "status":
             return cmd_status(root, args.task, args.json_output)
         if args.command == "run-check":
+            if args.judge is not None:
+                mode, manual_item, judge_item = "judge", None, args.judge
+            elif args.manual is not None or args.human is not None:
+                mode, manual_item, judge_item = "human", (args.manual or args.human), None
+            else:
+                mode, manual_item, judge_item = "assert", None, None
             return cmd_run_check(
                 root,
                 args.task,
                 args.slice_id,
                 cmd_tokens,
-                args.manual,
-                args.note,
-                args.evidence,
-                args.timeout,
+                mode=mode,
+                manual_item=manual_item,
+                judge_item=judge_item,
+                verdict=args.verdict,
+                grade=args.grade,
+                trace=args.trace,
+                note=args.note,
+                evidence=args.evidence,
+                by=args.by,
+                timeout=args.timeout,
             )
         if args.command == "done":
             return cmd_done(root, args.task, args.slice_id)

@@ -21,8 +21,8 @@ sdd-kit 多轮迭代后的病：
 
 1. **五个 skill 全部由用户主动触发，互不自动耦合。** 不存在"brainstorm 自动去搜 research"、"impl 自动查 wiki"这种隐式链路；需要时用户一句话指定（"去读 research/xxx"、"看 wiki 里导出的注意事项"）。
 2. **纯 Markdown 状态，没有状态机。** `prd.md` 的 slice checkbox + git log 就是全部进度；断点续作 = 读 prd.md + git log。没有 task.json，没有 set-status。
-3. **helper 只做一件事：验证证据。** 真实执行验证命令、落盘 exit_code / 输出，没有 passed 证据不允许勾 done。这是唯一的硬 gate，也是防 AI 偷懒的机械锚点。
-4. **命令面 ≤ 6。** 命令少到 AI 不需要选择。
+3. **helper 只做确定性的状态/证据读写。** 脚手架、解析校验、执行验证命令并落盘 exit_code/输出、记录 judge/human 证据、勾选 checkbox——全是确定性动作，不调用 LLM、不做语义判断。其中 `seed done` 是唯一的硬 gate。
+4. **命令面极小：核心 4 个（new / status / run-check / done）+ wiki 家族。** 命令少到 AI 不需要选择。
 5. **hook 只守两条底线：** 拦截破坏性命令；拦截绕过 gate 手勾 checkbox / 手写 evidence。
 6. **用户拥有 commit。** agent 不自动 commit；slice 完成后提示用户 commit 时机，进度锚点是 checkbox + evidence，不是 commit。
 
@@ -131,13 +131,23 @@ sdd-kit 多轮迭代后的病：
 
 ## 防 AI 偷懒方案（分层）
 
-1. **写需求时就写预期证据**（brainstorm 层）：每条 AC 可证伪（GWT + 失败路径），每个 slice 声明验证命令。验收标准含糊是偷懒的第一入口。
-2. **硬 gate**（helper 层）：`seed done` 只认 `seed run-check` 落盘的 passed 证据；manual 必须带理由和证据指针，不存在 not_run / 默认跳过。这是从 sdd-kit 带走的最有价值机制（实证：所有前沿 agent 都会打满"可见检查"，必须用真实执行 + 落盘证据锚住）。
+1. **写需求时就写预期证据**（brainstorm 层）：每条 AC 可证伪（GWT + 失败路径），每个 slice 声明验证项并标注类别（assert/judge/human）。验收标准含糊是偷懒的第一入口。
+2. **硬 gate，但有诚实的边界**（helper 层）：`seed done` 只认 `seed run-check` 落盘的证据——assert 需 exit 0、judge 需 verdict=pass、human 需签收记录；不存在 not_run / 默认跳过。**但 gate 只保证"声明的命令被执行并落盘"，不保证"功能语义正确"**：一条裸 `curl -s` 即使功能错误也会 exit 0。所以语义可信度由三类验证词汇 + 烟雾嗅探（警告裸 curl/echo）+ 独立 judge 共同把住，而不是单压在 exit code 上。
 3. **hook 守底线**（hook 层）：拦截直接把 prd.md 的 `[ ]` 改成 `[x]`、手写 `evidence/`、破坏性命令（`rm -rf`、`git reset --hard`）。
-4. **生成者 ≠ 验证者**（review 层）：review 用干净上下文逐 AC 对账 diff，专查偷懒签名——弱化的断言、吞掉的异常、新增 `@ts-ignore` / `eslint-disable`、抄实现的假测试、悄悄收窄的 scope。
+4. **生成者 ≠ 验证者**（review 层）：review 用干净上下文逐 AC 对账 diff，专查偷懒签名——弱化的断言、吞掉的异常、新增 `@ts-ignore` / `eslint-disable`、抄实现的假测试、悄悄收窄的 scope、**验证降级**（可 assert 的写成 judge/human、裸 curl 烟雾、judge 自评）。review 同时是 `[judge]` 项的独立裁判。
 5. **小步 + 代码即进度**（流程层）：一次一个 slice，slice 完成即提示用户 commit；上下文污染时随时可以开新会话从 `seed status` 续作，不依赖会话记忆。
 
 第 2、3 层是机械的（脚本保证），第 1、4、5 层是流程约定（skill 描述方向，不堆禁令）。
+
+## 三类验证（封闭词汇）
+
+验证项按"谁判定它对"分三类，避免把所有验证压成同一种形状（这是早期版本最大的坑：后端只剩 curl、前端零真实测试、不可达边界被静默跳过）：
+
+- **assert** — 命令本身就是会失败的断言（测试套件 / 契约回放 / Playwright spec）。gate = exit 0。有状态 API 流写成**自包含**集成测试（内部 setup→act→assert），而不是跨命令、靠 shell 变量串状态的 curl（seed 的 run-check 每次 check 是独立 subprocess，shell 变量不跨 check）。
+- **judge** — 难以机械断言的语义/UI/手感，由独立 agent 在 fresh session 按 AC rubric 裁决。gate = verdict=pass。helper 只落盘/校验 verdict，**不调用 LLM**——裁决是 skill 层动作。
+- **human** — 真人 stakeholder 签收。gate = 签收记录。
+
+原则：assert 优先，能 judge 就别堆 human；一个 slice 只能 human 验证是设计气味。外部调研（Playwright MCP + Test Agents、Pact/WireMock 契约与录制回放、LLM-as-a-Judge、spec-kit 的 [NEEDS CLARIFICATION]）都指向同一个分层：**能机械断言的先机械断言，到不了顶的才上独立裁判，裁判也覆盖不了的才上人**。
 
 ## 从 sdd-kit 的取舍清单
 
