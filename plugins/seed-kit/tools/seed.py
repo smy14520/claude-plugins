@@ -46,12 +46,20 @@ BAD_SLICE_HEADING_RE = re.compile(r"^###\s")
 TASK_NAME_RE = re.compile(r"^[a-z0-9][a-z0-9._-]*$")
 SLICE_FILE_H1_RE = re.compile(r"^# (S-\d{3})\s+(.+?)\s*$")
 ACCEPT_HEADING_RE = re.compile(r"^## (?:验收|Acceptance)")
-VERIFY_HEADING_RE = re.compile(r"^## (?:验证|Verification)")
+DELIVERY_HEADING_RE = re.compile(r"^## (?:交付面|Delivery Surfaces?)")
+VERIFY_HEADING_RE = re.compile(r"^## (?:验证|验证面|Verification|Verification Surfaces?)")
 COMMAND_ITEM_RE = re.compile(r"^`(.+)`$")
 COMMAND_IN_REST_RE = re.compile(r"^`([^`]+)`")  # [assert] 命令在行首 backtick 内，尾部注释忽略
 MANUAL_ITEM_RE = re.compile(r"^\[manual\]\s*(.+)$")
-KIND_PREFIX_RE = re.compile(r"^\[(assert|judge|human)\]\s*(.*)$", re.DOTALL)
+KIND_PREFIX_RE = re.compile(
+    r"^\[(assert|judge|human)\](?:\s*\[([a-z0-9._-]+(?:\s*,\s*[a-z0-9._-]+)*)\])?\s*(.*)$",
+    re.DOTALL,
+)
 SLICES_SECTION = "## Slices"
+VALID_SURFACES = ("backend-domain", "api", "web-ui", "e2e", "compliance", "infra")
+VALID_SURFACE_SET = set(VALID_SURFACES)
+WEB_UI_COMMAND_TOKENS = ("vitest", "jest", "playwright", "cypress", "storybook")
+E2E_COMMAND_TOKENS = ("playwright", "cypress", "dusk", "e2e")
 
 # On-disk evidence `kind` aliases for back-compat with records written before
 # the three-kind vocabulary existed.
@@ -109,36 +117,100 @@ def looks_like_smoke(command: str) -> tuple[bool, str]:
     return False, ""
 
 
-def classify_check(item: str) -> tuple[str, str | None]:
+def _allowed_surfaces() -> str:
+    return ", ".join(VALID_SURFACES)
+
+
+def _parse_surface_list(raw: str | None) -> tuple[list[str], str | None]:
+    if raw is None:
+        return [], None
+    surfaces = [part.strip() for part in raw.split(",")]
+    seen: set[str] = set()
+    out: list[str] = []
+    for surface in surfaces:
+        if surface not in VALID_SURFACE_SET:
+            return [], f"未知验证面：{surface}；允许值：{_allowed_surfaces()}"
+        if surface in seen:
+            return [], f"重复验证面：{surface}"
+        seen.add(surface)
+        out.append(surface)
+    return out, None
+
+
+def _command_has_any(command: str, tokens: tuple[str, ...]) -> bool:
+    lowered = command.lower()
+    return any(re.search(rf"(?:^|[^a-z0-9]){re.escape(token)}(?:[^a-z0-9]|$)", lowered) for token in tokens)
+
+
+def _surface_coverage_error(check: Check, surface: str) -> str | None:
+    if surface not in check.surfaces:
+        return "验证项未标注该交付面"
+    if check.kind == "assert" and looks_like_smoke(check.target)[0]:
+        return "smoke assert 只证可达/可执行，不覆盖交付面"
+    if surface in ("backend-domain", "api", "infra"):
+        if check.kind != "assert":
+            return f"{surface} 需要 [assert][{surface}]"
+        return None
+    if surface == "web-ui":
+        if check.kind == "judge":
+            return None
+        if check.kind == "assert" and _command_has_any(check.target, WEB_UI_COMMAND_TOKENS):
+            return None
+        return "web-ui 需要 vitest/jest/playwright/cypress/storybook 形状的 [assert][web-ui]，或 [judge][web-ui]"
+    if surface == "e2e":
+        if check.kind == "assert" and _command_has_any(check.target, E2E_COMMAND_TOKENS):
+            return None
+        return "e2e 需要 Playwright/Cypress/Dusk/e2e 形状的 [assert][e2e] 命令"
+    if surface == "compliance":
+        return None
+    return f"未知交付面：{surface}"
+
+
+def _coverage_requirement(surface: str) -> str:
+    if surface in ("backend-domain", "api", "infra"):
+        return f"{surface} 需要非 smoke 的 [assert][{surface}]"
+    if surface == "web-ui":
+        return "web-ui 需要 UI 测试形状的 [assert][web-ui]，或 [judge][web-ui]"
+    if surface == "e2e":
+        return "e2e 需要 Playwright/Cypress/Dusk/e2e 形状的 [assert][e2e] 命令"
+    if surface == "compliance":
+        return "compliance 需要显式标注 [compliance] 的 assert/judge/human 验证项"
+    return f"未知交付面：{surface}"
+
+
+def classify_check(item: str) -> tuple[str, str | None, list[str]]:
     r"""Classify a verification list-item.
 
     Returns one of:
-      (kind, target)  — a recognized check (kind ∈ assert/judge/human)
-      ("doc", None)    — documentation line, skip silently (not an error)
-      ("broken", msg)  — a kind-tagged item that is malformed (real error)
+      (kind, target, surfaces) — recognized check (kind ∈ assert/judge/human)
+      ("doc", None, [])       — documentation line, skip silently
+      ("broken", msg, [])     — malformed kind-tagged item or surface tag
 
-    The parser EXTRACTS the machine-relevant target and tolerates everything
-    else (trailing `—— desc`, surrounding prose) as documentation. It only
-    errors on a kind tag with no usable target (e.g. [assert] with no command).
+    The parser extracts the machine-relevant target and optional verification
+    surfaces. Trailing prose remains documentation; `[assert]` must still start
+    with a backtick command.
     """
     prefixed = KIND_PREFIX_RE.match(item)
     if prefixed:
-        kind, rest = prefixed.group(1), prefixed.group(2).strip()
+        kind, surface_raw, rest = prefixed.group(1), prefixed.group(2), prefixed.group(3).strip()
+        surfaces, surface_error = _parse_surface_list(surface_raw)
+        if surface_error:
+            return ("broken", surface_error, [])
         if kind == "assert":
             cmd = COMMAND_IN_REST_RE.match(rest)
             if cmd:
-                return ("assert", normalize_command(cmd.group(1)))
-            return ("broken", "声明了 [assert] 但没有 backtick 命令")
+                return ("assert", normalize_command(cmd.group(1)), surfaces)
+            return ("broken", "声明了 [assert] 但没有 backtick 命令", [])
         if rest:
-            return (kind, normalize_text(rest))
-        return ("broken", f"声明了 [{kind}] 但没有描述")
+            return (kind, normalize_text(rest), surfaces)
+        return ("broken", f"声明了 [{kind}] 但没有描述", [])
     cmd = COMMAND_ITEM_RE.match(item)
     if cmd:
-        return ("assert", normalize_command(cmd.group(1)))
+        return ("assert", normalize_command(cmd.group(1)), [])
     manual = MANUAL_ITEM_RE.match(item)
     if manual:
-        return ("human", normalize_text(manual.group(1)))
-    return ("doc", None)
+        return ("human", normalize_text(manual.group(1)), [])
+    return ("doc", None, [])
 
 
 @dataclass
@@ -146,6 +218,7 @@ class Check:
     kind: str  # "assert" | "judge" | "human"
     target: str  # normalized command (assert) or text (judge/human)
     raw: str
+    surfaces: list[str] = field(default_factory=list)
 
 
 @dataclass
@@ -154,6 +227,7 @@ class Slice:
     title: str
     done: bool
     line_no: int  # 0-based line index of the heading in prd.md
+    delivery_surfaces: list[str] = field(default_factory=list)
     checks: list[Check] = field(default_factory=list)
 
 
@@ -236,7 +310,7 @@ def _content_lines(lines: list[str]) -> list[tuple[int, str]]:
 
 
 def _load_slice_file(slices_dir: Path, sl: Slice) -> list[str]:
-    """Parse slices/S-NNN.md into sl.checks. Returns structural errors."""
+    """Parse slices/S-NNN.md into delivery surfaces + checks. Returns structural errors."""
     rel = f"slices/{sl.id}.md"
     file_path = slices_dir / f"{sl.id}.md"
     if not file_path.is_file():
@@ -255,36 +329,74 @@ def _load_slice_file(slices_dir: Path, sl: Slice) -> list[str]:
         if normalize_text(h1.group(2)) != normalize_text(sl.title):
             errors.append(f"{rel} 标题与 prd.md 索引行不一致：{h1.group(2)!r} ≠ {sl.title!r}")
     has_accept = False
+    has_delivery = False
+    in_delivery = False
     in_verify = False
-    base_indent = None  # indent of the first list item in 验证; deeper lines = sub-detail/doc
+    delivery_base_indent = None
+    verify_base_indent = None
+    delivery_seen: set[str] = set()
     for idx, line in content:
         stripped = line.strip()
         if line.startswith("## "):
             has_accept = has_accept or bool(ACCEPT_HEADING_RE.match(stripped))
+            in_delivery = bool(DELIVERY_HEADING_RE.match(stripped))
             in_verify = bool(VERIFY_HEADING_RE.match(stripped))
-            base_indent = None
+            has_delivery = has_delivery or in_delivery
+            delivery_base_indent = None
+            verify_base_indent = None
             continue
-        if not in_verify or not stripped:
+        if not stripped:
             continue
         indent = len(line) - len(line.lstrip())
         is_list = stripped.startswith(("- ", "* "))
-        if base_indent is None and is_list:
-            base_indent = indent
-        # Prose paragraphs and indented sub-bullets are documentation — tolerated,
-        # not policed. Only top-level list items (at the base indent) are checks.
-        if not is_list or (base_indent is not None and indent > base_indent):
+        if in_delivery:
+            if delivery_base_indent is None and is_list:
+                delivery_base_indent = indent
+            if not is_list or (delivery_base_indent is not None and indent > delivery_base_indent):
+                continue
+            surface = normalize_text(stripped[2:].strip())
+            if surface not in VALID_SURFACE_SET:
+                errors.append(f"{rel} 交付面未知：{surface}；允许值：{_allowed_surfaces()}")
+            elif surface in delivery_seen:
+                errors.append(f"{rel} 交付面重复：{surface}")
+            else:
+                delivery_seen.add(surface)
+                sl.delivery_surfaces.append(surface)
             continue
-        item = stripped[2:].strip()
-        kind, target = classify_check(item)
-        if kind in ("assert", "judge", "human"):
-            sl.checks.append(Check(kind, target, item))
-        elif kind == "broken":
-            errors.append(f"{rel} 验证项 {target}：{item}")
-        # "doc" → skip silently
+        if in_verify:
+            if verify_base_indent is None and is_list:
+                verify_base_indent = indent
+            # Prose paragraphs and indented sub-bullets are documentation — tolerated,
+            # not policed. Only top-level list items (at the base indent) are checks.
+            if not is_list or (verify_base_indent is not None and indent > verify_base_indent):
+                continue
+            item = stripped[2:].strip()
+            kind, target, surfaces = classify_check(item)
+            if kind in ("assert", "judge", "human"):
+                assert target is not None
+                sl.checks.append(Check(kind, target, item, surfaces))
+            elif kind == "broken":
+                errors.append(f"{rel} 验证项 {target}：{item}")
+            # "doc" → skip silently
+    if not has_delivery:
+        errors.append(f"{rel} 缺少 `## 交付面` 段；声明 {_allowed_surfaces()} 中至少一个")
+    elif not sl.delivery_surfaces:
+        errors.append(f"{rel} `## 交付面` 至少声明一个允许值：{_allowed_surfaces()}")
     if not has_accept:
         errors.append(f"{rel} 缺少 `## 验收` 段")
     if not sl.checks:
-        errors.append(f"{rel} 缺少验证项：`## 验证` 至少声明一条 `[assert] \\`命令\\`` / `[judge]` / `[human]`")
+        errors.append(f"{rel} 缺少验证项：`## 验证面` 至少声明一条 `[assert][面] \\`命令\\`` / `[judge][面]` / `[human][面]`")
+    if sl.delivery_surfaces:
+        for check in sl.checks:
+            for surface in check.surfaces:
+                if surface not in sl.delivery_surfaces:
+                    errors.append(f"{rel} 验证项声明 [{surface}]，但 `## 交付面` 未声明它：{check.raw}")
+        for surface in sl.delivery_surfaces:
+            tagged = [check for check in sl.checks if surface in check.surfaces]
+            covered = [check for check in tagged if _surface_coverage_error(check, surface) is None]
+            if not covered:
+                reason = _surface_coverage_error(tagged[0], surface) if tagged else _coverage_requirement(surface)
+                errors.append(f"{rel} 交付面 {surface} 未被有效验证覆盖；{reason}")
     return errors
 
 
@@ -394,7 +506,12 @@ def _slice_report(root: Path, task: str, sl: Slice) -> dict:
     records = load_evidence(root, task, sl.id)
     checks = []
     for check in sl.checks:
-        entry = {"kind": check.kind, "target": check.target, "state": check_state(check, records)}
+        entry = {
+            "kind": check.kind,
+            "target": check.target,
+            "surfaces": check.surfaces,
+            "state": check_state(check, records),
+        }
         if check.kind == "assert":
             smoke, _ = looks_like_smoke(check.target)
             if smoke:
@@ -405,6 +522,7 @@ def _slice_report(root: Path, task: str, sl: Slice) -> dict:
         "title": sl.title,
         "done": sl.done,
         "file": f"slices/{sl.id}.md",
+        "delivery_surfaces": sl.delivery_surfaces,
         "checks": checks,
     }
 
@@ -443,7 +561,8 @@ def cmd_status(root: Path, task: str | None, json_output: bool) -> int:
         mark = "x" if report["done"] else " "
         print(f"[{mark}] {report['id']} {report['title']}")
         for check in report["checks"]:
-            print(f"      {check['state']:<8} [{check['kind']}] {check['target']}")
+            surfaces = f"[{','.join(check['surfaces'])}]" if check.get("surfaces") else ""
+            print(f"      {check['state']:<8} [{check['kind']}]{surfaces} {check['target']}")
             if check.get("smoke"):
                 print("        ⚠ 疑似烟雾测试（只证可达/可执行，不证语义）；建议改成会失败的断言或换 [judge]/[human]")
     if errors:

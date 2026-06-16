@@ -16,19 +16,34 @@
 .wiki/                   # 项目知识层（导航层，非 source of truth）
 ```
 
+## 交付面 / 验证面
+
+每个 `slices/S-NNN.md` 必须先声明 `## 交付面`，闭集如下：
+
+- `backend-domain` — 后端领域逻辑、模型、服务、聚合规则。
+- `api` — API 合同、认证/权限、请求响应与失败路径。
+- `web-ui` — 前端组件、表单、页面状态、浏览器可观察行为。
+- `e2e` — 跨前后端主旅程。
+- `compliance` — 合规、文案签收、备案/发布门槛。
+- `infra` — 部署、配置、脚手架、CI/环境检查。
+
+`## 验证面` 里的每条验证项写成 `[kind][surface] target`。kind 表示“谁判定它对”，surface 表示“覆盖哪个交付面”。一个验证项可覆盖多个面：`[assert][backend-domain,api]`。
+
+覆盖规则：backend-domain / api / infra 需要非烟雾 `[assert]`；web-ui 可用 UI 测试形状的 `[assert]` 或 `[judge]`；e2e 需要 Playwright/Cypress/Dusk/e2e 形状的 `[assert]`；compliance 可用 `[assert]` / `[judge]` / `[human]`。human 不能替代 backend-domain / api / web-ui / e2e / infra。
+
 ## 三类验证（封闭词汇）
 
-每条验证项按"谁判定它对"归入一类，写在 `slices/S-NNN.md` 的 `## 验证`：
+每条验证项按“谁判定它对”归入一类，写在 `slices/S-NNN.md` 的 `## 验证面`：
 
-- `[assert] \`命令\`` — 命令本身是**会失败的断言**（测试套件 / 契约回放 / Playwright spec）。seed 真实执行，exit 0 才 passed。
-- `[judge] 描述` — 由**独立 agent**（fresh session，生成者≠验证者）按 AC rubric 裁决，落盘 verdict。
-- `[human] 描述` — **真人 stakeholder** 签收。
+- `[assert][surface] \`命令\`` — 命令本身是**会失败的断言**（测试套件 / 契约回放 / Playwright spec）。seed 真实执行，exit 0 才 passed。
+- `[judge][surface] 描述` — 由**独立 agent**（fresh session，生成者≠验证者）按 AC rubric 裁决，落盘 verdict。
+- `[human][compliance] 描述` — **真人 stakeholder** 签收，仅用于合规/备案等不可自动化交付面。
 
-原则：**assert 优先**——能用断言就别用 judge，能 judge 就别堆 human。一个 slice 只能 `[human]` 验证是设计气味，brainstorm 要显式标记并说明理由。
+原则：**assert 优先**——能用断言就别用 judge，能 judge 就别堆 human。一个 slice 只能 `[human][compliance]` 验证是设计气味，brainstorm 要显式标记并说明理由。
 
-`assert` 的命令必须真正断言：裸 `curl`（无 `--fail`/管道）、`echo`、`true` 这类"跑过就算过"的烟雾命令会被 seed 标记警告——它们只证可达/可执行，不证语义正确，不构成有效验证。
+`assert` 的命令必须真正断言：裸 `curl`（无 `--fail`/管道）、`echo`、`true` 这类“跑过就算过”的烟雾命令会被 seed 标记警告——它们只证可达/可执行，不证语义正确，不构成有效验证，也不能覆盖交付面。
 
-旧式兼容：裸 `` `命令` `` 视为 `[assert]`，`[manual]` 视为 `[human]`。
+旧式兼容：裸 `` `命令` `` 视为 `[assert]`，`[manual]` 视为 `[human]`，仍可解析；但没有 surface 标签时不覆盖任何交付面。
 
 ## seed CLI
 

@@ -45,19 +45,21 @@ seed done <task> --slice S-NNN                   # 证据齐备后勾选 checkbo
 seed wiki index|search|collect|lint              # .wiki/ 索引 / 搜索 / 摘要 / 体检
 ```
 
-## 三类验证 + 硬 gate（防 AI 偷懒）
+## 交付面 + 三类验证 + 硬 gate（防 AI 偷懒）
 
-验证项按"谁判定它对"分三类（封闭词汇，详见 `skills/references/conventions.md`）：
+每个 slice 显式声明 `## 交付面`（backend-domain / api / web-ui / e2e / compliance / infra），验证项写成 `[kind][surface] target`：
 
+- **surface** — 覆盖哪个交付面；helper 做确定性结构约束，防止后端测试冒充 Web/UI/E2E 覆盖。
 - **assert** — 会失败的断言命令（测试套件 / 契约回放 / Playwright spec）。gate = exit 0。
 - **judge** — 独立 agent（fresh session，生成者≠验证者）按 AC rubric 裁决。gate = verdict=pass。
-- **human** — 真人 stakeholder 签收。gate = 签收记录。
+- **human** — 真人 stakeholder 签收，仅用于 compliance 等不可自动化交付面。gate = 签收记录。
 
 机械层：
 
-- `run-check --` 的命令必须与 `slices/S-NNN.md` 声明完全一致——不接受替代或弱化；**烟雾命令**（裸 `curl`/`echo` 这类"跑过就算过"）可执行但会被警告，因为它们只证可达不证语义。
+- `seed status` 检查每个交付面是否有有效验证覆盖；human 不能替代 backend-domain/api/web-ui/e2e/infra。
+- `run-check --` 的命令必须与 `slices/S-NNN.md` 声明完全一致——不接受替代或弱化；**烟雾命令**（裸 `curl`/`echo` 这类“跑过就算过”）可执行但会被警告，因为它们只证可达不证语义，也不能覆盖交付面。
 - `seed done` 只认落盘证据：assert 需 exit 0、judge 需 verdict=pass、human 需签收记录；缺口按 `[kind]` 逐条列出。
-- gate 只保证"声明命令被执行并落盘"，**不保证语义正确**——语义可信度靠三类词汇 + 烟雾嗅探 + 独立 judge + review 共同把住。
+- gate 只保证“声明命令被执行并落盘”，**不保证语义正确**——语义可信度靠交付面结构约束 + 三类词汇 + 烟雾嗅探 + 独立 judge + review 共同把住。
 - hook（`hooks/seed_guard.py`）拦截：手工勾选 checkbox、手写 `evidence/`、破坏性命令（`rm -rf`、`git reset --hard` 等）。
 
 其余质量层（可证伪 AC、testability gate、review 对账、偷懒签名清单）是流程约定，写在对应 SKILL.md 里。

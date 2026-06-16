@@ -7,8 +7,9 @@
 ## 需求与验收标准
 
 <!-- 每条 AC 可证伪：Given/When/Then，至少覆盖一条失败路径。
-     写需求的同时写下预期证据，并标注它将用哪类验证兑现（assert / judge / human）——
-     这决定了 slices/S-NNN.md 里验证项的形状。 -->
+     写需求的同时写下预期证据，并标注它将用哪类验证兑现（assert / judge / human）、
+     覆盖哪个交付面（backend-domain / api / web-ui / e2e / compliance / infra）——
+     这决定了 slices/S-NNN.md 里 `## 交付面` 与 `## 验证面` 的形状。 -->
 
 ## Technical Framing
 

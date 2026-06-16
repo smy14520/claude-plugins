@@ -110,11 +110,15 @@ sdd-kit 多轮迭代后的病：
 ```markdown
 # S-001 <标题>                      # slices/S-001.md
 
+## 交付面
+- backend-domain
+- web-ui
+
 ## 验收
 <!-- 对应哪几条 AC；必要时展开 GWT 细节与失败路径 -->
-## 验证
-- `npm test -- --filter foo`
-- [manual] 浏览器验证 xxx（需 --manual 记录理由与证据）
+## 验证面
+- [assert][backend-domain] `npm test -- --filter domain`
+- [judge][web-ui] 浏览器 UI 旅程，按本文件 rubric 裁决
 ```
 
 ## helper 命令面（共 4 个 + wiki 家族）
@@ -122,32 +126,32 @@ sdd-kit 多轮迭代后的病：
 | 命令 | 做什么 |
 |---|---|
 | `seed new <task>` | 脚手架 `.arbor/tasks/<task>/`（prd.md + slices/S-001.md 模板） |
-| `seed status [<task>]` | 解析 prd.md 索引与 slices/，输出 slice 进度 / evidence 摘要 / 下一个未完成 slice，并机械校验索引行 ↔ slice 文件一致（断点续作与编排的唯一入口） |
-| `seed run-check <task> --slice S-NNN -- <cmd>` | 真实执行命令，落盘 `evidence/S-NNN/` 下的 exit_code + 输出；`--manual --note --evidence` 记录人工验证（强制理由 + 证据指针） |
-| `seed done <task> --slice S-NNN` | gate：该 slice 文件声明的全部验证项都有 passed / 已记录的 manual 证据 → 由 helper 勾选索引 checkbox；否则拒绝并列出缺口 |
+| `seed status [<task>]` | 解析 prd.md 索引与 slices/，输出 slice 进度 / evidence 摘要 / 下一个未完成 slice，并机械校验索引行 ↔ slice 文件一致、交付面是否被验证面覆盖（断点续作与编排的唯一入口） |
+| `seed run-check <task> --slice S-NNN -- <cmd>` | 真实执行命令，落盘 `evidence/S-NNN/` 下的 exit_code + 输出；`--judge` / `--human` 记录独立裁决或人工签收 |
+| `seed done <task> --slice S-NNN` | gate：该 slice 文件声明的全部验证项都有 passed / 已记录证据，且结构校验通过 → 由 helper 勾选索引 checkbox；否则拒绝并列出缺口 |
 | `seed wiki index / search / collect / lint` | 沿用 sdd-wiki（已是零依赖独立模块） |
 
 没有 set-status、没有 record-impl-result、没有 record-review、没有 amendment 命令、没有内部隐藏命令。
 
 ## 防 AI 偷懒方案（分层）
 
-1. **写需求时就写预期证据**（brainstorm 层）：每条 AC 可证伪（GWT + 失败路径），每个 slice 声明验证项并标注类别（assert/judge/human）。验收标准含糊是偷懒的第一入口。
-2. **硬 gate，但有诚实的边界**（helper 层）：`seed done` 只认 `seed run-check` 落盘的证据——assert 需 exit 0、judge 需 verdict=pass、human 需签收记录；不存在 not_run / 默认跳过。**但 gate 只保证"声明的命令被执行并落盘"，不保证"功能语义正确"**：一条裸 `curl -s` 即使功能错误也会 exit 0。所以语义可信度由三类验证词汇 + 烟雾嗅探（警告裸 curl/echo）+ 独立 judge 共同把住，而不是单压在 exit code 上。
+1. **写需求时就写预期证据**（brainstorm 层）：每条 AC 可证伪（GWT + 失败路径），每个 slice 声明交付面并把验证项标成 `[kind][surface]`。验收标准含糊是偷懒的第一入口。
+2. **硬 gate，但有诚实的边界**（helper 层）：`seed status` 机械检查交付面是否被验证面覆盖；`seed done` 只认 `seed run-check` 落盘的证据——assert 需 exit 0、judge 需 verdict=pass、human 需签收记录；不存在 not_run / 默认跳过。**但 gate 只保证"声明的命令被执行并落盘"，不保证"功能语义正确"**：一条命令可能测试写假。所以语义可信度由交付面结构约束 + 三类验证词汇 + 烟雾嗅探 + 独立 judge + review 共同把住，而不是单压在 exit code 上。
 3. **hook 守底线**（hook 层）：拦截直接把 prd.md 的 `[ ]` 改成 `[x]`、手写 `evidence/`、破坏性命令（`rm -rf`、`git reset --hard`）。
-4. **生成者 ≠ 验证者**（review 层）：review 用干净上下文逐 AC 对账 diff，专查偷懒签名——弱化的断言、吞掉的异常、新增 `@ts-ignore` / `eslint-disable`、抄实现的假测试、悄悄收窄的 scope、**验证降级**（可 assert 的写成 judge/human、裸 curl 烟雾、judge 自评）。review 同时是 `[judge]` 项的独立裁判。
+4. **生成者 ≠ 验证者**（review 层）：review 用干净上下文逐 AC 对账 diff，专查偷懒签名——弱化的断言、吞掉的异常、新增 `@ts-ignore` / `eslint-disable`、抄实现的假测试、悄悄收窄的 scope、**验证降级/交付面冒充**（可 assert 的写成 judge/human、后端测试冒充 web-ui/e2e、裸 curl 烟雾、judge 自评）。review 同时是 `[judge]` 项的独立裁判。
 5. **小步 + 代码即进度**（流程层）：一次一个 slice，slice 完成即提示用户 commit；上下文污染时随时可以开新会话从 `seed status` 续作，不依赖会话记忆。
 
 第 2、3 层是机械的（脚本保证），第 1、4、5 层是流程约定（skill 描述方向，不堆禁令）。
 
-## 三类验证（封闭词汇）
+## 交付面 + 三类验证（封闭词汇）
 
-验证项按"谁判定它对"分三类，避免把所有验证压成同一种形状（这是早期版本最大的坑：后端只剩 curl、前端零真实测试、不可达边界被静默跳过）：
+验证项有两个正交维度：`surface` 表示覆盖哪个交付面（backend-domain / api / web-ui / e2e / compliance / infra），`kind` 表示谁判定它对。这样避免把所有验证压成同一种形状，也避免“后端测试冒充整条 Web 产品交付”。
 
 - **assert** — 命令本身就是会失败的断言（测试套件 / 契约回放 / Playwright spec）。gate = exit 0。有状态 API 流写成**自包含**集成测试（内部 setup→act→assert），而不是跨命令、靠 shell 变量串状态的 curl（seed 的 run-check 每次 check 是独立 subprocess，shell 变量不跨 check）。
 - **judge** — 难以机械断言的语义/UI/手感，由独立 agent 在 fresh session 按 AC rubric 裁决。gate = verdict=pass。helper 只落盘/校验 verdict，**不调用 LLM**——裁决是 skill 层动作。
-- **human** — 真人 stakeholder 签收。gate = 签收记录。
+- **human** — 真人 stakeholder 签收，限 compliance 等本质不可自动化交付面。gate = 签收记录。
 
-原则：assert 优先，能 judge 就别堆 human；一个 slice 只能 human 验证是设计气味。外部调研（Playwright MCP + Test Agents、Pact/WireMock 契约与录制回放、LLM-as-a-Judge、spec-kit 的 [NEEDS CLARIFICATION]）都指向同一个分层：**能机械断言的先机械断言，到不了顶的才上独立裁判，裁判也覆盖不了的才上人**。
+原则：assert 优先，能 judge 就别堆 human；human 不能替代 backend-domain / api / web-ui / e2e / infra。一个 slice 只能 `[human][compliance]` 验证是设计气味。外部调研（Playwright MCP + Test Agents、Pact/WireMock 契约与录制回放、LLM-as-a-Judge、spec-kit 的 [NEEDS CLARIFICATION]）都指向同一个分层：**能机械断言的先机械断言，到不了顶的才上独立裁判，裁判也覆盖不了的才上人**。
 
 ## 从 sdd-kit 的取舍清单
 
