@@ -298,15 +298,29 @@ def test_status_accepts_e2e_playwright_assert(project: Path, capsys):
     assert data["errors"] == []
 
 
-def test_status_rejects_e2e_non_browser_assert(project: Path, capsys):
+def test_status_accepts_e2e_non_browser_non_smoke_assert(project: Path, capsys):
+    # 不按工具名判定：非 JS 栈(php artisan test)的非烟雾 [assert] 也覆盖 e2e。
+    # 工具白名单已移除——"这真测了 e2e 吗"交给 judge/review 语义层。
     slice_md = (
-        "# S-001 假 E2E\n\n## 交付面\n\n- e2e\n\n## 验收\n\nAC-1\n\n## 验证面\n\n"
+        "# S-001 非 JS E2E\n\n## 交付面\n\n- e2e\n\n## 验收\n\nAC-1\n\n## 验证面\n\n"
         "- [assert][e2e] `php artisan test --filter=Foo`\n"
     )
-    single_slice_task(project, "### [ ] S-001 假 E2E", slice_md)
+    single_slice_task(project, "### [ ] S-001 非 JS E2E", slice_md)
+    assert run(project, "status", "demo", "--json") == 0
+    data = json.loads(capsys.readouterr().out)
+    assert data["errors"] == []
+
+
+def test_status_rejects_e2e_smoke_assert(project: Path, capsys):
+    # 烟雾命令(裸 curl)不覆盖任何交付面——e2e 也要真断言
+    slice_md = (
+        "# S-001 烟雾 E2E\n\n## 交付面\n\n- e2e\n\n## 验收\n\nAC-1\n\n## 验证面\n\n"
+        "- [assert][e2e] `curl -s http://localhost:8000/health`\n"
+    )
+    single_slice_task(project, "### [ ] S-001 烟雾 E2E", slice_md)
     assert run(project, "status", "demo", "--json") == 1
     data = json.loads(capsys.readouterr().out)
-    assert any("e2e 需要 Playwright/Cypress/Dusk/e2e" in err for err in data["errors"])
+    assert any("smoke" in err for err in data["errors"])
 
 
 def test_legacy_check_without_surface_does_not_cover_delivery_surface(project: Path, capsys):
@@ -668,3 +682,50 @@ def test_status_flags_smoke_in_report(project: Path, capsys):
     assert run(project, "status", "demo", "--json") == 0
     data = json.loads(capsys.readouterr().out)
     assert data["slices"][0]["checks"][1]["smoke"] is True
+
+
+# --- judge artifact ----------------------------------------------------------
+
+def test_judge_artifact_existence_checked_and_recorded(project: Path, capsys):
+    single_slice_task(project, "### [ ] S-001 三类验证", KINDS_SLICE)
+    (project / "shot.png").write_bytes(b"fake-png")
+    code = run(
+        project, "run-check", "demo", "--slice", "S-001",
+        "--judge", "注册→登录 UI 旅程，按 rubrics/s-001.md",
+        "--verdict", "pass", "--trace", "rubrics/s-001.md", "--artifact", "shot.png",
+    )
+    assert code == 0
+    rec = _latest_record(project, "demo", "S-001")
+    assert rec["artifact"] == "shot.png"
+    # 截图被 status 在该 judge 项上展示出来（review/续作可见）
+    capsys.readouterr()
+    assert run(project, "status", "demo", "--json") == 0
+    data = json.loads(capsys.readouterr().out)
+    judge_check = next(c for c in data["slices"][0]["checks"] if c["kind"] == "judge")
+    assert judge_check["artifact"] == "shot.png"
+
+
+def test_judge_artifact_missing_file_rejected(project: Path, capsys):
+    single_slice_task(project, "### [ ] S-001 三类验证", KINDS_SLICE)
+    code = run(
+        project, "run-check", "demo", "--slice", "S-001",
+        "--judge", "注册→登录 UI 旅程，按 rubrics/s-001.md",
+        "--verdict", "pass", "--trace", "t", "--artifact", "nope.png",
+    )
+    assert code == 1
+    assert "不存在" in capsys.readouterr().err
+    ev = project / ".arbor" / "tasks" / "demo" / "evidence" / "S-001"
+    assert not list(ev.glob("*.json"))  # 校验在落盘前，未写入伪证据
+
+
+def test_done_message_does_not_overclaim_quality(project: Path, capsys):
+    make_task(project)
+    run(project, "run-check", "demo", "--slice", "S-001", "--", "test", "0", "-eq", "0")
+    run(project, "done", "demo", "--slice", "S-001")
+    run(project, "run-check", "demo", "--slice", "S-002", "--", "test", "0", "-eq", "0")
+    run(project, "run-check", "demo", "--slice", "S-002", "--manual",
+        "浏览器确认页面渲染正常", "--note", "ok", "--evidence", "x")
+    capsys.readouterr()
+    assert run(project, "done", "demo", "--slice", "S-002") == 0
+    out = capsys.readouterr().out
+    assert "不代表体验质量达标" in out

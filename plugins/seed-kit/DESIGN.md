@@ -12,8 +12,15 @@ sdd-kit 多轮迭代后的病：
 
 外部调研（spec-kit / Kiro / Trellis / Ralph loop / OpenSpec / Anthropic harness 研究）收敛出的不变量：
 
-> **PRD 是需求的 source of truth，文件系统是状态的 source of truth，git 是进度的 source of truth，机器可验证的 gate 是质量的 source of truth。**
+> **PRD 是需求的 source of truth，文件系统是状态的 source of truth，git 是进度的 source of truth，机器可验证的 gate 是正确性的 source of truth。**
 > 在这四个锚点之上，流程越轻、命令越少、阶段越不强制，存活率越高。
+
+第四条只敢说"正确性"，不敢说"质量"——这是刻意的。质量分两半，本性相反，要用相反的工具：
+
+- **可验证的一半**（余额算对、422、契约、转账不计收支）：能写出可证伪的 check，二值 gate（exit 0 / verdict=pass）正合适，约束越紧越好。
+- **不可验证的一半**（好不好用、顺不顺手、好不好看、优不优雅）：写不出能扛住优化压力的 check——这就是 Goodhart。二值 gate 用在这里不是"不够"，而是**有害**：它在通过线以上梯度为零，把一条本无天花板的质量轴**封顶在最小可过**；而"按 spec 通过"又把模型从生成模式切到合规模式。两头一夹，产出一个能过测试却没法真实使用的"毛坯房"。
+
+所以这一半不能压在 gate 上，只能靠**测试当地板（保持绿、不回归）+ 一个感知真实产物、按高标打分的独立 judge 在环（生成模式自由发挥，用参考而非清单注入品味）**。这一环的"评判"本质上无法机械化——是问题的本性，不是 helper 没做到位。承认它、把它做顺，比假装 exit code 能替代它更稳。
 
 被反复证明失败的设计恰好是 sdd-kit 的病灶：过重状态机（"reinvented waterfall"）、过多命令的 context tax、依赖模型自觉的口头约束、大体量生成文档。
 
@@ -79,7 +86,7 @@ sdd-kit 多轮迭代后的病：
 │   ├── prd.md        # 需求 + AC + ## Slices(有序 checkbox 索引) = 唯一状态
 │   ├── slices/       # S-NNN.md：每个 slice 的验收与验证项（内容唯一的家）
 │   ├── review.md     # review 追加记录
-│   ├── evidence/     # run-check 落盘：S-NNN/<check>.json + .log
+│   ├── evidence/     # run-check 落盘：S-NNN/<seq>-<kind>.json + .log
 │   └── notes/        # impl 过程备注（可选）
 └── research/<topic>/
     ├── index.md      # 导航与结论
@@ -143,12 +150,26 @@ sdd-kit 多轮迭代后的病：
 
 第 2、3 层是机械的（脚本保证），第 1、4、5 层是流程约定（skill 描述方向，不堆禁令）。
 
+### 两种失败模式：蒙混 vs 诚实地最小满足
+
+上面五层主要防的是**蒙混**——弱化断言、假测试、交付面冒充、judge 自评。这类是廉价偷懒，可以机械化堵死（第 2、3 层做得好）。
+
+还有第二种失败，更隐蔽：**agent 完全诚实，只是精确地做了"刚好过 gate 的最小实现"**。功能全对、测试全绿，成品却没法用（典型：UI 是毛坯房，文案是占位，CLI 手感粗糙）。它不是 bug，是"把不可验证质量塞进二值 gate"的设计产物（见动机里那条公理的拆分）——施动者越诚实越会这样，因为它在如实优化你给的目标。
+
+蒙混能靠机制治；诚实地最小满足不能，要换范式：
+
+- **测试是地板，不是完成定义。** impl 的目标是"在地板保持绿的前提下做到可交付品质"，不是"把测试弄绿就停"。`seed done` 只代表**正确且不回归**，**不代表好**；一块全绿看板不等于质量达标。
+- **不可验证质量靠"judge 在环"，且 judge 必须看真实产物。** web-ui 这类面用 render→截图→fresh-session 视觉 judge 按高标裁决→打回重做 的循环（generator/evaluator）。judge 裁的是渲染出来的东西、不是代码；评分权重压在整体设计质量与原创性上，显式打低"通用 AI 味"。judge 用 `--artifact` 附上它实际看过的截图，helper 校验该文件真实存在。
+- **用参考注入品味，不用清单。** 参考产品 / 设计语言 / "感觉像 X" 传递的是丰富先验，把 agent 从"品味的发明者"降为"翻译者"；清单每加一条都在窄化。质量基线写进 brainstorm 的 PRD 与持久层，不逐 slice 堆。
+
+外部佐证（Anthropic harness 研究的 generator/evaluator 视觉闭环与"惩罚 generic slop"的加权 rubric、Eval-Driven Development 的"测试当地板而非天花板"、对齐研究"不可验证目标只能 process oversight + 判断在环"、社区共识"地基严格 + 工艺自由"）都收敛到同一处：**正确性用 gate，体验质量用"地板 + 高标 judge 在环 + 生成自由 + 参考注入品味"。**
+
 ## 交付面 + 三类验证（封闭词汇）
 
 验证项有两个正交维度：`surface` 表示覆盖哪个交付面（backend-domain / api / web-ui / e2e / compliance / infra），`kind` 表示谁判定它对。这样避免把所有验证压成同一种形状，也避免“后端测试冒充整条 Web 产品交付”。
 
 - **assert** — 命令本身就是会失败的断言（测试套件 / 契约回放 / Playwright spec）。gate = exit 0。有状态 API 流写成**自包含**集成测试（内部 setup→act→assert），而不是跨命令、靠 shell 变量串状态的 curl（seed 的 run-check 每次 check 是独立 subprocess，shell 变量不跨 check）。
-- **judge** — 难以机械断言的语义/UI/手感，由独立 agent 在 fresh session 按 AC rubric 裁决。gate = verdict=pass。helper 只落盘/校验 verdict，**不调用 LLM**——裁决是 skill 层动作。
+- **judge** — 难以机械断言的语义/UI/手感，由独立 agent 在 fresh session 按 AC rubric 裁决。gate = verdict=pass。judge 必须裁**渲染后的真实产物**（截图 / 实时页面 / 实际输出），不是裁代码；裁完用 `--artifact` 附上看过的截图/输出文件，helper 校验它真实存在（但不评判内容——评判是 skill 层动作，helper 不调用 LLM）。web-ui 的视觉裁决用高标、开放 rubric（整体质量 + 原创性，显式打低"通用 AI 味"），不是功能清单。
 - **human** — 真人 stakeholder 签收，限 compliance 等本质不可自动化交付面。gate = 签收记录。
 
 原则：assert 优先，能 judge 就别堆 human；human 不能替代 backend-domain / api / web-ui / e2e / infra。一个 slice 只能 `[human][compliance]` 验证是设计气味。外部调研（Playwright MCP + Test Agents、Pact/WireMock 契约与录制回放、LLM-as-a-Judge、spec-kit 的 [NEEDS CLARIFICATION]）都指向同一个分层：**能机械断言的先机械断言，到不了顶的才上独立裁判，裁判也覆盖不了的才上人**。

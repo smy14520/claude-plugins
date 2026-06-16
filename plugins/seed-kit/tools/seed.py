@@ -58,8 +58,6 @@ KIND_PREFIX_RE = re.compile(
 SLICES_SECTION = "## Slices"
 VALID_SURFACES = ("backend-domain", "api", "web-ui", "e2e", "compliance", "infra")
 VALID_SURFACE_SET = set(VALID_SURFACES)
-WEB_UI_COMMAND_TOKENS = ("vitest", "jest", "playwright", "cypress", "storybook")
-E2E_COMMAND_TOKENS = ("playwright", "cypress", "dusk", "e2e")
 
 # On-disk evidence `kind` aliases for back-compat with records written before
 # the three-kind vocabulary existed.
@@ -137,42 +135,29 @@ def _parse_surface_list(raw: str | None) -> tuple[list[str], str | None]:
     return out, None
 
 
-def _command_has_any(command: str, tokens: tuple[str, ...]) -> bool:
-    lowered = command.lower()
-    return any(re.search(rf"(?:^|[^a-z0-9]){re.escape(token)}(?:[^a-z0-9]|$)", lowered) for token in tokens)
-
-
 def _surface_coverage_error(check: Check, surface: str) -> str | None:
     if surface not in check.surfaces:
         return "验证项未标注该交付面"
     if check.kind == "assert" and looks_like_smoke(check.target)[0]:
         return "smoke assert 只证可达/可执行，不覆盖交付面"
-    if surface in ("backend-domain", "api", "infra"):
+    if surface in ("backend-domain", "api", "infra", "e2e"):
         if check.kind != "assert":
             return f"{surface} 需要 [assert][{surface}]"
         return None
     if surface == "web-ui":
-        if check.kind == "judge":
+        if check.kind in ("assert", "judge"):
             return None
-        if check.kind == "assert" and _command_has_any(check.target, WEB_UI_COMMAND_TOKENS):
-            return None
-        return "web-ui 需要 vitest/jest/playwright/cypress/storybook 形状的 [assert][web-ui]，或 [judge][web-ui]"
-    if surface == "e2e":
-        if check.kind == "assert" and _command_has_any(check.target, E2E_COMMAND_TOKENS):
-            return None
-        return "e2e 需要 Playwright/Cypress/Dusk/e2e 形状的 [assert][e2e] 命令"
+        return "web-ui 需要 [assert][web-ui] 或 [judge][web-ui]"
     if surface == "compliance":
         return None
     return f"未知交付面：{surface}"
 
 
 def _coverage_requirement(surface: str) -> str:
-    if surface in ("backend-domain", "api", "infra"):
+    if surface in ("backend-domain", "api", "infra", "e2e"):
         return f"{surface} 需要非 smoke 的 [assert][{surface}]"
     if surface == "web-ui":
-        return "web-ui 需要 UI 测试形状的 [assert][web-ui]，或 [judge][web-ui]"
-    if surface == "e2e":
-        return "e2e 需要 Playwright/Cypress/Dusk/e2e 形状的 [assert][e2e] 命令"
+        return "web-ui 需要 [assert][web-ui] 或 [judge][web-ui]"
     if surface == "compliance":
         return "compliance 需要显式标注 [compliance] 的 assert/judge/human 验证项"
     return f"未知交付面：{surface}"
@@ -481,6 +466,16 @@ def check_state(check: Check, records: list[dict]) -> str:
     return state
 
 
+def latest_judge_artifact(check: Check, records: list[dict]) -> str | None:
+    """The artifact path on the latest passing judge record for this check, if any."""
+    artifact = None
+    for record in records:
+        if _record_kind(record) == "judge" and record.get("item") == check.target:
+            if record.get("verdict") == "pass":
+                artifact = record.get("artifact")
+    return artifact
+
+
 # --- commands ---------------------------------------------------------------
 
 def cmd_new(root: Path, task: str) -> int:
@@ -516,6 +511,10 @@ def _slice_report(root: Path, task: str, sl: Slice) -> dict:
             smoke, _ = looks_like_smoke(check.target)
             if smoke:
                 entry["smoke"] = True
+        if check.kind == "judge":
+            artifact = latest_judge_artifact(check, records)
+            if artifact:
+                entry["artifact"] = artifact
         checks.append(entry)
     return {
         "id": sl.id,
@@ -570,7 +569,10 @@ def cmd_status(root: Path, task: str | None, json_output: bool) -> int:
         for err in errors:
             print(f"  - {err}")
         return 1
-    print(f"next: {next_slice}" if next_slice else "全部 slice 已完成")
+    if next_slice:
+        print(f"next: {next_slice}")
+    else:
+        print("全部 slice 通过正确性 gate（只保证正确且不回归，不代表体验质量达标；建议 review）")
     return 0
 
 
@@ -588,6 +590,7 @@ def cmd_run_check(
     trace: str | None,
     note: str | None,
     evidence: str | None,
+    artifact: str | None,
     by: str | None,
     timeout: int,
 ) -> int:
@@ -621,6 +624,16 @@ def cmd_run_check(
             record["grade"] = grade
         if note:
             record["note"] = note
+        if artifact:
+            art_path = Path(artifact)
+            if not art_path.is_absolute():
+                art_path = root / artifact
+            if not art_path.exists():
+                raise SeedError(
+                    f"--artifact 指向的文件不存在：{artifact}"
+                    "（judge 须附它实际看过的截图/输出文件——视觉裁决看真实产物，不看代码）"
+                )
+            record["artifact"] = artifact
         path = _write_evidence(root, task, slice_id, record, None)
         print(f"{record['status']} (verdict={verdict}) → {path.relative_to(root)}")
         return 0 if verdict == "pass" else 1
@@ -718,7 +731,10 @@ def cmd_done(root: Path, task: str, slice_id: str) -> int:
     path.write_text("\n".join(lines) + "\n", encoding="utf-8")
     remaining = [other.id for other in slices if not other.done and other.id != slice_id]
     print(f"{slice_id} 已完成 ✓  建议现在 commit 本 slice 的改动。")
-    print(f"next: {remaining[0]}" if remaining else "全部 slice 已完成，可以触发 review。")
+    if remaining:
+        print(f"next: {remaining[0]}")
+    else:
+        print("全部 slice 通过正确性 gate。注意：gate 只保证正确且不回归，不代表体验质量达标——触发 review 做语义与质量对账。")
     return 0
 
 
@@ -753,6 +769,7 @@ def build_parser() -> argparse.ArgumentParser:
     rc_parser.add_argument("--manual", help="[manual] 验证项原文（旧式，等同 --human）")
     rc_parser.add_argument("--note", help="human/judge：验证了什么、结论")
     rc_parser.add_argument("--evidence", help="human：证据指针（截图路径/输出位置，可选）")
+    rc_parser.add_argument("--artifact", help="judge：裁决时实际看过的截图/输出文件路径（提供则 helper 校验它真实存在）")
     rc_parser.add_argument("--by", help="human/judge：签收人/裁决者（默认 user / independent-judge）")
     rc_parser.add_argument("--timeout", type=int, default=600)
 
@@ -801,6 +818,7 @@ def main(argv: list[str] | None = None) -> int:
                 trace=args.trace,
                 note=args.note,
                 evidence=args.evidence,
+                artifact=args.artifact,
                 by=args.by,
                 timeout=args.timeout,
             )

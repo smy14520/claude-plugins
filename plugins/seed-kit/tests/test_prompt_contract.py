@@ -41,6 +41,34 @@ class SeedPromptContractTests(unittest.TestCase):
         self.assertIn("不保证语义正确", combined)
         self.assertIn("后端测试冒充", combined)
 
+    def test_design_demotes_quality_axiom_to_correctness(self):
+        design = self.read_plugin_file("DESIGN.md")
+        # 公理从"质量 SoT"降级为"正确性 SoT"
+        self.assertIn("正确性的 source of truth", design)
+        self.assertNotIn("gate 是质量的 source of truth", design)
+        # 显式承认第二种失败模式：诚实地最小满足 → 毛坯房
+        self.assertIn("诚实地最小满足", design)
+        self.assertIn("毛坯房", design)
+
+    def test_impl_treats_tests_as_floor_with_visual_judge(self):
+        impl = self.read_plugin_file("skills", "impl", "SKILL.md")
+        self.assertIn("地板", impl)
+        self.assertIn("可交付品质", impl)
+        # web-ui 视觉裁决看真实产物并附 --artifact
+        self.assertIn("--artifact", impl)
+
+    def test_brainstorm_captures_quality_baseline_by_reference(self):
+        brainstorm = self.read_plugin_file("skills", "brainstorm", "SKILL.md")
+        # brainstorm 只捕捉"意图"（参考级质量基线），不写"验证策略"政策
+        self.assertIn("质量基线", brainstorm)
+        self.assertIn("翻译者", brainstorm)
+        self.assertNotIn("必须带一条整体体验 judge", brainstorm)
+
+    def test_conventions_done_means_correct_not_quality(self):
+        conventions = self.read_plugin_file("skills", "references", "conventions.md")
+        self.assertIn("正确且不回归", conventions)
+        self.assertIn("--artifact", conventions)
+
 
 if __name__ == "__main__":
     unittest.main()
