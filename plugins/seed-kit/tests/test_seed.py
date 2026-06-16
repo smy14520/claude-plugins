@@ -189,12 +189,56 @@ def test_status_flags_content_inside_slices_section(project: Path, capsys):
     assert any("只放索引行" in err for err in data["errors"])
 
 
-def test_status_flags_unrecognized_check_item(project: Path, capsys):
+def test_status_flags_no_recognized_check(project: Path, capsys):
+    # a vague, non-check line is tolerated as doc; the slice errors only because
+    # it ended up with zero real checks.
     slice_md = "# S-001 输出问候\n\n## 验收\n\nAC-1\n\n## 验证\n\n- 跑一下测试\n"
     single_slice_task(project, "### [ ] S-001 输出问候", slice_md)
     assert run(project, "status", "demo", "--json") == 1
     data = json.loads(capsys.readouterr().out)
-    assert any("无法识别" in err for err in data["errors"])
+    assert any("缺少验证项" in err for err in data["errors"])
+
+
+def test_assert_allows_trailing_annotation(project: Path, capsys):
+    slice_md = (
+        "# S-001 问候\n\n## 验收\n\nAC-1\n\n## 验证\n\n"
+        "- [assert] `echo hi` —— 自包含：输出问候，覆盖 AC-1\n"
+    )
+    single_slice_task(project, "### [ ] S-001 问候", slice_md)
+    assert run(project, "status", "demo", "--json") == 0
+    data = json.loads(capsys.readouterr().out)
+    check = data["slices"][0]["checks"][0]
+    assert check["kind"] == "assert"
+    assert check["target"] == "echo hi"  # annotation ignored for matching
+    # run-check matches on the command, not the annotation
+    assert run(project, "run-check", "demo", "--slice", "S-001", "--", "echo", "hi") == 0
+
+
+def test_verify_section_tolerates_prose_and_subbullets(project: Path, capsys):
+    slice_md = (
+        "# S-001 多形态\n\n## 验收\n\nAC-1\n\n## 验证\n\n"
+        "本 slice 的验证以自包含测试为主，细节见下。\n\n"
+        "- [assert] `php artisan test --filter=Foo` —— 覆盖:\n"
+        "  - 列表场景\n"
+        "  - 流水场景\n"
+        "  - 余额断言\n"
+        "- [judge] UI 旅程，按 rubrics/x.md\n"
+    )
+    single_slice_task(project, "### [ ] S-001 多形态", slice_md)
+    assert run(project, "status", "demo", "--json") == 0
+    data = json.loads(capsys.readouterr().out)
+    checks = data["slices"][0]["checks"]
+    # exactly two checks: the indented sub-bullets and prose are doc, not checks
+    assert [(c["kind"]) for c in checks] == ["assert", "judge"]
+    assert checks[0]["target"] == "php artisan test --filter=Foo"
+
+
+def test_assert_tag_without_command_is_broken(project: Path, capsys):
+    slice_md = "# S-001 坏\n\n## 验收\n\nAC-1\n\n## 验证\n\n- [assert] 跑一下测试\n"
+    single_slice_task(project, "### [ ] S-001 坏", slice_md)
+    assert run(project, "status", "demo", "--json") == 1
+    data = json.loads(capsys.readouterr().out)
+    assert any("声明了 [assert] 但没有 backtick 命令" in err for err in data["errors"])
 
 
 def test_status_flags_duplicate_and_malformed_headings(project: Path, capsys):

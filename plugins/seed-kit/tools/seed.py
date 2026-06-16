@@ -36,7 +36,6 @@ import argparse
 import datetime as _dt
 import json
 import re
-import shlex
 import subprocess
 import sys
 from dataclasses import dataclass, field
@@ -49,6 +48,7 @@ SLICE_FILE_H1_RE = re.compile(r"^# (S-\d{3})\s+(.+?)\s*$")
 ACCEPT_HEADING_RE = re.compile(r"^## (?:验收|Acceptance)")
 VERIFY_HEADING_RE = re.compile(r"^## (?:验证|Verification)")
 COMMAND_ITEM_RE = re.compile(r"^`(.+)`$")
+COMMAND_IN_REST_RE = re.compile(r"^`([^`]+)`")  # [assert] 命令在行首 backtick 内，尾部注释忽略
 MANUAL_ITEM_RE = re.compile(r"^\[manual\]\s*(.+)$")
 KIND_PREFIX_RE = re.compile(r"^\[(assert|judge|human)\]\s*(.*)$", re.DOTALL)
 SLICES_SECTION = "## Slices"
@@ -70,10 +70,9 @@ def _now() -> str:
 
 
 def normalize_command(command: str) -> str:
-    try:
-        return shlex.join(shlex.split(command))
-    except ValueError:
-        return " ".join(command.split())
+    # Collapse whitespace only. Do NOT round-trip through shlex — it would
+    # re-quote shell metacharacters (parens, &&, |) and break their execution.
+    return " ".join(command.split())
 
 
 def normalize_text(text: str) -> str:
@@ -110,27 +109,36 @@ def looks_like_smoke(command: str) -> tuple[bool, str]:
     return False, ""
 
 
-def classify_check(item: str) -> tuple[str, str] | None:
-    r"""Classify a verification list-item into (kind, target) or None.
+def classify_check(item: str) -> tuple[str, str | None]:
+    r"""Classify a verification list-item.
 
-    Recognizes [assert] <cmd>, [judge] desc, [human] desc, a legacy bare
-    backticked command (-> assert), and legacy [manual] desc (-> human)."""
+    Returns one of:
+      (kind, target)  — a recognized check (kind ∈ assert/judge/human)
+      ("doc", None)    — documentation line, skip silently (not an error)
+      ("broken", msg)  — a kind-tagged item that is malformed (real error)
+
+    The parser EXTRACTS the machine-relevant target and tolerates everything
+    else (trailing `—— desc`, surrounding prose) as documentation. It only
+    errors on a kind tag with no usable target (e.g. [assert] with no command).
+    """
     prefixed = KIND_PREFIX_RE.match(item)
     if prefixed:
         kind, rest = prefixed.group(1), prefixed.group(2).strip()
-        if not rest:
-            return None
         if kind == "assert":
-            cmd = COMMAND_ITEM_RE.match(rest)
-            return ("assert", normalize_command(cmd.group(1))) if cmd else None
-        return (kind, normalize_text(rest))
+            cmd = COMMAND_IN_REST_RE.match(rest)
+            if cmd:
+                return ("assert", normalize_command(cmd.group(1)))
+            return ("broken", "声明了 [assert] 但没有 backtick 命令")
+        if rest:
+            return (kind, normalize_text(rest))
+        return ("broken", f"声明了 [{kind}] 但没有描述")
     cmd = COMMAND_ITEM_RE.match(item)
     if cmd:
         return ("assert", normalize_command(cmd.group(1)))
     manual = MANUAL_ITEM_RE.match(item)
     if manual:
         return ("human", normalize_text(manual.group(1)))
-    return None
+    return ("doc", None)
 
 
 @dataclass
@@ -248,27 +256,31 @@ def _load_slice_file(slices_dir: Path, sl: Slice) -> list[str]:
             errors.append(f"{rel} 标题与 prd.md 索引行不一致：{h1.group(2)!r} ≠ {sl.title!r}")
     has_accept = False
     in_verify = False
+    base_indent = None  # indent of the first list item in 验证; deeper lines = sub-detail/doc
     for idx, line in content:
         stripped = line.strip()
         if line.startswith("## "):
             has_accept = has_accept or bool(ACCEPT_HEADING_RE.match(stripped))
             in_verify = bool(VERIFY_HEADING_RE.match(stripped))
+            base_indent = None
             continue
         if not in_verify or not stripped:
             continue
-        if not stripped.startswith(("- ", "* ")):
-            errors.append(f"{rel} `## 验证` 下第 {idx + 1} 行不是 `- ` 列表项：{stripped}")
+        indent = len(line) - len(line.lstrip())
+        is_list = stripped.startswith(("- ", "* "))
+        if base_indent is None and is_list:
+            base_indent = indent
+        # Prose paragraphs and indented sub-bullets are documentation — tolerated,
+        # not policed. Only top-level list items (at the base indent) are checks.
+        if not is_list or (base_indent is not None and indent > base_indent):
             continue
         item = stripped[2:].strip()
-        classified = classify_check(item)
-        if classified:
-            kind, target = classified
+        kind, target = classify_check(item)
+        if kind in ("assert", "judge", "human"):
             sl.checks.append(Check(kind, target, item))
-        else:
-            errors.append(
-                f"{rel} 验证项无法识别（需为 `[assert] \\`命令\\`` / `[judge] 描述` / "
-                f"`[human] 描述`，或旧式 `\\`命令\\`` / `[manual] 描述`）：{item}"
-            )
+        elif kind == "broken":
+            errors.append(f"{rel} 验证项 {target}：{item}")
+        # "doc" → skip silently
     if not has_accept:
         errors.append(f"{rel} 缺少 `## 验收` 段")
     if not sl.checks:
@@ -524,7 +536,7 @@ def cmd_run_check(
     # assert
     if not cmd_tokens:
         raise SeedError("缺少要执行的命令：seed run-check <task> --slice S-NNN -- <command>")
-    command = normalize_command(shlex.join(cmd_tokens))
+    command = normalize_command(" ".join(cmd_tokens))
     declared = [c for c in sl.checks if c.kind == "assert" and c.target == command]
     if not declared:
         options = [c.target for c in sl.checks if c.kind == "assert"] or ["（无）"]
