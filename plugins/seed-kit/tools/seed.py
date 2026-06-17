@@ -49,7 +49,8 @@ ACCEPT_HEADING_RE = re.compile(r"^## (?:验收|Acceptance)")
 DELIVERY_HEADING_RE = re.compile(r"^## (?:交付面|Delivery Surfaces?)")
 VERIFY_HEADING_RE = re.compile(r"^## (?:验证|验证面|Verification|Verification Surfaces?)")
 COMMAND_ITEM_RE = re.compile(r"^`(.+)`$")
-COMMAND_IN_REST_RE = re.compile(r"^`([^`]+)`")  # [assert] 命令在行首 backtick 内，尾部注释忽略
+COMMAND_IN_REST_RE = re.compile(r"^`([^`]+)`")  # legacy：[assert] 命令在行首 backtick 内，尾部注释忽略
+OBLIGATION_RE = re.compile(r"^\s*([^:`][^:]*?)\s*:\s*(.+)$", re.DOTALL)  # 新格式：<obligation-id>: <可观测行为>
 MANUAL_ITEM_RE = re.compile(r"^\[manual\]\s*(.+)$")
 KIND_PREFIX_RE = re.compile(
     r"^\[(assert|judge|human)\](?:\s*\[([a-z0-9._-]+(?:\s*,\s*[a-z0-9._-]+)*)\])?\s*(.*)$",
@@ -138,7 +139,9 @@ def _parse_surface_list(raw: str | None) -> tuple[list[str], str | None]:
 def _surface_coverage_error(check: Check, surface: str) -> str | None:
     if surface not in check.surfaces:
         return "验证项未标注该交付面"
-    if check.kind == "assert" and looks_like_smoke(check.target)[0]:
+    # 仅 legacy assert（命令在 target、obligation_id=None）parse 期能判 smoke；
+    # 新格式 obligation assert 的命令在 run-check 时才绑定，parse 期跳过（run-check 期硬挡）。
+    if check.kind == "assert" and check.obligation_id is None and looks_like_smoke(check.target)[0]:
         return "smoke assert 只证可达/可执行，不覆盖交付面"
     if surface in ("backend-domain", "api", "infra", "e2e"):
         if check.kind != "assert":
@@ -163,47 +166,59 @@ def _coverage_requirement(surface: str) -> str:
     return f"未知交付面：{surface}"
 
 
-def classify_check(item: str) -> tuple[str, str | None, list[str]]:
+def classify_check(item: str) -> tuple[str, str | None, list[str], str | None]:
     r"""Classify a verification list-item.
 
     Returns one of:
-      (kind, target, surfaces) — recognized check (kind ∈ assert/judge/human)
-      ("doc", None, [])       — documentation line, skip silently
-      ("broken", msg, [])     — malformed kind-tagged item or surface tag
+      (kind, target, surfaces, obligation_id) — recognized check (kind ∈ assert/judge/human)
+      ("doc", None, [], None)      — documentation line, skip silently
+      ("broken", msg, [], None)    — malformed kind-tagged item or surface tag
 
-    The parser extracts the machine-relevant target and optional verification
-    surfaces. Trailing prose remains documentation; `[assert]` must still start
-    with a backtick command.
+    A prefixed item (`[kind][surface] <rest>`) takes two forms:
+      obligation: `<obligation-id>: <可观测行为>` (colon-separated; id 不以 backtick 开头)
+                  → obligation_id = id, target = 行为描述。命令不在 slice，run-check 时按
+                    `--obligation <id>` 绑定。
+      legacy:     assert 行首 backtick `命令`，或 judge/human 纯文本描述
+                  → obligation_id = None, target = 命令 / 文本。
+    `assert` 需要命令或 obligation；`judge`/`human` 也接受纯文本描述作 legacy fallback。
     """
     prefixed = KIND_PREFIX_RE.match(item)
     if prefixed:
         kind, surface_raw, rest = prefixed.group(1), prefixed.group(2), prefixed.group(3).strip()
         surfaces, surface_error = _parse_surface_list(surface_raw)
         if surface_error:
-            return ("broken", surface_error, [])
+            return ("broken", surface_error, [], None)
+        obl = OBLIGATION_RE.match(rest)
+        if obl:
+            oid = normalize_text(obl.group(1))
+            behavior = normalize_text(obl.group(2))
+            if oid and behavior:
+                return (kind, behavior, surfaces, oid)
+            return ("broken", f"声明了 [{kind}] 的 obligation 不完整（需要 `<id>: <行为>`）", [], None)
         if kind == "assert":
             cmd = COMMAND_IN_REST_RE.match(rest)
             if cmd:
-                return ("assert", normalize_command(cmd.group(1)), surfaces)
-            return ("broken", "声明了 [assert] 但没有 backtick 命令", [])
+                return ("assert", normalize_command(cmd.group(1)), surfaces, None)
+            return ("broken", "声明了 [assert] 但没有 `<obligation-id>: <行为>` 或 backtick 命令", [], None)
         if rest:
-            return (kind, normalize_text(rest), surfaces)
-        return ("broken", f"声明了 [{kind}] 但没有描述", [])
+            return (kind, normalize_text(rest), surfaces, None)
+        return ("broken", f"声明了 [{kind}] 但没有描述", [], None)
     cmd = COMMAND_ITEM_RE.match(item)
     if cmd:
-        return ("assert", normalize_command(cmd.group(1)), [])
+        return ("assert", normalize_command(cmd.group(1)), [], None)
     manual = MANUAL_ITEM_RE.match(item)
     if manual:
-        return ("human", normalize_text(manual.group(1)), [])
-    return ("doc", None, [])
+        return ("human", normalize_text(manual.group(1)), [], None)
+    return ("doc", None, [], None)
 
 
 @dataclass
 class Check:
     kind: str  # "assert" | "judge" | "human"
-    target: str  # normalized command (assert) or text (judge/human)
+    target: str  # 新格式：可观测行为；legacy：normalized 命令 (assert) 或文本 (judge/human)
     raw: str
     surfaces: list[str] = field(default_factory=list)
+    obligation_id: str | None = None  # 新格式 `<id>: <行为>` 的 id；legacy 为 None
 
 
 @dataclass
@@ -356,10 +371,10 @@ def _load_slice_file(slices_dir: Path, sl: Slice) -> list[str]:
             if not is_list or (verify_base_indent is not None and indent > verify_base_indent):
                 continue
             item = stripped[2:].strip()
-            kind, target, surfaces = classify_check(item)
+            kind, target, surfaces, obligation_id = classify_check(item)
             if kind in ("assert", "judge", "human"):
                 assert target is not None
-                sl.checks.append(Check(kind, target, item, surfaces))
+                sl.checks.append(Check(kind, target, item, surfaces, obligation_id))
             elif kind == "broken":
                 errors.append(f"{rel} 验证项 {target}：{item}")
             # "doc" → skip silently
@@ -370,7 +385,7 @@ def _load_slice_file(slices_dir: Path, sl: Slice) -> list[str]:
     if not has_accept:
         errors.append(f"{rel} 缺少 `## 验收` 段")
     if not sl.checks:
-        errors.append(f"{rel} 缺少验证项：`## 验证面` 至少声明一条 `[assert][面] \\`命令\\`` / `[judge][面]` / `[human][面]`")
+        errors.append(f"{rel} 缺少验证项：`## 验证面` 至少声明一条 `[kind][面] <obligation-id>: <行为>`（或 legacy `[assert][面] \\`命令\\``）")
     if sl.delivery_surfaces:
         for check in sl.checks:
             for surface in check.surfaces:
@@ -445,23 +460,32 @@ def expected_state(kind: str) -> str:
     return "passed"  # assert and judge both gate on a passing result
 
 
+def _record_matches_check(record: dict, rk: str, check: Check) -> bool:
+    """obligation_id 优先匹配；legacy fallback 到 command/item 字符串相等。"""
+    if check.obligation_id:
+        return rk == check.kind and record.get("obligation_id") == check.obligation_id
+    if check.kind == "assert":
+        return rk == "assert" and record.get("command") == check.target
+    return rk == check.kind and record.get("item") == check.target
+
+
 def check_state(check: Check, records: list[dict]) -> str:
     """passed | failed | recorded | missing — based on the latest matching record."""
     state = "missing"
     for record in records:
         rk = _record_kind(record)
+        if not _record_matches_check(record, rk, check):
+            continue
         if check.kind == "assert":
-            if rk == "assert" and record.get("command") == check.target:
-                state = "passed" if record.get("exit_code") == 0 else "failed"
+            state = "passed" if record.get("exit_code") == 0 else "failed"
         elif check.kind == "judge":
-            if rk == "judge" and record.get("item") == check.target:
-                verdict = record.get("verdict")
-                if verdict == "pass":
-                    state = "passed"
-                elif verdict == "fail":
-                    state = "failed"
+            verdict = record.get("verdict")
+            if verdict == "pass":
+                state = "passed"
+            elif verdict == "fail":
+                state = "failed"
         else:  # human
-            if rk == "human" and record.get("item") == check.target and record.get("note"):
+            if record.get("note"):
                 state = "recorded"
     return state
 
@@ -470,9 +494,9 @@ def latest_judge_artifact(check: Check, records: list[dict]) -> str | None:
     """The artifact path on the latest passing judge record for this check, if any."""
     artifact = None
     for record in records:
-        if _record_kind(record) == "judge" and record.get("item") == check.target:
-            if record.get("verdict") == "pass":
-                artifact = record.get("artifact")
+        rk = _record_kind(record)
+        if rk == "judge" and _record_matches_check(record, rk, check) and record.get("verdict") == "pass":
+            artifact = record.get("artifact")
     return artifact
 
 
@@ -503,11 +527,13 @@ def _slice_report(root: Path, task: str, sl: Slice) -> dict:
     for check in sl.checks:
         entry = {
             "kind": check.kind,
+            "obligation_id": check.obligation_id,
             "target": check.target,
             "surfaces": check.surfaces,
             "state": check_state(check, records),
         }
-        if check.kind == "assert":
+        # 仅 legacy assert（命令在 target）status 期能判 smoke；新格式 obligation 无命令不判
+        if check.kind == "assert" and check.obligation_id is None:
             smoke, _ = looks_like_smoke(check.target)
             if smoke:
                 entry["smoke"] = True
@@ -561,7 +587,9 @@ def cmd_status(root: Path, task: str | None, json_output: bool) -> int:
         print(f"[{mark}] {report['id']} {report['title']}")
         for check in report["checks"]:
             surfaces = f"[{','.join(check['surfaces'])}]" if check.get("surfaces") else ""
-            print(f"      {check['state']:<8} [{check['kind']}]{surfaces} {check['target']}")
+            oid = check.get("obligation_id")
+            label = f"{oid}：{check['target']}" if oid else check["target"]
+            print(f"      {check['state']:<8} [{check['kind']}]{surfaces} {label}")
             if check.get("smoke"):
                 print("        ⚠ 疑似烟雾测试（只证可达/可执行，不证语义）；建议改成会失败的断言或换 [judge]/[human]")
     if errors:
@@ -576,6 +604,34 @@ def cmd_status(root: Path, task: str | None, json_output: bool) -> int:
     return 0
 
 
+def _resolve_declared(sl: Slice, kind: str, slice_id: str, obligation: str | None, legacy_item: str | None) -> Check:
+    """按 obligation_id 优先解析声明的 check；legacy fallback 到 target 字符串匹配。找不到 raise。"""
+    if obligation:
+        for c in sl.checks:
+            if c.kind == kind and c.obligation_id == obligation:
+                return c
+        opts = [c.obligation_id for c in sl.checks if c.kind == kind and c.obligation_id] or ["（无）"]
+        raise SeedError(
+            f"{slice_id} 未声明 obligation `{obligation}` 的 [{kind}] 验证项；声明的：\n"
+            + "\n".join(f"  - {opt}" for opt in opts)
+        )
+    item = normalize_text(legacy_item or "")
+    for c in sl.checks:
+        if c.kind == kind and c.obligation_id is None and c.target == item:
+            return c
+    if kind == "assert":
+        opts = [c.target for c in sl.checks if c.kind == "assert" and c.obligation_id is None] or ["（无）"]
+        raise SeedError(
+            f"{slice_id} 未声明这条命令（legacy：命令须与 slices/{slice_id}.md 一致）；或改用 `--obligation <id>`。声明的：\n"
+            + "\n".join(f"  - {opt}" for opt in opts)
+        )
+    opts = [c.target for c in sl.checks if c.kind == kind and c.obligation_id is None] or ["（无）"]
+    raise SeedError(
+        f"{slice_id} 未声明这条 [{kind}] 验证项；slices/{slice_id}.md 中声明的 {kind} 项：\n"
+        + "\n".join(f"  - {opt}" for opt in opts)
+    )
+
+
 def cmd_run_check(
     root: Path,
     task: str,
@@ -583,6 +639,7 @@ def cmd_run_check(
     cmd_tokens: list[str],
     *,
     mode: str,
+    obligation: str | None,
     manual_item: str | None,
     judge_item: str | None,
     verdict: str | None,
@@ -598,14 +655,7 @@ def cmd_run_check(
     sl = _find_slice(slices, slice_id)
 
     if mode == "judge":
-        item = normalize_text(judge_item or "")
-        declared = [c for c in sl.checks if c.kind == "judge" and c.target == item]
-        if not declared:
-            options = [c.target for c in sl.checks if c.kind == "judge"] or ["（无）"]
-            raise SeedError(
-                f"{slice_id} 未声明这条 judge 验证项；slices/{slice_id}.md 中声明的 judge 项：\n"
-                + "\n".join(f"  - {opt}" for opt in options)
-            )
+        declared = _resolve_declared(sl, "judge", slice_id, obligation, judge_item)
         if verdict not in ("pass", "fail"):
             raise SeedError("judge 记录必须带 --verdict pass|fail")
         if not trace:
@@ -613,7 +663,8 @@ def cmd_run_check(
         record = {
             "slice": slice_id,
             "kind": "judge",
-            "item": item,
+            "obligation_id": declared.obligation_id,
+            "item": declared.target,
             "verdict": verdict,
             "trace": trace,
             "status": "passed" if verdict == "pass" else "failed",
@@ -639,21 +690,14 @@ def cmd_run_check(
         return 0 if verdict == "pass" else 1
 
     if mode == "human":
-        item = normalize_text(manual_item or "")
-        declared = [c for c in sl.checks if c.kind == "human" and c.target == item]
-        if not declared:
-            options = [c.target for c in sl.checks if c.kind == "human"] or ["（无）"]
-            raise SeedError(
-                f"{slice_id} 未声明这条 human 验证项（[manual] 视为 [human]）；"
-                f"slices/{slice_id}.md 中声明的 human 项：\n"
-                + "\n".join(f"  - {opt}" for opt in options)
-            )
+        declared = _resolve_declared(sl, "human", slice_id, obligation, manual_item)
         if not note:
             raise SeedError("human 记录必须带 --note（验证了什么、结论）")
         record = {
             "slice": slice_id,
             "kind": "human",
-            "item": item,
+            "obligation_id": declared.obligation_id,
+            "item": declared.target,
             "note": note,
             "by": by or "user",
             "status": "recorded",
@@ -667,15 +711,19 @@ def cmd_run_check(
 
     # assert
     if not cmd_tokens:
-        raise SeedError("缺少要执行的命令：seed run-check <task> --slice S-NNN -- <command>")
+        raise SeedError("缺少要执行的命令：seed run-check <task> --slice S-NNN --obligation <id> -- <command>")
     command = normalize_command(" ".join(cmd_tokens))
-    declared = [c for c in sl.checks if c.kind == "assert" and c.target == command]
-    if not declared:
-        options = [c.target for c in sl.checks if c.kind == "assert"] or ["（无）"]
-        raise SeedError(
-            f"{slice_id} 未声明这条验证命令（命令必须与 slices/{slice_id}.md 声明一致，不接受替代/弱化命令）；声明的命令：\n"
-            + "\n".join(f"  - {opt}" for opt in options)
-        )
+    declared = _resolve_declared(sl, "assert", slice_id, obligation, command)
+    # 烟雾硬挡：非 compliance 交付面的 obligation/命令，烟雾命令拒绝落盘（防线不降反升）；
+    # compliance 面允许烟雾 + 软警告。
+    smoke, reason = looks_like_smoke(command)
+    if smoke:
+        blocked = [s for s in declared.surfaces if s != "compliance"]
+        if blocked:
+            raise SeedError(
+                f"烟雾命令不能兑现交付面 {blocked} 的验证：{reason}。"
+                "改成会失败的断言（测试套件/契约回放/Playwright spec），或把验证项标 [compliance]。"
+            )
     try:
         proc = subprocess.run(
             command,
@@ -694,12 +742,12 @@ def cmd_run_check(
     record = {
         "slice": slice_id,
         "kind": "assert",
+        "obligation_id": declared.obligation_id,
         "command": command,
         "exit_code": exit_code,
         "status": "passed" if exit_code == 0 else "failed",
         "created_at": _now(),
     }
-    smoke, reason = looks_like_smoke(command)
     path = _write_evidence(root, task, slice_id, record, output)
     print(f"{record['status']} (exit {exit_code}) → {path.relative_to(root)}")
     if smoke and exit_code == 0:
@@ -718,7 +766,8 @@ def cmd_done(root: Path, task: str, slice_id: str) -> int:
     for check in sl.checks:
         state = check_state(check, records)
         if state != expected_state(check.kind):
-            gaps.append(f"[{check.kind}] {check.target} → {state}")
+            label = f"{check.obligation_id}：{check.target}" if check.obligation_id else check.target
+            gaps.append(f"[{check.kind}] {label} → {state}")
     if gaps:
         print(f"{slice_id} 还不能标记完成，缺少证据：", file=sys.stderr)
         for gap in gaps:
@@ -761,7 +810,8 @@ def build_parser() -> argparse.ArgumentParser:
     )
     rc_parser.add_argument("task")
     rc_parser.add_argument("--slice", dest="slice_id", required=True)
-    rc_parser.add_argument("--judge", help="[judge] 验证项原文（由独立 agent 在 fresh session 裁决后记录）")
+    rc_parser.add_argument("--obligation", help="验证义务 id：绑到 slices/S-NNN.md 声明的 <obligation-id>；三 kind 共用，优先于 --judge/--human/命令字面匹配")
+    rc_parser.add_argument("--judge", help="[judge] 验证项原文（legacy：obligation 格式改用 --obligation；由独立 agent 在 fresh session 裁决后记录）")
     rc_parser.add_argument("--verdict", choices=["pass", "fail"], help="judge：裁决结果")
     rc_parser.add_argument("--grade", help="judge：评分/等级（可选）")
     rc_parser.add_argument("--trace", help="judge：裁决依据/证据指针（rubric + 截图/输出位置）")
@@ -803,6 +853,10 @@ def main(argv: list[str] | None = None) -> int:
                 mode, manual_item, judge_item = "judge", None, args.judge
             elif args.manual is not None or args.human is not None:
                 mode, manual_item, judge_item = "human", (args.manual or args.human), None
+            elif args.verdict is not None:
+                mode, manual_item, judge_item = "judge", None, None  # obligation judge（--obligation <id> --verdict）
+            elif args.obligation is not None and args.note:
+                mode, manual_item, judge_item = "human", None, None  # obligation human（--obligation <id> --note）
             else:
                 mode, manual_item, judge_item = "assert", None, None
             return cmd_run_check(
@@ -811,6 +865,7 @@ def main(argv: list[str] | None = None) -> int:
                 args.slice_id,
                 cmd_tokens,
                 mode=mode,
+                obligation=args.obligation,
                 manual_item=manual_item,
                 judge_item=judge_item,
                 verdict=args.verdict,

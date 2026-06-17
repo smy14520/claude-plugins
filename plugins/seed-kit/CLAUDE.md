@@ -2,9 +2,9 @@
 
 ## 核心原则:机制在插件,标准在项目
 
-seed-kit 只提供**机制**(栈无关):验证三 kind(assert/judge/human)、交付面闭集、正确性 gate、`seed` CLI。fan-out 评分循环是计划中的演进(未实装,当前用 `[judge]` 二值裁决)。
+seed-kit 只提供**机制**(栈无关):验收义务 obligation(`[kind][surface] <id>: <行为>` + evidence 绑 obligation_id)、验证三 kind(assert/judge/human)、交付面闭集、正确性 gate、`seed` CLI。fan-out 评分循环是计划中的演进(未实装,当前用 `[judge]` 二值裁决)。
 
-**评分标准 / 品味 / 参考产品 / 设计语言 / 质量门槛**——这些是**标准**,住**项目**的 `CLAUDE.md` / `DESIGN.md` / PRD 质量基线,**不进插件**。
+**测试纪律 / 评分标准 / 品味 / 参考产品 / 设计语言 / 质量门槛**——这些是**标准**,住**项目**:测试纪律放 `.claude/rules/`(如 `testing.md`),品味/设计语言放 `DESIGN.md`,入口与 `@import` 在 `CLAUDE.md`,体验意图在 PRD 质量基线。**都不进插件**。
 
 为什么:换栈(web / 后端 / CLI / 游戏)不用改插件——**标准随项目长,机制不动**。"前端要打审美分""游戏要打手感分"是项目标准,不是插件该知道的;插件只知道"对每个声明的交付面,派一个独立 scorer 去读该项目的标准来打分"。
 

@@ -373,7 +373,7 @@ def test_assert_tag_without_command_is_broken(project: Path, capsys):
     single_slice_task(project, "### [ ] S-001 坏", slice_md)
     assert run(project, "status", "demo", "--json") == 1
     data = json.loads(capsys.readouterr().out)
-    assert any("声明了 [assert] 但没有 backtick 命令" in err for err in data["errors"])
+    assert any("声明了 [assert]" in err for err in data["errors"])
 
 
 def test_status_flags_duplicate_and_malformed_headings(project: Path, capsys):
@@ -729,3 +729,137 @@ def test_done_message_does_not_overclaim_quality(project: Path, capsys):
     assert run(project, "done", "demo", "--slice", "S-002") == 0
     out = capsys.readouterr().out
     assert "不代表体验质量达标" in out
+
+
+# --- obligation ---------------------------------------------------------------
+
+OBLIGATION_SLICE = """# S-001 验收义务
+
+## 交付面
+
+- backend-domain
+- web-ui
+- compliance
+
+## 验收
+
+AC-1
+
+## 验证面
+
+- [assert][backend-domain] AC-1·金额非法: 提交金额≤0 → 422 且不落库
+- [assert][web-ui] AC-1·记账流: 浏览器 3 步内记一笔
+- [judge][web-ui] AC-ui·视觉: 报表页可读、无 AI 味
+- [human][compliance] AC-合规·文案: 法务签收
+"""
+
+
+def test_obligation_format_parsed(project: Path, capsys):
+    single_slice_task(project, "### [ ] S-001 验收义务", OBLIGATION_SLICE)
+    assert run(project, "status", "demo", "--json") == 0
+    data = json.loads(capsys.readouterr().out)
+    checks = {c["obligation_id"]: c for c in data["slices"][0]["checks"]}
+    assert checks["AC-1·金额非法"]["kind"] == "assert"
+    assert checks["AC-1·金额非法"]["surfaces"] == ["backend-domain"]
+    assert checks["AC-1·金额非法"]["target"] == "提交金额≤0 → 422 且不落库"
+    # AC-N slug 整串保留，helper 不特殊解析 AC
+    assert "AC-1·金额非法" in checks
+    assert checks["AC-ui·视觉"]["kind"] == "judge"
+    assert checks["AC-合规·文案"]["kind"] == "human"
+
+
+def test_obligation_assert_without_command_or_colon_broken(project: Path, capsys):
+    slice_md = (
+        "# S-001 坏义务\n\n## 交付面\n\n- backend-domain\n\n## 验收\n\nAC-1\n\n## 验证面\n\n"
+        "- [assert][backend-domain] 跑一下测试\n"
+    )
+    single_slice_task(project, "### [ ] S-001 坏义务", slice_md)
+    assert run(project, "status", "demo", "--json") == 1
+    data = json.loads(capsys.readouterr().out)
+    assert any("声明了 [assert]" in err for err in data["errors"])
+
+
+def test_obligation_empty_id_broken(project: Path, capsys):
+    # ": 行为" 首字符是冒号，OBLIGATION_RE 不匹配 → 走 assert broken（无 obligation 也无 backtick 命令）
+    slice_md = (
+        "# S-001 空id\n\n## 交付面\n\n- backend-domain\n\n## 验收\n\nAC-1\n\n## 验证面\n\n"
+        "- [assert][backend-domain] : 行为描述\n"
+    )
+    single_slice_task(project, "### [ ] S-001 空id", slice_md)
+    assert run(project, "status", "demo", "--json") == 1
+    data = json.loads(capsys.readouterr().out)
+    assert any("声明了 [assert]" in err for err in data["errors"])
+
+
+def test_run_check_obligation_binds_id(project: Path, capsys):
+    single_slice_task(project, "### [ ] S-001 验收义务", OBLIGATION_SLICE)
+    assert run(
+        project, "run-check", "demo", "--slice", "S-001",
+        "--obligation", "AC-1·金额非法", "--", "test", "0", "-eq", "0",
+    ) == 0
+    rec = _latest_record(project, "demo", "S-001")
+    assert rec["kind"] == "assert"
+    assert rec["obligation_id"] == "AC-1·金额非法"
+    assert rec["command"] == "test 0 -eq 0"
+    assert rec["status"] == "passed"
+
+
+def test_run_check_obligation_unknown_rejected(project: Path, capsys):
+    single_slice_task(project, "### [ ] S-001 验收义务", OBLIGATION_SLICE)
+    assert run(
+        project, "run-check", "demo", "--slice", "S-001",
+        "--obligation", "不存在的义务", "--", "test", "0", "-eq", "0",
+    ) == 1
+    assert "未声明" in capsys.readouterr().err
+
+
+def test_run_check_smoke_blocked_for_non_compliance_obligation(project: Path, capsys):
+    slice_md = (
+        "# S-001 烟雾义务\n\n## 交付面\n\n- backend-domain\n\n## 验收\n\nAC\n\n## 验证面\n\n"
+        "- [assert][backend-domain] obl-x: 验证余额\n"
+    )
+    single_slice_task(project, "### [ ] S-001 烟雾义务", slice_md)
+    code = run(
+        project, "run-check", "demo", "--slice", "S-001",
+        "--obligation", "obl-x", "--", "curl", "-s", "http://localhost/api",
+    )
+    assert code == 1
+    assert "烟雾命令不能兑现" in capsys.readouterr().err
+    ev = project / ".arbor" / "tasks" / "demo" / "evidence" / "S-001"
+    assert not list(ev.glob("*.json"))  # 硬挡，不落盘伪证据
+
+
+def test_run_check_smoke_allowed_for_compliance_obligation(project: Path, capsys):
+    slice_md = (
+        "# S-001 合规烟雾\n\n## 交付面\n\n- compliance\n\n## 验收\n\nAC\n\n## 验证面\n\n"
+        "- [assert][compliance] obl-c: 备案可达\n"
+    )
+    single_slice_task(project, "### [ ] S-001 合规烟雾", slice_md)
+    assert run(
+        project, "run-check", "demo", "--slice", "S-001",
+        "--obligation", "obl-c", "--", "echo", "hi",
+    ) == 0
+    captured = capsys.readouterr()
+    assert "烟雾警告" in captured.err
+
+
+def test_done_gaps_report_obligation_id(project: Path, capsys):
+    single_slice_task(project, "### [ ] S-001 验收义务", OBLIGATION_SLICE)
+    assert run(project, "done", "demo", "--slice", "S-001") == 1
+    err = capsys.readouterr().err
+    assert "AC-1·金额非法" in err
+    assert "missing" in err
+
+
+def test_judge_obligation_records_verdict(project: Path, capsys):
+    single_slice_task(project, "### [ ] S-001 验收义务", OBLIGATION_SLICE)
+    code = run(
+        project, "run-check", "demo", "--slice", "S-001",
+        "--obligation", "AC-ui·视觉", "--verdict", "pass",
+        "--trace", "报表页截图，无 AI 味",
+    )
+    assert code == 0
+    rec = _latest_record(project, "demo", "S-001")
+    assert rec["kind"] == "judge"
+    assert rec["obligation_id"] == "AC-ui·视觉"
+    assert rec["verdict"] == "pass"

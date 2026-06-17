@@ -124,8 +124,8 @@ sdd-kit 多轮迭代后的病：
 ## 验收
 <!-- 对应哪几条 AC；必要时展开 GWT 细节与失败路径 -->
 ## 验证面
-- [assert][backend-domain] `npm test -- --filter domain`
-- [judge][web-ui] 浏览器 UI 旅程，按本文件 rubric 裁决
+- [assert][backend-domain] domain-ledger-平衡: 借贷必平，非法余额断言失败
+- [judge][web-ui] ui-journey: 浏览器 UI 旅程，按本文件 rubric 裁决
 ```
 
 ## helper 命令面（共 4 个 + wiki 家族）
@@ -142,7 +142,7 @@ sdd-kit 多轮迭代后的病：
 
 ## 防 AI 偷懒方案（分层）
 
-1. **写需求时就写预期证据**（brainstorm 层）：每条 AC 可证伪（GWT + 失败路径），每个 slice 声明交付面并把验证项标成 `[kind][surface]`。验收标准含糊是偷懒的第一入口。
+1. **写需求时就写预期证据**（brainstorm 层）：每条 AC 可证伪（GWT + 失败路径），每个 slice 声明交付面并把验证项写成验收义务 `[kind][surface] <obligation-id>: <可观测行为>`——一条义务对应一个可证伪维度，别用一条套件命令糊弄多个维度。验收标准含糊是偷懒的第一入口。
 2. **硬 gate，但有诚实的边界**（helper 层）：`seed status` 机械检查交付面是否被验证面覆盖；`seed done` 只认 `seed run-check` 落盘的证据——assert 需 exit 0、judge 需 verdict=pass、human 需签收记录；不存在 not_run / 默认跳过。**但 gate 只保证"声明的命令被执行并落盘"，不保证"功能语义正确"**：一条命令可能测试写假。所以语义可信度由交付面结构约束 + 三类验证词汇 + 烟雾嗅探 + 独立 judge + review 共同把住，而不是单压在 exit code 上。
 3. **hook 守底线**（hook 层）：拦截直接把 prd.md 的 `[ ]` 改成 `[x]`、手写 `evidence/`、破坏性命令（`rm -rf`、`git reset --hard`）。
 4. **生成者 ≠ 验证者**（review 层）：review 用干净上下文逐 AC 对账 diff，专查偷懒签名——弱化的断言、吞掉的异常、新增 `@ts-ignore` / `eslint-disable`、抄实现的假测试、悄悄收窄的 scope、**验证降级/交付面冒充**（可 assert 的写成 judge/human、后端测试冒充 web-ui/e2e、裸 curl 烟雾、judge 自评）。review 同时是 `[judge]` 项的独立裁判。
@@ -166,7 +166,7 @@ sdd-kit 多轮迭代后的病：
 
 ## 交付面 + 三类验证（封闭词汇）
 
-验证项有两个正交维度：`surface` 表示覆盖哪个交付面（backend-domain / api / web-ui / e2e / compliance / infra），`kind` 表示谁判定它对。这样避免把所有验证压成同一种形状，也避免“后端测试冒充整条 Web 产品交付”。
+验证项是验收义务：`[kind][surface] <obligation-id>: <可观测行为>`。`surface` 表示覆盖哪个交付面（backend-domain / api / web-ui / e2e / compliance / infra），`kind` 表示谁判定它对，obligation 是可证伪的可观测行为（命令不写在 slice，由 run-check `--obligation <id>` 绑定）。这样避免把所有验证压成同一种形状，也避免“后端测试冒充整条 Web 产品交付”。
 
 - **assert** — 命令本身就是会失败的断言（测试套件 / 契约回放 / Playwright spec）。gate = exit 0。有状态 API 流写成**自包含**集成测试（内部 setup→act→assert），而不是跨命令、靠 shell 变量串状态的 curl（seed 的 run-check 每次 check 是独立 subprocess，shell 变量不跨 check）。
 - **judge** — 难以机械断言的语义/UI/手感，由独立 agent 在 fresh session 按 AC rubric 裁决。gate = verdict=pass。judge 必须裁**渲染后的真实产物**（截图 / 实时页面 / 实际输出），不是裁代码；裁完用 `--artifact` 附上看过的截图/输出文件，helper 校验它真实存在（但不评判内容——评判是 skill 层动作，helper 不调用 LLM）。web-ui 的视觉裁决用高标、开放 rubric（整体质量 + 原创性，显式打低"通用 AI 味"），不是功能清单。
