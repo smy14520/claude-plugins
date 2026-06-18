@@ -2,7 +2,7 @@
 
 ## 交付面
 
-<!-- 闭集：backend-domain / api / web-ui / e2e / compliance / infra。
+<!-- 参考词汇表（非封闭）：backend-domain / api / web-ui / e2e / compliance / infra；项目可用任意面名（游戏 gameplay、CLI cli-dx 等）。
      只声明本 slice 实际交付的面；验证面必须覆盖这里每一项。 -->
 
 - backend-domain

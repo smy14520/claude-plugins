@@ -164,9 +164,9 @@ sdd-kit 多轮迭代后的病：
 
 外部佐证（Anthropic harness 研究的 generator/evaluator 视觉闭环与"惩罚 generic slop"的加权 rubric、Eval-Driven Development 的"测试当地板而非天花板"、对齐研究"不可验证目标只能 process oversight + 判断在环"、社区共识"地基严格 + 工艺自由"）都收敛到同一处：**正确性用 gate，体验质量用"地板 + 高标 judge 在环 + 生成自由 + 参考注入品味"。**
 
-## 交付面 + 三类验证（封闭词汇）
+## 交付面（自由）+ 三类验证（kind 封闭）
 
-验证项是验收义务：`[kind][surface] <obligation-id>: <可观测行为>`。`surface` 表示覆盖哪个交付面（backend-domain / api / web-ui / e2e / compliance / infra），`kind` 表示谁判定它对，obligation 是可证伪的可观测行为（命令不写在 slice，由 run-check `--obligation <id>` 绑定）。这样避免把所有验证压成同一种形状，也避免“后端测试冒充整条 Web 产品交付”。
+验证项是验收义务：`[kind][surface] <obligation-id>: <可观测行为>`。`surface` 表示覆盖哪个交付面（参考词汇表 backend-domain / api / web-ui / e2e / compliance / infra，项目可扩展；helper 只校验"声明面被覆盖"，面名字无关、不按面名规定 kind），`kind` 表示谁判定它对，obligation 是可证伪的可观测行为（命令不写在 slice，由 run-check `--obligation <id>` 绑定）。这样避免把所有验证压成同一种形状，也避免“后端测试冒充整条 Web 产品交付”。
 
 - **assert** — 命令本身就是会失败的断言（测试套件 / 契约回放 / Playwright spec）。gate = exit 0。有状态 API 流写成**自包含**集成测试（内部 setup→act→assert），而不是跨命令、靠 shell 变量串状态的 curl（seed 的 run-check 每次 check 是独立 subprocess，shell 变量不跨 check）。
 - **judge** — 难以机械断言的语义/UI/手感，由独立 agent 在 fresh session 按 AC rubric 裁决。gate = verdict=pass。judge 必须裁**渲染后的真实产物**（截图 / 实时页面 / 实际输出），不是裁代码；裁完用 `--artifact` 附上看过的截图/输出文件，helper 校验它真实存在（但不评判内容——评判是 skill 层动作，helper 不调用 LLM）。web-ui 的视觉裁决用高标、开放 rubric（整体质量 + 原创性，显式打低"通用 AI 味"），不是功能清单。

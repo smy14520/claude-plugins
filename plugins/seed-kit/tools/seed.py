@@ -57,8 +57,10 @@ KIND_PREFIX_RE = re.compile(
     re.DOTALL,
 )
 SLICES_SECTION = "## Slices"
-VALID_SURFACES = ("backend-domain", "api", "web-ui", "e2e", "compliance", "infra")
-VALID_SURFACE_SET = set(VALID_SURFACES)
+# 参考词汇表（非封闭）：常见 Web 产品的交付面示例。项目可用任意面名（游戏 gameplay、CLI cli-dx、
+# 数据管道 data-quality 等）——helper 只校验"声明的交付面被验证项覆盖"（集合关系，面名字无关），
+# 不限定面名，也不规定"该面该什么 kind"（交项目 .claude/rules + review）。
+SUGGESTED_SURFACES = ("backend-domain", "api", "web-ui", "e2e", "compliance", "infra")
 
 # On-disk evidence `kind` aliases for back-compat with records written before
 # the three-kind vocabulary existed.
@@ -116,19 +118,19 @@ def looks_like_smoke(command: str) -> tuple[bool, str]:
     return False, ""
 
 
-def _allowed_surfaces() -> str:
-    return ", ".join(VALID_SURFACES)
+def _suggested_surfaces() -> str:
+    return ", ".join(SUGGESTED_SURFACES)
 
 
 def _parse_surface_list(raw: str | None) -> tuple[list[str], str | None]:
+    # 交付面是项目自由标签——只去重 + 非空，不校验名字（面名该是什么由项目定）。
     if raw is None:
         return [], None
-    surfaces = [part.strip() for part in raw.split(",")]
     seen: set[str] = set()
     out: list[str] = []
-    for surface in surfaces:
-        if surface not in VALID_SURFACE_SET:
-            return [], f"未知验证面：{surface}；允许值：{_allowed_surfaces()}"
+    for surface in (part.strip() for part in raw.split(",")):
+        if not surface:
+            continue
         if surface in seen:
             return [], f"重复验证面：{surface}"
         seen.add(surface)
@@ -141,29 +143,14 @@ def _surface_coverage_error(check: Check, surface: str) -> str | None:
         return "验证项未标注该交付面"
     # 仅 legacy assert（命令在 target、obligation_id=None）parse 期能判 smoke；
     # 新格式 obligation assert 的命令在 run-check 时才绑定，parse 期跳过（run-check 期硬挡）。
+    # 不按面名规定 kind——"该面该用 assert/judge/human"是项目标准（写 .claude/rules），交 review 查"验证降级"。
     if check.kind == "assert" and check.obligation_id is None and looks_like_smoke(check.target)[0]:
         return "smoke assert 只证可达/可执行，不覆盖交付面"
-    if surface in ("backend-domain", "api", "infra", "e2e"):
-        if check.kind != "assert":
-            return f"{surface} 需要 [assert][{surface}]"
-        return None
-    if surface == "web-ui":
-        if check.kind in ("assert", "judge"):
-            return None
-        return "web-ui 需要 [assert][web-ui] 或 [judge][web-ui]"
-    if surface == "compliance":
-        return None
-    return f"未知交付面：{surface}"
+    return None
 
 
 def _coverage_requirement(surface: str) -> str:
-    if surface in ("backend-domain", "api", "infra", "e2e"):
-        return f"{surface} 需要非 smoke 的 [assert][{surface}]"
-    if surface == "web-ui":
-        return "web-ui 需要 [assert][web-ui] 或 [judge][web-ui]"
-    if surface == "compliance":
-        return "compliance 需要显式标注 [compliance] 的 assert/judge/human 验证项"
-    return f"未知交付面：{surface}"
+    return f"{surface} 需要至少一条非烟雾的验证项覆盖（该面该用 assert/judge/human 由项目标准定，见 .claude/rules）"
 
 
 def classify_check(item: str) -> tuple[str, str | None, list[str], str | None]:
@@ -355,8 +342,8 @@ def _load_slice_file(slices_dir: Path, sl: Slice) -> list[str]:
             if not is_list or (delivery_base_indent is not None and indent > delivery_base_indent):
                 continue
             surface = normalize_text(stripped[2:].strip())
-            if surface not in VALID_SURFACE_SET:
-                errors.append(f"{rel} 交付面未知：{surface}；允许值：{_allowed_surfaces()}")
+            if not surface:
+                errors.append(f"{rel} 交付面不能为空")
             elif surface in delivery_seen:
                 errors.append(f"{rel} 交付面重复：{surface}")
             else:
@@ -379,9 +366,9 @@ def _load_slice_file(slices_dir: Path, sl: Slice) -> list[str]:
                 errors.append(f"{rel} 验证项 {target}：{item}")
             # "doc" → skip silently
     if not has_delivery:
-        errors.append(f"{rel} 缺少 `## 交付面` 段；声明 {_allowed_surfaces()} 中至少一个")
+        errors.append(f"{rel} 缺少 `## 交付面` 段；声明本 slice 实际交付的面（参考：{_suggested_surfaces()}）")
     elif not sl.delivery_surfaces:
-        errors.append(f"{rel} `## 交付面` 至少声明一个允许值：{_allowed_surfaces()}")
+        errors.append(f"{rel} `## 交付面` 至少声明一个交付面（参考：{_suggested_surfaces()}）")
     if not has_accept:
         errors.append(f"{rel} 缺少 `## 验收` 段")
     if not sl.checks:

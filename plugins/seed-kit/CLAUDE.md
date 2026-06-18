@@ -2,7 +2,7 @@
 
 ## 核心原则:机制在插件,标准在项目
 
-seed-kit 只提供**机制**(栈无关):验收义务 obligation(`[kind][surface] <id>: <行为>` + evidence 绑 obligation_id)、验证三 kind(assert/judge/human)、交付面闭集、正确性 gate、`seed` CLI。fan-out 评分循环是计划中的演进(未实装,当前用 `[judge]` 二值裁决)。
+seed-kit 只提供**机制**(栈无关):验收义务 obligation(`[kind][surface] <id>: <行为>` + evidence 绑 obligation_id)、验证三 kind(assert/judge/human)、交付面覆盖校验(面名字无关,非封闭)、正确性 gate、`seed` CLI。fan-out 评分循环是计划中的演进(未实装,当前用 `[judge]` 二值裁决)。
 
 **测试纪律 / 评分标准 / 品味 / 参考产品 / 设计语言 / 质量门槛**——这些是**标准**,住**项目**:测试纪律放 `.claude/rules/`(如 `testing.md`),品味/设计语言放 `DESIGN.md`,入口与 `@import` 在 `CLAUDE.md`,体验意图在 PRD 质量基线。**都不进插件**。
 

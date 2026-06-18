@@ -220,15 +220,29 @@ def test_status_flags_missing_delivery_surfaces_section(project: Path, capsys):
     assert any("缺少 `## 交付面`" in err for err in data["errors"])
 
 
-def test_status_flags_unknown_delivery_surface(project: Path, capsys):
+def test_arbitrary_surface_accepted(project: Path, capsys):
+    # 交付面是项目自由标签——非参考词汇的面（gameplay）也通过；helper 只校验声明面被覆盖。
     slice_md = (
-        "# S-001 坏交付面\n\n## 交付面\n\n- frontend\n\n## 验收\n\nAC-1\n\n## 验证面\n\n"
-        "- [judge][web-ui] UI 旅程\n"
+        "# S-001 自由面\n\n## 交付面\n\n- gameplay\n\n## 验收\n\nAC-1\n\n## 验证面\n\n"
+        "- [assert][gameplay] jump: 角色跳跃达到设定高度\n"
     )
-    single_slice_task(project, "### [ ] S-001 坏交付面", slice_md)
+    single_slice_task(project, "### [ ] S-001 自由面", slice_md)
+    assert run(project, "status", "demo", "--json") == 0
+    data = json.loads(capsys.readouterr().out)
+    assert data["errors"] == []
+    assert data["slices"][0]["delivery_surfaces"] == ["gameplay"]
+
+
+def test_arbitrary_surface_uncovered_reported(project: Path, capsys):
+    # 自由面同样受覆盖校验约束——声明 cli 但验证项没标它，报未覆盖（校验面名字无关）。
+    slice_md = (
+        "# S-001 漏自由面\n\n## 交付面\n\n- gameplay\n- cli\n\n## 验收\n\nAC-1\n\n## 验证面\n\n"
+        "- [assert][gameplay] jump: 跳跃达标\n"
+    )
+    single_slice_task(project, "### [ ] S-001 漏自由面", slice_md)
     assert run(project, "status", "demo", "--json") == 1
     data = json.loads(capsys.readouterr().out)
-    assert any("交付面未知：frontend" in err for err in data["errors"])
+    assert any("交付面 cli 未被有效验证覆盖" in err for err in data["errors"])
 
 
 def test_status_flags_uncovered_delivery_surface(project: Path, capsys):
@@ -254,15 +268,16 @@ def test_status_accepts_assert_covering_multiple_surfaces(project: Path, capsys)
     assert data["slices"][0]["checks"][0]["surfaces"] == ["backend-domain", "api"]
 
 
-def test_status_rejects_human_for_assertable_surface(project: Path, capsys):
+def test_surface_kind_not_enforced_by_helper(project: Path, capsys):
+    # helper 不按面名规定 kind——"该面该用 assert 还是 human"是项目标准，交 review 查"验证降级"。
     slice_md = (
-        "# S-001 降级\n\n## 交付面\n\n- api\n\n## 验收\n\nAC-1\n\n## 验证面\n\n"
-        "- [human][api] PM 看过接口正常\n"
+        "# S-001 kind 不由面定\n\n## 交付面\n\n- api\n\n## 验收\n\nAC-1\n\n## 验证面\n\n"
+        "- [human][api] pm-signoff: PM 确认接口可用\n"
     )
-    single_slice_task(project, "### [ ] S-001 降级", slice_md)
-    assert run(project, "status", "demo", "--json") == 1
+    single_slice_task(project, "### [ ] S-001 kind 不由面定", slice_md)
+    assert run(project, "status", "demo", "--json") == 0
     data = json.loads(capsys.readouterr().out)
-    assert any("api 需要 [assert][api]" in err for err in data["errors"])
+    assert data["errors"] == []
 
 
 def test_status_rejects_smoke_as_api_coverage(project: Path, capsys):

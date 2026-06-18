@@ -20,7 +20,7 @@
 
 ## 交付面 / 验证面
 
-每个 `slices/S-NNN.md` 必须先声明 `## 交付面`，闭集如下：
+每个 `slices/S-NNN.md` 必须先声明 `## 交付面`——本 slice 实际交付的面。下面是常见 Web 产品的**参考词汇表（非封闭）**，项目可用任意面名（游戏 `gameplay`、CLI `cli-dx`、数据管道 `data-quality` 等）：
 
 - `backend-domain` — 后端领域逻辑、模型、服务、聚合规则。
 - `api` — API 合同、认证/权限、请求响应与失败路径。
@@ -31,9 +31,9 @@
 
 `## 验证面` 里的每条验证项写成**验收义务（obligation）**：`[kind][surface] <obligation-id>: <可观测行为>`。kind 表示“谁判定它对”，surface 表示“覆盖哪个交付面”（可多个：`[assert][backend-domain,api]`）。obligation-id 是这条义务的 slug（可带 `AC-N` 标签作 review 对账线索，helper 不解析 AC 全集）；冒号后是**可观测行为**——能观察、能判定对错。命令**不**写在这里，由 impl 用 `seed run-check --obligation <id> -- <会失败的断言>` 执行并绑定到义务。一条义务对应一个可证伪维度，别用一条套件命令糊弄多个 AC 维度。
 
-覆盖规则：backend-domain / api / infra / e2e 需要非烟雾 `[assert]`；web-ui 可用非烟雾 `[assert]` 或 `[judge]`；compliance 可用 `[assert]` / `[judge]` / `[human]`。human 不能替代 backend-domain / api / web-ui / e2e / infra。**测试纪律与品味都是项目标准（分层见"原则"），gate 不按工具名判定覆盖——只挡烟雾命令，其它交 judge/review 语义层。**
+覆盖规则：helper **只校验"每个声明的交付面被至少一条验证项覆盖"**（集合关系，面名字无关——防漏覆盖/冒充，如声明 web-ui 却只标 backend-domain 的后端测试）。**helper 不按面名规定 kind**——"该面该用 assert 还是 judge/human"是项目标准（写 `.claude/rules`），交 review 查"验证降级"。烟雾命令仍由 helper 挡（见下）。
 
-覆盖要求：每个声明的交付面必须被至少一条合适 kind 的验证项覆盖（helper 强制）；且验证要真的触及 AC 声称的每个维度——别让一条线的通过冒充另一条线的覆盖（例：AC 含"正确路径 + 失败路径 + 边界"，只测正确路径不算整体已验证）。某维度不确定怎么验证时补 judge/human，不要默默漏掉。
+覆盖要求：每个声明的交付面必须被至少一条验证项覆盖（helper 强制，面名字无关）；且验证要真的触及 AC 声称的每个维度——别让一条线的通过冒充另一条线的覆盖（例：AC 含"正确路径 + 失败路径 + 边界"，只测正确路径不算整体已验证）。某维度不确定怎么验证时补 judge/human，不要默默漏掉。**helper 查不了"该声明却漏声明"**（如 AC 含 web-ui 但 slice 没声明它）——那是声明驱动的固有边界，靠 review 的产品级对账。
 
 ## 三类验证（封闭词汇）
 
