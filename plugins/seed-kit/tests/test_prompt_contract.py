@@ -18,7 +18,7 @@ class SeedPromptContractTests(unittest.TestCase):
         self.assertIn("[kind][surface]", text)
         self.assertIn("backend-domain", text)
         self.assertIn("web-ui", text)
-        self.assertIn("human 不能替代", text)
+        self.assertIn("human 覆盖可断言交付面是设计气味", text)
 
     def test_template_and_conventions_share_surface_vocabulary(self):
         template = self.read_plugin_file("templates", "slice.md")
@@ -66,17 +66,22 @@ class SeedPromptContractTests(unittest.TestCase):
         self.assertIn("参考", brainstorm)
         self.assertNotIn("必须带一条整体体验 judge", brainstorm)
 
-    def test_conventions_done_means_correct_not_quality(self):
+    def test_conventions_document_scoring_gate(self):
         conventions = self.read_plugin_file("skills", "references", "conventions.md")
-        self.assertIn("正确且不回归", conventions)
+        self.assertIn("单 judge scoring gate", conventions)
+        self.assertIn("--rubric", conventions)
+        self.assertIn("--score-file", conventions)
         self.assertIn("--artifact", conventions)
+        self.assertIn("fan-out", conventions)
+        self.assertIn("未实装", conventions)
 
-    def test_review_supports_three_modes(self):
+    def test_review_keeps_heavy_orchestration_optional(self):
         review = self.read_plugin_file("skills", "review", "SKILL.md")
-        # 整体审计自主路由三模式（subagent 默认 / agent team 多 lens 对抗 / workflow 多角度评分聚合）
-        self.assertIn("选模式", review)
-        for mode in ("subagent", "agent team", "workflow"):
-            self.assertIn(mode, review)
+        self.assertIn("默认在当前 review session 直接审计", review)
+        self.assertIn("subagent", review)
+        self.assertIn("用户明确要求", review)
+        self.assertNotIn("TeamCreate", review)
+        self.assertNotIn("TaskCompleted", review)
 
 
 if __name__ == "__main__":

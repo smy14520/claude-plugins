@@ -13,8 +13,9 @@
   seed 在 run-check 时*拒绝*这类命令；对 compliance 交付面则接受但警告——
   真正的验证需要会失败的断言命令。
 - `judge`  —— 由独立 agent（生成者 ≠ 验证者，详见 conventions）按 AC rubric 裁决。
-  gate：记录的 verdict == pass。helper 只记录/校验 verdict；裁决本身是 skill 层动作
-  （helper 永不调用 LLM）。
+  gate：记录的 verdict == pass；verdict 可由 legacy `--verdict` 给出，也可由
+  `--rubric + --score-file` 机械计算。helper 只记录/校验证据形状与计算结果；裁决本身
+  是 skill 层动作（helper 永不调用 LLM）。
 - `human`  —— 真人 stakeholder 签收（品味、合规、按定义无法自动化的事项）。
   gate：带 note + 签收人的记录。
 
@@ -27,6 +28,7 @@ from __future__ import annotations
 
 import argparse
 import datetime as _dt
+import hashlib
 import json
 import re
 import subprocess
@@ -446,6 +448,14 @@ def _record_matches_check(record: dict, rk: str, check: Check) -> bool:
     return rk == check.kind and record.get("item") == check.target
 
 
+def _judge_state_from_verdict(verdict: object) -> str | None:
+    if verdict == "pass":
+        return "passed"
+    if verdict == "fail":
+        return "failed"
+    return None
+
+
 def check_state(check: Check, records: list[dict]) -> str:
     """passed | failed | recorded | missing —— 基于最新的匹配记录。"""
     state = "missing"
@@ -456,15 +466,23 @@ def check_state(check: Check, records: list[dict]) -> str:
         if check.kind == "assert":
             state = "passed" if record.get("exit_code") == 0 else "failed"
         elif check.kind == "judge":
-            verdict = record.get("verdict")
-            if verdict == "pass":
-                state = "passed"
-            elif verdict == "fail":
-                state = "failed"
+            judge_state = _judge_state_from_verdict(record.get("verdict"))
+            if judge_state:
+                state = judge_state
         else:  # human
             if record.get("note"):
                 state = "recorded"
     return state
+
+
+def latest_matching_record(check: Check, records: list[dict]) -> dict | None:
+    """该 check 最新一条匹配 evidence（如有）。"""
+    latest = None
+    for record in records:
+        rk = _record_kind(record)
+        if _record_matches_check(record, rk, check):
+            latest = record
+    return latest
 
 
 def latest_judge_artifact(check: Check, records: list[dict]) -> str | None:
@@ -475,6 +493,119 @@ def latest_judge_artifact(check: Check, records: list[dict]) -> str | None:
         if rk == "judge" and _record_matches_check(record, rk, check) and record.get("verdict") == "pass":
             artifact = record.get("artifact")
     return artifact
+
+
+def _project_path(root: Path, value: str) -> Path:
+    path = Path(value)
+    return path if path.is_absolute() else root / path
+
+
+def _load_json_object(root: Path, value: str, label: str) -> tuple[Path, dict]:
+    path = _project_path(root, value)
+    if not path.is_file():
+        raise SeedError(f"{label} 指向的 JSON 文件不存在：{value}")
+    try:
+        data = json.loads(path.read_text(encoding="utf-8"))
+    except json.JSONDecodeError as exc:
+        raise SeedError(f"{label} 不是合法 JSON：{value}（{exc.msg}）") from exc
+    if not isinstance(data, dict):
+        raise SeedError(f"{label} 必须是 JSON object：{value}")
+    return path, data
+
+
+def _file_sha256(path: Path) -> str:
+    h = hashlib.sha256()
+    with path.open("rb") as fh:
+        for chunk in iter(lambda: fh.read(1024 * 1024), b""):
+            h.update(chunk)
+    return h.hexdigest()
+
+
+def _score_number(value: object, field: str) -> float:
+    if isinstance(value, bool) or not isinstance(value, (int, float)):
+        raise SeedError(f"{field} 必须是数字")
+    return float(value)
+
+
+def _compute_score_verdict(rubric: dict, score_doc: dict) -> tuple[str, dict]:
+    dimensions = rubric.get("dimensions")
+    if not isinstance(dimensions, dict) or not dimensions:
+        raise SeedError("rubric 必须包含非空 object 字段 dimensions")
+    scores = score_doc.get("scores")
+    if not isinstance(scores, dict):
+        raise SeedError("score-file 必须包含 object 字段 scores")
+
+    rubric_id = rubric.get("id")
+    score_rubric_id = score_doc.get("rubric_id")
+    if rubric_id is not None and not isinstance(rubric_id, str):
+        raise SeedError("rubric.id 必须是字符串")
+    if score_rubric_id is not None and not isinstance(score_rubric_id, str):
+        raise SeedError("score-file.rubric_id 必须是字符串")
+    if rubric_id and score_rubric_id and rubric_id != score_rubric_id:
+        raise SeedError(f"score-file.rubric_id={score_rubric_id} 与 rubric.id={rubric_id} 不一致")
+
+    scale = rubric.get("scale", {})
+    if scale is None:
+        scale = {}
+    if not isinstance(scale, dict):
+        raise SeedError("rubric.scale 必须是 object")
+    scale_min = _score_number(scale["min"], "rubric.scale.min") if "min" in scale else None
+    scale_max = _score_number(scale["max"], "rubric.scale.max") if "max" in scale else None
+    if scale_min is not None and scale_max is not None and scale_min > scale_max:
+        raise SeedError("rubric.scale.min 不能大于 rubric.scale.max")
+
+    unknown = sorted(set(scores) - set(dimensions))
+    if unknown:
+        raise SeedError("score-file 包含 rubric 未声明的维度：" + ", ".join(unknown))
+
+    total = 0.0
+    details: dict[str, dict] = {}
+    failed_dimensions: list[str] = []
+    for name, spec in dimensions.items():
+        if not isinstance(name, str) or not name:
+            raise SeedError("rubric.dimensions 的 key 必须是非空字符串")
+        if not isinstance(spec, dict):
+            raise SeedError(f"rubric.dimensions.{name} 必须是 object")
+        if "min" not in spec:
+            raise SeedError(f"rubric.dimensions.{name}.min 缺失")
+        minimum = _score_number(spec["min"], f"rubric.dimensions.{name}.min")
+        if name not in scores:
+            raise SeedError(f"score-file 缺少维度分数：{name}")
+        value = _score_number(scores[name], f"score-file.scores.{name}")
+        if scale_min is not None and value < scale_min:
+            raise SeedError(f"score-file.scores.{name} 小于 rubric.scale.min")
+        if scale_max is not None and value > scale_max:
+            raise SeedError(f"score-file.scores.{name} 大于 rubric.scale.max")
+        passed = value >= minimum
+        if not passed:
+            failed_dimensions.append(name)
+        total += value
+        details[name] = {"score": value, "min": minimum, "passed": passed}
+
+    average = total / len(dimensions)
+    aggregate = rubric.get("aggregate", {})
+    if aggregate is None:
+        aggregate = {}
+    if not isinstance(aggregate, dict):
+        raise SeedError("rubric.aggregate 必须是 object")
+    min_average = None
+    average_passed = True
+    if "min_average" in aggregate:
+        min_average = _score_number(aggregate["min_average"], "rubric.aggregate.min_average")
+        average_passed = average >= min_average
+    failed = list(failed_dimensions)
+    if not average_passed:
+        failed.append("__average__")
+    verdict = "pass" if not failed else "fail"
+    summary = {
+        "average": average,
+        "failed_dimensions": failed,
+        "dimensions": details,
+    }
+    if min_average is not None:
+        summary["min_average"] = min_average
+        summary["average_passed"] = average_passed
+    return verdict, summary
 
 
 # --- commands ---------------------------------------------------------------
@@ -515,9 +646,11 @@ def _slice_report(root: Path, task: str, sl: Slice) -> dict:
             if smoke:
                 entry["smoke"] = True
         if check.kind == "judge":
-            artifact = latest_judge_artifact(check, records)
-            if artifact:
-                entry["artifact"] = artifact
+            latest = latest_matching_record(check, records)
+            if latest:
+                for key in ("verdict", "artifact", "rubric", "score_file", "score_summary"):
+                    if key in latest:
+                        entry[key] = latest[key]
         checks.append(entry)
     return {
         "id": sl.id,
@@ -577,7 +710,7 @@ def cmd_status(root: Path, task: str | None, json_output: bool) -> int:
     if next_slice:
         print(f"next: {next_slice}")
     else:
-        print("全部 slice 通过正确性 gate（只保证正确且不回归，不代表体验质量达标；建议 review）")
+        print("全部 slice 的声明义务已过 gate（未声明维度仍需 review；质量没有上限）")
     return 0
 
 
@@ -625,6 +758,8 @@ def cmd_run_check(
     note: str | None,
     evidence: str | None,
     artifact: str | None,
+    rubric: str | None,
+    score_file: str | None,
     by: str | None,
     timeout: int,
 ) -> int:
@@ -633,8 +768,25 @@ def cmd_run_check(
 
     if mode == "judge":
         declared = _resolve_declared(sl, "judge", slice_id, obligation, judge_item)
-        if verdict not in ("pass", "fail"):
-            raise SeedError("judge 记录必须带 --verdict pass|fail")
+        scored = score_file is not None or rubric is not None
+        if scored:
+            if verdict is not None:
+                raise SeedError("scoring judge 的 verdict 由 --rubric + --score-file 计算，不能同时手写 --verdict")
+            if not rubric or not score_file:
+                raise SeedError("scoring judge 必须同时提供 --rubric 与 --score-file")
+            if not artifact:
+                raise SeedError("scoring judge 必须附 --artifact（评分必须基于真实产物）")
+            rubric_path, rubric_data = _load_json_object(root, rubric, "--rubric")
+            score_path, score_data = _load_json_object(root, score_file, "--score-file")
+            verdict, score_summary = _compute_score_verdict(rubric_data, score_data)
+        else:
+            if verdict not in ("pass", "fail"):
+                raise SeedError("judge 记录必须带 --verdict pass|fail，或使用 --rubric + --score-file")
+            score_summary = None
+            rubric_path = None
+            rubric_data = None
+            score_path = None
+            score_data = None
         if not trace:
             raise SeedError("judge 记录必须带 --trace（裁判依据/证据指针，例如 rubric 文件 + 截图/输出位置）")
         if verdict == "pass" and not artifact:
@@ -650,14 +802,22 @@ def cmd_run_check(
             "by": by or "independent-judge",
             "created_at": _now(),
         }
+        if scored:
+            record["verdict_source"] = "score-file"
+            record["rubric"] = rubric
+            record["rubric_sha256"] = _file_sha256(rubric_path)
+            if rubric_data and rubric_data.get("id"):
+                record["rubric_id"] = rubric_data["id"]
+            record["score_file"] = score_file
+            record["score_summary"] = score_summary
+            if isinstance(score_data, dict) and "summary" in score_data:
+                record["score_summary_text"] = score_data["summary"]
         if grade:
             record["grade"] = grade
         if note:
             record["note"] = note
         if artifact:
-            art_path = Path(artifact)
-            if not art_path.is_absolute():
-                art_path = root / artifact
+            art_path = _project_path(root, artifact)
             if not art_path.exists():
                 raise SeedError(
                     f"--artifact 指向的文件不存在：{artifact}"
@@ -762,7 +922,7 @@ def cmd_done(root: Path, task: str, slice_id: str) -> int:
     if remaining:
         print(f"next: {remaining[0]}")
     else:
-        print("全部 slice 通过正确性 gate。注意：gate 只保证正确且不回归，不代表体验质量达标——触发 review 做语义与质量对账。")
+        print("全部 slice 的声明义务已过 gate。注意：未声明维度仍需 review；质量没有上限。")
     return 0
 
 
@@ -791,8 +951,10 @@ def build_parser() -> argparse.ArgumentParser:
     rc_parser.add_argument("--slice", dest="slice_id", required=True)
     rc_parser.add_argument("--obligation", help="验证义务 id：绑到 slices/S-NNN.md 声明的 <obligation-id>；三 kind 共用，优先于 --judge/--human 与命令字面匹配")
     rc_parser.add_argument("--judge", help="[judge] 验证项原文。obligation 格式请改用 --obligation；由独立 agent 裁决后记录（详见 conventions）")
-    rc_parser.add_argument("--verdict", choices=["pass", "fail"], help="judge：裁决结果")
-    rc_parser.add_argument("--grade", help="judge：评分/等级（可选）")
+    rc_parser.add_argument("--verdict", choices=["pass", "fail"], help="judge：legacy 二值裁决结果；scoring judge 改用 --rubric + --score-file 计算")
+    rc_parser.add_argument("--grade", help="judge：评分/等级自由文本（可选备注，不参与 gate）")
+    rc_parser.add_argument("--rubric", help="judge scoring gate：项目提供的机器可读 rubric JSON")
+    rc_parser.add_argument("--score-file", help="judge scoring gate：独立 judge 产出的结构化 score JSON")
     rc_parser.add_argument("--trace", help="judge：裁决依据/证据指针（rubric + 截图/输出位置）")
     rc_parser.add_argument("--human", help="[human] 验证项原文")
     rc_parser.add_argument("--manual", help="[manual] 验证项原文（旧式，等同 --human）")
@@ -832,8 +994,8 @@ def main(argv: list[str] | None = None) -> int:
                 mode, manual_item, judge_item = "judge", None, args.judge
             elif args.manual is not None or args.human is not None:
                 mode, manual_item, judge_item = "human", (args.manual or args.human), None
-            elif args.verdict is not None:
-                mode, manual_item, judge_item = "judge", None, None  # obligation judge（--obligation <id> --verdict）
+            elif args.verdict is not None or args.score_file is not None or args.rubric is not None:
+                mode, manual_item, judge_item = "judge", None, None  # obligation judge（--obligation <id> --verdict 或 --rubric + --score-file）
             elif args.obligation is not None and args.note:
                 mode, manual_item, judge_item = "human", None, None  # obligation human（--obligation <id> --note）
             else:
@@ -853,6 +1015,8 @@ def main(argv: list[str] | None = None) -> int:
                 note=args.note,
                 evidence=args.evidence,
                 artifact=args.artifact,
+                rubric=args.rubric,
+                score_file=args.score_file,
                 by=args.by,
                 timeout=args.timeout,
             )

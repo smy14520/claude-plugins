@@ -18,9 +18,9 @@ sdd-kit 多轮迭代暴露的弊病：
 第四条只敢说"正确性"，不敢说"质量"——这是刻意的。质量分两半，本性相反，要用相反的工具：
 
 - **可验证的一半**（余额算对、422、契约、转账不计收支）：能写出可证伪的 check，二值 gate（exit 0 / verdict=pass）正合适，约束越紧越好。
-- **不可验证的一半**（好不好用、顺不顺手、好不好看、优不优雅）：写不出能扛住优化压力的 check——这就是 Goodhart。二值 gate 用在这里不是"不够"，而是**有害**：它在通过线以上没有提升动力，把一条本无天花板的质量轴**封顶在最小可过**；而"按 spec 通过"又把模型从生成模式切到合规模式。二者叠加，产出一个能过测试却没法真实使用的"半成品"。
+- **不可验证的一半**（好不好用、顺不顺手、好不好看、优不优雅）：写不出能由命令直接断言的 check——这就是 Goodhart。二值功能 gate 用在这里不是"不够"，而是**有害**：它在通过线以上没有提升动力，把一条本无天花板的质量轴**封顶在最小可过**；而"按 spec 通过"又把模型从生成模式切到合规模式。二者叠加，产出一个能过测试却没法真实使用的"半成品"。
 
-所以这一半不能压在 gate 上，只能靠**测试当地板（保持绿、不回归）+ 一个感知真实产物、按高标打分的独立 judge 在环（生成模式自由发挥，用参考而非清单注入品味）**。这一环的"评判"本质上无法机械化——是问题的本性，不是 helper 没做到位。承认它、把它做顺，比假装 exit code 能替代它更稳。
+所以这一半不能交给 exit code 或插件内置审美，只能靠**测试当地板（保持绿、不回归）+ 一个感知真实产物、按项目 rubric 打分的独立 judge 在环**。这一环的"评判"本质上无法由 helper 机械化；但评判结果的结构、artifact 和 score/bar 通过关系可以由 helper 机械 gate。承认它、把它做顺，比假装 exit code 能替代它更稳。
 
 被反复证明失败的设计恰好是 sdd-kit 的病灶：过重状态机（"reinvented waterfall"）、过多命令的 context tax、依赖模型自觉的口头约束、大体量生成文档。
 
@@ -135,7 +135,8 @@ sdd-kit 多轮迭代暴露的弊病：
 | `seed new <task>` | 脚手架 `.arbor/tasks/<task>/`（prd.md + slices/S-001.md 模板） |
 | `seed status [<task>]` | 解析 prd.md 索引与 slices/，输出 slice 进度 / evidence 摘要 / 下一个未完成 slice，并机械校验索引行 ↔ slice 文件一致、交付面是否被验证面覆盖（断点续作与编排的唯一入口） |
 | `seed run-check <task> --slice S-NNN --obligation <id> -- <cmd>` | [assert] 真实执行命令，绑定到 obligation，落盘 exit_code + 输出 |
-| `seed run-check <task> --slice S-NNN --obligation <id> --verdict pass\|fail --trace "..." --artifact "..."` | [judge] 记录独立裁决（pass 必须 artifact） |
+| `seed run-check <task> --slice S-NNN --obligation <id> --verdict pass\|fail --trace "..." --artifact "..."` | [judge] legacy 二值裁决（pass 必须 artifact） |
+| `seed run-check <task> --slice S-NNN --obligation <id> --rubric <rubric.json> --score-file <score.json> --trace "..." --artifact "..."` | [judge] scoring gate：helper 读取项目 rubric 与裁判 score-file，计算 verdict |
 | `seed run-check <task> --slice S-NNN --obligation <id> --note "..." [--by "..."]` | [human] 记录人工签收 |
 | `seed done <task> --slice S-NNN` | gate：该 slice 文件声明的全部验证项都有 passed / 已记录证据，且结构校验通过 → 由 helper 勾选索引 checkbox；否则拒绝并列出缺口 |
 | `seed wiki index / search / collect / lint` | 沿用 sdd-wiki（已是零依赖独立模块） |
@@ -145,7 +146,7 @@ sdd-kit 多轮迭代暴露的弊病：
 ## 防 AI 偷懒方案（分层）
 
 1. **写需求时就写预期证据**（brainstorm 层）：每条 AC 可证伪（GWT + 失败路径），每个 slice 声明交付面并把验证项写成验收义务 `[kind][surface] <obligation-id>: <可观测行为>`——一条义务对应一个可证伪维度，不要用一条套件命令覆盖多个维度。验收标准含糊是偷懒的第一入口。
-2. **硬 gate，但有诚实的边界**（helper 层）：`seed status` 机械检查交付面是否被验证面覆盖；`seed done` 只认 `seed run-check` 落盘的证据——assert 需 exit 0、judge 需 verdict=pass、human 需签收记录；不存在 not_run / 默认跳过。**但 gate 只保证"声明的命令被执行并落盘"，不保证"功能语义正确"**：一条命令可能测试写假。所以语义可信度由交付面结构约束 + 三类验证词汇 + 烟雾嗅探 + 独立 judge + review 共同把住，而不是单压在 exit code 上。
+2. **硬 gate，但有诚实的边界**（helper 层）：`seed status` 机械检查交付面是否被验证面覆盖；`seed done` 只认 `seed run-check` 落盘的证据——assert 需 exit 0、judge 需 verdict=pass（legacy 手写或 scoring gate 计算）、human 需签收记录；不存在 not_run / 默认跳过。**但 gate 只保证 evidence 形状与结果达标，不保证语义正确**：一条命令可能测试写假，评分也可能误判。所以语义可信度由交付面结构约束 + 三类验证词汇 + 烟雾嗅探 + 独立 judge + artifact + review 共同把住，而不是单压在 exit code 或分数上。
 3. **hook 守底线**（hook 层）：拦截直接把 prd.md 的 `[ ]` 改成 `[x]`、手写 `evidence/`、破坏性命令（`rm -rf`、`git reset --hard`）。
 4. **生成者 ≠ 验证者**（review 层）：review 用干净上下文逐 AC 对账 diff，专查偷懒签名——弱化的断言、吞掉的异常、新增 `@ts-ignore` / `eslint-disable`、抄实现的假测试、悄悄收窄的 scope、**验证降级 / 交付面冒充**（可 assert 的写成 judge / human、后端测试冒充 web-ui / e2e、裸 curl 烟雾、judge 自评）。review 同时是 `[judge]` 项的独立裁判。
 5. **小步 + 代码即进度**（流程层）：一次一个 slice，slice 完成即提示用户 commit；上下文污染时随时可以开新会话从 `seed status` 续作，不依赖会话记忆。
@@ -160,18 +161,18 @@ sdd-kit 多轮迭代暴露的弊病：
 
 蒙混能靠机制治；诚实地最小满足不能，要换范式：
 
-- **测试是地板，不是完成定义。** impl 的目标是"在地板保持绿的前提下做到可交付品质"，不是"把测试跑绿就停"。`seed done` 只代表**正确且不回归**，**不代表好**；一块全绿看板不等于质量达标。
-- **不可验证质量靠"judge 在环"，且 judge 必须看真实产物。** web-ui 这类面用 render→截图→独立视觉 judge 按高标裁决→打回重做的循环（generator/evaluator）。judge 裁的是渲染出来的东西、不是代码；评分权重压在整体设计质量与原创性上，显式压低"通用 AI 味"。judge 用 `--artifact` 附上它实际看过的截图，helper 校验该文件真实存在。
-- **用参考注入品味，不用清单。** 参考产品 / 设计语言 / "感觉像 X" 传递的是丰富先验，把 agent 从"品味的发明者"降为"翻译者"；清单每加一条都在窄化。质量基线写进 brainstorm 的 PRD 与持久层，不逐 slice 叠加。
+- **测试是地板，不是完成定义。** impl 的目标是"在地板保持绿的前提下做到可交付品质"，不是"把测试跑绿就停"。`seed done` 代表声明义务已过 gate；若声明了 scoring judge，也代表该义务达到项目 rubric，但不代表未声明维度或整体品味没有上限。
+- **不可验证质量靠"judge 在环"，且 judge 必须看真实产物。** 评判本身不由 helper 机械化；helper 只校验独立 judge 的 artifact、rubric/score-file 形状，并按项目门槛计算 verdict。评分维度、bar、参考来自项目，插件不内置审美。
+- **用参考注入品味，不用插件清单。** 参考产品 / 设计语言 / "感觉像 X" 传递的是丰富先验，把 agent 从"品味的发明者"降为"翻译者"；这些标准写进项目 PRD / DESIGN / rules，不写死在 seed-kit。
 
-外部佐证（Anthropic harness 研究的 generator/evaluator 视觉闭环与"惩罚 generic slop"的加权 rubric、Eval-Driven Development 的"测试当地板而非天花板"、对齐研究"不可验证目标只能 process oversight + 判断在环"、社区共识"地基严格 + 工艺自由"）都收敛到同一处：**正确性用 gate，体验质量用"地板 + 高标 judge 在环 + 生成自由 + 参考注入品味"。**
+外部佐证（Anthropic harness 的 generator/evaluator 视觉闭环、Eval-Driven Development 的"测试当地板而非天花板"、对齐研究"不可验证目标需要 process oversight + 判断在环"、社区共识"地基严格 + 工艺自由"）都收敛到同一处：**正确性用断言 gate，体验质量用项目 rubric + 独立 judge scoring gate + artifact。**
 
 ## 交付面（自由）+ 三类验证（kind 封闭）
 
 验证项是验收义务：`[kind][surface] <obligation-id>: <可观测行为>`。`surface` 表示覆盖哪个交付面（参考词汇表 backend-domain / api / web-ui / e2e / compliance / infra，项目可扩展；helper 只校验"声明面被覆盖"，面名字无关、不按面名规定 kind），`kind` 表示谁判定它对，obligation 是可证伪的可观测行为（命令不写在 slice，由 run-check `--obligation <id>` 绑定）。这样避免把所有验证压成同一种形状，也避免“后端测试冒充整条 Web 产品交付”。
 
 - **assert** — 命令本身就是会失败的断言（测试套件 / 契约回放 / Playwright spec）。gate = exit 0。有状态 API 流写成**自包含**集成测试（内部 setup→act→assert），而不是跨命令、靠 shell 变量串状态的 curl（seed 的 run-check 每次 check 是独立 subprocess，shell 变量不跨 check）。
-- **judge** — 难以机械断言的语义 / UI / 手感，由独立 agent（生成者≠验证者，详见 conventions）按 AC rubric 裁决。gate = verdict=pass。judge 必须裁**渲染后的真实产物**（截图 / 实时页面 / 实际输出），不是裁代码；裁完用 `--artifact` 附上看过的截图 / 输出文件，helper 校验它真实存在（但不评判内容——评判是 skill 层动作，helper 不调用 LLM）。web-ui 的 judge 用高标、开放 rubric（整体质量 + 原创性，显式压低"通用 AI 味"），不是功能清单。
+- **judge** — 难以机械断言的语义 / UI / 手感，由独立上下文的裁判（生成者≠验证者，详见 conventions）按项目 rubric 裁决。gate = verdict=pass；verdict 可由 legacy `--verdict` 给出，也可由 helper 根据 `--rubric + --score-file` 计算。judge 必须裁**真实产物**（截图 / 实时页面 / 实际输出），不是裁代码；helper 只校验 artifact 存在和评分证据形状，不调用 LLM、不解释品味。
 - **human** — 真人 stakeholder 签收，限 compliance 等本质不可自动化交付面。gate = 签收记录。
 
 原则：assert 优先，能用 judge 就不要叠加 human；human 覆盖可断言交付面是设计气味，但 helper 不机械禁止，由项目规则与 review 查验证降级。一个 slice 只能 `[human][compliance]` 验证是设计气味。外部调研（Playwright MCP + Test Agents、Pact/WireMock 契约与录制回放、LLM-as-a-Judge、spec-kit 的 [NEEDS CLARIFICATION]）都指向同一个分层：**能机械断言的先机械断言，到不了顶的才上独立裁判，裁判也覆盖不了的才上人**。

@@ -583,6 +583,41 @@ def _latest_record(root: Path, task: str, slice_id: str) -> dict:
     return json.loads(sorted(ev.glob("*.json"))[-1].read_text(encoding="utf-8"))
 
 
+def _write_rubric_and_score(
+    root: Path,
+    *,
+    scores: dict[str, float],
+    dimensions: dict[str, float] | None = None,
+    min_average: float | None = None,
+    rubric_id: str = "web-ui-quality",
+) -> tuple[str, str]:
+    dimensions = dimensions or {
+        "information_hierarchy": 3,
+        "visual_consistency": 3,
+        "empty_error_states": 3,
+    }
+    rubric = {
+        "id": rubric_id,
+        "scale": {"min": 0, "max": 5},
+        "dimensions": {name: {"min": minimum} for name, minimum in dimensions.items()},
+    }
+    if min_average is not None:
+        rubric["aggregate"] = {"min_average": min_average}
+    score = {
+        "rubric_id": rubric_id,
+        "scores": scores,
+        "rationale": {name: "ok" for name in scores},
+        "summary": "judge summary",
+    }
+    (root / "rubrics").mkdir()
+    (root / "scores").mkdir()
+    rubric_path = root / "rubrics" / "web-ui-quality.json"
+    score_path = root / "scores" / "S-001-ui.json"
+    rubric_path.write_text(json.dumps(rubric), encoding="utf-8")
+    score_path.write_text(json.dumps(score), encoding="utf-8")
+    return "rubrics/web-ui-quality.json", "scores/S-001-ui.json"
+
+
 def test_classifies_three_kinds(project: Path, capsys):
     single_slice_task(project, "### [ ] S-001 三类验证", KINDS_SLICE)
     assert run(project, "status", "demo", "--json") == 0
@@ -737,7 +772,7 @@ def test_judge_artifact_missing_file_rejected(project: Path, capsys):
     assert not list(ev.glob("*.json"))  # 校验在落盘前，未写入伪证据
 
 
-def test_done_message_does_not_overclaim_quality(project: Path, capsys):
+def test_done_message_does_not_overclaim_unstated_quality(project: Path, capsys):
     make_task(project)
     run(project, "run-check", "demo", "--slice", "S-001", "--", "test", "0", "-eq", "0")
     run(project, "done", "demo", "--slice", "S-001")
@@ -747,7 +782,8 @@ def test_done_message_does_not_overclaim_quality(project: Path, capsys):
     capsys.readouterr()
     assert run(project, "done", "demo", "--slice", "S-002") == 0
     out = capsys.readouterr().out
-    assert "不代表体验质量达标" in out
+    assert "未声明维度仍需 review" in out
+    assert "质量没有上限" in out
 
 
 # --- obligation ---------------------------------------------------------------
@@ -898,3 +934,152 @@ def test_judge_pass_without_artifact_rejected(project: Path, capsys):
     assert "必须附 --artifact" in capsys.readouterr().err
     ev = project / ".arbor" / "tasks" / "demo" / "evidence" / "S-001"
     assert not list(ev.glob("*.json"))  # 无产物裁决被拦，不落盘
+
+
+def test_judge_score_file_computes_pass_and_done(project: Path, capsys):
+    single_slice_task(project, "### [ ] S-001 验收义务", OBLIGATION_SLICE)
+    run(project, "run-check", "demo", "--slice", "S-001", "--obligation", "AC-1·金额非法", "--", "test", "0", "-eq", "0")
+    run(project, "run-check", "demo", "--slice", "S-001", "--obligation", "AC-1·记账流", "--", "test", "0", "-eq", "0")
+    run(project, "run-check", "demo", "--slice", "S-001", "--obligation", "AC-合规·文案", "--note", "ok")
+    rubric, score_file = _write_rubric_and_score(
+        project,
+        scores={"information_hierarchy": 4, "visual_consistency": 3, "empty_error_states": 4},
+        min_average=3.5,
+    )
+    (project / "report.png").write_bytes(b"fake-png")
+    assert run(
+        project, "run-check", "demo", "--slice", "S-001",
+        "--obligation", "AC-ui·视觉",
+        "--rubric", rubric, "--score-file", score_file,
+        "--trace", "DESIGN.md + report.png",
+        "--artifact", "report.png",
+    ) == 0
+    rec = _latest_record(project, "demo", "S-001")
+    assert rec["verdict"] == "pass"
+    assert rec["status"] == "passed"
+    assert rec["verdict_source"] == "score-file"
+    assert rec["score_summary"]["failed_dimensions"] == []
+    assert rec["rubric_sha256"]
+    assert run(project, "done", "demo", "--slice", "S-001") == 0
+
+
+def test_judge_score_file_computes_fail_and_blocks_done(project: Path, capsys):
+    single_slice_task(project, "### [ ] S-001 验收义务", OBLIGATION_SLICE)
+    run(project, "run-check", "demo", "--slice", "S-001", "--obligation", "AC-1·金额非法", "--", "test", "0", "-eq", "0")
+    run(project, "run-check", "demo", "--slice", "S-001", "--obligation", "AC-1·记账流", "--", "test", "0", "-eq", "0")
+    run(project, "run-check", "demo", "--slice", "S-001", "--obligation", "AC-合规·文案", "--note", "ok")
+    rubric, score_file = _write_rubric_and_score(
+        project,
+        scores={"information_hierarchy": 4, "visual_consistency": 3, "empty_error_states": 2},
+        min_average=3.0,
+    )
+    (project / "report.png").write_bytes(b"fake-png")
+    assert run(
+        project, "run-check", "demo", "--slice", "S-001",
+        "--obligation", "AC-ui·视觉",
+        "--rubric", rubric, "--score-file", score_file,
+        "--trace", "DESIGN.md + report.png",
+        "--artifact", "report.png",
+    ) == 1
+    rec = _latest_record(project, "demo", "S-001")
+    assert rec["verdict"] == "fail"
+    assert rec["status"] == "failed"
+    assert rec["score_summary"]["failed_dimensions"] == ["empty_error_states"]
+    assert run(project, "done", "demo", "--slice", "S-001") == 1
+    assert "failed" in capsys.readouterr().err
+
+
+def test_judge_score_file_average_fail(project: Path, capsys):
+    single_slice_task(project, "### [ ] S-001 验收义务", OBLIGATION_SLICE)
+    rubric, score_file = _write_rubric_and_score(
+        project,
+        scores={"information_hierarchy": 3, "visual_consistency": 3, "empty_error_states": 3},
+        min_average=3.5,
+    )
+    (project / "report.png").write_bytes(b"fake-png")
+    assert run(
+        project, "run-check", "demo", "--slice", "S-001",
+        "--obligation", "AC-ui·视觉",
+        "--rubric", rubric, "--score-file", score_file,
+        "--trace", "DESIGN.md + report.png",
+        "--artifact", "report.png",
+    ) == 1
+    rec = _latest_record(project, "demo", "S-001")
+    assert "__average__" in rec["score_summary"]["failed_dimensions"]
+
+
+def test_judge_score_file_rejects_bad_inputs(project: Path, capsys):
+    single_slice_task(project, "### [ ] S-001 验收义务", OBLIGATION_SLICE)
+    rubric, score_file = _write_rubric_and_score(
+        project,
+        scores={"information_hierarchy": 4, "visual_consistency": 3},
+    )
+    (project / "report.png").write_bytes(b"fake-png")
+    assert run(
+        project, "run-check", "demo", "--slice", "S-001",
+        "--obligation", "AC-ui·视觉",
+        "--rubric", rubric, "--score-file", score_file,
+        "--trace", "DESIGN.md + report.png",
+        "--artifact", "report.png",
+    ) == 1
+    assert "缺少维度分数" in capsys.readouterr().err
+    ev = project / ".arbor" / "tasks" / "demo" / "evidence" / "S-001"
+    assert not list(ev.glob("*.json"))
+
+
+def test_judge_score_file_requires_rubric_artifact_and_no_manual_verdict(project: Path, capsys):
+    single_slice_task(project, "### [ ] S-001 验收义务", OBLIGATION_SLICE)
+    rubric, score_file = _write_rubric_and_score(
+        project,
+        scores={"information_hierarchy": 4, "visual_consistency": 3, "empty_error_states": 4},
+    )
+    assert run(
+        project, "run-check", "demo", "--slice", "S-001",
+        "--obligation", "AC-ui·视觉",
+        "--score-file", score_file,
+        "--trace", "missing rubric",
+        "--artifact", "report.png",
+    ) == 1
+    assert "--rubric" in capsys.readouterr().err
+    assert run(
+        project, "run-check", "demo", "--slice", "S-001",
+        "--obligation", "AC-ui·视觉",
+        "--rubric", rubric, "--score-file", score_file,
+        "--trace", "missing artifact",
+    ) == 1
+    assert "--artifact" in capsys.readouterr().err
+    (project / "report.png").write_bytes(b"fake-png")
+    assert run(
+        project, "run-check", "demo", "--slice", "S-001",
+        "--obligation", "AC-ui·视觉",
+        "--rubric", rubric, "--score-file", score_file,
+        "--verdict", "pass",
+        "--trace", "manual verdict",
+        "--artifact", "report.png",
+    ) == 1
+    assert "不能同时手写" in capsys.readouterr().err
+
+
+def test_status_reports_score_summary(project: Path, capsys):
+    single_slice_task(project, "### [ ] S-001 验收义务", OBLIGATION_SLICE)
+    rubric, score_file = _write_rubric_and_score(
+        project,
+        scores={"information_hierarchy": 4, "visual_consistency": 3, "empty_error_states": 2},
+    )
+    (project / "report.png").write_bytes(b"fake-png")
+    run(
+        project, "run-check", "demo", "--slice", "S-001",
+        "--obligation", "AC-ui·视觉",
+        "--rubric", rubric, "--score-file", score_file,
+        "--trace", "DESIGN.md + report.png",
+        "--artifact", "report.png",
+    )
+    capsys.readouterr()
+    assert run(project, "status", "demo", "--json") == 0
+    data = json.loads(capsys.readouterr().out)
+    check = next(c for c in data["slices"][0]["checks"] if c["obligation_id"] == "AC-ui·视觉")
+    assert check["verdict"] == "fail"
+    assert check["artifact"] == "report.png"
+    assert check["rubric"] == rubric
+    assert check["score_file"] == score_file
+    assert check["score_summary"]["failed_dimensions"] == ["empty_error_states"]
