@@ -604,11 +604,14 @@ def test_assert_prefix_runs_command(project: Path, capsys):
 
 def test_judge_pass_records_verdict(project: Path, capsys):
     single_slice_task(project, "### [ ] S-001 三类验证", KINDS_SLICE)
+    (project / "shots").mkdir()
+    (project / "shots" / "login.png").write_bytes(b"fake-png")
     code = run(
         project, "run-check", "demo", "--slice", "S-001",
         "--judge", "注册→登录 UI 旅程，按 rubrics/s-001.md",
         "--verdict", "pass",
         "--trace", "rubrics/s-001.md + shots/login.png",
+        "--artifact", "shots/login.png",
         "--by", "judge-agent-2",
     )
     assert code == 0
@@ -648,10 +651,12 @@ def test_judge_fail_blocks_done(project: Path, capsys):
 def test_human_signoff_satisfies_gate(project: Path, capsys):
     single_slice_task(project, "### [ ] S-001 三类验证", KINDS_SLICE)
     run(project, "run-check", "demo", "--slice", "S-001", "--", "test", "0", "-eq", "0")
+    (project / "shot.png").write_bytes(b"fake-png")
     run(
         project, "run-check", "demo", "--slice", "S-001",
         "--judge", "注册→登录 UI 旅程，按 rubrics/s-001.md",
         "--verdict", "pass", "--trace", "rubrics/s-001.md",
+        "--artifact", "shot.png",
     )
     assert run(
         project, "run-check", "demo", "--slice", "S-001", "--human",
@@ -868,13 +873,29 @@ def test_done_gaps_report_obligation_id(project: Path, capsys):
 
 def test_judge_obligation_records_verdict(project: Path, capsys):
     single_slice_task(project, "### [ ] S-001 验收义务", OBLIGATION_SLICE)
+    (project / "report.png").write_bytes(b"fake-png")
     code = run(
         project, "run-check", "demo", "--slice", "S-001",
         "--obligation", "AC-ui·视觉", "--verdict", "pass",
         "--trace", "报表页截图，无 AI 味",
+        "--artifact", "report.png",
     )
     assert code == 0
     rec = _latest_record(project, "demo", "S-001")
     assert rec["kind"] == "judge"
     assert rec["obligation_id"] == "AC-ui·视觉"
     assert rec["verdict"] == "pass"
+
+
+def test_judge_pass_without_artifact_rejected(project: Path, capsys):
+    # judge verdict=pass 必须附 --artifact（看真实产物），防空裁
+    single_slice_task(project, "### [ ] S-001 验收义务", OBLIGATION_SLICE)
+    code = run(
+        project, "run-check", "demo", "--slice", "S-001",
+        "--obligation", "AC-ui·视觉", "--verdict", "pass",
+        "--trace", "未附产物",
+    )
+    assert code == 1
+    assert "必须附 --artifact" in capsys.readouterr().err
+    ev = project / ".arbor" / "tasks" / "demo" / "evidence" / "S-001"
+    assert not list(ev.glob("*.json"))  # 空裁被拦，不落盘

@@ -159,7 +159,7 @@ sdd-kit 多轮迭代后的病：
 蒙混能靠机制治；诚实地最小满足不能，要换范式：
 
 - **测试是地板，不是完成定义。** impl 的目标是"在地板保持绿的前提下做到可交付品质"，不是"把测试弄绿就停"。`seed done` 只代表**正确且不回归**，**不代表好**；一块全绿看板不等于质量达标。
-- **不可验证质量靠"judge 在环"，且 judge 必须看真实产物。** web-ui 这类面用 render→截图→fresh-session 视觉 judge 按高标裁决→打回重做 的循环（generator/evaluator）。judge 裁的是渲染出来的东西、不是代码；评分权重压在整体设计质量与原创性上，显式打低"通用 AI 味"。judge 用 `--artifact` 附上它实际看过的截图，helper 校验该文件真实存在。
+- **不可验证质量靠"judge 在环"，且 judge 必须看真实产物。** web-ui 这类面用 render→截图→独立视觉 judge（agent team 的 reviewer 或 subagent）按高标裁决→打回重做 的循环（generator/evaluator）。judge 裁的是渲染出来的东西、不是代码；评分权重压在整体设计质量与原创性上，显式打低"通用 AI 味"。judge 用 `--artifact` 附上它实际看过的截图，helper 校验该文件真实存在。
 - **用参考注入品味，不用清单。** 参考产品 / 设计语言 / "感觉像 X" 传递的是丰富先验，把 agent 从"品味的发明者"降为"翻译者"；清单每加一条都在窄化。质量基线写进 brainstorm 的 PRD 与持久层，不逐 slice 堆。
 
 外部佐证（Anthropic harness 研究的 generator/evaluator 视觉闭环与"惩罚 generic slop"的加权 rubric、Eval-Driven Development 的"测试当地板而非天花板"、对齐研究"不可验证目标只能 process oversight + 判断在环"、社区共识"地基严格 + 工艺自由"）都收敛到同一处：**正确性用 gate，体验质量用"地板 + 高标 judge 在环 + 生成自由 + 参考注入品味"。**
@@ -169,7 +169,7 @@ sdd-kit 多轮迭代后的病：
 验证项是验收义务：`[kind][surface] <obligation-id>: <可观测行为>`。`surface` 表示覆盖哪个交付面（参考词汇表 backend-domain / api / web-ui / e2e / compliance / infra，项目可扩展；helper 只校验"声明面被覆盖"，面名字无关、不按面名规定 kind），`kind` 表示谁判定它对，obligation 是可证伪的可观测行为（命令不写在 slice，由 run-check `--obligation <id>` 绑定）。这样避免把所有验证压成同一种形状，也避免“后端测试冒充整条 Web 产品交付”。
 
 - **assert** — 命令本身就是会失败的断言（测试套件 / 契约回放 / Playwright spec）。gate = exit 0。有状态 API 流写成**自包含**集成测试（内部 setup→act→assert），而不是跨命令、靠 shell 变量串状态的 curl（seed 的 run-check 每次 check 是独立 subprocess，shell 变量不跨 check）。
-- **judge** — 难以机械断言的语义/UI/手感，由独立 agent 在 fresh session 按 AC rubric 裁决。gate = verdict=pass。judge 必须裁**渲染后的真实产物**（截图 / 实时页面 / 实际输出），不是裁代码；裁完用 `--artifact` 附上看过的截图/输出文件，helper 校验它真实存在（但不评判内容——评判是 skill 层动作，helper 不调用 LLM）。web-ui 的视觉裁决用高标、开放 rubric（整体质量 + 原创性，显式打低"通用 AI 味"），不是功能清单。
+- **judge** — 难以机械断言的语义/UI/手感，由独立 agent（agent team 的 reviewer 或 subagent，生成者≠验证者）按 AC rubric 裁决。gate = verdict=pass。judge 必须裁**渲染后的真实产物**（截图 / 实时页面 / 实际输出），不是裁代码；裁完用 `--artifact` 附上看过的截图/输出文件，helper 校验它真实存在（但不评判内容——评判是 skill 层动作，helper 不调用 LLM）。web-ui 的视觉裁决用高标、开放 rubric（整体质量 + 原创性，显式打低"通用 AI 味"），不是功能清单。
 - **human** — 真人 stakeholder 签收，限 compliance 等本质不可自动化交付面。gate = 签收记录。
 
 原则：assert 优先，能 judge 就别堆 human；human 不能替代 backend-domain / api / web-ui / e2e / infra。一个 slice 只能 `[human][compliance]` 验证是设计气味。外部调研（Playwright MCP + Test Agents、Pact/WireMock 契约与录制回放、LLM-as-a-Judge、spec-kit 的 [NEEDS CLARIFICATION]）都指向同一个分层：**能机械断言的先机械断言，到不了顶的才上独立裁判，裁判也覆盖不了的才上人**。

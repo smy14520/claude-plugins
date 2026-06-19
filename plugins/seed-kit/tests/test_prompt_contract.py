@@ -54,8 +54,10 @@ class SeedPromptContractTests(unittest.TestCase):
         impl = self.read_plugin_file("skills", "impl", "SKILL.md")
         self.assertIn("地板", impl)
         self.assertIn("可交付品质", impl)
-        # web-ui 视觉裁决看真实产物并附 --artifact
-        self.assertIn("--artifact", impl)
+        # judge 归 review（生成者≠验证者）：impl 不落 judge，review 附 --artifact 看真实产物
+        self.assertNotIn("--artifact", impl)
+        review = self.read_plugin_file("skills", "review", "SKILL.md")
+        self.assertIn("--artifact", review)
 
     def test_brainstorm_captures_quality_baseline_by_reference(self):
         brainstorm = self.read_plugin_file("skills", "brainstorm", "SKILL.md")
@@ -68,6 +70,13 @@ class SeedPromptContractTests(unittest.TestCase):
         conventions = self.read_plugin_file("skills", "references", "conventions.md")
         self.assertIn("正确且不回归", conventions)
         self.assertIn("--artifact", conventions)
+
+    def test_review_supports_three_modes(self):
+        review = self.read_plugin_file("skills", "review", "SKILL.md")
+        # 整体审计自主路由三模式（subagent 默认 / agent team 多 lens 对抗 / workflow 多角度评分聚合）
+        self.assertIn("选模式", review)
+        for mode in ("subagent", "agent team", "workflow"):
+            self.assertIn(mode, review)
 
 
 if __name__ == "__main__":

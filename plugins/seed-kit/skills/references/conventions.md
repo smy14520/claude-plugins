@@ -40,7 +40,7 @@
 每条验证项按“谁判定它对”归入一类，写在 `slices/S-NNN.md` 的 `## 验证面`：
 
 - `[assert][surface] <id>: <行为>` — 命令本身是**会失败的断言**（测试套件 / 契约回放 / Playwright spec）。impl 用 `--obligation <id> -- <命令>` 执行，exit 0 才 passed。**写法**：有状态 API 流写成一个自包含集成测试（内部 setup→act→assert），不要写一串跨命令、靠 shell 变量串状态的 curl；第三方/不可达边界用录制好的 fixture / 契约断言，不静默跳过。
-- `[judge][surface] <id>: <行为>` — 由**独立 agent**（fresh session，生成者≠验证者）裁决，落盘 verdict。judge 看**渲染后的真实产物**（截图/实时页面/实际输出）、不看代码；裁完用 `--obligation <id> --verdict pass|fail --artifact <文件>` 附上看过的截图/输出，helper 校验它真实存在。web-ui 整体体验用高标开放 rubric（设计质量+原创性，打低“通用 AI 味”），不是功能清单。
+- `[judge][surface] <id>: <行为>` — 由**独立 agent** 裁决（agent team 的 reviewer / subagent / workflow review agent——独立 context，未被 impl 推理污染，生成者≠验证者；选哪种见 review SKILL），落盘 verdict。judge 看**渲染后的真实产物**（截图/实时页面/实际输出）、不看代码；裁完用 `--obligation <id> --verdict pass|fail --artifact <文件>` 附上看过的截图/输出，helper 校验它真实存在。web-ui 整体体验用高标开放 rubric（设计质量+原创性，打低“通用 AI 味”），不是功能清单。其余文档/skill 提 judge 裁决者时引用此处，不重复执行细节。
 - `[human][compliance] <id>: <行为>` — **真人 stakeholder** 签收，仅用于合规/备案等不可自动化交付面。
 
 原则：**assert 优先**——能用断言就别用 judge，能 judge 就别堆 human。一个 slice 只能 `[human][compliance]` 验证是设计气味，brainstorm 要显式标记并说明理由。
@@ -55,7 +55,7 @@
 
 - **触发（方向）**：impl 把一个 slice 的 assert 跑绿后，看它的 `## 交付面`——每个**可感面**跑一次质量评分。trigger 在 slice（`## 交付面`），不由 impl 自行决定做不做。
 - **标准从项目**：打哪些维度、bar、参考什么产品——读项目 `DESIGN.md` / PRD 质量基线。**插件不硬编码任何栈的审美/质量标准。**
-- **机制（方向，未实装）**：每个面派 fresh-context 独立 scorer，感知真实产物 → 按项目标准打分 → 不到 bar 回灌 impl 改 → 重打（bounded）。落盘 artifact 待定（候选：复用 `review.md` 追加；新增 `quality.md` 目前无 producer/consumer，**未引入**）。
+- **机制（方向，未实装）**：每个面派独立 scorer，感知真实产物 → 按项目标准打分 → 不到 bar 回灌 impl 改 → 重打（bounded）。落盘 artifact 待定（候选：复用 `review.md` 追加；新增 `quality.md` 目前无 producer/consumer，**未引入**）。
 - **通用地板（已适用；是体验质量纪律，区别于 gate 管的正确性；不是品味）**：项目无 `DESIGN.md` 时的兜底——不交占位文案/Lorem/裸 HTML、空/加载/错误态齐全、不崩、没有明显"通用 AI 味"（如紫渐变白卡）。写成**方向 + 反例**，不是清单。品味（参考产品/设计语言）仍靠项目或 AI 在地板之上自由发挥。
 
 一句话：当前 = gate（正确性）+ judge 在环 + 通用地板；fan-out 评分循环是计划中的演进，**未实装**。
@@ -80,6 +80,6 @@ seed wiki index|search|collect|lint              # .wiki/ 工具
 
 - `run-check` 按 `--obligation <id>` 把证据绑到 slice 声明的义务（三 kind 共用）；obligation 格式下命令不写在 slice，由 impl 绑定。烟雾命令（裸 `curl`/`echo`）对**非 compliance 交付面**硬挡（拒绝落盘），compliance 面允许但警告。
 - `done` 只认落盘证据：assert 项需 passed（exit 0），judge 项需 verdict=pass，human 项需 note + 签收记录；缺口按 `[kind]` 逐条列出。
-- judge 必须由独立 session 的 agent 裁决后记录——helper 只落盘/校验 verdict，不调用 LLM。
+- judge 必须由独立 agent（agent team 的 reviewer 或 subagent）裁决后记录——helper 只落盘/校验 verdict，不调用 LLM。
 - `done` 勾选 = **正确且不回归**，不代表体验质量达标。测试是地板不是天花板：可验证的正确性靠 gate，不可验证的体验质量靠“独立高标 judge 看真实产物在环 + 生成自由 + 参考注入品味”，gate 不保证后者。
 - 不要手工编辑 checkbox 或 `evidence/`（会被 hook 拦截）。

@@ -16,8 +16,8 @@ trustworthy, and who/what asserts it":
   only proves "it ran", not "it is correct"; seed flags such shapes as a
   *smoke warning* (soft, never blocks) — real verification needs an asserting
   command.
-- `judge`  — assessed by an independent agent (生成者 ≠ 验证者) against an
-  AC rubric, in a fresh session. Gate: a recorded verdict == pass. The helper
+- `judge`  — assessed by an independent agent (agent team reviewer / subagent;
+  生成者 ≠ 验证者) against an AC rubric. Gate: a recorded verdict == pass. The helper
   only records/validates the verdict; the judging itself is a skill-layer
   action (the helper never calls an LLM).
 - `human`  — genuine stakeholder sign-off (taste, compliance, things that by
@@ -647,6 +647,8 @@ def cmd_run_check(
             raise SeedError("judge 记录必须带 --verdict pass|fail")
         if not trace:
             raise SeedError("judge 记录必须带 --trace（裁判依据/证据指针，例如 rubric 文件 + 截图/输出位置）")
+        if verdict == "pass" and not artifact:
+            raise SeedError("judge verdict=pass 必须附 --artifact（看过的截图/输出）——视觉裁决看真实产物，不看产物就 pass 是空裁")
         record = {
             "slice": slice_id,
             "kind": "judge",
@@ -798,7 +800,7 @@ def build_parser() -> argparse.ArgumentParser:
     rc_parser.add_argument("task")
     rc_parser.add_argument("--slice", dest="slice_id", required=True)
     rc_parser.add_argument("--obligation", help="验证义务 id：绑到 slices/S-NNN.md 声明的 <obligation-id>；三 kind 共用，优先于 --judge/--human/命令字面匹配")
-    rc_parser.add_argument("--judge", help="[judge] 验证项原文（legacy：obligation 格式改用 --obligation；由独立 agent 在 fresh session 裁决后记录）")
+    rc_parser.add_argument("--judge", help="[judge] 验证项原文（legacy：obligation 格式改用 --obligation；由独立 agent（agent team 的 reviewer 或 subagent）裁决后记录）")
     rc_parser.add_argument("--verdict", choices=["pass", "fail"], help="judge：裁决结果")
     rc_parser.add_argument("--grade", help="judge：评分/等级（可选）")
     rc_parser.add_argument("--trace", help="judge：裁决依据/证据指针（rubric + 截图/输出位置）")

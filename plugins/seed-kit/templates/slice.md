@@ -20,7 +20,7 @@
      `seed run-check --obligation <id> -- <会失败的断言命令>` 真实执行并绑定到义务。
   - [assert][backend-domain] <id>: <行为>  命令本身是会失败的断言（测试套件/契约回放/Playwright spec）。
           run-check 真实执行，exit 0 才 passed；裸 curl/echo 这类烟雾命令对非 compliance 面会被硬挡。
-  - [judge][web-ui] <id>: <行为>           由独立 agent（fresh session，生成者≠验证者）看渲染产物按 AC rubric
+  - [judge][web-ui] <id>: <行为>           由独立 agent（agent team 的 reviewer 或 subagent，生成者≠验证者）看渲染产物按 AC rubric
           裁决，用 `--obligation <id> --verdict pass|fail --trace ... --artifact <截图>` 落盘。
           web-ui 整体体验用高标开放 rubric（设计质量+原创性，打低“通用 AI 味”），非功能清单。
   - [human][compliance] <id>: <行为>        真人 stakeholder 签收（合规、备案、本质不可自动化），
