@@ -203,8 +203,7 @@ def test_status_flags_content_inside_slices_section(project: Path, capsys):
 
 
 def test_status_flags_no_recognized_check(project: Path, capsys):
-    # a vague, non-check line is tolerated as doc; the slice errors only because
-    # it ended up with zero real checks.
+    # 模糊的非验证行被当作 doc 容忍；slice 报错仅因为最终没有任何真正的验证项。
     slice_md = "# S-001 输出问候\n\n## 验收\n\nAC-1\n\n## 验证\n\n- 跑一下测试\n"
     single_slice_task(project, "### [ ] S-001 输出问候", slice_md)
     assert run(project, "status", "demo", "--json") == 1
@@ -269,7 +268,7 @@ def test_status_accepts_assert_covering_multiple_surfaces(project: Path, capsys)
 
 
 def test_surface_kind_not_enforced_by_helper(project: Path, capsys):
-    # helper 不按面名规定 kind——"该面该用 assert 还是 human"是项目标准，交 review 查"验证降级"。
+    # helper 不按面名规定 kind——"该面应使用 assert 还是 human"是项目标准，交 review 查"验证降级"。
     slice_md = (
         "# S-001 kind 不由面定\n\n## 交付面\n\n- api\n\n## 验收\n\nAC-1\n\n## 验证面\n\n"
         "- [human][api] pm-signoff: PM 确认接口可用\n"
@@ -358,9 +357,9 @@ def test_assert_allows_trailing_annotation(project: Path, capsys):
     data = json.loads(capsys.readouterr().out)
     check = data["slices"][0]["checks"][0]
     assert check["kind"] == "assert"
-    assert check["target"] == "test 0 -eq 0"  # annotation ignored for matching
+    assert check["target"] == "test 0 -eq 0"  # 尾部注释在匹配时被忽略
     assert check["surfaces"] == ["backend-domain"]
-    # run-check matches on the command, not the annotation
+    # run-check 按命令匹配，忽略尾部注释
     assert run(project, "run-check", "demo", "--slice", "S-001", "--", "test", "0", "-eq", "0") == 0
 
 
@@ -378,7 +377,7 @@ def test_verify_section_tolerates_prose_and_subbullets(project: Path, capsys):
     assert run(project, "status", "demo", "--json") == 0
     data = json.loads(capsys.readouterr().out)
     checks = data["slices"][0]["checks"]
-    # exactly two checks: the indented sub-bullets and prose are doc, not checks
+    # 正好两个 check：缩进的子项目和说明文字是文档，不是 check
     assert [(c["kind"]) for c in checks] == ["assert", "judge"]
     assert checks[0]["target"] == "php artisan test --filter=Foo"
 
@@ -475,7 +474,7 @@ def test_manual_records_evidence(project: Path, capsys):
     assert code == 0
     evidence = project / ".arbor" / "tasks" / "demo" / "evidence" / "S-002"
     data = json.loads(sorted(evidence.glob("*.json"))[0].read_text(encoding="utf-8"))
-    assert data["kind"] == "human"  # [manual] is a legacy alias for [human]
+    assert data["kind"] == "human"  # [manual] 是 [human] 的旧式别名
     assert data["status"] == "recorded"
 
 
@@ -800,7 +799,7 @@ def test_obligation_assert_without_command_or_colon_broken(project: Path, capsys
 
 
 def test_obligation_empty_id_broken(project: Path, capsys):
-    # ": 行为" 首字符是冒号，OBLIGATION_RE 不匹配 → 走 assert broken（无 obligation 也无 backtick 命令）
+    # ": 行为" 首字符是冒号，OBLIGATION_RE 不匹配 → 走 assert broken（无 obligation 也无行首反引号命令）
     slice_md = (
         "# S-001 空id\n\n## 交付面\n\n- backend-domain\n\n## 验收\n\nAC-1\n\n## 验证面\n\n"
         "- [assert][backend-domain] : 行为描述\n"
@@ -844,9 +843,9 @@ def test_run_check_smoke_blocked_for_non_compliance_obligation(project: Path, ca
         "--obligation", "obl-x", "--", "curl", "-s", "http://localhost/api",
     )
     assert code == 1
-    assert "烟雾命令不能兑现" in capsys.readouterr().err
+    assert "烟雾命令无法覆盖" in capsys.readouterr().err
     ev = project / ".arbor" / "tasks" / "demo" / "evidence" / "S-001"
-    assert not list(ev.glob("*.json"))  # 硬挡，不落盘伪证据
+    assert not list(ev.glob("*.json"))  # 硬阻断，不落盘伪证据
 
 
 def test_run_check_smoke_allowed_for_compliance_obligation(project: Path, capsys):
@@ -888,7 +887,7 @@ def test_judge_obligation_records_verdict(project: Path, capsys):
 
 
 def test_judge_pass_without_artifact_rejected(project: Path, capsys):
-    # judge verdict=pass 必须附 --artifact（看真实产物），防空裁
+    # judge verdict=pass 必须附 --artifact（看真实产物），防无产物裁决
     single_slice_task(project, "### [ ] S-001 验收义务", OBLIGATION_SLICE)
     code = run(
         project, "run-check", "demo", "--slice", "S-001",
@@ -898,4 +897,4 @@ def test_judge_pass_without_artifact_rejected(project: Path, capsys):
     assert code == 1
     assert "必须附 --artifact" in capsys.readouterr().err
     ev = project / ".arbor" / "tasks" / "demo" / "evidence" / "S-001"
-    assert not list(ev.glob("*.json"))  # 空裁被拦，不落盘
+    assert not list(ev.glob("*.json"))  # 无产物裁决被拦，不落盘

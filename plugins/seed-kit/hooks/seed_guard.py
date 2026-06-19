@@ -83,9 +83,9 @@ def main() -> int:
         payload = json.load(sys.stdin)
         result = evaluate(payload)
     except Exception as exc:  # pragma: no cover - hook fails open softly
-        result = {"decision": "allow", "reason": f"seed_guard could not parse payload: {exc}"}
+        result = {"decision": "allow", "reason": f"seed_guard 无法解析 payload：{exc}"}
     if result.get("decision") == "block":
-        print(result.get("reason", "Blocked by seed guard"), file=sys.stderr)
+        print(result.get("reason", "被 seed_guard 拦截"), file=sys.stderr)
         return 2
     return 0
 

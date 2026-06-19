@@ -1,34 +1,27 @@
 #!/usr/bin/env python3
-"""seed — minimal PRD-checkbox state helper for seed-kit.
+"""seed — seed-kit 的最小 PRD checkbox 状态 helper。
 
-State model: `.arbor/tasks/<task>/prd.md` slice checkboxes + `evidence/` are the
-only durable state. No task.json, no state machine. Single ownership: the
-`## Slices` section in prd.md is an ordered checkbox index (one line per
-slice); each slice's acceptance + verification items live only in
-`slices/S-NNN.md`.
+状态模型：`.arbor/tasks/<task>/prd.md` 的 slice checkbox + `evidence/` 是唯一持久状态。
+无 task.json，无状态机。单一归属：prd.md 的 `## Slices` 段是有序 checkbox 索引
+（每个 slice 一行）；每个 slice 的验收 + 验证项只写在 `slices/S-NNN.md`。
 
-Verification has three kinds — the closed vocabulary for "what makes passed
-trustworthy, and who/what asserts it":
+验证有三种 kind——封闭词汇，回答"什么让 passed 可信，谁/什么在断言"：
 
-- `assert`  — an executable command that genuinely asserts (it must exit
-  non-zero on failure: a test suite, a contract replay, a Playwright spec).
-  Gate: exit_code == 0 → passed. A bare probe (`curl` without `--fail`, `echo`)
-  only proves "it ran", not "it is correct"; seed flags such shapes as a
-  *smoke warning* (soft, never blocks) — real verification needs an asserting
-  command.
-- `judge`  — assessed by an independent agent (agent team reviewer / subagent;
-  生成者 ≠ 验证者) against an AC rubric. Gate: a recorded verdict == pass. The helper
-  only records/validates the verdict; the judging itself is a skill-layer
-  action (the helper never calls an LLM).
-- `human`  — genuine stakeholder sign-off (taste, compliance, things that by
-  definition can't be automated). Gate: a recorded sign-off with note + who.
+- `assert`  —— 真正会失败的命令（失败时必须 exit 非零：测试套件、契约回放、
+  Playwright spec）。gate：exit_code == 0 → passed。裸探针（不带 `--fail` 的
+  `curl`、`echo`）只证明"它运行了"，不证明"它正确"；对非 compliance 交付面，
+  seed 在 run-check 时*拒绝*这类命令；对 compliance 交付面则接受但警告——
+  真正的验证需要会失败的断言命令。
+- `judge`  —— 由独立 agent（生成者 ≠ 验证者，详见 conventions）按 AC rubric 裁决。
+  gate：记录的 verdict == pass。helper 只记录/校验 verdict；裁决本身是 skill 层动作
+  （helper 永不调用 LLM）。
+- `human`  —— 真人 stakeholder 签收（品味、合规、按定义无法自动化的事项）。
+  gate：带 note + 签收人的记录。
 
-Legacy forms keep working: a bare `` `command` `` item is `assert`; a
-`[manual]` item is `human`.
+旧式形式仍可用：行首反引号包裹的 `` `命令` `` 项视为 `assert`；`[manual]` 项视为 `human`。
 
-The single hard gate: `seed done` flips a slice checkbox only when every
-verification item declared in the slice file has recorded evidence of the
-right shape for its kind (assert: passed; judge: pass verdict; human: sign-off).
+唯一的硬 gate：`seed done` 仅当 slice 文件声明的每条验证项都按 kind 记录了正确形状
+的证据时，才勾选 checkbox（assert：passed；judge：pass verdict；human：签收记录）。
 """
 from __future__ import annotations
 
@@ -49,8 +42,8 @@ ACCEPT_HEADING_RE = re.compile(r"^## (?:验收|Acceptance)")
 DELIVERY_HEADING_RE = re.compile(r"^## (?:交付面|Delivery Surfaces?)")
 VERIFY_HEADING_RE = re.compile(r"^## (?:验证|验证面|Verification|Verification Surfaces?)")
 COMMAND_ITEM_RE = re.compile(r"^`(.+)`$")
-COMMAND_IN_REST_RE = re.compile(r"^`([^`]+)`")  # legacy：[assert] 命令在行首 backtick 内，尾部注释忽略
-OBLIGATION_RE = re.compile(r"^\s*([^:`][^:]*?)\s*:\s*(.+)$", re.DOTALL)  # 新格式：<obligation-id>: <可观测行为>
+COMMAND_IN_REST_RE = re.compile(r"^`([^`]+)`")  # legacy：[assert] 命令在行首反引号内，尾部注释忽略
+OBLIGATION_RE = re.compile(r"^\s*([^:`][^:]*?)\s*:\s*(.+)$", re.DOTALL)  # 新格式：<obligation-id>: <可观测行为>。注意 [^:`] 排除冒号（避免空 id 行 `: 行为`）和反引号（避免匹配 legacy 的 `` 命令` ``）
 MANUAL_ITEM_RE = re.compile(r"^\[manual\]\s*(.+)$")
 KIND_PREFIX_RE = re.compile(
     r"^\[(assert|judge|human)\](?:\s*\[([a-z0-9._-]+(?:\s*,\s*[a-z0-9._-]+)*)\])?\s*(.*)$",
@@ -59,14 +52,13 @@ KIND_PREFIX_RE = re.compile(
 SLICES_SECTION = "## Slices"
 # 参考词汇表（非封闭）：常见 Web 产品的交付面示例。项目可用任意面名（游戏 gameplay、CLI cli-dx、
 # 数据管道 data-quality 等）——helper 只校验"声明的交付面被验证项覆盖"（集合关系，面名字无关），
-# 不限定面名，也不规定"该面该什么 kind"（交项目 .claude/rules + review）。
+# 不限定面名，也不规定"该面应使用 assert/judge/human 的哪种 kind"（交项目 .claude/rules + review）。
 SUGGESTED_SURFACES = ("backend-domain", "api", "web-ui", "e2e", "compliance", "infra")
 
-# On-disk evidence `kind` aliases for back-compat with records written before
-# the three-kind vocabulary existed.
+# 磁盘上 evidence 的 kind 别名，兼容三 kind 词汇表出现前的旧记录。
 KIND_ALIASES = {"automated": "assert", "manual": "human"}
 
-# Commands that "exit 0 no matter what the feature did" — flagged as smoke.
+# 无论功能实际做什么都 exit 0 的命令——标记为烟雾测试。
 SMOKE_TOOL_RE = re.compile(r"(?:^|[\s|&;])(curl|wget)(?:[\s|&;]|$)")
 
 
@@ -79,8 +71,7 @@ def _now() -> str:
 
 
 def normalize_command(command: str) -> str:
-    # Collapse whitespace only. Do NOT round-trip through shlex — it would
-    # re-quote shell metacharacters (parens, &&, |) and break their execution.
+    # 仅合并空白。不要通过 shlex 往返——它会重新引号 shell 元字符（括号、&&、|），破坏其执行。
     return " ".join(command.split())
 
 
@@ -89,7 +80,7 @@ def normalize_text(text: str) -> str:
 
 
 def _has_fail_flag(command: str) -> bool:
-    """curl/wget --fail (or -f, including clustered like -sf) present."""
+    """检查 curl/wget 是否带 --fail（或 -f，包括组合形式如 -sf）。"""
     for tok in command.split():
         if tok == "--fail" or tok.startswith("--fail="):
             return True
@@ -99,20 +90,19 @@ def _has_fail_flag(command: str) -> bool:
 
 
 def looks_like_smoke(command: str) -> tuple[bool, str]:
-    """High-precision smoke heuristic: True only for shapes that exit 0
-    regardless of correctness. Conservative — false negatives are fine, false
-    positives are not."""
+    """高精度烟雾启发式：仅当命令无论功能实际做什么都 exit 0 时返回 True。
+    保守策略——假阴性可接受，假阳性不可接受。"""
     if not command.strip():
         return False, ""
     first = command.strip().split()[0]
-    # bare curl/wget with no --fail and no pipe/chain to an asserting tool
+    # 裸 curl/wget 不带 --fail 且未管道/链式接到断言工具
     if SMOKE_TOOL_RE.search(command):
         if _has_fail_flag(command):
             return False, ""
         if any(op in command for op in ("|", "&&", "||")):
             return False, ""
         return True, "curl/wget 无 --fail 且无管道/链式断言：只证路由可达，不证语义正确"
-    # echo / true / : with no downstream assertion
+    # echo / true / : 后面没有断言链
     if first in ("echo", "true", ":") and not any(op in command for op in ("|", "&&", "||")):
         return True, f"裸 `{first}` 不是断言：只证明命令执行了"
     return False, ""
@@ -142,30 +132,30 @@ def _surface_coverage_error(check: Check, surface: str) -> str | None:
     if surface not in check.surfaces:
         return "验证项未标注该交付面"
     # 仅 legacy assert（命令在 target、obligation_id=None）parse 期能判 smoke；
-    # 新格式 obligation assert 的命令在 run-check 时才绑定，parse 期跳过（run-check 期硬挡）。
-    # 不按面名规定 kind——"该面该用 assert/judge/human"是项目标准（写 .claude/rules），交 review 查"验证降级"。
+    # 新格式的 obligation assert 命令在 run-check 时才绑定，parse 期跳过，run-check 期拒绝并报错。
+    # 不按面名规定 kind——"该面使用 assert/judge/human 的取舍"是项目标准（写 .claude/rules），交 review 查"验证降级"。
     if check.kind == "assert" and check.obligation_id is None and looks_like_smoke(check.target)[0]:
         return "smoke assert 只证可达/可执行，不覆盖交付面"
     return None
 
 
 def _coverage_requirement(surface: str) -> str:
-    return f"{surface} 需要至少一条非烟雾的验证项覆盖（该面该用 assert/judge/human 由项目标准定，见 .claude/rules）"
+    return f"{surface} 需要至少一条非烟雾的验证项覆盖（该面使用 assert/judge/human 的取舍由项目标准定，见 .claude/rules）"
 
 
 def classify_check(item: str) -> tuple[str, str | None, list[str], str | None]:
-    r"""Classify a verification list-item.
+    r"""分类一条验证项列表项。
 
-    Returns one of:
-      (kind, target, surfaces, obligation_id) — recognized check (kind ∈ assert/judge/human)
-      ("doc", None, [], None)      — documentation line, skip silently
-      ("broken", msg, [], None)    — malformed kind-tagged item or surface tag
+    返回以下之一：
+      (kind, target, surfaces, obligation_id) — 识别出的 check（kind ∈ assert/judge/human）
+      ("doc", None, [], None)      — 文档行，静默跳过
+      ("broken", msg, [], None)    — 格式错误的 kind 标签项或 surface 标签
 
-    A prefixed item (`[kind][surface] <rest>`) takes two forms:
-      obligation: `<obligation-id>: <可观测行为>` (colon-separated; id 不以 backtick 开头)
+    带前缀的项（`[kind][surface] <rest>`）有两种形式：
+      obligation: `<obligation-id>: <可观测行为>`（冒号分隔；id 不以冒号开头，避免与空 id 行 `: 行为` 冲突）
                   → obligation_id = id, target = 行为描述。命令不在 slice，run-check 时按
                     `--obligation <id>` 绑定。
-      legacy:     assert 行首 backtick `命令`，或 judge/human 纯文本描述
+      legacy:     assert 行首反引号 `命令`，或 judge/human 纯文本描述
                   → obligation_id = None, target = 命令 / 文本。
     `assert` 需要命令或 obligation；`judge`/`human` 也接受纯文本描述作 legacy fallback。
     """
@@ -186,7 +176,7 @@ def classify_check(item: str) -> tuple[str, str | None, list[str], str | None]:
             cmd = COMMAND_IN_REST_RE.match(rest)
             if cmd:
                 return ("assert", normalize_command(cmd.group(1)), surfaces, None)
-            return ("broken", "声明了 [assert] 但没有 `<obligation-id>: <行为>` 或 backtick 命令", [], None)
+            return ("broken", "声明了 [assert] 但没有 `<obligation-id>: <行为>` 或反引号命令", [], None)
         if rest:
             return (kind, normalize_text(rest), surfaces, None)
         return ("broken", f"声明了 [{kind}] 但没有描述", [], None)
@@ -231,11 +221,11 @@ def prd_path(root: Path, task: str) -> Path:
 
 
 def parse_prd(path: Path) -> tuple[list[Slice], list[str]]:
-    """Parse the `## Slices` checkbox index in prd.md plus each slices/S-NNN.md.
+    """解析 prd.md 的 `## Slices` checkbox 索引以及每个 slices/S-NNN.md。
 
-    prd.md owns order + status (one `### [ ] S-NNN 标题` line per slice);
-    slices/S-NNN.md owns acceptance + verification items. Nothing is stated twice.
-    Returns (slices, structural errors).
+    prd.md 拥有顺序 + 状态（每个 slice 一行 `### [ ] S-NNN 标题`）；
+    slices/S-NNN.md 拥有验收 + 验证项。没有任何内容写两遍。
+    返回 (slices, structural errors)。
     """
     if not path.is_file():
         raise SeedError(f"未找到 {path}；先用 `seed new <task>` 创建任务")
@@ -279,7 +269,7 @@ def parse_prd(path: Path) -> tuple[list[Slice], list[str]]:
 
 
 def _content_lines(lines: list[str]) -> list[tuple[int, str]]:
-    """Drop HTML comment blocks; return (original index, line) for the rest."""
+    """去除 HTML 注释块；返回（原始索引, 行）用于其余内容。"""
     out: list[tuple[int, str]] = []
     in_comment = False
     for idx, line in enumerate(lines):
@@ -297,11 +287,11 @@ def _content_lines(lines: list[str]) -> list[tuple[int, str]]:
 
 
 def _load_slice_file(slices_dir: Path, sl: Slice) -> list[str]:
-    """Parse slices/S-NNN.md into delivery surfaces + checks. Returns structural errors."""
+    """解析 slices/S-NNN.md 为交付面 + checks。返回结构错误。"""
     rel = f"slices/{sl.id}.md"
     file_path = slices_dir / f"{sl.id}.md"
     if not file_path.is_file():
-        return [f"缺少 {rel}：slice 的验收与验证项住在这个文件里"]
+        return [f"缺少 {rel}：slice 的验收与验证项都写在该文件中"]
     errors: list[str] = []
     content = _content_lines(file_path.read_text(encoding="utf-8").splitlines())
     body = [(idx, line) for idx, line in content if line.strip()]
@@ -353,8 +343,8 @@ def _load_slice_file(slices_dir: Path, sl: Slice) -> list[str]:
         if in_verify:
             if verify_base_indent is None and is_list:
                 verify_base_indent = indent
-            # Prose paragraphs and indented sub-bullets are documentation — tolerated,
-            # not policed. Only top-level list items (at the base indent) are checks.
+            # 非列表项（散文段落）与缩进子项视为文档，容忍但不主动管理；
+            # 仅顶层列表项（在基础缩进层级）才是验证项。
             if not is_list or (verify_base_indent is not None and indent > verify_base_indent):
                 continue
             item = stripped[2:].strip()
@@ -372,7 +362,7 @@ def _load_slice_file(slices_dir: Path, sl: Slice) -> list[str]:
     if not has_accept:
         errors.append(f"{rel} 缺少 `## 验收` 段")
     if not sl.checks:
-        errors.append(f"{rel} 缺少验证项：`## 验证面` 至少声明一条 `[kind][面] <obligation-id>: <行为>`（或 legacy `[assert][面] \\`命令\\``）")
+        errors.append(f"{rel} 缺少验证项：`## 验证面` 至少声明一条 `[kind][面] <obligation-id>: <行为>`（或 legacy 行首反引号包裹命令的形式）")
     if sl.delivery_surfaces:
         for check in sl.checks:
             for surface in check.surfaces:
@@ -444,7 +434,7 @@ def _record_kind(record: dict) -> str:
 def expected_state(kind: str) -> str:
     if kind == "human":
         return "recorded"
-    return "passed"  # assert and judge both gate on a passing result
+    return "passed"  # assert 与 judge 都靠 passing 结果过关
 
 
 def _record_matches_check(record: dict, rk: str, check: Check) -> bool:
@@ -457,7 +447,7 @@ def _record_matches_check(record: dict, rk: str, check: Check) -> bool:
 
 
 def check_state(check: Check, records: list[dict]) -> str:
-    """passed | failed | recorded | missing — based on the latest matching record."""
+    """passed | failed | recorded | missing —— 基于最新的匹配记录。"""
     state = "missing"
     for record in records:
         rk = _record_kind(record)
@@ -478,7 +468,7 @@ def check_state(check: Check, records: list[dict]) -> str:
 
 
 def latest_judge_artifact(check: Check, records: list[dict]) -> str | None:
-    """The artifact path on the latest passing judge record for this check, if any."""
+    """该 check 最新一条 passing judge 记录的 artifact 路径（如有）。"""
     artifact = None
     for record in records:
         rk = _record_kind(record)
@@ -648,7 +638,7 @@ def cmd_run_check(
         if not trace:
             raise SeedError("judge 记录必须带 --trace（裁判依据/证据指针，例如 rubric 文件 + 截图/输出位置）")
         if verdict == "pass" and not artifact:
-            raise SeedError("judge verdict=pass 必须附 --artifact（看过的截图/输出）——视觉裁决看真实产物，不看产物就 pass 是空裁")
+            raise SeedError("judge verdict=pass 必须附 --artifact（截图/输出等真实产物）；无产物不能记 pass")
         record = {
             "slice": slice_id,
             "kind": "judge",
@@ -671,7 +661,7 @@ def cmd_run_check(
             if not art_path.exists():
                 raise SeedError(
                     f"--artifact 指向的文件不存在：{artifact}"
-                    "（judge 须附它实际看过的截图/输出文件——视觉裁决看真实产物，不看代码）"
+                    "（judge 须附实际看过的截图/输出——裁决基于产物，不基于代码）"
                 )
             record["artifact"] = artifact
         path = _write_evidence(root, task, slice_id, record, None)
@@ -703,14 +693,14 @@ def cmd_run_check(
         raise SeedError("缺少要执行的命令：seed run-check <task> --slice S-NNN --obligation <id> -- <command>")
     command = normalize_command(" ".join(cmd_tokens))
     declared = _resolve_declared(sl, "assert", slice_id, obligation, command)
-    # 烟雾硬挡：非 compliance 交付面的 obligation/命令，烟雾命令拒绝落盘（防线不降反升）；
-    # compliance 面允许烟雾 + 软警告。
+    # 烟雾命令硬阻断：非 compliance 交付面的 obligation/命令，烟雾命令拒绝落盘；
+    # compliance 面允许烟雾命令，但发出一条软警告（不阻断）。
     smoke, reason = looks_like_smoke(command)
     if smoke:
         blocked = [s for s in declared.surfaces if s != "compliance"]
         if blocked:
             raise SeedError(
-                f"烟雾命令不能兑现交付面 {blocked} 的验证：{reason}。"
+                f"烟雾命令无法覆盖交付面 {blocked} 的验证需求：{reason}。"
                 "改成会失败的断言（测试套件/契约回放/Playwright spec），或把验证项标 [compliance]。"
             )
     try:
@@ -799,8 +789,8 @@ def build_parser() -> argparse.ArgumentParser:
     )
     rc_parser.add_argument("task")
     rc_parser.add_argument("--slice", dest="slice_id", required=True)
-    rc_parser.add_argument("--obligation", help="验证义务 id：绑到 slices/S-NNN.md 声明的 <obligation-id>；三 kind 共用，优先于 --judge/--human/命令字面匹配")
-    rc_parser.add_argument("--judge", help="[judge] 验证项原文（legacy：obligation 格式改用 --obligation；由独立 agent（agent team 的 reviewer 或 subagent）裁决后记录）")
+    rc_parser.add_argument("--obligation", help="验证义务 id：绑到 slices/S-NNN.md 声明的 <obligation-id>；三 kind 共用，优先于 --judge/--human 与命令字面匹配")
+    rc_parser.add_argument("--judge", help="[judge] 验证项原文。obligation 格式请改用 --obligation；由独立 agent 裁决后记录（详见 conventions）")
     rc_parser.add_argument("--verdict", choices=["pass", "fail"], help="judge：裁决结果")
     rc_parser.add_argument("--grade", help="judge：评分/等级（可选）")
     rc_parser.add_argument("--trace", help="judge：裁决依据/证据指针（rubric + 截图/输出位置）")
@@ -808,7 +798,7 @@ def build_parser() -> argparse.ArgumentParser:
     rc_parser.add_argument("--manual", help="[manual] 验证项原文（旧式，等同 --human）")
     rc_parser.add_argument("--note", help="human/judge：验证了什么、结论")
     rc_parser.add_argument("--evidence", help="human：证据指针（截图路径/输出位置，可选）")
-    rc_parser.add_argument("--artifact", help="judge：裁决时实际看过的截图/输出文件路径（提供则 helper 校验它真实存在）")
+    rc_parser.add_argument("--artifact", help="judge：裁决时实际看过的截图/输出文件路径（提供时 helper 会校验其存在性）")
     rc_parser.add_argument("--by", help="human/judge：签收人/裁决者（默认 user / independent-judge）")
     rc_parser.add_argument("--timeout", type=int, default=600)
 

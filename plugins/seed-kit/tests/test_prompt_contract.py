@@ -46,9 +46,9 @@ class SeedPromptContractTests(unittest.TestCase):
         # 公理从"质量 SoT"降级为"正确性 SoT"
         self.assertIn("正确性的 source of truth", design)
         self.assertNotIn("gate 是质量的 source of truth", design)
-        # 显式承认第二种失败模式：诚实地最小满足 → 毛坯房
+        # 显式承认第二种失败模式：诚实地最小满足 → 半成品
         self.assertIn("诚实地最小满足", design)
-        self.assertIn("毛坯房", design)
+        self.assertIn("半成品", design)
 
     def test_impl_treats_tests_as_floor_with_visual_judge(self):
         impl = self.read_plugin_file("skills", "impl", "SKILL.md")
@@ -63,7 +63,7 @@ class SeedPromptContractTests(unittest.TestCase):
         brainstorm = self.read_plugin_file("skills", "brainstorm", "SKILL.md")
         # brainstorm 只捕捉"意图"（参考级质量基线），不写"验证策略"政策
         self.assertIn("质量基线", brainstorm)
-        self.assertIn("翻译者", brainstorm)
+        self.assertIn("参考", brainstorm)
         self.assertNotIn("必须带一条整体体验 judge", brainstorm)
 
     def test_conventions_done_means_correct_not_quality(self):

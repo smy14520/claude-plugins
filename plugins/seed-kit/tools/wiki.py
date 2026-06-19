@@ -1,15 +1,13 @@
 #!/usr/bin/env python3
-"""seed wiki — project-local `.wiki/` orientation layer CLI.
+"""seed wiki — 项目本地 `.wiki/` 导航层 CLI。
 
-Standalone tool: zero dependency on arbor / `.arbor` state. The wiki is a
-navigation layer, never a source of truth; this CLI only indexes, searches,
-collects, and lints markdown pages.
+独立工具：零依赖 arbor / `.arbor` 状态。wiki 是导航层，永不是 source of truth；
+本 CLI 只做 markdown 页面的索引、搜索、收集与体检。
 
-Page model (two orthogonal axes):
-- `type`  — structural axis, closed set (how a page is consumed by tooling).
-- `area`  — domain axis, free-form (which part of THIS project it belongs to,
-  e.g. 渲染管线 / 权限 / 资产管线). Taxonomy adapts per project; the wiki
-  skill derives areas from the project profile, the CLI never validates them.
+页面模型（两个正交轴）：
+- `type`  —— 结构轴，封闭集（工具如何消费该页面）。
+- `area`  —— 领域轴，自由形式（属于**本**项目的哪一部分，如渲染管线 / 权限 /
+  资产管线）。分类随项目而变；wiki skill 从项目 profile 派生 area，CLI 永不校验。
 """
 from __future__ import annotations
 
@@ -216,45 +214,45 @@ def wiki_lint(root: Path, wiki_root: str | None = None) -> dict[str, Any]:
         by_stem.setdefault(path.stem, []).append(page)
         missing = [field for field in sorted(REQUIRED_FRONTMATTER) if not isinstance(meta.get(field), str) or not str(meta.get(field)).strip()]
         if missing:
-            errors.append(_lint_issue("missing_frontmatter", rel, "Missing required frontmatter: " + ", ".join(missing), fields=missing))
+            errors.append(_lint_issue("missing_frontmatter", rel, "缺少必需的 frontmatter：" + ", ".join(missing), fields=missing))
         page_type = meta.get("type")
         if isinstance(page_type, str) and page_type not in VALID_PAGE_TYPES:
-            errors.append(_lint_issue("invalid_type", rel, f"Invalid frontmatter type: {page_type}", type=page_type))
+            errors.append(_lint_issue("invalid_type", rel, f"无效的 frontmatter type：{page_type}", type=page_type))
         if not meta.get("summary"):
-            warnings.append(_lint_issue("missing_summary", rel, "Missing frontmatter summary"))
+            warnings.append(_lint_issue("missing_summary", rel, "缺少 frontmatter summary"))
         if not _tags(meta):
-            warnings.append(_lint_issue("missing_tags", rel, "Missing frontmatter tags"))
+            warnings.append(_lint_issue("missing_tags", rel, "缺少 frontmatter tags"))
         hidden_parts = _hidden_path_parts(rel)
         if hidden_parts:
-            warnings.append(_lint_issue("hidden_path", rel, "Wiki page is under hidden path components: " + ", ".join(hidden_parts), parts=hidden_parts))
+            warnings.append(_lint_issue("hidden_path", rel, "wiki 页面位于隐藏路径下：" + ", ".join(hidden_parts), parts=hidden_parts))
         if page_type == "module":
             package = meta.get("package")
             if isinstance(package, str) and package.strip():
                 module_packages.setdefault(package.strip(), []).append(page)
             else:
-                warnings.append(_lint_issue("module_missing_package", rel, "Module note is missing package frontmatter"))
+                warnings.append(_lint_issue("module_missing_package", rel, "module 类型页面缺少 package frontmatter"))
             if not isinstance(meta.get("source_checkpoint"), str) or not str(meta.get("source_checkpoint")).strip():
-                warnings.append(_lint_issue("module_missing_source_checkpoint", rel, "Module note is missing source_checkpoint frontmatter"))
+                warnings.append(_lint_issue("module_missing_source_checkpoint", rel, "module 类型页面缺少 source_checkpoint frontmatter"))
             for line_number, line in enumerate(body.splitlines(), start=1):
                 if LINE_LOCATOR_RE.search(line):
-                    warnings.append(_lint_issue("module_line_locator", rel, "Module note appears to use a line-number locator", line=line_number))
+                    warnings.append(_lint_issue("module_line_locator", rel, "module 类型页面似乎使用了行号定位", line=line_number))
                     break
 
     single_by_title = {title: items[0] for title, items in by_title.items() if len(items) == 1}
     single_by_stem = {stem: items[0] for stem, items in by_stem.items() if len(items) == 1}
     for title, items in sorted(by_title.items()):
         if len(items) > 1:
-            errors.append(_lint_issue("duplicate_title", items[0]["path"], f"Duplicate wiki title: {title}", title=title, paths=[item["path"] for item in items]))
+            errors.append(_lint_issue("duplicate_title", items[0]["path"], f"wiki 标题重复：{title}", title=title, paths=[item["path"] for item in items]))
     for stem, items in sorted(by_stem.items()):
         if len(items) > 1 and stem != "index":
-            errors.append(_lint_issue("duplicate_stem", items[0]["path"], f"Duplicate wiki file stem: {stem}", stem=stem, paths=[item["path"] for item in items]))
+            errors.append(_lint_issue("duplicate_stem", items[0]["path"], f"wiki 文件 stem 重复：{stem}", stem=stem, paths=[item["path"] for item in items]))
     for package, items in sorted(module_packages.items()):
         if len(items) > 1:
-            errors.append(_lint_issue("duplicate_module_package", items[0]["path"], f"Duplicate module package: {package}", package=package, paths=[item["path"] for item in items]))
+            errors.append(_lint_issue("duplicate_module_package", items[0]["path"], f"module package 重复：{package}", package=package, paths=[item["path"] for item in items]))
     for page in pages:
         for link in page["links"]:
             if _resolve_wikilink(link, single_by_title, single_by_stem) is None:
-                errors.append(_lint_issue("broken_wikilink", page["path"], f"Broken wikilink: {link}", target=link))
+                errors.append(_lint_issue("broken_wikilink", page["path"], f"失效的 wikilink：{link}", target=link))
 
     linked_paths: set[str] = set()
     for page in pages:
@@ -264,7 +262,7 @@ def wiki_lint(root: Path, wiki_root: str | None = None) -> dict[str, Any]:
                 linked_paths.add(target["path"])
     for page in pages:
         if page["path"] not in linked_paths and page["links"] == [] and Path(page["path"]).name != "index.md":
-            warnings.append(_lint_issue("orphan_page", page["path"], "Page has no wikilinks or backlinks"))
+            warnings.append(_lint_issue("orphan_page", page["path"], "页面没有 wikilink 也没有 backlink"))
 
     return {
         "ok": not errors,
@@ -278,7 +276,7 @@ def wiki_lint(root: Path, wiki_root: str | None = None) -> dict[str, Any]:
 def wiki_search(root: Path, query: str, wiki_root: str | None = None, limit: int | None = None) -> dict[str, Any]:
     query_tokens = _tokens(query)
     if not query_tokens:
-        raise WikiError("wiki search query must contain at least one token.")
+        raise WikiError("wiki 搜索 query 至少要含一个 token")
     indexed = wiki_index(root, wiki_root, include_content=True)
     results: list[dict[str, Any]] = []
     weights = {
@@ -316,7 +314,7 @@ def wiki_search(root: Path, query: str, wiki_root: str | None = None, limit: int
             page_result = {key: value for key, value in page.items() if key != "content"}
             page_result["score"] = score
             page_result["matched_fields"] = matched_fields
-            page_result["reason"] = "matched " + ", ".join(matched_fields)
+            page_result["reason"] = "命中：" + ", ".join(matched_fields)
             results.append(page_result)
     results.sort(key=lambda item: (-item["score"], item["path"]))
     if limit is not None:
@@ -348,31 +346,31 @@ def wiki_collect(root: Path, query: str, wiki_root: str | None = None, limit: in
 
 
 def build_parser() -> argparse.ArgumentParser:
-    parser = argparse.ArgumentParser(prog="seed wiki", description="Project-local .wiki orientation layer: index, search, collect, lint.")
-    parser.add_argument("--root", default=".", help="Project root containing the wiki directory.")
+    parser = argparse.ArgumentParser(prog="seed wiki", description="项目本地 .wiki 导航层：index / search / collect / lint")
+    parser.add_argument("--root", default=".", help="项目根目录（含 .wiki/）")
     sub = parser.add_subparsers(dest="command", required=True)
 
-    index_parser = sub.add_parser("index", help="Index wiki markdown pages.")
+    index_parser = sub.add_parser("index", help="为 wiki 页面建立索引")
     index_parser.add_argument("--wiki-root", default=".wiki")
     index_parser.add_argument("--tag")
     index_parser.add_argument("--include-content", choices=["true", "false"], default="false")
-    index_parser.add_argument("--json", dest="json_output", action="store_true", help="Emit JSON output.")
+    index_parser.add_argument("--json", dest="json_output", action="store_true", help="输出 JSON 格式")
 
-    search_parser = sub.add_parser("search", help="Search wiki pages with deterministic token scoring.")
+    search_parser = sub.add_parser("search", help="按 token 评分搜索 wiki 页面")
     search_parser.add_argument("query")
     search_parser.add_argument("--wiki-root", default=".wiki")
     search_parser.add_argument("--limit", type=int)
-    search_parser.add_argument("--json", dest="json_output", action="store_true", help="Emit JSON output.")
+    search_parser.add_argument("--json", dest="json_output", action="store_true", help="输出 JSON 格式")
 
-    collect_parser = sub.add_parser("collect", help="Collect compact summaries for relevant wiki pages.")
+    collect_parser = sub.add_parser("collect", help="收集相关 wiki 页面的精简摘要")
     collect_parser.add_argument("--query", required=True)
     collect_parser.add_argument("--wiki-root", default=".wiki")
     collect_parser.add_argument("--limit", type=int, default=5)
-    collect_parser.add_argument("--json", dest="json_output", action="store_true", help="Emit JSON output.")
+    collect_parser.add_argument("--json", dest="json_output", action="store_true", help="输出 JSON 格式")
 
-    lint_parser = sub.add_parser("lint", help="Lint wiki pages without modifying them.")
+    lint_parser = sub.add_parser("lint", help="体检 wiki 页面（不修改）")
     lint_parser.add_argument("--wiki-root", default=".wiki")
-    lint_parser.add_argument("--json", dest="json_output", action="store_true", help="Emit JSON output.")
+    lint_parser.add_argument("--json", dest="json_output", action="store_true", help="输出 JSON 格式")
     return parser
 
 

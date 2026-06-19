@@ -1,7 +1,7 @@
 {
   "name": "seed-kit",
-  "version": "0.1.2",
-  "description": "Lightweight PRD-first workflow: research collects material, brainstorm converges requirements into a PRD with ordered slices, impl executes slice by slice with evidence-gated completion, review audits, wiki grows with the project. State = prd.md checkboxes + evidence files; no state machine.",
+  "version": "0.1.3",
+  "description": "轻量的 PRD-first 工作流：五个 skill 由用户主动触发，状态由 prd.md 复选框与 evidence 文件承载，无状态机。",
   "author": {
     "name": "camellia",
     "email": "camellia@gmail.com"
