@@ -1,6 +1,6 @@
 {
   "name": "seed-kit",
-  "version": "0.1.3",
+  "version": "0.1.4",
   "description": "轻量的 PRD-first 工作流：五个 skill 由用户主动触发，状态由 prd.md 复选框与 evidence 文件承载，无状态机。",
   "author": {
     "name": "camellia",

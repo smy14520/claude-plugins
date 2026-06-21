@@ -20,6 +20,39 @@
             "command": "python3 ${CLAUDE_PLUGIN_ROOT}/hooks/review_trigger.py"
           }
         ]
+      },
+      {
+        "matcher": "Write",
+        "if": "Write(.arbor/tasks/*/prd.md)",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "python3 ${CLAUDE_PLUGIN_ROOT}/hooks/generate_living_prd.py",
+            "async": true
+          }
+        ]
+      },
+      {
+        "matcher": "Edit",
+        "if": "Edit(.arbor/tasks/*/prd.md)",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "python3 ${CLAUDE_PLUGIN_ROOT}/hooks/generate_living_prd.py",
+            "async": true
+          }
+        ]
+      },
+      {
+        "matcher": "Bash",
+        "if": "Bash(seed done*)",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "python3 ${CLAUDE_PLUGIN_ROOT}/hooks/generate_living_prd.py",
+            "async": true
+          }
+        ]
       }
     ]
   }
