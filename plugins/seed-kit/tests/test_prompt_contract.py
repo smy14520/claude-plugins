@@ -73,15 +73,16 @@ class SeedPromptContractTests(unittest.TestCase):
         self.assertIn("--score-file", conventions)
         self.assertIn("--artifact", conventions)
         self.assertIn("fan-out", conventions)
-        self.assertIn("未实装", conventions)
+        self.assertIn("helper 已实装", conventions)
 
     def test_review_keeps_heavy_orchestration_optional(self):
         review = self.read_plugin_file("skills", "review", "SKILL.md")
-        self.assertIn("默认在当前 review session 直接审计", review)
+        self.assertIn("默认派 subagent 审计", review)
         self.assertIn("subagent", review)
         self.assertIn("用户明确要求", review)
-        self.assertNotIn("TeamCreate", review)
-        self.assertNotIn("TaskCompleted", review)
+        self.assertIn("Mode 1", review)  # Multi-judge modes are documented
+        self.assertNotIn("TeamCreate", review)  # Agent Team not used
+        self.assertNotIn("TaskCompleted", review)  # No TaskCompleted hook
 
 
 if __name__ == "__main__":

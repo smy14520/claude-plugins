@@ -22,6 +22,8 @@ sdd-kit 多轮迭代暴露的弊病：
 
 所以这一半不能交给 exit code 或插件内置审美，只能靠**测试当地板（保持绿、不回归）+ 一个感知真实产物、按项目 rubric 打分的独立 judge 在环**。这一环的"评判"本质上无法由 helper 机械化；但评判结果的结构、artifact 和 score/bar 通过关系可以由 helper 机械 gate。承认它、把它做顺，比假装 exit code 能替代它更稳。
 
+**Gate 边界**：gate 管**正确性为主**；但项目用 rubric 显式声明的 judge scoring 也按门槛进 gate（opt-in，声明即 gate）。未声明的体验质量仍不压 gate（靠 review / 人判断，质量没有上限）。
+
 被反复证明失败的设计恰好是 sdd-kit 的病灶：过重状态机（"reinvented waterfall"）、过多命令的 context tax、依赖模型自觉的口头约束、大体量生成文档。
 
 ## 设计原则

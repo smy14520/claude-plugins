@@ -60,9 +60,54 @@
 - **标准从项目**：打哪些维度、门槛、参考什么产品——读项目 `DESIGN.md`、`.claude/rules/`、PRD 质量基线或项目提供的 rubric JSON。
 - **机制在插件**：helper 校验 rubric/score-file JSON、artifact 存在、score 是否达到各维度门槛和平均线；不解释维度含义，也不内置审美。
 - **未声明不保证**：`seed done` 只证明已声明的 obligation 过 gate；未声明的质量维度仍需 review / 人判断。
-- **未来方向**：多裁判 fan-out、Workflow 投票/聚合未实装；需要时由用户显式 opt-in，不是 seed-kit 默认流程。
+- **多裁判 fan-out**：helper 已实装（`seed score aggregate`），orchestration 见 review SKILL「多裁判对抗评分」段落。三种模式按对抗强度递增：Mode 1 Independent Fan-out（✅ v1 已实装）、Mode 2 Adversarial Fan-out（⏳ v2 辩论收敛）、Mode 3 Mechanical Classification（⏳ v2 cross-validate 分类）。需要时由用户显式 opt-in，不是 seed-kit 默认流程。
 
-一句话：当前 = evidence gate + 单 judge scoring gate；fan-out 评分循环仍未实装。
+一句话：当前 = evidence gate + 单 judge scoring gate + 多裁判聚合（helper 已实装，orchestration 见 review SKILL）。
+
+### Rubric 与 Score-file 格式
+
+**Rubric**（项目定义，插件不内置）：
+
+```json
+{
+  "id": "web-ui-quality-v1",
+  "scale": {"min": 0, "max": 5},
+  "aggregate": {"min_average": 3.5},
+  "dimensions": {
+    "visual_language": {
+      "min": 3,
+      "weight": 1.0
+    },
+    "information_hierarchy": {
+      "min": 3,
+      "weight": 1.5
+    }
+  }
+}
+```
+
+- `dimensions.<name>.min`：该维度的地板门槛（必须）
+- `dimensions.<name>.weight`：加权平均的权重（可选，默认 1.0）
+- `aggregate.min_average`：整体平均线门槛（可选）
+
+**Score-file**（独立 judge 生成）：
+
+```json
+{
+  "rubric_id": "web-ui-quality-v1",
+  "scores": {
+    "visual_language": {
+      "score": 4,
+      "rationale": "视觉语言统一，符合 DESIGN.md 的家庭数据台基线"
+    },
+    "information_hierarchy": 3
+  }
+}
+```
+
+- 兼容两种格式：`{score, rationale}`（推荐）或纯数值（legacy）
+- **rationale 必填**（新格式）：评分依据，进 evidence 供 review 追溯
+- **weight 由 rubric 定义**：score-file 只记录分数，不记录权重
 
 ## seed CLI
 
@@ -81,6 +126,11 @@ seed run-check <task> --slice S-NNN \
   --obligation <id> --rubric <rubric.json> --score-file <score.json> \
   --trace "<评分依据>" --artifact "<看过的截图/输出>" \
   [--by "<裁决者>"]   # [judge] scoring gate，helper 计算 verdict
+seed run-check <task> --slice S-NNN \
+  --obligation <id> --rubric <rubric.json> --aggregation-file <aggregate.json> \
+  --trace "<评分依据>" --artifact "<看过的截图/输出>" \
+  [--by "<裁决者>"]   # [judge] 多裁判聚合模式，verdict 由 helper 计算
+seed score aggregate --rubric <rubric.json> --score-files <file1.json> <file2.json> ... --out <aggregate.json>   # 聚合多个 score-file（多裁判模式）
 seed run-check <task> --slice S-NNN \
   --obligation <id> --note "<验证了什么、结论>" [--by "<签收人>" --evidence "<证据指针>"]   # [human]
 seed done <task> --slice S-NNN                   # 证据齐备后勾选 checkbox（唯一合法入口）

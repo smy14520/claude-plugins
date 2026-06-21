@@ -1083,3 +1083,76 @@ def test_status_reports_score_summary(project: Path, capsys):
     assert check["rubric"] == rubric
     assert check["score_file"] == score_file
     assert check["score_summary"]["failed_dimensions"] == ["empty_error_states"]
+
+
+def test_score_aggregate_computes_median(project: Path, capsys):
+    # 准备 rubric
+    rubric = {
+        "id": "test-rubric",
+        "scale": {"min": 0, "max": 5},
+        "dimensions": {
+            "visual": {"min": 2},
+            "hierarchy": {"min": 3}
+        }
+    }
+    (project / "rubric.json").write_text(json.dumps(rubric))
+
+    # 准备 3 个 score-file
+    scores = [
+        {"rubric_id": "test-rubric", "scores": {"visual": 2, "hierarchy": 4}},
+        {"rubric_id": "test-rubric", "scores": {"visual": 3, "hierarchy": 4}},
+        {"rubric_id": "test-rubric", "scores": {"visual": 4, "hierarchy": 3}}
+    ]
+    for i, s in enumerate(scores):
+        (project / f"score-{i}.json").write_text(json.dumps(s))
+
+    # 运行聚合
+    assert run(project, "score", "aggregate",
+               "--rubric", "rubric.json",
+               "--score-files", "score-0.json", "score-1.json", "score-2.json",
+               "--out", "aggregate.json") == 0
+
+    # 检查结果
+    agg = json.loads((project / "aggregate.json").read_text())
+    assert agg["method"] == "median"
+    assert agg["dimensions"]["visual"]["score"] == 3.0  # median of [2, 3, 4]
+    assert agg["dimensions"]["hierarchy"]["score"] == 4.0  # median of [3, 4, 4]
+    assert agg["average"] == 3.5
+
+
+def test_run_check_accepts_aggregation_file(project: Path, capsys):
+    single_slice_task(project, "### [ ] S-001 验收义务", OBLIGATION_SLICE)
+
+    # 准备 rubric
+    rubric = {
+        "id": "test-rubric",
+        "scale": {"min": 0, "max": 5},
+        "aggregate": {"min_average": 3.5},
+        "dimensions": {
+            "visual": {"min": 2}
+        }
+    }
+    (project / "rubric.json").write_text(json.dumps(rubric))
+
+    # 准备 aggregation-file
+    agg = {
+        "rubric_id": "test-rubric",
+        "method": "median",
+        "dimensions": {
+            "visual": {"score": 4.0}
+        },
+        "average": 4.0
+    }
+    (project / "aggregate.json").write_text(json.dumps(agg))
+    (project / "artifact.png").write_bytes(b"fake")
+
+    # 运行 run-check
+    assert run(project, "run-check", "demo", "--slice", "S-001",
+               "--obligation", "AC-ui·视觉",
+               "--rubric", "rubric.json",
+               "--aggregation-file", "aggregate.json",
+               "--trace", "multi-judge aggregation",
+               "--artifact", "artifact.png") == 0
+
+    rec = _latest_record(project, "demo", "S-001")
+    assert rec["verdict"] == "pass"

@@ -558,7 +558,8 @@ def _compute_score_verdict(rubric: dict, score_doc: dict) -> tuple[str, dict]:
     if unknown:
         raise SeedError("score-file 包含 rubric 未声明的维度：" + ", ".join(unknown))
 
-    total = 0.0
+    weighted_sum = 0.0
+    weight_total = 0.0
     details: dict[str, dict] = {}
     failed_dimensions: list[str] = []
     for name, spec in dimensions.items():
@@ -569,9 +570,21 @@ def _compute_score_verdict(rubric: dict, score_doc: dict) -> tuple[str, dict]:
         if "min" not in spec:
             raise SeedError(f"rubric.dimensions.{name}.min 缺失")
         minimum = _score_number(spec["min"], f"rubric.dimensions.{name}.min")
+        # weight 默认 1（向后兼容）
+        weight = _score_number(spec["weight"], f"rubric.dimensions.{name}.weight") if "weight" in spec else 1.0
         if name not in scores:
             raise SeedError(f"score-file 缺少维度分数：{name}")
-        value = _score_number(scores[name], f"score-file.scores.{name}")
+        raw = scores[name]
+        # 兼容两种格式：纯数值 vs {score, rationale}
+        if isinstance(raw, dict):
+            value = _score_number(raw.get("score"), f"score-file.scores.{name}.score")
+            rationale = str(raw.get("rationale", "")).strip()
+            # 新格式 rationale 必填，旧格式（纯数值）允许空
+            if not rationale:
+                raise SeedError(f"score-file.scores.{name}.rationale 缺失（评分必须给依据）")
+        else:
+            value = _score_number(raw, f"score-file.scores.{name}")
+            rationale = ""  # 旧格式允许无 rationale
         if scale_min is not None and value < scale_min:
             raise SeedError(f"score-file.scores.{name} 小于 rubric.scale.min")
         if scale_max is not None and value > scale_max:
@@ -579,10 +592,13 @@ def _compute_score_verdict(rubric: dict, score_doc: dict) -> tuple[str, dict]:
         passed = value >= minimum
         if not passed:
             failed_dimensions.append(name)
-        total += value
-        details[name] = {"score": value, "min": minimum, "passed": passed}
+        weighted_sum += value * weight
+        weight_total += weight
+        details[name] = {"score": value, "min": minimum, "passed": passed, "weight": weight}
+        if rationale:
+            details[name]["rationale"] = rationale
 
-    average = total / len(dimensions)
+    average = weighted_sum / weight_total if weight_total else 0.0
     aggregate = rubric.get("aggregate", {})
     if aggregate is None:
         aggregate = {}
@@ -760,6 +776,7 @@ def cmd_run_check(
     artifact: str | None,
     rubric: str | None,
     score_file: str | None,
+    aggregation_file: str | None,
     by: str | None,
     timeout: int,
 ) -> int:
@@ -768,16 +785,29 @@ def cmd_run_check(
 
     if mode == "judge":
         declared = _resolve_declared(sl, "judge", slice_id, obligation, judge_item)
-        scored = score_file is not None or rubric is not None
+        scored = score_file is not None or rubric is not None or aggregation_file is not None
         if scored:
             if verdict is not None:
-                raise SeedError("scoring judge 的 verdict 由 --rubric + --score-file 计算，不能同时手写 --verdict")
-            if not rubric or not score_file:
-                raise SeedError("scoring judge 必须同时提供 --rubric 与 --score-file")
+                raise SeedError("scoring judge 的 verdict 由 --rubric + --score-file/--aggregation-file 计算，不能同时手写 --verdict")
+            if not rubric:
+                raise SeedError("scoring judge 必须提供 --rubric")
+            if score_file and aggregation_file:
+                raise SeedError("--score-file 和 --aggregation-file 互斥，只能提供一个")
+            if not score_file and not aggregation_file:
+                raise SeedError("scoring judge 必须提供 --score-file 或 --aggregation-file")
             if not artifact:
                 raise SeedError("scoring judge 必须附 --artifact（评分必须基于真实产物）")
             rubric_path, rubric_data = _load_json_object(root, rubric, "--rubric")
-            score_path, score_data = _load_json_object(root, score_file, "--score-file")
+            if aggregation_file:
+                # 读取 aggregation-file，转换为 score_doc 格式
+                agg_path, agg_data = _load_json_object(root, aggregation_file, "--aggregation-file")
+                score_data = {
+                    "rubric_id": agg_data.get("rubric_id"),
+                    "scores": {name: dim["score"] for name, dim in agg_data.get("dimensions", {}).items()}
+                }
+                score_path = agg_path
+            else:
+                score_path, score_data = _load_json_object(root, score_file, "--score-file")
             verdict, score_summary = _compute_score_verdict(rubric_data, score_data)
         else:
             if verdict not in ("pass", "fail"):
@@ -803,12 +833,16 @@ def cmd_run_check(
             "created_at": _now(),
         }
         if scored:
-            record["verdict_source"] = "score-file"
+            record["verdict_source"] = "aggregation-file" if aggregation_file else "score-file"
             record["rubric"] = rubric
             record["rubric_sha256"] = _file_sha256(rubric_path)
             if rubric_data and rubric_data.get("id"):
                 record["rubric_id"] = rubric_data["id"]
-            record["score_file"] = score_file
+            if aggregation_file:
+                record["aggregation_file"] = aggregation_file
+                record["aggregation_file_sha256"] = _file_sha256(score_path)
+            else:
+                record["score_file"] = score_file
             record["score_summary"] = score_summary
             if isinstance(score_data, dict) and "summary" in score_data:
                 record["score_summary_text"] = score_data["summary"]
@@ -926,6 +960,90 @@ def cmd_done(root: Path, task: str, slice_id: str) -> int:
     return 0
 
 
+def cmd_score_aggregate(root: Path, rubric_path: str, score_files: list[str], out_path: str) -> int:
+    """聚合多个 score-file，输出 median 结果。"""
+    try:
+        # 1. 加载 rubric
+        _, rubric = _load_json_object(root, rubric_path, "--rubric")
+        dimensions = rubric.get("dimensions", {})
+
+        if not isinstance(dimensions, dict) or not dimensions:
+            raise SeedError("rubric 必须包含非空 object 字段 dimensions")
+
+        # 2. 加载所有 score-file
+        all_scores = []
+        for sf_path in score_files:
+            _, score_doc = _load_json_object(root, sf_path, f"--score-files ({sf_path})")
+            all_scores.append(score_doc)
+
+        if not all_scores:
+            raise SeedError("至少需要一个 score-file")
+
+        # 3. 按维度聚合（median）
+        aggregated = {}
+        for dim_name in dimensions:
+            score_values = []
+            judge_scores = {}
+            for i, sf in enumerate(all_scores):
+                scores = sf.get("scores", {})
+                if not isinstance(scores, dict):
+                    raise SeedError(f"score-file ({score_files[i]}) 的 scores 字段必须是 object")
+                if dim_name not in scores:
+                    continue
+                raw = scores[dim_name]
+                # 兼容两种格式：number 或 {score, rationale}
+                if isinstance(raw, dict):
+                    value = _score_number(raw.get("score", 0), f"score-file ({score_files[i]}).scores.{dim_name}.score")
+                else:
+                    value = _score_number(raw, f"score-file ({score_files[i]}).scores.{dim_name}")
+                score_values.append(value)
+                judge_scores[f"judge-{i+1}"] = value
+
+            if not score_values:
+                raise SeedError(f"维度 {dim_name} 在所有 score-file 中都不存在")
+
+            # 计算 median
+            score_values_sorted = sorted(score_values)
+            n = len(score_values_sorted)
+            if n % 2 == 0:
+                median = (score_values_sorted[n//2 - 1] + score_values_sorted[n//2]) / 2
+            else:
+                median = score_values_sorted[n//2]
+
+            aggregated[dim_name] = {
+                "score": median,
+                "judge_scores": judge_scores,
+                "range": max(score_values) - min(score_values),
+                "min": min(score_values),
+                "max": max(score_values)
+            }
+
+        # 4. 计算平均
+        total = sum(d["score"] for d in aggregated.values())
+        average = total / len(aggregated) if aggregated else 0.0
+
+        # 5. 构建输出
+        output = {
+            "rubric_id": rubric.get("id"),
+            "method": "median",
+            "judges": [f"judge-{i+1}" for i in range(len(all_scores))],
+            "dimensions": aggregated,
+            "average": average,
+            "source_files": score_files
+        }
+
+        # 6. 写入文件
+        out_full = _project_path(root, out_path)
+        out_full.parent.mkdir(parents=True, exist_ok=True)
+        out_full.write_text(json.dumps(output, indent=2, ensure_ascii=False), encoding="utf-8")
+
+        print(f"聚合完成：{len(all_scores)} 个裁判，{len(aggregated)} 个维度，average={average:.2f}")
+        return 0
+    except SeedError as exc:
+        print(str(exc), file=sys.stderr)
+        return 1
+
+
 # --- entry ------------------------------------------------------------------
 
 def build_parser() -> argparse.ArgumentParser:
@@ -955,6 +1073,7 @@ def build_parser() -> argparse.ArgumentParser:
     rc_parser.add_argument("--grade", help="judge：评分/等级自由文本（可选备注，不参与 gate）")
     rc_parser.add_argument("--rubric", help="judge scoring gate：项目提供的机器可读 rubric JSON")
     rc_parser.add_argument("--score-file", help="judge scoring gate：独立 judge 产出的结构化 score JSON")
+    rc_parser.add_argument("--aggregation-file", help="judge scoring gate（多裁判模式）：聚合后的 score JSON（与 --score-file 互斥）")
     rc_parser.add_argument("--trace", help="judge：裁决依据/证据指针（rubric + 截图/输出位置）")
     rc_parser.add_argument("--human", help="[human] 验证项原文")
     rc_parser.add_argument("--manual", help="[manual] 验证项原文（旧式，等同 --human）")
@@ -967,6 +1086,15 @@ def build_parser() -> argparse.ArgumentParser:
     done_parser = sub.add_parser("done", help="证据齐备后勾选 slice checkbox（唯一合法勾选入口）")
     done_parser.add_argument("task")
     done_parser.add_argument("--slice", dest="slice_id", required=True)
+
+    # score 子命令组
+    score_parser = sub.add_parser("score", help="评分聚合")
+    score_sub = score_parser.add_subparsers(dest="score_cmd", required=True)
+    agg_parser = score_sub.add_parser("aggregate", help="聚合多个 score-file（多裁判模式）")
+    agg_parser.add_argument("--rubric", required=True, help="rubric JSON 路径")
+    agg_parser.add_argument("--score-files", nargs="+", required=True, help="score-file JSON 路径列表")
+    agg_parser.add_argument("--out", required=True, help="输出聚合结果路径")
+
     return parser
 
 
@@ -994,8 +1122,8 @@ def main(argv: list[str] | None = None) -> int:
                 mode, manual_item, judge_item = "judge", None, args.judge
             elif args.manual is not None or args.human is not None:
                 mode, manual_item, judge_item = "human", (args.manual or args.human), None
-            elif args.verdict is not None or args.score_file is not None or args.rubric is not None:
-                mode, manual_item, judge_item = "judge", None, None  # obligation judge（--obligation <id> --verdict 或 --rubric + --score-file）
+            elif args.verdict is not None or args.score_file is not None or args.rubric is not None or args.aggregation_file is not None:
+                mode, manual_item, judge_item = "judge", None, None  # obligation judge（--obligation <id> --verdict 或 --rubric + --score-file/--aggregation-file）
             elif args.obligation is not None and args.note:
                 mode, manual_item, judge_item = "human", None, None  # obligation human（--obligation <id> --note）
             else:
@@ -1017,11 +1145,15 @@ def main(argv: list[str] | None = None) -> int:
                 artifact=args.artifact,
                 rubric=args.rubric,
                 score_file=args.score_file,
+                aggregation_file=args.aggregation_file,
                 by=args.by,
                 timeout=args.timeout,
             )
         if args.command == "done":
             return cmd_done(root, args.task, args.slice_id)
+        if args.command == "score":
+            if args.score_cmd == "aggregate":
+                return cmd_score_aggregate(root, args.rubric, args.score_files, args.out)
     except SeedError as exc:
         print(str(exc), file=sys.stderr)
         return 1

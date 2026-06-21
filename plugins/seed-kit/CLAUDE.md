@@ -2,7 +2,7 @@
 
 ## 核心原则：机制在插件，标准在项目
 
-seed-kit 只提供**机制**（栈无关）：验收义务 obligation（形如 `[kind][surface] <id>: <行为>`，证据以 obligation_id 绑定）、验证三 kind（assert / judge / human）、交付面覆盖校验（面名自由、非封闭）、正确性 gate、单 judge scoring gate、`seed` CLI。judge 可用 legacy `--verdict pass|fail`，也可用项目 rubric + score-file 由 helper 计算 verdict；`--grade` 只是备注，不进 gate。多裁判并行评分循环（fan-out）尚未实装。
+seed-kit 只提供**机制**（栈无关）：验收义务 obligation（形如 `[kind][surface] <id>: <行为>`，证据以 obligation_id 绑定）、验证三 kind（assert / judge / human）、交付面覆盖校验（面名自由、非封闭）、正确性 gate、单 judge scoring gate、多裁判聚合（`seed score aggregate`）、`seed` CLI。judge 可用 legacy `--verdict pass|fail`，也可用项目 rubric + score-file 由 helper 计算 verdict；`--grade` 只是备注，不进 gate。多裁判并行评分循环（fan-out）的 helper 已实装（`seed score aggregate`），orchestration 由 Claude 按 review SKILL.md 的模板生成（见 review SKILL「多裁判对抗评分」段落）。
 
 **测试纪律、评分标准、品味、参考产品、设计语言、质量基线**——这些属于**标准**，落在**项目**：测试纪律放 `.claude/rules/`（如 `testing.md`），品味与设计语言放 `DESIGN.md`，入口与 `@import` 在 `CLAUDE.md`，体验意图在 PRD 质量基线。**都不进插件**。
 
