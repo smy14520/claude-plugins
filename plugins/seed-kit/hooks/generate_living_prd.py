@@ -251,8 +251,8 @@ def main() -> int:
     root = _project_root()
     if not (root / ".arbor" / "tasks").is_dir():
         return 0
-    if not _load_config(root).get("living_prd", {}).get("enabled", True):
-        return 0  # 用户在 .arbor/config.json 禁用
+    if not _load_config(root).get("living_prd", {}).get("enabled", False):
+        return 0  # opt-in：默认不生成，需 .arbor/config.json 里 living_prd.enabled=true
     found = _find_task(root)
     if not found:
         print("[living_prd] 未找到 prd.md", file=sys.stderr)

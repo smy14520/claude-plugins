@@ -37,6 +37,25 @@ def test_non_seed_kit_skipped(tmp_path: Path):
     assert not (tmp_path / ".arbor" / "artifacts" / "living-prd.html").exists()
 
 
+def test_opt_in_default_off(tmp_path: Path):
+    """opt-in：有 .arbor/tasks 但无 config → 默认不生成（要 enabled:true 才生成）。"""
+    (tmp_path / ".arbor" / "tasks" / "demo").mkdir(parents=True)
+    # 无 config.json
+    r = run_generate(tmp_path)
+    assert r.returncode == 0
+    assert not (tmp_path / ".arbor" / "artifacts" / "living-prd.html").exists()
+
+
+def test_opt_in_enabled_generates(tmp_path: Path):
+    """config enabled:true → 触发生成（无 prd.md 时 generate 会早退，但不因 enabled 阻断）。"""
+    (tmp_path / ".arbor" / "tasks" / "demo").mkdir(parents=True)
+    (tmp_path / ".arbor" / "config.json").write_text(
+        json.dumps({"living_prd": {"enabled": True}}), encoding="utf-8"
+    )
+    r = run_generate(tmp_path)
+    assert r.returncode == 0  # enabled 通过；无 prd.md 则 find_task 返回 None 早退，不报错
+
+
 def test_config_disabled_skips(tmp_path: Path):
     """config enabled=false → 不生成 HTML。"""
     (tmp_path / ".arbor" / "tasks" / "demo").mkdir(parents=True)
