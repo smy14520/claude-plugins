@@ -22,22 +22,17 @@
         ]
       },
       {
-        "matcher": "Write",
-        "if": "Write(.arbor/tasks/*/prd.md)",
+        "matcher": "Write|Edit",
         "hooks": [
           {
             "type": "command",
+            "if": "Write(.arbor/tasks/*/prd.md)",
             "command": "python3 ${CLAUDE_PLUGIN_ROOT}/hooks/generate_living_prd.py",
             "async": true
-          }
-        ]
-      },
-      {
-        "matcher": "Edit",
-        "if": "Edit(.arbor/tasks/*/prd.md)",
-        "hooks": [
+          },
           {
             "type": "command",
+            "if": "Edit(.arbor/tasks/*/prd.md)",
             "command": "python3 ${CLAUDE_PLUGIN_ROOT}/hooks/generate_living_prd.py",
             "async": true
           }
@@ -45,10 +40,10 @@
       },
       {
         "matcher": "Bash",
-        "if": "Bash(seed done*)",
         "hooks": [
           {
             "type": "command",
+            "if": "Bash(seed done*)",
             "command": "python3 ${CLAUDE_PLUGIN_ROOT}/hooks/generate_living_prd.py",
             "async": true
           }

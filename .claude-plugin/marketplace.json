@@ -11,7 +11,7 @@
     {
       "name": "seed-kit",
       "description": "Lightweight PRD-first workflow: research / brainstorm / impl / review / wiki, all user-triggered and decoupled. State = prd.md checkboxes + evidence files; `seed done` is evidence-gated; no state machine.",
-      "version": "0.1.5",
+      "version": "0.1.6",
       "source": "./plugins/seed-kit",
       "category": "development",
       "author": {
