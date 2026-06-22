@@ -12,7 +12,7 @@
 // 控制流（每轮做满）：
 //   ① assert 客观锚（没绿直接 impl，不浪费语义 review）
 //   ② code-review（审代码主线）+ judge（审产物）并行
-//   ③ propose-kill：每条 finding 派 validator 证伪
+//   ③ propose-kill：每条 finding 派 3 validator 投票（≥2 refute 才杀，学 /deep-research）
 //   ④ 收敛：survived blocking 清空 → break
 //   ⑤ circuit breaker：issues_hash 重复/无进展/max rounds → 熔断 escalate
 //   ⑥ impl 修 survived blocking
@@ -54,7 +54,11 @@ const ASSERT_SCHEMA = {
 }
 const VERDICT_SCHEMA = {
   type: 'object', additionalProperties: false,
-  properties: { verdict: { type: 'string', enum: ['valid', 'invalid', 'ambiguous'] }, counter_evidence: { type: 'string' } },
+  properties: {
+    verdict: { type: 'string', enum: ['valid', 'invalid', 'ambiguous'] },
+    confidence: { type: 'string', enum: ['high', 'medium', 'low'] },
+    counter_evidence: { type: 'string' },
+  },
   required: ['verdict', 'counter_evidence'],
 }
 
@@ -103,19 +107,35 @@ while (round < MAX_ROUNDS) {
 
   const findings = [...(codeRes.findings || []), ...(judgeRes.findings || [])]
 
-  // ③ propose-kill：每条 finding 派 validator 证伪
-  const verdicts = await parallel(findings.map((f) => () =>
-    agent(
-      `证伪这条 finding（bias toward 证伪，但只接受 file:line/输出反证，口头不算）：\nclaim: ${f.claim}\nevidence: ${f.evidence}\nseverity: ${f.severity}`,
-      { agentType: 'seed-kit:seed-validator', schema: VERDICT_SCHEMA, label: `validate:${f.id}:r${round}`, phase: 'Audit' }
-    )
-  ))
-  const survived = findings.filter((_, i) => verdicts[i] && verdicts[i].verdict !== 'invalid')
+  // ③ propose-kill：每条 finding 派 3 个 validator 投票（学 /deep-research 对抗验证）
+  //    ≥ REFUTATIONS_REQUIRED 个 refute 才杀；null(弃权) 不当 refute 也不当 support，
+  //    survive 要求足够多真裁决（防"全弃权→refute=0→假 survive"）
+  const VOTES_PER_FINDING = 3, REFUTATIONS_REQUIRED = 2
+  const voted = (await parallel(findings.map((f) => () =>
+    parallel(Array.from({ length: VOTES_PER_FINDING }, (_, v) => () =>
+      agent(
+        `对抗证伪 finding（voter ${v + 1}/${VOTES_PER_FINDING}）。Be SKEPTICAL，尽力 REFUTE——≥${REFUTATIONS_REQUIRED}/${VOTES_PER_FINDING} refute 才杀。\n` +
+        `claim: ${f.claim}\nevidence: ${f.evidence}\nseverity: ${f.severity}\n` +
+        `checklist：(1) claim 是否真被 evidence 支持；(2) 读 ${REPO} 相关代码找反证；(3) severity 是否夸大；(4) 是否过度报告（把 AC 没要求的当问题）。\n` +
+        `verdict=invalid（refute）必须附 file:line 反证；verdict=valid（成立）说明为何站得住。Default to invalid if uncertain（bias toward refute）。`,
+        { agentType: 'seed-kit:seed-validator', schema: VERDICT_SCHEMA, label: `vote${v}:${f.id}:r${round}`, phase: 'Audit' }
+      )
+    )).then((vs) => {
+      const valid = vs.filter(Boolean)  // null = 弃权（agent error/skip）
+      const refuted = valid.filter((x) => x.verdict === 'invalid').length
+      const abstained = VOTES_PER_FINDING - valid.length
+      const survives = valid.length >= REFUTATIONS_REQUIRED && refuted < REFUTATIONS_REQUIRED
+      log(`"${f.claim.slice(0, 40)}…": ${valid.length - refuted}-${refuted}${abstained > 0 ? ` (${abstained} 弃权)` : ''} ${survives ? '✓' : '✗'}`)
+      return { ...f, refutedVotes: refuted, abstained, survives }
+    })
+  ))).filter(Boolean)
+  const survived = voted.filter((v) => v.survives)
+  const killed = voted.filter((v) => !v.survives)
   const blocking = survived.filter((f) => f.severity === 'blocking')
 
   rounds.push({
     round, code_findings: (codeRes.findings || []).length, judge_findings: (judgeRes.findings || []).length,
-    survived: survived.length, blocking: blocking.map((f) => f.claim),
+    survived: survived.length, killed: killed.map((f) => f.claim), blocking: blocking.map((f) => f.claim),
   })
 
   // ④ 收敛
