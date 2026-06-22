@@ -1,51 +1,35 @@
 ---
 name: review
-description: "review 的入口。用户 /review → 选编排强度 → 调 review-loop（templates/review-loop.template.js + Workflow 工具）→ 它派 seed-review/seed-judge/seed-validator/seed-assert/seed-impl agent 做多轮 loop。review 本身是「审一次」的窄职责；loop/收敛/circuit breaker 在编排层，不在本 skill。"
+description: "审实现是否兑现 PRD：逐条 AC 对账、查偷懒签名与隐患、验产物是否缺失/达 rubric，产出可证伪的 finding。生成者≠验证者——只看 PRD+diff+evidence+真实产物，不依赖 impl 的叙述。"
 ---
-# Review — 入口与编排
+# Review
 
-通用约定见 [`../references/conventions.md`](../references/conventions.md)。
+用干净视角审计实现是否兑现 PRD 承诺。**生成者≠验证者**：不依赖 impl 的叙述，只看 PRD、代码 diff、落盘 evidence、真实产物。
 
-review = 用**独立 agent** 审【代码】(seed-review) + 【产物】(seed-judge)，经 propose-kill (seed-validator) 证伪、assert (seed-assert) 客观锚，收敛由编排层判。**生成者 ≠ 验证者**：不依赖 impl 的叙述，只看 PRD + diff + evidence + 真实产物。
+## 审什么
 
-哲学：**gate 守对错（assert 客观），loop 守好坏（代码/产物质量）**。judge 进 loop（迭代体验），不做 gate 分数。详见 `CLAUDE.md`「验证哲学」。
+- **AC 兑现**：逐条 AC 映射到具体代码/证据，含失败路径；多余改动按漂移记。
+- **偷懒签名**：弱化或删除的断言、吞掉的异常、抄实现的假测试、新增 lint/类型抑制注释、悄悄收窄的 scope、证据 log 与声称结论不符。
+- **措辞红旗**：should/seems/大概/基本上/应该 这类掩饰不确定的措辞。
+- **验证降级**：本可 `[assert]` 的写成 `[judge]`/`[human]` 充数；`[assert]` 是裸 curl/echo 烟雾；`[judge]` 裁决来自实现者自己的上下文。
+- **交付面冒充**：声明交付面是否都有真实实现与证据；验证项不能跨面冒充（声明 web-ui 却只标 backend-domain）。
+- **过期声明**：Technical Framing 版本/API 无 `查证于 <日期>` 标注，或标注后该栈已发新版未重新查证。
+- **覆盖缺口**：AC 声称的每个维度是否都有验证项触及；别让一条线的通过冒充另一条线的覆盖。
+
+## 对账标准
+
+先读项目的 `CLAUDE.md`、`.claude/rules/`、`DESIGN.md`——硬规则与审美标准；项目无则用通用地板（反半成品）。
 
 ## 何时 review
 
-1. **软提醒**：`seed done` 后 PostToolUse hook 注入"建议 review"。
-2. **用户触发**：`/review` 或"review 这个 slice"。
-3. **impl 兜底**：impl 完成后建议触发。
+- `seed done` 后 PostToolUse hook 软提醒。
+- 用户触发（"review 这个 slice"）。
+- impl 完成后兜底。
 
-## 怎么跑（编排不在本 skill）
+## 产出
 
-loop/收敛/circuit breaker 全在编排层，不在 SKILL：
-
-- **默认（中档）**：读 `templates/review-loop.template.js`，按 task/slice 填 args，用 Workflow 工具跑。模板用 JS 持 loop/收敛/circuit breaker（确定性，不靠 prompt 提醒）。收敛 = assert 全绿 + 无 survived blocking + circuit breaker 兜底（issues_hash 重复熔断）。
-- **编排强度三档**（都在编排层）：轻 = subagent 单审；**中 = review-loop workflow（默认）**；重 = agent team 对抗（opt-in，环境支持时）。
-
-## 对账标准（review 的判断依据，详细执行在 agents/seed-review.md）
-
-- 先读项目的 `CLAUDE.md`、`.claude/rules/`、`DESIGN.md`——硬规则与审美标准；项目无则用通用地板。
-- 逐条 AC 映射到代码/证据，含失败路径。
-- 专查偷懒签名、验证降级、交付面冒充、过期声明、覆盖缺口、措辞红旗——这些是 seed-review 的职责方向。
-- 感知型判断（切片是否纵向完整、scope 是否割裂）gate 不了，靠语义审。
-
-## 角色（agent 定义在 `agents/`，各窄职责、角色硬分离）
-
-| agent | 审什么 | 产出 |
-|---|---|---|
-| seed-review | 代码 diff/source | finding（只读，禁改码） |
-| seed-judge | 真实产物（截图/运行页） | 体验 finding（按 rubric） |
-| seed-validator | 证伪每条 finding | verdict valid/invalid |
-| seed-assert | 跑 run-check | 客观 pass/fail + evidence |
-| seed-impl | 按 finding 改码 | 改动摘要（守 PASS_TO_PASS） |
-
-review 审一次、出 finding 即停；多轮 loop 由编排层驱动。
-
-## 输出
-
-结论**追加**到 `.arbor/tasks/<task>/review.md`（不覆盖历史）：每轮 `## Round N` + finding + validator verdict + 收敛/熔断状态。objective evidence 由 seed-assert 落 `evidence/`。
+结论**追加**到 `.arbor/tasks/<task>/review.md`（不覆盖历史）：逐条 AC 的实现位置 / 证据 / 差距 + 结论（通过 | 通过但有备注 | 需要返工）+ 返工清单。objective evidence 落 `evidence/`。
 
 ## 边界
 
-不改代码（seed-impl 才改）、不改 prd、不动 checkbox。收敛判据在编排层。熔断或需返工时列清单交人，不自动触发下一轮。
+不改代码、不改 prd、不动 checkbox。需要返工时列清单交人，不自动触发下一轮。
