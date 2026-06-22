@@ -54,10 +54,10 @@ class SeedPromptContractTests(unittest.TestCase):
         impl = self.read_plugin_file("skills", "impl", "SKILL.md")
         self.assertIn("地板", impl)
         self.assertIn("可交付品质", impl)
-        # judge 归 review（生成者≠验证者）：impl 不落 judge，review 附 --artifact 看真实产物
+        # judge 归 review/seed-judge（生成者≠验证者）：impl 不落 judge，review 看真实产物
         self.assertNotIn("--artifact", impl)
         review = self.read_plugin_file("skills", "review", "SKILL.md")
-        self.assertIn("--artifact", review)
+        self.assertIn("真实产物", review)
 
     def test_brainstorm_captures_quality_baseline_by_reference(self):
         brainstorm = self.read_plugin_file("skills", "brainstorm", "SKILL.md")
@@ -66,9 +66,11 @@ class SeedPromptContractTests(unittest.TestCase):
         self.assertIn("参考", brainstorm)
         self.assertNotIn("必须带一条整体体验 judge", brainstorm)
 
-    def test_conventions_document_scoring_gate(self):
+    def test_conventions_document_judge_loop(self):
         conventions = self.read_plugin_file("skills", "references", "conventions.md")
-        self.assertIn("单 judge scoring gate", conventions)
+        # judge 走 review loop（不做 scoring gate 卡 done）；rubric/score-file 仍是 loop 里的工具
+        self.assertIn("judge 走 review loop", conventions)
+        self.assertNotIn("单 judge scoring gate", conventions)
         self.assertIn("--rubric", conventions)
         self.assertIn("--score-file", conventions)
         self.assertIn("--artifact", conventions)
@@ -77,11 +79,10 @@ class SeedPromptContractTests(unittest.TestCase):
 
     def test_review_keeps_heavy_orchestration_optional(self):
         review = self.read_plugin_file("skills", "review", "SKILL.md")
-        self.assertIn("默认派 subagent 审计", review)
+        # 重编排（agent team）是 opt-in 不默认；轻档 subagent 文档化
         self.assertIn("subagent", review)
-        self.assertIn("用户明确要求", review)
-        self.assertIn("Mode 1", review)  # Multi-judge modes are documented
-        self.assertNotIn("TeamCreate", review)  # Agent Team not used
+        self.assertIn("opt-in", review)
+        self.assertNotIn("TeamCreate", review)  # Agent Team 不在 skill（编排层）
         self.assertNotIn("TaskCompleted", review)  # No TaskCompleted hook
 
 

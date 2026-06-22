@@ -53,16 +53,16 @@
 
 旧式兼容：裸 `` `命令` `` 视为 `[assert]`，`[manual]` 视为 `[human]`，仍可解析；但没有 surface 标签时不覆盖任何交付面。
 
-## 体验质量：单 judge scoring gate + 项目标准
+## 体验质量：judge 走 review loop（不做 gate 分）+ 项目标准
 
-正确性靠 assert/human 等确定性证据；用户可感质量可用 `[judge]` 的 scoring gate 进入 `seed done`。**当前实装**：一个独立 judge 看真实产物，按项目 rubric 产出 score-file；helper 只按 rubric/score-file 做机械比较并计算 verdict。评分维度、门槛、参考产品、设计语言属于项目标准，不进插件。
+正确性靠 assert/human 等确定性证据（gate 守对错）；用户可感质量是"好坏"问题，用 `[judge]` 进 **review loop** 迭代收敛（loop 守好坏）——**不做 scoring gate 卡 done**。独立 judge 看真实产物、按项目 rubric 提体验 finding，迭代到找不到新问题；收敛靠"无新体验 finding"，不靠"达到 min 分"。详见 `CLAUDE.md`「验证哲学：gate 守对错，loop 守好坏」。
 
 - **标准从项目**：打哪些维度、门槛、参考什么产品——读项目 `DESIGN.md`、`.claude/rules/`、PRD 质量基线或项目提供的 rubric JSON。
-- **机制在插件**：helper 校验 rubric/score-file JSON、artifact 存在、score 是否达到各维度门槛和平均线；不解释维度含义，也不内置审美。
-- **未声明不保证**：`seed done` 只证明已声明的 obligation 过 gate；未声明的质量维度仍需 review / 人判断。
-- **多裁判 fan-out**：helper 已实装（`seed score aggregate`），orchestration 见 review SKILL「多裁判对抗评分」段落。三种模式按对抗强度递增：Mode 1 Independent Fan-out（✅ v1 已实装）、Mode 2 Adversarial Fan-out（⏳ v2 辩论收敛）、Mode 3 Mechanical Classification（⏳ v2 cross-validate 分类）。需要时由用户显式 opt-in，不是 seed-kit 默认流程。
+- **机制在插件**：helper 校验 rubric/score-file JSON、artifact 存在（供 judge 在 loop 里产出结构化评分）；不解释维度含义，也不内置审美。
+- **rubric/score-file 的定位**：是 judge 在 loop 里评体验的结构化输入/产出，**不是卡 done 的 gate 门槛**。`seed done` = assert 全绿 + review loop 收敛（无 survived blocking），不是 judge verdict=pass。
+- **多裁判 fan-out**：helper 已实装（`seed score aggregate`），作为 review loop 的多角度编排（review SKILL 三档强度之一），不是独立 gate 模式。
 
-一句话：当前 = evidence gate + 单 judge scoring gate + 多裁判聚合（helper 已实装，orchestration 见 review SKILL）。
+一句话：体验质量走 review loop（judge 迭代到无新 finding），不走 scoring gate；rubric/score-file 是 loop 里的结构化评分工具。
 
 ### Rubric 与 Score-file 格式
 
