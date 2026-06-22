@@ -1,33 +1,31 @@
-# 安装与三种 review 模式
+# review 的三种模式
 
-## 为什么需要安装
+review SKILL 只管"审什么"（知识）。执行走三种模式之一，由用户指定或 Claude 按场景——**编排不在 review SKILL**。
 
-Claude Code 插件**不分发 workflow**（`workflows/` 非插件标准目录）。所以 review-loop workflow 不能随插件自动可用——要手动装到项目 `.claude/workflows/`。
+## 模式 2（默认）：`/seed-kit:review-loop` command
 
-## 安装 review-loop（模式 2：workflow）
-
-在项目根目录跑：
-
-```bash
-bash <path-to-seed-kit>/scripts/install-review-loop.sh
-```
-
-它会把 `templates/review-loop.template.js` 复制成项目的 `.claude/workflows/review-loop.js`。**重启 Claude Code** 后 `/review-loop` 注册可用：
+最简单——**不用 install、不用重启**。在加载了 seed-kit 的项目里：
 
 ```
-/review-loop task=family-ledger slice=S-005 repo=/path/to/project
+/seed-kit:review-loop S-005
 ```
 
-## 三种 review 模式（选哪种由用户指定或 Claude 按场景，不在 review SKILL）
+command 读 `templates/review-loop.template.js` + 用 Workflow 工具跑（审代码/产物 + propose-kill 3 票证伪 + 客观 assert 锚，loop 到收敛或熔断）。
 
-| 模式 | 触发 | 适合 | 要装吗 |
-|---|---|---|---|
-| **subagent（轻）** | Claude 自主用 Agent tool 派 `seed-kit:seed-review` | 简单 slice / 快速查 | 不用 |
-| **workflow（中）** | `/review-loop` | 标准 review（多 agent + loop） | 要（上面 install） |
-| **agent team（重）** | Claude 自主 TeamCreate 组 architect-A/B + devil's-advocate | 高价值 / 架构争议 | 不用（实验性） |
+## 模式 1（轻）：subagent
 
-review SKILL 只管"审什么"（知识），不规定用哪种模式——那是编排，由 workflow / Agent tool / TeamCreate 各自承担。
+Claude 自主用 Agent tool 派 `seed-kit:seed-review`。简单 slice / 快速查。直接对 Claude 说"用 seed-kit:seed-review 审 S-005"。
 
-## 已知待验证点
+## 模式 3（重）：agent team
 
-`/review-loop` 跑时，workflow 里的 `agentType: 'seed-kit:seed-*'` 能否解析到插件 agent——重启后第一次用 `/review-loop` 时重点确认（不报 `not found` 即通；若报错，fallback 是 template 改用通用 agent，或退到 subagent 模式）。
+Claude 自主 TeamCreate 组 architect-A/B + devil's-advocate 对抗。高价值 / 架构争议。实验性。
+
+## 自动触发（每个 slice 完成 → review）
+
+impl 做 slice → `seed done` → impl 流程指向 `/seed-kit:review-loop` + hook 提醒 → 主 session 跑 command → 审 → 收敛 → 下一个 slice。
+
+注意：hook 不能硬跑 workflow/command（只能提醒/注入），所以是"软自动"——流程 + 提醒驱动，主 session 执行。
+
+## 为什么不用 install
+
+Claude Code 插件不分发 workflow（`workflows/` 非插件目录）。方向 2 用 command inline 调 Workflow，绕开 install + 重启——`/seed-kit:review-loop` 一句话直接跑。
