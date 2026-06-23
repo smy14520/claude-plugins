@@ -79,11 +79,13 @@ class SeedPromptContractTests(unittest.TestCase):
 
     def test_review_keeps_heavy_orchestration_optional(self):
         review = self.read_plugin_file("skills", "review", "SKILL.md")
-        # 重编排（agent team）是 opt-in 不默认；轻档 subagent 文档化
-        self.assertIn("subagent", review)
-        self.assertIn("opt-in", review)
+        # review SKILL 已纯化为“审什么 playbook”：不自动触发下一轮（opt-in）；
+        # 重编排（review-loop）是独立 command，不耦合进 review SKILL
+        self.assertIn("不自动触发下一轮", review)
         self.assertNotIn("TeamCreate", review)  # Agent Team 不在 skill（编排层）
         self.assertNotIn("TaskCompleted", review)  # No TaskCompleted hook
+        cmd = self.read_plugin_file("commands", "review-loop.md")
+        self.assertIn("review-loop", cmd)  # 重编排在独立 command
 
 
 if __name__ == "__main__":

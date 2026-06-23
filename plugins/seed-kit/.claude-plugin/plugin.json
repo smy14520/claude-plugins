@@ -1,6 +1,6 @@
 {
   "name": "seed-kit",
-  "version": "0.2.1",
+  "version": "0.2.2",
   "description": "轻量的 PRD-first 工作流：五个 skill 由用户主动触发，状态由 prd.md 复选框与 evidence 文件承载，无状态机。review-loop 由独立 agent 编排（审代码/产物/propose-kill/客观锚，loop 到收敛或熔断）。",
   "author": {
     "name": "camellia",

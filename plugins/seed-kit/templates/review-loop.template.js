@@ -10,12 +10,13 @@
 // - agentType 指向插件 agent（seed-kit:seed-*）→ 角色硬分离、生成者≠验证者。
 //
 // 控制流（每轮做满）：
-//   ① assert 客观锚（没绿直接 impl，不浪费语义 review）
-//   ② code-review（审代码主线）+ judge（审产物）并行
+//   ① assert 客观锚（null→impl 自查使可达；没绿→impl 修；都不浪费语义 review）
+//   ② code-review（审代码主线）+ judge（审产物）并行；一路 null=盲审
 //   ③ propose-kill：每条 finding 派 3 validator 投票（≥2 refute 才杀，学 /deep-research）
-//   ④ 收敛：survived blocking 清空 → break
-//   ⑤ circuit breaker：issues_hash 重复/无进展/max rounds → 熔断 escalate
+//   ④ 收敛：两路 reviewer 都非 null 且 survived blocking 清空 → converged
+//   ⑤ 熔断：盲审 / blocking 连续相同 / assert 连续未绿 / max rounds → escalate，绝不推 done
 //   ⑥ impl 修 survived blocking
+// 终态由显式 terminalReason 驱动 verdict，不从 rounds 反推（防 assert 未绿却假报 converged）
 
 export const meta = {
   name: 'seed-review-loop',
@@ -71,7 +72,7 @@ const hashClaims = (arr) => {
 const trim = (s, n) => (typeof s === 'string' ? s.slice(0, n) : '')
 
 phase('Audit')
-let round = 0, prevHash = null, stall = 0, escalated = false
+let round = 0, prevHash = null, stall = 0, escalated = false, terminalReason = null
 const rounds = []
 
 while (round < MAX_ROUNDS) {
@@ -84,6 +85,15 @@ while (round < MAX_ROUNDS) {
     `项目根 ${REPO}。all_passed = 全部 exit 0。失败把 failures 列出。`,
     { agentType: 'seed-kit:seed-assert', schema: ASSERT_SCHEMA, label: `assert:r${round}`, phase: 'Audit' }
   )
+  // assert 不可达（agent 返回 null/形状错）：按未通过处理，派 impl 自查使可达——不复用 escalated
+  // （那是 impl 停滞的 circuit breaker，合流会把 runtime 失败误诊为“impl 没真修”）
+  const assertOk = assertRes && typeof assertRes.all_passed === 'boolean'
+  if (!assertOk) {
+    await agent(`assert 客观锚不可达（seed-assert 未返回有效 all_passed）。自查 [assert] 义务能否真实执行（seed run-check 路径/命令/环境可达），修复使其能跑出真实结果。改完跑测试验 PASS_TO_PASS 报回。`,
+      { agentType: 'seed-kit:seed-impl', label: `impl:r${round}`, phase: 'Audit' })
+    rounds.push({ round, stage: 'assert-unavailable' })
+    continue
+  }
   if (!assertRes.all_passed) {
     await agent(`修这些 assert 失败。改完必须跑测试验证既有用例仍绿（PASS_TO_PASS），把结果报回：\n${assertRes.failures}`,
       { agentType: 'seed-kit:seed-impl', label: `impl:r${round}`, phase: 'Audit' })
@@ -105,7 +115,10 @@ while (round < MAX_ROUNDS) {
     ),
   ])
 
-  const findings = [...(codeRes.findings || []), ...(judgeRes.findings || [])]
+  const codeFindings = (codeRes && codeRes.findings) || []
+  const judgeFindings = (judgeRes && judgeRes.findings) || []
+  const findings = [...codeFindings, ...judgeFindings]
+  const blindSpot = !codeRes || !judgeRes  // 一路 reviewer 返回 null = 盲审，不能当“无 finding=通过”
 
   // ③ propose-kill：每条 finding 派 3 个 validator 投票（学 /deep-research 对抗验证）
   //    ≥ REFUTATIONS_REQUIRED 个 refute 才杀；null(弃权) 不当 refute 也不当 support，
@@ -134,33 +147,47 @@ while (round < MAX_ROUNDS) {
   const blocking = survived.filter((f) => f.severity === 'blocking')
 
   rounds.push({
-    round, code_findings: (codeRes.findings || []).length, judge_findings: (judgeRes.findings || []).length,
+    round, code_findings: codeFindings.length, judge_findings: judgeFindings.length,
     survived: survived.length, killed: killed.map((f) => f.claim), blocking: blocking.map((f) => f.claim),
+    ...(blindSpot ? { blind_spot: true } : {}),
   })
 
-  // ④ 收敛
-  if (blocking.length === 0) { log(`CONVERGED at round ${round}`); break }
+  // ④ 收敛：要求两路 reviewer 都非 null 且无 survived blocking（防“没审=通过”假收敛）
+  if (!blindSpot && blocking.length === 0) { terminalReason = 'converged'; log(`CONVERGED at round ${round}`); break }
+  //    盲审（一路 reviewer 返回 null）：即使 blocking 空也不能判通过，escalate 交人
+  if (blindSpot) { escalated = true; terminalReason = 'reviewer-blind'; log(`CIRCUIT BREAKER: reviewer 盲审（${!codeRes ? 'code' : ''}${!codeRes && !judgeRes ? '+' : ''}${!judgeRes ? 'judge' : ''} 返回 null），escalate`); break }
 
   // ⑤ circuit breaker：同一批 blocking 连续 2 轮相同 = impl 没真修（换汤不换药）→ 熔断
   //    语义：本轮 blocking 的 hash 与上一轮相同 → stall=1 → 立即熔断（不等到第 3 轮）
   const h = hashClaims(blocking)
   stall = h === prevHash ? stall + 1 : 0
   prevHash = h
-  if (stall >= 1) { escalated = true; log(`CIRCUIT BREAKER: blocking 连续 ${stall + 1} 轮相同，impl 未真修，escalate`); break }
+  if (stall >= 1) { escalated = true; terminalReason = 'circuit-breaker'; log(`CIRCUIT BREAKER: blocking 连续 ${stall + 1} 轮相同，impl 未真修，escalate`); break }
 
   // ⑥ impl 修 survived blocking（改完必须自跑测试验 PASS_TO_PASS 并报回——下一轮 assert 会客观复核）
   await agent(`修这些 survived blocking finding。改完必须跑测试验证既有用例仍绿（PASS_TO_PASS），把测试结果报回：\n${blocking.map((f) => '- ' + f.claim).join('\n')}`,
     { agentType: 'seed-kit:seed-impl', label: `impl:r${round}`, phase: 'Audit' })
 }
 
+// while 自然退出（耗尽 MAX_ROUNDS）→ 按末轮 stage 推断终态；assert 连续未绿绝不判 converged
+if (!terminalReason) {
+  const last = rounds[rounds.length - 1]
+  terminalReason = (last && last.stage === 'assert-failed') ? 'assert-stalled'
+    : (last && last.stage === 'assert-unavailable') ? 'assert-unavailable'
+    : 'rounds-exhausted'
+}
+
 // —— 精简 return（防 structuredClone 崩）——
 return {
   task: TASK, slice: SLICE, rounds: round,
-  converged: !escalated && rounds.length > 0 && (rounds[rounds.length - 1].blocking || []).length === 0,
+  terminal_reason: terminalReason,
+  converged: terminalReason === 'converged',
   escalated,
-  verdict: escalated ? 'ESCALATED — circuit breaker 触发，未决项交人'
-    : (rounds[rounds.length - 1] && (rounds[rounds.length - 1].blocking || []).length === 0
-      ? `CONVERGED — ${round} 轮，可推进 done`
-      : `NOT CONVERGED — ${MAX_ROUNDS} 轮仍有 blocking`),
+  verdict: terminalReason === 'converged' ? `CONVERGED — ${round} 轮，可推进 done`
+    : terminalReason === 'assert-stalled' ? `ESCALATED — 客观锚连续未绿（assert-stalled），绝不推 done`
+    : terminalReason === 'assert-unavailable' ? `ESCALATED — assert 客观锚不可达，交人`
+    : terminalReason === 'reviewer-blind' ? `ESCALATED — reviewer 盲审（code/judge 返回 null），交人`
+    : terminalReason === 'circuit-breaker' ? `ESCALATED — circuit breaker 触发，未决项交人`
+    : `NOT CONVERGED — ${MAX_ROUNDS} 轮仍有 blocking`,
   trace: rounds,
 }
