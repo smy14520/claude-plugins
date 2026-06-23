@@ -543,6 +543,45 @@ def test_done_unknown_slice(project: Path, capsys):
     assert "不存在" in capsys.readouterr().err
 
 
+# --- review-mark -------------------------------------------------------------
+
+def test_review_mark_writes_converged_marker(project: Path, capsys):
+    make_task(project)
+    assert run(project, "review-mark", "demo", "--slice", "S-001", "--verdict", "converged") == 0
+    marker = project / ".arbor" / "tasks" / "demo" / "evidence" / "S-001" / "review-loop.json"
+    data = json.loads(marker.read_text(encoding="utf-8"))
+    assert data["terminal_reason"] == "converged"
+    assert data["converged"] is True
+    assert data["slice"] == "S-001"
+    assert "可推进 done" in capsys.readouterr().out
+
+
+def test_review_mark_records_escalated(project: Path, capsys):
+    make_task(project)
+    assert run(
+        project, "review-mark", "demo", "--slice", "S-001",
+        "--verdict", "circuit-breaker", "--note", "blocking 反复",
+    ) == 0
+    marker = project / ".arbor" / "tasks" / "demo" / "evidence" / "S-001" / "review-loop.json"
+    data = json.loads(marker.read_text(encoding="utf-8"))
+    assert data["terminal_reason"] == "circuit-breaker"
+    assert data["converged"] is False
+    assert data["note"] == "blocking 反复"
+
+
+def test_review_mark_unknown_slice_rejected(project: Path, capsys):
+    make_task(project)
+    assert run(project, "review-mark", "demo", "--slice", "S-999", "--verdict", "converged") == 1
+    assert "不存在" in capsys.readouterr().err
+
+
+def test_review_mark_rejects_bad_verdict(project: Path):
+    make_task(project)
+    # --verdict 受 argparse choices 约束；非法值 → SystemExit(2)（parse 在 main 的 try 之前）
+    with pytest.raises(SystemExit):
+        run(project, "review-mark", "demo", "--slice", "S-001", "--verdict", "bogus")
+
+
 # --- resume ------------------------------------------------------------------
 
 def test_status_resume_after_partial_progress(project: Path, capsys):

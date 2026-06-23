@@ -9,18 +9,19 @@
             "command": "python3 ${CLAUDE_PLUGIN_ROOT}/hooks/seed_guard.py"
           }
         ]
-      }
-    ],
-    "PostToolUse": [
+      },
       {
         "matcher": "Bash",
         "hooks": [
           {
             "type": "command",
-            "command": "python3 ${CLAUDE_PLUGIN_ROOT}/hooks/review_trigger.py"
+            "if": "Bash(seed done*)",
+            "command": "python3 ${CLAUDE_PLUGIN_ROOT}/hooks/review_gate.py"
           }
         ]
-      },
+      }
+    ],
+    "PostToolUse": [
       {
         "matcher": "Write|Edit",
         "hooks": [

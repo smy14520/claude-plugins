@@ -960,6 +960,42 @@ def cmd_done(root: Path, task: str, slice_id: str) -> int:
     return 0
 
 
+def cmd_review_mark(
+    root: Path,
+    task: str,
+    slice_id: str,
+    *,
+    verdict: str,
+    round_num: int | None,
+    note: str | None,
+) -> int:
+    """落 review-loop 终态 marker（done 的 PreToolUse gate 查它）。
+
+    review-loop Workflow 不能写文件，故由 command 跑完 loop 后调本命令，把
+    terminal_reason 落 evidence/<slice>/review-loop.json。done gate（review_gate.py）
+    要求 terminal_reason == converged 才放行勾选。
+    """
+    slices = _require_valid_prd(root, task)
+    _find_slice(slices, slice_id)  # 校验 slice 存在，防 marker 写到错地方
+    directory = evidence_dir(root, task, slice_id)
+    directory.mkdir(parents=True, exist_ok=True)
+    record = {
+        "task": task,
+        "slice": slice_id,
+        "terminal_reason": verdict,
+        "converged": verdict == "converged",
+        "round": round_num,
+        "note": note,
+        "written_at": _now(),
+    }
+    marker = directory / "review-loop.json"
+    marker.write_text(json.dumps(record, ensure_ascii=False, indent=2) + "\n", encoding="utf-8")
+    outcome = "可推进 done" if verdict == "converged" else "不推 done（review-loop 未收敛，交人）"
+    print(f"review-loop marker 已落盘：{verdict} — {outcome}")
+    print(f"  {marker}")
+    return 0
+
+
 def cmd_score_aggregate(root: Path, rubric_path: str, score_files: list[str], out_path: str) -> int:
     """聚合多个 score-file，输出 median 结果。"""
     try:
@@ -1087,6 +1123,18 @@ def build_parser() -> argparse.ArgumentParser:
     done_parser.add_argument("task")
     done_parser.add_argument("--slice", dest="slice_id", required=True)
 
+    rm_parser = sub.add_parser("review-mark", help="落 review-loop 终态 marker（done gate 查它：converged 才放行）")
+    rm_parser.add_argument("task")
+    rm_parser.add_argument("--slice", dest="slice_id", required=True)
+    rm_parser.add_argument(
+        "--verdict",
+        required=True,
+        choices=["converged", "assert-stalled", "assert-unavailable", "reviewer-blind", "circuit-breaker", "rounds-exhausted"],
+        help="review-loop 的 terminal_reason（Workflow 返回值）；只有 converged 能推进 done",
+    )
+    rm_parser.add_argument("--round", dest="round_num", type=int)
+    rm_parser.add_argument("--note", help="备注（如 escalated 原因）")
+
     # score 子命令组
     score_parser = sub.add_parser("score", help="评分聚合")
     score_sub = score_parser.add_subparsers(dest="score_cmd", required=True)
@@ -1151,6 +1199,15 @@ def main(argv: list[str] | None = None) -> int:
             )
         if args.command == "done":
             return cmd_done(root, args.task, args.slice_id)
+        if args.command == "review-mark":
+            return cmd_review_mark(
+                root,
+                args.task,
+                args.slice_id,
+                verdict=args.verdict,
+                round_num=args.round_num,
+                note=args.note,
+            )
         if args.command == "score":
             if args.score_cmd == "aggregate":
                 return cmd_score_aggregate(root, args.rubric, args.score_files, args.out)
