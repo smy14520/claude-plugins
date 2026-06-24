@@ -20,17 +20,17 @@ class SeedPromptContractTests(unittest.TestCase):
         self.assertIn("web-ui", text)
         self.assertIn("human 覆盖可断言交付面是设计气味", text)
 
-    def test_template_and_conventions_share_surface_vocabulary(self):
+    def test_template_and_verification_share_surface_vocabulary(self):
         template = self.read_plugin_file("templates", "slice.md")
-        conventions = self.read_plugin_file("skills", "references", "conventions.md")
-        combined = "\n".join([template, conventions])
+        verification = self.read_plugin_file("skills", "references", "verification.md")
+        combined = "\n".join([template, verification])
 
         self.assertIn("## 交付面", template)
         self.assertIn("## 验证面", template)
         self.assertIn("[assert][backend-domain]", template)
         for surface in ("backend-domain", "api", "web-ui", "e2e", "compliance", "infra"):
             self.assertIn(surface, combined)
-        self.assertIn("没有 surface 标签时不覆盖任何交付面", conventions)
+        self.assertIn("没有 surface 标签时不覆盖任何交付面", verification)
 
     def test_docs_keep_helper_boundary_clear(self):
         readme = self.read_plugin_file("README.md")
@@ -66,16 +66,20 @@ class SeedPromptContractTests(unittest.TestCase):
         self.assertIn("参考", brainstorm)
         self.assertNotIn("必须带一条整体体验 judge", brainstorm)
 
-    def test_conventions_document_judge_loop(self):
+    def test_verification_document_judge_loop(self):
+        verification = self.read_plugin_file("skills", "references", "verification.md")
+        # judge 走 review loop（不做 scoring gate 卡 done）；CLI 的 rubric/score-file/artifact 入口在 conventions 的 seed CLI 参考
+        self.assertIn("judge 走 review loop", verification)
+        self.assertNotIn("单 judge scoring gate", verification)
+        self.assertIn("fan-out", verification)
+        self.assertIn("helper 已实装", verification)
+
+    def test_conventions_cli_documents_judge_flags(self):
         conventions = self.read_plugin_file("skills", "references", "conventions.md")
-        # judge 走 review loop（不做 scoring gate 卡 done）；rubric/score-file 仍是 loop 里的工具
-        self.assertIn("judge 走 review loop", conventions)
-        self.assertNotIn("单 judge scoring gate", conventions)
+        # seed CLI 参考（在 conventions）记录 judge 的 rubric/score-file/artifact 入口
         self.assertIn("--rubric", conventions)
         self.assertIn("--score-file", conventions)
         self.assertIn("--artifact", conventions)
-        self.assertIn("fan-out", conventions)
-        self.assertIn("helper 已实装", conventions)
 
     def test_review_keeps_heavy_orchestration_optional(self):
         review = self.read_plugin_file("skills", "review", "SKILL.md")

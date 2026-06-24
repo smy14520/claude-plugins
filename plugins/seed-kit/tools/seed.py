@@ -12,7 +12,7 @@
   `curl`、`echo`）只证明"它运行了"，不证明"它正确"；对非 compliance 交付面，
   seed 在 run-check 时*拒绝*这类命令；对 compliance 交付面则接受但警告——
   真正的验证需要会失败的断言命令。
-- `judge`  —— 由独立 agent（生成者 ≠ 验证者，详见 conventions）按 AC rubric 裁决。
+- `judge`  —— 由独立 agent（生成者 ≠ 验证者，详见 verification）按 AC rubric 裁决。
   gate：记录的 verdict == pass；verdict 可由 legacy `--verdict` 给出，也可由
   `--rubric + --score-file` 机械计算。helper 只记录/校验证据形状与计算结果；裁决本身
   是 skill 层动作（helper 永不调用 LLM）。
@@ -1104,7 +1104,7 @@ def build_parser() -> argparse.ArgumentParser:
     rc_parser.add_argument("task")
     rc_parser.add_argument("--slice", dest="slice_id", required=True)
     rc_parser.add_argument("--obligation", help="验证义务 id：绑到 slices/S-NNN.md 声明的 <obligation-id>；三 kind 共用，优先于 --judge/--human 与命令字面匹配")
-    rc_parser.add_argument("--judge", help="[judge] 验证项原文。obligation 格式请改用 --obligation；由独立 agent 裁决后记录（详见 conventions）")
+    rc_parser.add_argument("--judge", help="[judge] 验证项原文。obligation 格式请改用 --obligation；由独立 agent 裁决后记录（详见 verification）")
     rc_parser.add_argument("--verdict", choices=["pass", "fail"], help="judge：legacy 二值裁决结果；scoring judge 改用 --rubric + --score-file 计算")
     rc_parser.add_argument("--grade", help="judge：评分/等级自由文本（可选备注，不参与 gate）")
     rc_parser.add_argument("--rubric", help="judge scoring gate：项目提供的机器可读 rubric JSON")

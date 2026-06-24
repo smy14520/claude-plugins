@@ -174,7 +174,7 @@ sdd-kit 多轮迭代暴露的弊病：
 验证项是验收义务：`[kind][surface] <obligation-id>: <可观测行为>`。`surface` 表示覆盖哪个交付面（参考词汇表 backend-domain / api / web-ui / e2e / compliance / infra，项目可扩展；helper 只校验"声明面被覆盖"，面名字无关、不按面名规定 kind），`kind` 表示谁判定它对，obligation 是可证伪的可观测行为（命令不写在 slice，由 run-check `--obligation <id>` 绑定）。这样避免把所有验证压成同一种形状，也避免“后端测试冒充整条 Web 产品交付”。
 
 - **assert** — 命令本身就是会失败的断言（测试套件 / 契约回放 / Playwright spec）。gate = exit 0。有状态 API 流写成**自包含**集成测试（内部 setup→act→assert），而不是跨命令、靠 shell 变量串状态的 curl（seed 的 run-check 每次 check 是独立 subprocess，shell 变量不跨 check）。
-- **judge** — 难以机械断言的语义 / UI / 手感，由独立上下文的裁判（生成者≠验证者，详见 conventions）按项目 rubric 裁决。gate = verdict=pass；verdict 可由 legacy `--verdict` 给出，也可由 helper 根据 `--rubric + --score-file` 计算。judge 必须裁**真实产物**（截图 / 实时页面 / 实际输出），不是裁代码；helper 只校验 artifact 存在和评分证据形状，不调用 LLM、不解释品味。
+- **judge** — 难以机械断言的语义 / UI / 手感，由独立上下文的裁判（生成者≠验证者，详见 verification）按项目 rubric 裁决。gate = verdict=pass；verdict 可由 legacy `--verdict` 给出，也可由 helper 根据 `--rubric + --score-file` 计算。judge 必须裁**真实产物**（截图 / 实时页面 / 实际输出），不是裁代码；helper 只校验 artifact 存在和评分证据形状，不调用 LLM、不解释品味。
 - **human** — 真人 stakeholder 签收，限 compliance 等本质不可自动化交付面。gate = 签收记录。
 
 原则：assert 优先，能用 judge 就不要叠加 human；human 覆盖可断言交付面是设计气味，但 helper 不机械禁止，由项目规则与 review 查验证降级。一个 slice 只能 `[human][compliance]` 验证是设计气味。外部调研（Playwright MCP + Test Agents、Pact/WireMock 契约与录制回放、LLM-as-a-Judge、spec-kit 的 [NEEDS CLARIFICATION]）都指向同一个分层：**能机械断言的先机械断言，到不了顶的才上独立裁判，裁判也覆盖不了的才上人**。
