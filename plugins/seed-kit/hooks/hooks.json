@@ -15,7 +15,7 @@
         "hooks": [
           {
             "type": "command",
-            "if": "Bash(seed done*)",
+            "if": "Bash(*done*)",
             "command": "python3 ${CLAUDE_PLUGIN_ROOT}/hooks/review_gate.py"
           }
         ]
@@ -44,7 +44,7 @@
         "hooks": [
           {
             "type": "command",
-            "if": "Bash(seed done*)",
+            "if": "Bash(*done*)",
             "command": "python3 ${CLAUDE_PLUGIN_ROOT}/hooks/generate_living_prd.py",
             "async": true
           }

@@ -133,7 +133,7 @@ while (round < MAX_ROUNDS) {
       `对抗证伪本轮全部 finding（reviewer ${j + 1}/${JURY}）。逐条尽力 REFUTE，bias toward invalid。\n` +
       `逐条按 id 裁决（一个都不能漏），输出 verdict：invalid（refute，须附 file:line/命令反证）/ valid（成立，说明为何站得住）/ ambiguous。` +
       `checklist：(1) claim 是否真被 evidence 支持；(2) 读 ${REPO} 相关代码找反证；(3) severity 是否夸大；(4) 是否过度报告（把 AC 没要求的当问题）。\n` +
-      `Default invalid if uncertain；但口头"我觉得没问题"不算反证——给不出反证就 valid。\n\n` +
+      `uncertain → valid（须给出具体反证 file:line/命令才能判 invalid；口头"我觉得没问题"不算反证）。severity 为 ok 的纯确认性 finding 默认 valid，不得以"过度报告"判 invalid——过度报告判定只适用于 blocking/major/minor。\n\n` +
       `findings:\n${findings.map((f) => `- [${f.id}] (${f.severity}/${f.category}) ${f.claim}\n  evidence: ${f.evidence}`).join('\n')}`,
       { agentType: 'seed-kit:seed-validator', schema: BATCH_VERDICT_SCHEMA, label: `validate:r${round}:${j + 1}`, phase: 'Audit' }
     )

@@ -16,6 +16,16 @@
 
 > PRD 验证设计（交付面 / 三类验证 / judge loop / rubric 格式 / helper 硬规则）见 [`verification.md`](./verification.md)——brainstorm / impl / review 读；research / wiki 不需要。
 
+## 调用名全名登记表（别猜，照抄）
+
+命名不对称是历史遗留，**直接照抄下列全名**，不要加/减前缀：
+
+- **Skill**（用户主动触发，**无** `seed-` 前缀）：`seed-kit:brainstorm` / `seed-kit:impl` / `seed-kit:review` / `seed-kit:research` / `seed-kit:wiki`
+- **编排命令**（slash command）：`seed-kit:review-loop` / `seed-kit:review-prd`
+- **Agent**（review-loop 内部编排派发，**带** `seed-` 前缀，用户/模型不直接调用）：`seed-kit:seed-impl` / `seed-kit:seed-review` / `seed-kit:seed-judge` / `seed-kit:seed-validator` / `seed-kit:seed-assert`
+
+> 拿不准时回查这张表。常见错：把 skill `seed-kit:impl` 喊成 agent 名 `seed-kit:seed-impl` → Unknown skill。
+
 ## 目录
 
 ```
@@ -26,7 +36,7 @@
 
 ## seed CLI
 
-`seed` 入口：`${CLAUDE_PLUGIN_ROOT}/bin/seed`（也可 `python3 ${CLAUDE_PLUGIN_ROOT}/tools/seed.py`），在项目根目录运行。
+`seed` 入口：`${CLAUDE_PLUGIN_ROOT}/bin/seed`（也可 `python3 ${CLAUDE_PLUGIN_ROOT}/tools/seed.py`），在项目根目录运行。**`CLAUDE_PLUGIN_ROOT` 在 bash 子 shell 常为空**，确定性兜底：`PLUGIN_ROOT=${CLAUDE_PLUGIN_ROOT:-$(dirname $(dirname $(readlink -f $(command -v seed))))}`，再用 `$PLUGIN_ROOT/bin/seed`。
 
 ```bash
 seed new <task>                                  # 脚手架任务目录 + prd.md / slices/S-001.md 模板
