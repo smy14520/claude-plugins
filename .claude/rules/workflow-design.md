@@ -24,7 +24,7 @@ arbor.py wiki-collect --query "<query>" --limit 5 --json
 
 发现问题先判断归属：项目 workflow/helper 的稳定缺口才沉淀规则或 helper；外部环境的一次性干扰（例如 shell 更新提示、临时终端状态、用户本地工具交互）修复环境即可，不要包装成 workflow 兜底。
 
-优先问：这是 sdd-kit 应负责的可重复状态问题，还是运行环境刚好打断了本次执行？只有前者值得进入规则、hook 或 helper。
+优先问：这是 seed-kit 应负责的可重复状态问题，还是运行环境刚好打断了本次执行？只有前者值得进入规则、hook 或 helper。
 
 ## 直指系统缺口，而不是局部补丁
 

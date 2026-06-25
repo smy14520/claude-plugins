@@ -10,7 +10,7 @@
 
 🎯 **四锚点 Source of Truth** — PRD/文件系统/git/机器可验证 gate 分别承载需求/状态/进度/正确性，与 LangGraph checkpoint、Temporal event sourcing、Kiro 门控产物收敛到同一范式，但实现更轻。
 
-🧩 **命令面极小（4+wiki 家族）** — 对比 sdd-kit 的 24 个命令和 Aider 的 50+ 命令，seed-kit 把选择税降到接近零。SWE-agent 的核心洞察"接口设计比模型选择更重要"在此得到验证。
+🧩 **命令面极小（4+wiki 家族）** — 对比上一代工作流的 24 个命令和 Aider 的 50+ 命令，seed-kit 把选择税降到接近零。SWE-agent 的核心洞察"接口设计比模型选择更重要"在此得到验证。
 
 🔀 **机制与标准分离** — "插件管形态纪律，项目管标准品味"是正确抽象。对比 Cursor 的 `.cursor/rules/*.mdc` 和 AGENTS.md 的分层，seed-kit 把技术栈知识彻底外置，换栈零成本。
 
@@ -160,7 +160,7 @@ MCP 生态爆发（3000+ server），安全性成为核心关注（CVE-2025-6514
 #### 12. 🔗 增加 `seed contract` 命令（跨 task 依赖追踪）
 
 **现状**：task 之间的依赖关系靠 prd.md 的"依赖段"和人工记忆，没有机械追踪。
-**建议**：新增 `seed contract <task> --depends-on <other-task> --interface <description>` 命令，在 `.arbor/contracts/` 下记录跨 task 接口约定。`seed status` 检查依赖 task 的 slice 是否已产出对应的 evidence。这是轻量版的 sdd-kit contract 机制，但只做追踪不做验证。
+**建议**：新增 `seed contract <task> --depends-on <other-task> --interface <description>` 命令，在 `.arbor/contracts/` 下记录跨 task 接口约定。`seed status` 检查依赖 task 的 slice 是否已产出对应的 evidence。这是轻量版的 contract 追踪机制（沿用上一代思路），但只做追踪不做验证。
 **来源**：方向 8（多 Agent — 共享状态）、方向 12（规范驱动 — 结构化输出约束）
 **优先级**：🟡 中 — 新增命令 + 目录。
 

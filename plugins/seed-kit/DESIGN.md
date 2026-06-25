@@ -1,12 +1,12 @@
 # seed-kit 设计文档
 
-seed-kit 是 sdd-kit 的轻量继任者：取其精华（PRD source of truth、真实验证证据、wiki 导航层），去其糟粕（多层状态机、24 个命令、为已删除特性残留的 schema）。
+seed-kit 是 上一代工作流 的轻量继任者：取其精华（PRD source of truth、真实验证证据、wiki 导航层），去其糟粕（多层状态机、24 个命令、为已删除特性残留的 schema）。
 
 ## 动机
 
-sdd-kit 多轮迭代暴露的弊病：
+上一代工作流 多轮迭代暴露的弊病：
 
-- 命令面 24 个（sdd-arbor 20 + sdd-wiki 4），其中 `set-execution` / `set-pr` / `repair-context` 等几乎无人调用；AI 在过宽的命令面前选择困难。
+- 命令面 24 个（arbor 20 + wiki 4），其中 `set-execution` / `set-pr` / `repair-context` 等几乎无人调用；AI 在过宽的命令面前选择困难。
 - 状态机叠床架屋：顶层 6 态 + 9 个 legacy 映射 + impl 4 态 + review 4 态 + slice 3 态 + check 4 态 + execution 7 态 + PR 6 态。execution / PR / sizing 字段来自已删除的 team-auto / 拆包时代，永远为空但 schema 还在。
 - 文档漂移与墓碑代码：README 残留旧概念，`package_children.py` 整个文件只剩 raise。
 
@@ -24,7 +24,7 @@ sdd-kit 多轮迭代暴露的弊病：
 
 **Gate 边界**：gate 管**正确性为主**；但项目用 rubric 显式声明的 judge scoring 也按门槛进 gate（opt-in，声明即 gate）。未声明的体验质量仍不压 gate（靠 review / 人判断，质量没有上限）。
 
-被反复证明失败的设计恰好是 sdd-kit 的病灶：过重状态机（"reinvented waterfall"）、过多命令的 context tax、依赖模型自觉的口头约束、大体量生成文档。
+被反复证明失败的设计恰好是 上一代工作流 的病灶：过重状态机（"reinvented waterfall"）、过多命令的 context tax、依赖模型自觉的口头约束、大体量生成文档。
 
 ## 设计原则
 
@@ -99,7 +99,7 @@ sdd-kit 多轮迭代暴露的弊病：
 
 ### prd.md 与 slice 文件骨架
 
-单一归属，防止大需求膨胀 prd.md，也防止 sdd-kit 时代"同一事实两个家"的同步漂移：**顺序与状态记录在 prd.md 索引，验收与验证记录在 slice 文件**，没有任何内容写两遍。共享上下文（背景 / AC / Framing）留在 prd.md——它是每个 slice 都需要的，拆到哪都得读；按 task 再拆只会制造互相引用。impl 的阅读模型：通读 prd.md（薄）建立整体理解，干活时只读当前 slice 文件。
+单一归属，防止大需求膨胀 prd.md，也防止 上一代工作流 时代"同一事实两个家"的同步漂移：**顺序与状态记录在 prd.md 索引，验收与验证记录在 slice 文件**，没有任何内容写两遍。共享上下文（背景 / AC / Framing）留在 prd.md——它是每个 slice 都需要的，拆到哪都得读；按 task 再拆只会制造互相引用。impl 的阅读模型：通读 prd.md（薄）建立整体理解，干活时只读当前 slice 文件。
 
 ```markdown
 # <标题>                            # prd.md
@@ -141,7 +141,7 @@ sdd-kit 多轮迭代暴露的弊病：
 | `seed run-check <task> --slice S-NNN --obligation <id> --rubric <rubric.json> --score-file <score.json> --trace "..." --artifact "..."` | [judge] scoring gate：helper 读取项目 rubric 与裁判 score-file，计算 verdict |
 | `seed run-check <task> --slice S-NNN --obligation <id> --note "..." [--by "..."]` | [human] 记录人工签收 |
 | `seed done <task> --slice S-NNN` | gate：该 slice 文件声明的全部验证项都有 passed / 已记录证据，且结构校验通过 → 由 helper 勾选索引 checkbox；否则拒绝并列出缺口 |
-| `seed wiki index / search / collect / lint` | 沿用 sdd-wiki（已是零依赖独立模块） |
+| `seed wiki index / search / collect / lint` | 沿用 wiki（已是零依赖独立模块） |
 
 没有 set-status、没有 record-impl-result、没有 record-review、没有 amendment 命令、没有内部隐藏命令。
 
@@ -179,9 +179,9 @@ sdd-kit 多轮迭代暴露的弊病：
 
 原则：assert 优先，能用 judge 就不要叠加 human；human 覆盖可断言交付面是设计气味，但 helper 不机械禁止，由项目规则与 review 查验证降级。一个 slice 只能 `[human][compliance]` 验证是设计气味。外部调研（Playwright MCP + Test Agents、Pact/WireMock 契约与录制回放、LLM-as-a-Judge、spec-kit 的 [NEEDS CLARIFICATION]）都指向同一个分层：**能机械断言的先机械断言，到不了顶的才上独立裁判，裁判也覆盖不了的才上人**。
 
-## 从 sdd-kit 的取舍清单
+## 从 上一代工作流 的取舍清单
 
-**带走**：run-check 真实执行 + 证据落盘；PRD 含 Technical Framing + ordered Slices 的结构；brainstorm 访谈循环（一次一问 + 推荐答案）；research index-first 工作区；sdd-wiki 四命令与"导航层非 source of truth"定位；arbor_guard 的破坏性命令拦截。
+**带走**：run-check 真实执行 + 证据落盘；PRD 含 Technical Framing + ordered Slices 的结构；brainstorm 访谈循环（一次一问 + 推荐答案）；research index-first 工作区；wiki 四命令与"导航层非 source of truth"定位；arbor_guard 的破坏性命令拦截。
 
 **丢弃**：六态 lifecycle + 全部 legacy 映射；impl / review 的四态 enum 与 record-* 命令；task.json 及其全部 schema（execution / PR / sizing / agents / checkpoints）；amendment 编号仪式；marker 覆盖对账的复杂规则（由"逐 slice 证据 gate + review 对账"替代）；doctor 独立 skill（并入 `seed status` 与 `seed wiki lint`）；内部隐藏命令；scenario_eval 重型框架（新 kit 用轻量单测起步）。
 
@@ -189,7 +189,7 @@ sdd-kit 多轮迭代暴露的弊病：
 
 - **M1 骨架**：`tools/seed.py`（new / status / run-check / done）+ 单测；`.claude-plugin/plugin.json`；prd.md 模板。
 - **M2 skills**：brainstorm / impl 两个 SKILL.md（先打通"收敛 → 执行 → 证据"主链路），guard hook。
-- **M3 外环**：research / review / wiki 三个 SKILL.md；sdd-wiki 代码迁移（或直接复用）。
+- **M3 外环**：research / review / wiki 三个 SKILL.md；wiki 代码迁移（或直接复用）。
 - **M4 实战校验**：拿一个真实小需求跑全链路，按失败模式"立路牌"式补约束，而不是预先堆规则。
 
 每个 milestone 完成即可用，不需要等全部建完。
