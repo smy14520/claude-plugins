@@ -1,11 +1,11 @@
 #!/usr/bin/env python3
 """generate_living_prd.py — Living PRD HTML 生成器（Python 版）。
 
-数据源：`seed status <task> --json`（结构化，不靠 sed 猜段落）+ prd.md + review.md + git log。
+数据源：`seed status <task> --json`（结构化）+ prd.md + review.md + git log。
 输出：.arbor/artifacts/living-prd.html（自包含、内联 CSS/JS、dashboard 风格）。
 
 设计原则：清晰来自模板设计，不靠 LLM；机械填结构化数据即可达到 dashboard 清晰度。
-零侵入：只读 prd/slices/evidence/review，不改任何状态；HTML 是 derived（可删可重生）。
+零侵入：只读 prd/review，不改任何状态；HTML 是 derived（可删可重生）。
 """
 from __future__ import annotations
 
@@ -17,12 +17,6 @@ import sys
 from datetime import datetime
 from pathlib import Path
 
-STATE_META = {
-    "passed": ("✅", "ok"),
-    "failed": ("❌", "fail"),
-    "recorded": ("📝", "rec"),
-    "missing": ("⬜", "miss"),
-}
 KIND_LABEL = {"assert": "断言", "judge": "裁决", "human": "签收"}
 
 
@@ -46,7 +40,6 @@ def _find_task(root: Path) -> tuple[str, Path] | None:
 
 
 def _run_seed_status(root: Path, task: str, plugin_root: str) -> dict | None:
-    """优先用 PATH 里的 seed，回退到 plugin 的 seed.py。"""
     candidates = [
         ["seed", "status", task, "--json"],
         ["python3", str(Path(plugin_root) / "tools" / "seed.py"), "status", task, "--json"],
@@ -54,7 +47,6 @@ def _run_seed_status(root: Path, task: str, plugin_root: str) -> dict | None:
     for cmd in candidates:
         try:
             r = subprocess.run(cmd, cwd=str(root), capture_output=True, text=True, timeout=30)
-            # seed status 带 errors 时仍 exit 1，但 stdout 是有效 JSON；只看能否解析
             if r.stdout.strip():
                 try:
                     return json.loads(r.stdout)
@@ -88,62 +80,19 @@ def _metrics(status: dict) -> dict:
     slices = status.get("slices", [])
     total = len(slices)
     done = sum(1 for s in slices if s.get("done"))
-    all_checks = [c for s in slices for c in s.get("checks", [])]
-    passed = sum(1 for c in all_checks if c.get("state") == "passed")
-    missing = sum(1 for c in all_checks if c.get("state") == "missing")
-    verdicts = sum(1 for c in all_checks if c.get("kind") == "judge")
-    rate = round(passed / len(all_checks) * 100) if all_checks else 0
     progress = round(done / total * 100) if total else 0
-    return {
-        "total": total, "done": done, "pending": total - done,
-        "checks": len(all_checks), "passed": passed, "missing": missing,
-        "verdicts": verdicts, "rate": rate, "progress": progress,
-    }
-
-
-def _badge(state: str) -> str:
-    icon, cls = STATE_META.get(state, ("❓", "miss"))
-    return f'<span class="badge {cls}">{icon} {state}</span>'
-
-
-def _check_row(check: dict) -> str:
-    kind = check.get("kind", "?")
-    oid = check.get("obligation_id") or "(legacy)"
-    surfaces = ", ".join(check.get("surfaces", [])) or "—"
-    state = check.get("state", "missing")
-    target = html.escape(str(check.get("target", ""))[:90])
-    score = ""
-    summary = check.get("score_summary")
-    if isinstance(summary, dict):
-        avg = summary.get("average")
-        if avg is not None:
-            score = f'<span class="score">score {avg}</span>'
-    verdict = check.get("verdict")
-    vbadge = f'<span class="vbadge">verdict {verdict}</span>' if verdict else ""
-    return f"""<div class="check">
-      <span class="ckind {kind}">{kind}</span>
-      <span class="csurf">{html.escape(surfaces)}</span>
-      <code class="coid">{html.escape(str(oid))}</code>
-      <span class="ctarget">{target}</span>
-      <span class="cstate">{_badge(state)}</span>
-      {score}{vbadge}
-    </div>"""
+    return {"total": total, "done": done, "pending": total - done, "progress": progress}
 
 
 def _slice_card(sl: dict) -> str:
     sid = sl.get("id", "?")
     title = html.escape(sl.get("title", ""))
     done = sl.get("done")
-    checks = sl.get("checks", [])
-    passed = sum(1 for c in checks if c.get("state") == "passed")
     mark = "☑" if done else "☐"
-    cls = "done" if done else ("todo" if passed == 0 and all(c.get("state") == "missing" for c in checks) else "wip")
-    rows = "".join(_check_row(c) for c in checks) or '<div class="check empty">（无验证项）</div>'
-    return f"""<details class="slice {cls}"{' open' if not done else ''}>
-      <summary><span class="smark">{mark}</span> <code>{html.escape(sid)}</code> {title}
-        <span class="scount">{passed}/{len(checks)}</span></summary>
-      <div class="checks">{rows}</div>
-    </details>"""
+    cls = "done" if done else "todo"
+    return f"""<div class="slice {cls}">
+      <span class="smark">{mark}</span> <code>{html.escape(sid)}</code> {title}
+    </div>"""
 
 
 CSS = """
@@ -173,23 +122,15 @@ border-radius:6px;padding:2px 8px;font-size:12px;margin-left:8px}
 .slice .smark{font-size:16px}.slice code{color:var(--accent);font-size:12px}
 .slice .scount{margin-left:auto;background:var(--card);border:1px solid var(--border);
 border-radius:10px;padding:1px 8px;font-size:11px;color:var(--muted)}
-.slice.done summary{color:var(--muted)}.slice.wip{border-left:3px solid var(--warn)}
-.checks{padding:6px 14px 12px;border-top:1px solid var(--border)}
-.check{display:flex;align-items:center;gap:8px;padding:5px 0;font-size:12px;flex-wrap:wrap}
-.ckind{font-size:10px;padding:1px 6px;border-radius:4px;font-weight:600;text-transform:uppercase}
-.ckind.assert{background:#1f6feb33;color:var(--accent)}.ckind.judge{background:#8957e533;color:#bc8cff}
-.ckind.human{background:#d2992233;color:var(--warn)}
-.csurf{color:var(--muted)}.coid{color:var(--muted);font-size:11px}.ctarget{flex:1;min-width:120px;color:var(--fg)}
-.badge{font-size:10px;padding:1px 7px;border-radius:10px;font-weight:600}
-.badge.ok{background:#23863633;color:var(--ok)}.badge.fail{background:#f8514933;color:var(--fail)}
-.badge.rec{background:#8b949e33;color:var(--rec)}.badge.miss{background:#484f5833;color:var(--miss)}
-.score{background:#8957e533;color:#bc8cff;font-size:10px;padding:1px 7px;border-radius:10px}
-.vbadge{background:#23863633;color:var(--ok);font-size:10px;padding:1px 7px;border-radius:10px}
+.slice.done summary{color:var(--muted)}.slice.todo{border-left:3px solid var(--warn)}
+.ac-list{padding:6px 14px 12px;border-top:1px solid var(--border)}
+.ac{display:flex;align-items:center;gap:8px;padding:5px 0;font-size:12px;color:var(--fg)}
+.ac::before{content:"•";color:var(--accent);font-weight:700}
 .tl{font-size:12px;color:var(--muted)}.tl .row{padding:3px 0;border-bottom:1px solid var(--border)}
 .tl .row:last-child{border:0}.tl code{color:var(--accent)}
 .empty{color:var(--muted);font-style:italic;padding:8px 0}
 .foot{text-align:center;color:var(--miss);font-size:11px;margin-top:24px}
-@media(max-width:640px){.wrap{padding:12px}.check{font-size:11px}}
+@media(max-width:640px){.wrap{padding:12px}.ac{font-size:11px}}
 """
 
 
@@ -217,9 +158,7 @@ def render(task: str, title: str, status: dict, review: str, git_log: list[str],
   <div class="metrics">
     <div class="metric"><div class="v">{m['total']}</div><div class="l">总 Slices</div></div>
     <div class="metric"><div class="v">{m['done']}</div><div class="l">已完成</div></div>
-    <div class="metric"><div class="v">{m['passed']}/{m['checks']}</div><div class="l">验证通过率 {m['rate']}%</div></div>
-    <div class="metric"><div class="v">{m['missing']}</div><div class="l">待验证</div></div>
-    <div class="metric"><div class="v">{m['verdicts']}</div><div class="l">judge 裁决项</div></div>
+    <div class="metric"><div class="v">{m['pending']}</div><div class="l">待完成</div></div>
   </div>
   <div class="progress">
     <div class="top"><span>整体进度</span><span>{m['done']}/{m['total']} · {m['progress']}%</span></div>
@@ -227,7 +166,7 @@ def render(task: str, title: str, status: dict, review: str, git_log: list[str],
     {next_html}
   </div>
   <div class="section">
-    <h2>📋 Slices（点击展开 obligation）</h2>
+    <h2>📋 Slices</h2>
     {slice_html}
   </div>
   <div class="section"><h2>📜 变更时间线</h2><div class="tl">{tl_html}</div></div>
@@ -237,7 +176,6 @@ def render(task: str, title: str, status: dict, review: str, git_log: list[str],
 
 
 def _load_config(root: Path) -> dict:
-    """读 .arbor/config.json（living_prd.enabled 等）；缺失/损坏返回空（用默认）。"""
     p = root / ".arbor" / "config.json"
     if not p.exists():
         return {}
@@ -252,7 +190,7 @@ def main() -> int:
     if not (root / ".arbor" / "tasks").is_dir():
         return 0
     if not _load_config(root).get("living_prd", {}).get("enabled", False):
-        return 0  # opt-in：默认不生成，需 .arbor/config.json 里 living_prd.enabled=true
+        return 0
     found = _find_task(root)
     if not found:
         print("[living_prd] 未找到 prd.md", file=sys.stderr)

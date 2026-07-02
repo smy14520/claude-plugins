@@ -28,7 +28,6 @@ def test_allows_normal_prd_edit():
 
 
 def test_allows_unflipping_checkbox():
-    # [x] → [ ]（回退）不增加勾选数，不拦截
     result = seed_guard.evaluate(
         edit_payload("/repo/.arbor/tasks/demo/prd.md", "### [x] S-001 步骤", "### [ ] S-001 步骤")
     )
@@ -49,24 +48,6 @@ def test_allows_write_preserving_checked_count(tmp_path: Path):
     prd.write_text("### [x] S-001 步骤\n", encoding="utf-8")
     payload = {"tool_name": "Write", "tool_input": {"file_path": str(prd), "content": "### [x] S-001 步骤\n\n补充说明\n"}}
     assert seed_guard.evaluate(payload)["decision"] == "allow"
-
-
-def test_blocks_manual_evidence_write():
-    payload = {
-        "tool_name": "Write",
-        "tool_input": {"file_path": "/repo/.arbor/tasks/demo/evidence/S-001/001-automated.json", "content": "{}"},
-    }
-    result = seed_guard.evaluate(payload)
-    assert result["decision"] == "block"
-    assert "run-check" in result["reason"]
-
-
-def test_blocks_evidence_shell_redirect():
-    payload = {
-        "tool_name": "Bash",
-        "tool_input": {"command": "echo '{}' > .arbor/tasks/demo/evidence/S-001/fake.json"},
-    }
-    assert seed_guard.evaluate(payload)["decision"] == "block"
 
 
 def test_blocks_destructive_commands():

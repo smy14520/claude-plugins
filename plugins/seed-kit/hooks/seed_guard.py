@@ -1,10 +1,9 @@
 #!/usr/bin/env python3
 """seed_guard — seed-kit 的窄底线 hook。
 
-只守三条线，不做任何语义判断：
-1. evidence/ 只能由 `seed run-check` 写入。
-2. prd.md 的 slice checkbox 只能由 `seed done` 在证据齐备后勾选。
-3. 拦截破坏性命令。
+只守两条线，不做任何语义判断：
+1. prd.md 的 slice checkbox 只能由 `seed done` 在硬事实通过后勾选。
+2. 拦截破坏性命令。
 """
 from __future__ import annotations
 
@@ -15,8 +14,6 @@ from pathlib import Path
 from typing import Any
 
 PRD_RE = re.compile(r"(^|/)\.arbor/tasks/[^/]+/prd\.md$")
-EVIDENCE_PATH_RE = re.compile(r"(^|/)\.arbor/tasks/[^/]+/evidence/")
-EVIDENCE_REDIRECT_RE = re.compile(r"\.arbor/tasks/[^\s]*?/evidence/[^\s]*")
 DESTRUCTIVE_RE = re.compile(r"\b(git\s+reset\s+--hard|git\s+clean\s+-|git\s+push\s+--force|rm\s+-rf)\b")
 CHECKED_HEADING_RE = re.compile(r"^### \[x\] ", re.MULTILINE)
 
@@ -36,11 +33,6 @@ def evaluate(payload: dict[str, Any]) -> dict[str, Any]:
 
     if tool_name in {"Edit", "Write", "NotebookEdit"}:
         path = str(tool_input.get("file_path") or tool_input.get("path") or "")
-        if EVIDENCE_PATH_RE.search(path):
-            return {
-                "decision": "block",
-                "reason": "evidence/ 只能由 `seed run-check` 写入；不要手工构造证据。",
-            }
         if PRD_RE.search(path):
             if tool_name == "Edit":
                 old = str(tool_input.get("old_string") or "")
@@ -48,7 +40,7 @@ def evaluate(payload: dict[str, Any]) -> dict[str, Any]:
                 if _checked_count(new) > _checked_count(old):
                     return {
                         "decision": "block",
-                        "reason": "slice checkbox 只能由 `seed done` 勾选（证据齐备后）；不要直接编辑 `### [ ]` → `### [x]`。",
+                        "reason": "slice checkbox 只能由 `seed done` 勾选；不要直接编辑 `### [ ]` → `### [x]`。",
                     }
             elif tool_name == "Write":
                 content = str(tool_input.get("content") or "")
@@ -59,7 +51,7 @@ def evaluate(payload: dict[str, Any]) -> dict[str, Any]:
                 if _checked_count(content) > _checked_count(existing):
                     return {
                         "decision": "block",
-                        "reason": "slice checkbox 只能由 `seed done` 勾选（证据齐备后）；不要整文件覆盖勾选。",
+                        "reason": "slice checkbox 只能由 `seed done` 勾选；不要整文件覆盖勾选。",
                     }
 
     if tool_name == "Bash":
@@ -69,10 +61,16 @@ def evaluate(payload: dict[str, Any]) -> dict[str, Any]:
                 "decision": "block",
                 "reason": "检测到破坏性命令；换用范围更窄、更安全的方式。",
             }
-        if EVIDENCE_REDIRECT_RE.search(command) and re.search(r"(>>?|\btee\b)", command):
+        # 拦截通过 Bash 工具（sed/awk/perl/python -c 等）直接修改 prd.md checkbox
+        if re.search(r"(sed|awk|perl)\s+.*\.arbor/tasks/.*prd\.md", command):
             return {
                 "decision": "block",
-                "reason": "不要用 shell 重定向写 evidence/；用 `seed run-check` 真实执行并落盘。",
+                "reason": "不要用 shell 命令直接修改 prd.md；checkbox 只能由 `seed done` 勾选。",
+            }
+        if re.search(r"python\d?\s+-c\s+.*###\s*\[", command):
+            return {
+                "decision": "block",
+                "reason": "不要用脚本直接修改 prd.md；checkbox 只能由 `seed done` 勾选。",
             }
 
     return {"decision": "allow"}
@@ -82,8 +80,8 @@ def main() -> int:
     try:
         payload = json.load(sys.stdin)
         result = evaluate(payload)
-    except Exception as exc:  # pragma: no cover - hook fails open softly
-        result = {"decision": "allow", "reason": f"seed_guard 无法解析 payload：{exc}"}
+    except Exception:  # pragma: no cover - hook fails open softly
+        result = {"decision": "allow", "reason": "seed_guard 无法解析 payload"}
     if result.get("decision") == "block":
         print(result.get("reason", "被 seed_guard 拦截"), file=sys.stderr)
         return 2

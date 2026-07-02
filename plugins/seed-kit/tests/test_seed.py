@@ -11,54 +11,23 @@ sys.path.insert(0, str(Path(__file__).resolve().parent.parent / "tools"))
 import seed  # noqa: E402
 
 
-PRD_INDEX = """# demo
+PRD_INLINE = """# demo
 
-## 背景与目标
+## Goal
 
-测试用 PRD。
+测试用 PRD，slice 内联。
 
-## Slices
-
-<!-- 索引行注释应被忽略 -->
+## Acceptance Criteria
 
 ### [ ] S-001 输出问候
-### [ ] S-002 带人工验证的步骤
+* [ ] 输入合法文本 → 输出问候语
+* [ ] 空输入 → 被拒绝
 
-## 变更记录
+### [ ] S-002 带子步骤
+* [ ] 渲染结果可读，信息层次清晰
+
+## Out of Scope
 """
-
-SLICE_001 = """# S-001 输出问候
-
-## 交付面
-
-- backend-domain
-
-## 验收
-
-AC-1
-
-## 验证面
-
-- [assert][backend-domain] `test 0 -eq 0`
-"""
-
-SLICE_002 = """# S-002 带人工验证的步骤
-
-## 交付面
-
-- backend-domain
-
-## 验收
-
-AC-2
-
-## 验证面
-
-- [assert][backend-domain] `test 0 -eq 0`
-- [manual] 浏览器确认页面渲染正常
-"""
-
-DEFAULT_SLICES = {"S-001": SLICE_001, "S-002": SLICE_002}
 
 
 @pytest.fixture
@@ -69,22 +38,16 @@ def project(tmp_path: Path) -> Path:
 def make_task(
     root: Path,
     name: str = "demo",
-    prd: str = PRD_INDEX,
-    slices: dict[str, str] | None = None,
+    prd: str = PRD_INLINE,
+    package_json: dict | None = None,
 ) -> Path:
     task_dir = root / ".arbor" / "tasks" / name
-    (task_dir / "evidence").mkdir(parents=True)
+    task_dir.mkdir(parents=True)
     (task_dir / "notes").mkdir()
-    (task_dir / "slices").mkdir()
     (task_dir / "prd.md").write_text(prd, encoding="utf-8")
-    for slice_id, content in (DEFAULT_SLICES if slices is None else slices).items():
-        (task_dir / "slices" / f"{slice_id}.md").write_text(content, encoding="utf-8")
+    if package_json:
+        (root / "package.json").write_text(json.dumps(package_json), encoding="utf-8")
     return task_dir
-
-
-def single_slice_task(root: Path, index_line: str, slice_md: str, slice_id: str = "S-001") -> Path:
-    prd = f"# demo\n\n## Slices\n\n{index_line}\n"
-    return make_task(root, prd=prd, slices={slice_id: slice_md})
 
 
 def run(root: Path, *argv: str) -> int:
@@ -97,21 +60,12 @@ def test_new_scaffolds_task(project: Path, capsys):
     assert run(project, "new", "demo") == 0
     task_dir = project / ".arbor" / "tasks" / "demo"
     assert (task_dir / "prd.md").is_file()
-    assert (task_dir / "evidence").is_dir()
     assert (task_dir / "notes").is_dir()
-    assert (task_dir / "slices" / "S-001.md").is_file()
-    assert "# demo" in (task_dir / "prd.md").read_text(encoding="utf-8")
-    slice_text = (task_dir / "slices" / "S-001.md").read_text(encoding="utf-8")
-    assert "## 交付面" in slice_text
-    assert "## 验证面" in slice_text
-
-
-def test_new_scaffold_passes_structure_check(project: Path, capsys):
-    assert run(project, "new", "demo") == 0
-    capsys.readouterr()
-    assert run(project, "status", "demo", "--json") == 0
-    data = json.loads(capsys.readouterr().out)
-    assert data["errors"] == []
+    assert not (task_dir / "slices").exists()
+    content = (task_dir / "prd.md").read_text(encoding="utf-8")
+    assert "# demo" in content
+    assert "### [ ] S-001" in content
+    assert "## Acceptance Criteria" in content
 
 
 def test_new_rejects_existing_task(project: Path, capsys):
@@ -134,275 +88,30 @@ def test_status_reports_progress_and_next(project: Path, capsys):
     assert [s["id"] for s in data["slices"]] == ["S-001", "S-002"]
     assert data["next"] == "S-001"
     assert data["errors"] == []
-    assert data["slices"][0]["file"] == "slices/S-001.md"
-    assert data["slices"][0]["delivery_surfaces"] == ["backend-domain"]
-    states = {c["target"]: c["state"] for c in data["slices"][0]["checks"]}
-    assert states == {"test 0 -eq 0": "missing"}
-    assert data["slices"][0]["checks"][0]["surfaces"] == ["backend-domain"]
 
 
-def test_status_flags_missing_slice_file(project: Path, capsys):
-    make_task(project, slices={"S-001": SLICE_001})  # S-002.md 不存在
+def test_status_detects_duplicate_slice_id(project: Path, capsys):
+    prd = "# demo\n\n### [ ] S-001 第一步\n### [ ] S-001 重复\n"
+    make_task(project, prd=prd)
     assert run(project, "status", "demo", "--json") == 1
     data = json.loads(capsys.readouterr().out)
-    assert any("缺少 slices/S-002.md" in err for err in data["errors"])
+    assert any("重复" in err for err in data["errors"])
 
 
-def test_status_flags_slice_without_checks(project: Path, capsys):
-    slice_md = "# S-001 裸 slice\n\n## 验收\n\nAC-1\n\n## 验证\n"
-    single_slice_task(project, "### [ ] S-001 裸 slice", slice_md)
+def test_status_flags_bad_heading(project: Path, capsys):
+    prd = "# demo\n\n### 没有 checkbox 的标题\n"
+    make_task(project, prd=prd)
     assert run(project, "status", "demo", "--json") == 1
     data = json.loads(capsys.readouterr().out)
-    assert any("缺少验证项" in err for err in data["errors"])
-
-
-def test_status_flags_missing_acceptance_section(project: Path, capsys):
-    slice_md = "# S-001 缺验收\n\n## 验证\n\n- `echo hi`\n"
-    single_slice_task(project, "### [ ] S-001 缺验收", slice_md)
-    assert run(project, "status", "demo", "--json") == 1
-    data = json.loads(capsys.readouterr().out)
-    assert any("缺少 `## 验收`" in err for err in data["errors"])
-
-
-def test_status_accepts_chinese_heading_suffix(project: Path, capsys):
-    # `## 验收标准` / `## 验证步骤` 这种自然带后缀的中文标题也必须被识别，
-    # 不能只认裸 `## 验收` / `## 验证`（\b 对中文 word char 不生效的回归）。
-    slice_md = (
-        "# S-001 输出问候\n\n"
-        "## 交付面\n\n- backend-domain\n\n"
-        "## 验收标准\n\nAC-1\n\n"
-        "## 验证步骤\n\n- [assert][backend-domain] `test 0 -eq 0`\n"
-    )
-    single_slice_task(project, "### [ ] S-001 输出问候", slice_md)
-    assert run(project, "status", "demo", "--json") == 0
-    data = json.loads(capsys.readouterr().out)
-    assert data["errors"] == []
-    states = {c["target"]: c["state"] for c in data["slices"][0]["checks"]}
-    assert states == {"test 0 -eq 0": "missing"}
-
-
-def test_status_flags_title_mismatch(project: Path, capsys):
-    slice_md = "# S-001 另一个标题\n\n## 验收\n\nAC-1\n\n## 验证\n\n- `echo hi`\n"
-    single_slice_task(project, "### [ ] S-001 输出问候", slice_md)
-    assert run(project, "status", "demo", "--json") == 1
-    data = json.loads(capsys.readouterr().out)
-    assert any("索引行不一致" in err for err in data["errors"])
-
-
-def test_status_flags_content_inside_slices_section(project: Path, capsys):
-    prd = (
-        "# demo\n\n## Slices\n\n"
-        "### [ ] S-001 输出问候\n"
-        "- 验证:\n"
-        "  - `echo hi`\n"
-    )
-    make_task(project, prd=prd, slices={"S-001": SLICE_001})
-    assert run(project, "status", "demo", "--json") == 1
-    data = json.loads(capsys.readouterr().out)
-    assert any("只放索引行" in err for err in data["errors"])
-
-
-def test_status_flags_no_recognized_check(project: Path, capsys):
-    # 模糊的非验证行被当作 doc 容忍；slice 报错仅因为最终没有任何真正的验证项。
-    slice_md = "# S-001 输出问候\n\n## 验收\n\nAC-1\n\n## 验证\n\n- 跑一下测试\n"
-    single_slice_task(project, "### [ ] S-001 输出问候", slice_md)
-    assert run(project, "status", "demo", "--json") == 1
-    data = json.loads(capsys.readouterr().out)
-    assert any("缺少验证项" in err for err in data["errors"])
-
-
-def test_status_flags_missing_delivery_surfaces_section(project: Path, capsys):
-    slice_md = "# S-001 无交付面\n\n## 验收\n\nAC-1\n\n## 验证面\n\n- [assert][backend-domain] `test 0 -eq 0`\n"
-    single_slice_task(project, "### [ ] S-001 无交付面", slice_md)
-    assert run(project, "status", "demo", "--json") == 1
-    data = json.loads(capsys.readouterr().out)
-    assert any("缺少 `## 交付面`" in err for err in data["errors"])
-
-
-def test_arbitrary_surface_accepted(project: Path, capsys):
-    # 交付面是项目自由标签——非参考词汇的面（gameplay）也通过；helper 只校验声明面被覆盖。
-    slice_md = (
-        "# S-001 自由面\n\n## 交付面\n\n- gameplay\n\n## 验收\n\nAC-1\n\n## 验证面\n\n"
-        "- [assert][gameplay] jump: 角色跳跃达到设定高度\n"
-    )
-    single_slice_task(project, "### [ ] S-001 自由面", slice_md)
-    assert run(project, "status", "demo", "--json") == 0
-    data = json.loads(capsys.readouterr().out)
-    assert data["errors"] == []
-    assert data["slices"][0]["delivery_surfaces"] == ["gameplay"]
-
-
-def test_arbitrary_surface_uncovered_reported(project: Path, capsys):
-    # 自由面同样受覆盖校验约束——声明 cli 但验证项没标它，报未覆盖（校验面名字无关）。
-    slice_md = (
-        "# S-001 漏自由面\n\n## 交付面\n\n- gameplay\n- cli\n\n## 验收\n\nAC-1\n\n## 验证面\n\n"
-        "- [assert][gameplay] jump: 跳跃达标\n"
-    )
-    single_slice_task(project, "### [ ] S-001 漏自由面", slice_md)
-    assert run(project, "status", "demo", "--json") == 1
-    data = json.loads(capsys.readouterr().out)
-    assert any("交付面 cli 未被有效验证覆盖" in err for err in data["errors"])
-
-
-def test_status_flags_uncovered_delivery_surface(project: Path, capsys):
-    slice_md = (
-        "# S-001 漏覆盖\n\n## 交付面\n\n- backend-domain\n- api\n\n## 验收\n\nAC-1\n\n## 验证面\n\n"
-        "- [assert][backend-domain] `php artisan test --filter=Domain`\n"
-    )
-    single_slice_task(project, "### [ ] S-001 漏覆盖", slice_md)
-    assert run(project, "status", "demo", "--json") == 1
-    data = json.loads(capsys.readouterr().out)
-    assert any("交付面 api 未被有效验证覆盖" in err for err in data["errors"])
-
-
-def test_status_accepts_assert_covering_multiple_surfaces(project: Path, capsys):
-    slice_md = (
-        "# S-001 多面\n\n## 交付面\n\n- backend-domain\n- api\n\n## 验收\n\nAC-1\n\n## 验证面\n\n"
-        "- [assert][backend-domain,api] `php artisan test --filter=LedgerApi`\n"
-    )
-    single_slice_task(project, "### [ ] S-001 多面", slice_md)
-    assert run(project, "status", "demo", "--json") == 0
-    data = json.loads(capsys.readouterr().out)
-    assert data["errors"] == []
-    assert data["slices"][0]["checks"][0]["surfaces"] == ["backend-domain", "api"]
-
-
-def test_surface_kind_not_enforced_by_helper(project: Path, capsys):
-    # helper 不按面名规定 kind——"该面应使用 assert 还是 human"是项目标准，交 review 查"验证降级"。
-    slice_md = (
-        "# S-001 kind 不由面定\n\n## 交付面\n\n- api\n\n## 验收\n\nAC-1\n\n## 验证面\n\n"
-        "- [human][api] pm-signoff: PM 确认接口可用\n"
-    )
-    single_slice_task(project, "### [ ] S-001 kind 不由面定", slice_md)
-    assert run(project, "status", "demo", "--json") == 0
-    data = json.loads(capsys.readouterr().out)
-    assert data["errors"] == []
-
-
-def test_status_rejects_smoke_as_api_coverage(project: Path, capsys):
-    slice_md = (
-        "# S-001 烟雾覆盖\n\n## 交付面\n\n- api\n\n## 验收\n\nAC-1\n\n## 验证面\n\n"
-        "- [assert][api] `curl -s http://localhost/api/foo`\n"
-    )
-    single_slice_task(project, "### [ ] S-001 烟雾覆盖", slice_md)
-    assert run(project, "status", "demo", "--json") == 1
-    data = json.loads(capsys.readouterr().out)
-    assert any("smoke assert" in err for err in data["errors"])
-
-
-def test_status_accepts_web_ui_judge(project: Path, capsys):
-    slice_md = (
-        "# S-001 UI\n\n## 交付面\n\n- web-ui\n\n## 验收\n\nAC-1\n\n## 验证面\n\n"
-        "- [judge][web-ui] 登录 UI 旅程，按 rubrics/s-001.md\n"
-    )
-    single_slice_task(project, "### [ ] S-001 UI", slice_md)
-    assert run(project, "status", "demo", "--json") == 0
-    data = json.loads(capsys.readouterr().out)
-    assert data["errors"] == []
-
-
-def test_status_accepts_e2e_playwright_assert(project: Path, capsys):
-    slice_md = (
-        "# S-001 E2E\n\n## 交付面\n\n- e2e\n\n## 验收\n\nAC-1\n\n## 验证面\n\n"
-        "- [assert][e2e] `npx playwright test tests/foo.spec.ts`\n"
-    )
-    single_slice_task(project, "### [ ] S-001 E2E", slice_md)
-    assert run(project, "status", "demo", "--json") == 0
-    data = json.loads(capsys.readouterr().out)
-    assert data["errors"] == []
-
-
-def test_status_accepts_e2e_non_browser_non_smoke_assert(project: Path, capsys):
-    # 不按工具名判定：非 JS 栈(php artisan test)的非烟雾 [assert] 也覆盖 e2e。
-    # 工具白名单已移除——"这真测了 e2e 吗"交给 judge/review 语义层。
-    slice_md = (
-        "# S-001 非 JS E2E\n\n## 交付面\n\n- e2e\n\n## 验收\n\nAC-1\n\n## 验证面\n\n"
-        "- [assert][e2e] `php artisan test --filter=Foo`\n"
-    )
-    single_slice_task(project, "### [ ] S-001 非 JS E2E", slice_md)
-    assert run(project, "status", "demo", "--json") == 0
-    data = json.loads(capsys.readouterr().out)
-    assert data["errors"] == []
-
-
-def test_status_rejects_e2e_smoke_assert(project: Path, capsys):
-    # 烟雾命令(裸 curl)不覆盖任何交付面——e2e 也要真断言
-    slice_md = (
-        "# S-001 烟雾 E2E\n\n## 交付面\n\n- e2e\n\n## 验收\n\nAC-1\n\n## 验证面\n\n"
-        "- [assert][e2e] `curl -s http://localhost:8000/health`\n"
-    )
-    single_slice_task(project, "### [ ] S-001 烟雾 E2E", slice_md)
-    assert run(project, "status", "demo", "--json") == 1
-    data = json.loads(capsys.readouterr().out)
-    assert any("smoke" in err for err in data["errors"])
-
-
-def test_legacy_check_without_surface_does_not_cover_delivery_surface(project: Path, capsys):
-    slice_md = "# S-001 legacy\n\n## 交付面\n\n- backend-domain\n\n## 验收\n\nAC-1\n\n## 验证面\n\n- `test 0 -eq 0`\n"
-    single_slice_task(project, "### [ ] S-001 legacy", slice_md)
-    assert run(project, "status", "demo", "--json") == 1
-    data = json.loads(capsys.readouterr().out)
-    assert data["slices"][0]["checks"][0]["kind"] == "assert"
-    assert data["slices"][0]["checks"][0]["surfaces"] == []
-    assert any("交付面 backend-domain 未被有效验证覆盖" in err for err in data["errors"])
-
-
-def test_assert_allows_trailing_annotation(project: Path, capsys):
-    slice_md = (
-        "# S-001 问候\n\n## 交付面\n\n- backend-domain\n\n## 验收\n\nAC-1\n\n## 验证面\n\n"
-        "- [assert][backend-domain] `test 0 -eq 0` —— 自包含：输出问候，覆盖 AC-1\n"
-    )
-    single_slice_task(project, "### [ ] S-001 问候", slice_md)
-    assert run(project, "status", "demo", "--json") == 0
-    data = json.loads(capsys.readouterr().out)
-    check = data["slices"][0]["checks"][0]
-    assert check["kind"] == "assert"
-    assert check["target"] == "test 0 -eq 0"  # 尾部注释在匹配时被忽略
-    assert check["surfaces"] == ["backend-domain"]
-    # run-check 按命令匹配，忽略尾部注释
-    assert run(project, "run-check", "demo", "--slice", "S-001", "--", "test", "0", "-eq", "0") == 0
-
-
-def test_verify_section_tolerates_prose_and_subbullets(project: Path, capsys):
-    slice_md = (
-        "# S-001 多形态\n\n## 交付面\n\n- backend-domain\n- web-ui\n\n## 验收\n\nAC-1\n\n## 验证面\n\n"
-        "本 slice 的验证以自包含测试为主，细节见下。\n\n"
-        "- [assert][backend-domain] `php artisan test --filter=Foo` —— 覆盖:\n"
-        "  - 列表场景\n"
-        "  - 流水场景\n"
-        "  - 余额断言\n"
-        "- [judge][web-ui] UI 旅程，按 rubrics/x.md\n"
-    )
-    single_slice_task(project, "### [ ] S-001 多形态", slice_md)
-    assert run(project, "status", "demo", "--json") == 0
-    data = json.loads(capsys.readouterr().out)
-    checks = data["slices"][0]["checks"]
-    # 正好两个 check：缩进的子项目和说明文字是文档，不是 check
-    assert [(c["kind"]) for c in checks] == ["assert", "judge"]
-    assert checks[0]["target"] == "php artisan test --filter=Foo"
-
-
-def test_assert_tag_without_command_is_broken(project: Path, capsys):
-    slice_md = "# S-001 坏\n\n## 验收\n\nAC-1\n\n## 验证\n\n- [assert] 跑一下测试\n"
-    single_slice_task(project, "### [ ] S-001 坏", slice_md)
-    assert run(project, "status", "demo", "--json") == 1
-    data = json.loads(capsys.readouterr().out)
-    assert any("声明了 [assert]" in err for err in data["errors"])
-
-
-def test_status_flags_duplicate_and_malformed_headings(project: Path, capsys):
-    prd = (
-        "# demo\n\n## Slices\n\n"
-        "### [ ] S-001 第一步\n"
-        "### [ ] S-001 第一步\n"
-        "### 没有 checkbox 的标题\n"
-    )
-    slice_md = "# S-001 第一步\n\n## 验收\n\nAC-1\n\n## 验证\n\n- `echo hi`\n"
-    make_task(project, prd=prd, slices={"S-001": slice_md})
-    assert run(project, "status", "demo", "--json") == 1
-    data = json.loads(capsys.readouterr().out)
-    assert any("重复的 slice id" in err for err in data["errors"])
     assert any("S-NNN" in err for err in data["errors"])
+
+
+def test_status_flags_no_slices(project: Path, capsys):
+    prd = "# demo\n\n## Acceptance Criteria\n\n没有 slice heading\n"
+    make_task(project, prd=prd)
+    assert run(project, "status", "demo", "--json") == 1
+    data = json.loads(capsys.readouterr().out)
+    assert any("缺少 slice heading" in err for err in data["errors"])
 
 
 def test_status_lists_all_tasks(project: Path, capsys):
@@ -414,124 +123,133 @@ def test_status_lists_all_tasks(project: Path, capsys):
     assert "beta: 0/2" in out
 
 
-# --- run-check ---------------------------------------------------------------
-
-def test_run_check_rejects_undeclared_command(project: Path, capsys):
-    make_task(project)
-    assert run(project, "run-check", "demo", "--slice", "S-001", "--", "echo", "bye") == 1
-    err = capsys.readouterr().err
-    assert "未声明" in err
-    assert "test 0 -eq 0" in err
-
-
-def test_run_check_records_passed_evidence(project: Path, capsys):
-    make_task(project)
-    assert run(project, "run-check", "demo", "--slice", "S-001", "--", "test", "0", "-eq", "0") == 0
-    evidence = project / ".arbor" / "tasks" / "demo" / "evidence" / "S-001"
-    records = sorted(evidence.glob("*.json"))
-    assert len(records) == 1
-    data = json.loads(records[0].read_text(encoding="utf-8"))
-    assert data["command"] == "test 0 -eq 0"
-    assert data["exit_code"] == 0
-    assert data["status"] == "passed"
-
-
-def test_run_check_records_failed_evidence(project: Path, capsys):
-    slice_md = "# S-001 失败步\n\n## 交付面\n\n- backend-domain\n\n## 验收\n\nAC-1\n\n## 验证面\n\n- [assert][backend-domain] `false`\n"
-    single_slice_task(project, "### [ ] S-001 失败步", slice_md)
-    assert run(project, "run-check", "demo", "--slice", "S-001", "--", "false") == 1
-    evidence = project / ".arbor" / "tasks" / "demo" / "evidence" / "S-001"
-    data = json.loads(sorted(evidence.glob("*.json"))[0].read_text(encoding="utf-8"))
-    assert data["status"] == "failed"
-    assert data["exit_code"] != 0
-
-
-def test_manual_requires_note_and_evidence(project: Path, capsys):
-    make_task(project)
-    code = run(project, "run-check", "demo", "--slice", "S-002", "--manual", "浏览器确认页面渲染正常")
-    assert code == 1
-    assert "--note" in capsys.readouterr().err
-
-
-def test_manual_must_match_declared_item(project: Path, capsys):
-    make_task(project)
-    code = run(
-        project, "run-check", "demo", "--slice", "S-002",
-        "--manual", "随便看看", "--note", "n", "--evidence", "e",
-    )
-    assert code == 1
-    assert "未声明" in capsys.readouterr().err
-
-
-def test_manual_records_evidence(project: Path, capsys):
-    make_task(project)
-    code = run(
-        project, "run-check", "demo", "--slice", "S-002",
-        "--manual", "浏览器确认页面渲染正常",
-        "--note", "首页渲染正常，无 console error",
-        "--evidence", "notes/screenshot-home.png",
-    )
-    assert code == 0
-    evidence = project / ".arbor" / "tasks" / "demo" / "evidence" / "S-002"
-    data = json.loads(sorted(evidence.glob("*.json"))[0].read_text(encoding="utf-8"))
-    assert data["kind"] == "human"  # [manual] 是 [human] 的旧式别名
-    assert data["status"] == "recorded"
+def test_status_reports_quality_commands(project: Path, capsys):
+    make_task(project, package_json={"scripts": {"test": "node --test", "lint": "eslint ."}})
+    assert run(project, "status", "demo", "--json") == 0
+    data = json.loads(capsys.readouterr().out)
+    assert "test" in data["commands"]
+    assert "lint" in data["commands"]
 
 
 # --- done --------------------------------------------------------------------
 
-def test_done_blocked_without_evidence(project: Path, capsys):
+def _setup_pass_test(project: Path):
+    (project / "package.json").write_text(json.dumps({
+        "scripts": {"test": "node --test test.js"}
+    }))
+    (project / "test.js").write_text(
+        "const {test} = require('node:test');\n"
+        "test('passes', () => {});\n"
+    )
+
+
+def _setup_pass_test_with_lint(project: Path):
+    (project / "package.json").write_text(json.dumps({
+        "scripts": {
+            "test": "node --test test.js",
+            "lint": "node -e \"process.exit(0)\"",
+            "typecheck": "node -e \"process.exit(0)\"",
+        }
+    }))
+    (project / "test.js").write_text(
+        "const {test} = require('node:test');\n"
+        "test('passes', () => {});\n"
+    )
+
+
+def test_done_flips_checkbox_when_tests_pass(project: Path, capsys):
+    make_task(project)
+    _setup_pass_test(project)
+    assert run(project, "done", "demo", "--slice", "S-001") == 0
+    out = capsys.readouterr().out
+    assert "已完成" in out
+    assert "next: S-002" in out
+    prd = (project / ".arbor" / "tasks" / "demo" / "prd.md").read_text(encoding="utf-8")
+    assert "### [x] S-001" in prd
+    assert "### [ ] S-002" in prd
+
+
+def test_done_blocked_by_failing_test(project: Path, capsys):
+    (project / "package.json").write_text(json.dumps({
+        "scripts": {"test": "node --test failing.test.js"}
+    }))
+    (project / "failing.test.js").write_text(
+        "const {test} = require('node:test');\n"
+        "const assert = require('node:assert');\n"
+        "test('fails', () => { assert.fail('expected failure'); });\n"
+    )
     make_task(project)
     assert run(project, "done", "demo", "--slice", "S-001") == 1
-    err = capsys.readouterr().err
-    assert "缺少证据" in err
-    assert "test 0 -eq 0" in err
+    assert "测试命令未通过" in capsys.readouterr().err
     prd = (project / ".arbor" / "tasks" / "demo" / "prd.md").read_text(encoding="utf-8")
     assert "### [x]" not in prd
 
 
-def test_done_blocked_by_failed_evidence(project: Path, capsys):
-    slice_md = "# S-001 失败步\n\n## 交付面\n\n- backend-domain\n\n## 验收\n\nAC-1\n\n## 验证面\n\n- [assert][backend-domain] `false`\n"
-    single_slice_task(project, "### [ ] S-001 失败步", slice_md)
-    run(project, "run-check", "demo", "--slice", "S-001", "--", "false")
+def test_done_blocked_by_fake_test(project: Path, capsys):
+    make_task(project, package_json={"scripts": {"test": "true"}})
     assert run(project, "done", "demo", "--slice", "S-001") == 1
-    assert "failed" in capsys.readouterr().err
+    assert "伪装的" in capsys.readouterr().err
 
 
-def test_done_flips_checkbox_when_evidence_complete(project: Path, capsys):
+def test_done_blocked_by_echo_test(project: Path, capsys):
+    make_task(project, package_json={"scripts": {"test": "echo all passed"}})
+    assert run(project, "done", "demo", "--slice", "S-001") == 1
+    assert "伪装的" in capsys.readouterr().err
+
+
+def test_done_allows_echo_with_real_test(project: Path, capsys):
     make_task(project)
-    run(project, "run-check", "demo", "--slice", "S-001", "--", "test", "0", "-eq", "0")
+    (project / "package.json").write_text(json.dumps({
+        "scripts": {"test": "echo starting && node --test test.js"}
+    }))
+    (project / "test.js").write_text(
+        "const {test} = require('node:test');\n"
+        "test('passes', () => {});\n"
+    )
+    assert run(project, "done", "demo", "--slice", "S-001") == 0
+
+
+def test_done_blocked_by_bin_true(project: Path, capsys):
+    make_task(project, package_json={"scripts": {"test": "/bin/true"}})
+    assert run(project, "done", "demo", "--slice", "S-001") == 1
+    assert "伪装的" in capsys.readouterr().err
+
+
+def test_done_blocked_by_node_e_without_test(project: Path, capsys):
+    make_task(project, package_json={"scripts": {"test": "node -e \"process.exit(0)\""}})
+    assert run(project, "done", "demo", "--slice", "S-001") == 1
+    assert "伪装的" in capsys.readouterr().err
+
+
+def test_done_blocked_by_failing_lint(project: Path, capsys):
+    (project / "package.json").write_text(json.dumps({
+        "scripts": {
+            "test": "node --test test.js",
+            "lint": "node -e \"process.exit(1)\"",
+        }
+    }))
+    (project / "test.js").write_text(
+        "const {test} = require('node:test');\n"
+        "test('passes', () => {});\n"
+    )
+    make_task(project)
+    assert run(project, "done", "demo", "--slice", "S-001") == 1
+    assert "质量命令未通过" in capsys.readouterr().err
+
+
+def test_done_quality_commands_all_pass(project: Path, capsys):
+    make_task(project)
+    _setup_pass_test_with_lint(project)
     assert run(project, "done", "demo", "--slice", "S-001") == 0
     out = capsys.readouterr().out
-    assert "next: S-002" in out
-    prd = (project / ".arbor" / "tasks" / "demo" / "prd.md").read_text(encoding="utf-8")
-    assert "### [x] S-001 输出问候" in prd
-    assert "### [ ] S-002" in prd
-
-
-def test_done_requires_manual_recorded(project: Path, capsys):
-    make_task(project)
-    run(project, "run-check", "demo", "--slice", "S-002", "--", "test", "0", "-eq", "0")
-    assert run(project, "done", "demo", "--slice", "S-002") == 1
-    assert "human" in capsys.readouterr().err
-
-
-def test_done_full_flow_with_manual(project: Path, capsys):
-    make_task(project)
-    run(project, "run-check", "demo", "--slice", "S-002", "--", "test", "0", "-eq", "0")
-    run(
-        project, "run-check", "demo", "--slice", "S-002",
-        "--manual", "浏览器确认页面渲染正常",
-        "--note", "ok", "--evidence", "shot.png",
-    )
-    assert run(project, "done", "demo", "--slice", "S-002") == 0
-    prd = (project / ".arbor" / "tasks" / "demo" / "prd.md").read_text(encoding="utf-8")
-    assert "### [x] S-002" in prd
+    assert "已完成" in out
+    assert "lint:" in out
+    assert "typecheck:" in out
 
 
 def test_done_is_idempotent(project: Path, capsys):
     make_task(project)
-    run(project, "run-check", "demo", "--slice", "S-001", "--", "test", "0", "-eq", "0")
+    _setup_pass_test(project)
     assert run(project, "done", "demo", "--slice", "S-001") == 0
     assert run(project, "done", "demo", "--slice", "S-001") == 0
     assert "已是完成状态" in capsys.readouterr().out
@@ -543,655 +261,121 @@ def test_done_unknown_slice(project: Path, capsys):
     assert "不存在" in capsys.readouterr().err
 
 
+def test_done_blocked_without_project_config(project: Path, capsys):
+    make_task(project)
+    assert run(project, "done", "demo", "--slice", "S-001") == 1
+    assert "未找到项目测试命令" in capsys.readouterr().err
+
+
+def test_done_records_log(project: Path, capsys):
+    make_task(project)
+    _setup_pass_test(project)
+    assert run(project, "done", "demo", "--slice", "S-001") == 0
+    logs = list((project / ".arbor" / "tasks" / "demo" / "done-logs").glob("*.json"))
+    assert len(logs) == 1
+    log_data = json.loads(logs[0].read_text())
+    assert log_data["test"]["exit_code"] == 0
+
+
+def test_done_all_slices_complete_message(project: Path, capsys):
+    prd = "# demo\n\n### [x] S-001 唯一\n\n已完成。\n"
+    make_task(project, prd=prd)
+    _setup_pass_test(project)
+    # Already done, should report idempotent
+    assert run(project, "done", "demo", "--slice", "S-001") == 0
+
+
 # --- review-mark -------------------------------------------------------------
 
-def test_review_mark_writes_converged_marker(project: Path, capsys):
+def test_review_mark_writes_marker(project: Path, capsys):
     make_task(project)
-    assert run(project, "review-mark", "demo", "--slice", "S-001", "--verdict", "converged") == 0
-    marker = project / ".arbor" / "tasks" / "demo" / "evidence" / "S-001" / "review-loop.json"
-    data = json.loads(marker.read_text(encoding="utf-8"))
+    assert run(project, "review-mark", "demo", "--verdict", "converged", "--round", "2") == 0
+    marker = project / ".arbor" / "tasks" / "demo" / "review-loop.json"
+    assert marker.is_file()
+    data = json.loads(marker.read_text())
     assert data["terminal_reason"] == "converged"
     assert data["converged"] is True
-    assert data["slice"] == "S-001"
-    assert "可推进 done" in capsys.readouterr().out
+    assert data["round"] == 2
 
 
-def test_review_mark_records_escalated(project: Path, capsys):
+def test_review_mark_rejects_invalid_verdict(project: Path, capsys):
     make_task(project)
-    assert run(
-        project, "review-mark", "demo", "--slice", "S-001",
-        "--verdict", "circuit-breaker", "--note", "blocking 反复",
-    ) == 0
-    marker = project / ".arbor" / "tasks" / "demo" / "evidence" / "S-001" / "review-loop.json"
-    data = json.loads(marker.read_text(encoding="utf-8"))
-    assert data["terminal_reason"] == "circuit-breaker"
-    assert data["converged"] is False
-    assert data["note"] == "blocking 反复"
+    assert run(project, "review-mark", "demo", "--verdict", "abandoned") == 1
+    assert "converged" in capsys.readouterr().err
 
 
-def test_review_mark_unknown_slice_rejected(project: Path, capsys):
+def test_review_mark_rejects_negative_round(project: Path, capsys):
     make_task(project)
-    assert run(project, "review-mark", "demo", "--slice", "S-999", "--verdict", "converged") == 1
-    assert "不存在" in capsys.readouterr().err
+    assert run(project, "review-mark", "demo", "--verdict", "converged", "--round", "-1") == 1
 
 
-def test_review_mark_rejects_bad_verdict(project: Path):
-    make_task(project)
-    # --verdict 受 argparse choices 约束；非法值 → SystemExit(2)（parse 在 main 的 try 之前）
-    with pytest.raises(SystemExit):
-        run(project, "review-mark", "demo", "--slice", "S-001", "--verdict", "bogus")
+def test_review_mark_unknown_task(project: Path, capsys):
+    assert run(project, "review-mark", "nope", "--verdict", "converged") == 1
+    assert "未找到" in capsys.readouterr().err
 
 
-# --- resume ------------------------------------------------------------------
+# --- project commands detection ----------------------------------------------
 
-def test_status_resume_after_partial_progress(project: Path, capsys):
-    make_task(project)
-    run(project, "run-check", "demo", "--slice", "S-001", "--", "test", "0", "-eq", "0")
-    run(project, "done", "demo", "--slice", "S-001")
-    capsys.readouterr()
-    assert run(project, "status", "demo", "--json") == 0
-    data = json.loads(capsys.readouterr().out)
-    assert data["slices"][0]["done"] is True
-    assert data["next"] == "S-002"
+def test_detects_package_json_commands(project: Path):
+    (project / "package.json").write_text(json.dumps({
+        "scripts": {"test": "jest", "lint": "eslint .", "build": "tsc"}
+    }))
+    cmds = seed._read_project_commands(project)
+    assert cmds["test"] == "npm test"
+    assert cmds["lint"] == "npm run lint"
+    assert cmds["build"] == "npm run build"
 
 
-# --- verification kinds (assert / judge / human) ----------------------------
+def test_detects_makefile_targets(project: Path):
+    (project / "Makefile").write_text("test:\n\tpytest\nlint:\n\truff check .\n")
+    cmds = seed._read_project_commands(project)
+    assert cmds["test"] == "make test"
+    assert cmds["lint"] == "make lint"
 
-KINDS_SLICE = """# S-001 三类验证
 
-## 交付面
+def test_detects_cargo_commands(project: Path):
+    (project / "Cargo.toml").write_text("[package]\nname = \"test\"\n")
+    cmds = seed._read_project_commands(project)
+    assert cmds["test"] == "cargo test"
+    assert cmds["build"] == "cargo build"
+    assert cmds["lint"] == "cargo clippy"
 
-- backend-domain
-- web-ui
-- compliance
 
-## 验收
-
-AC-1
-
-## 验证面
-
-- [assert][backend-domain] `test 0 -eq 0`
-- [judge][web-ui] 注册→登录 UI 旅程，按 rubrics/s-001.md
-- [human][compliance] 涉众确认邀请邮件文案
-"""
-
-
-def _latest_record(root: Path, task: str, slice_id: str) -> dict:
-    ev = root / ".arbor" / "tasks" / task / "evidence" / slice_id
-    return json.loads(sorted(ev.glob("*.json"))[-1].read_text(encoding="utf-8"))
-
-
-def _write_rubric_and_score(
-    root: Path,
-    *,
-    scores: dict[str, float],
-    dimensions: dict[str, float] | None = None,
-    min_average: float | None = None,
-    rubric_id: str = "web-ui-quality",
-) -> tuple[str, str]:
-    dimensions = dimensions or {
-        "information_hierarchy": 3,
-        "visual_consistency": 3,
-        "empty_error_states": 3,
-    }
-    rubric = {
-        "id": rubric_id,
-        "scale": {"min": 0, "max": 5},
-        "dimensions": {name: {"min": minimum} for name, minimum in dimensions.items()},
-    }
-    if min_average is not None:
-        rubric["aggregate"] = {"min_average": min_average}
-    score = {
-        "rubric_id": rubric_id,
-        "scores": scores,
-        "rationale": {name: "ok" for name in scores},
-        "summary": "judge summary",
-    }
-    (root / "rubrics").mkdir()
-    (root / "scores").mkdir()
-    rubric_path = root / "rubrics" / "web-ui-quality.json"
-    score_path = root / "scores" / "S-001-ui.json"
-    rubric_path.write_text(json.dumps(rubric), encoding="utf-8")
-    score_path.write_text(json.dumps(score), encoding="utf-8")
-    return "rubrics/web-ui-quality.json", "scores/S-001-ui.json"
-
-
-def test_classifies_three_kinds(project: Path, capsys):
-    single_slice_task(project, "### [ ] S-001 三类验证", KINDS_SLICE)
-    assert run(project, "status", "demo", "--json") == 0
-    data = json.loads(capsys.readouterr().out)
-    checks = data["slices"][0]["checks"]
-    assert [c["kind"] for c in checks] == ["assert", "judge", "human"]
-    assert [c["surfaces"] for c in checks] == [["backend-domain"], ["web-ui"], ["compliance"]]
-    assert all(c["state"] == "missing" for c in checks)
-
-
-def test_assert_prefix_runs_command(project: Path, capsys):
-    single_slice_task(project, "### [ ] S-001 三类验证", KINDS_SLICE)
-    assert run(project, "run-check", "demo", "--slice", "S-001", "--", "test", "0", "-eq", "0") == 0
-    rec = _latest_record(project, "demo", "S-001")
-    assert rec["kind"] == "assert"
-    assert rec["status"] == "passed"
-
-
-def test_judge_pass_records_verdict(project: Path, capsys):
-    single_slice_task(project, "### [ ] S-001 三类验证", KINDS_SLICE)
-    (project / "shots").mkdir()
-    (project / "shots" / "login.png").write_bytes(b"fake-png")
-    code = run(
-        project, "run-check", "demo", "--slice", "S-001",
-        "--judge", "注册→登录 UI 旅程，按 rubrics/s-001.md",
-        "--verdict", "pass",
-        "--trace", "rubrics/s-001.md + shots/login.png",
-        "--artifact", "shots/login.png",
-        "--by", "judge-agent-2",
-    )
-    assert code == 0
-    rec = _latest_record(project, "demo", "S-001")
-    assert rec["kind"] == "judge"
-    assert rec["verdict"] == "pass"
-    assert rec["status"] == "passed"
-    assert rec["by"] == "judge-agent-2"
-
-
-def test_judge_requires_verdict_and_trace(project: Path, capsys):
-    single_slice_task(project, "### [ ] S-001 三类验证", KINDS_SLICE)
-    assert run(
-        project, "run-check", "demo", "--slice", "S-001",
-        "--judge", "注册→登录 UI 旅程，按 rubrics/s-001.md",
-    ) == 1
-    assert "--verdict" in capsys.readouterr().err
-
-
-def test_judge_fail_blocks_done(project: Path, capsys):
-    single_slice_task(project, "### [ ] S-001 三类验证", KINDS_SLICE)
-    run(project, "run-check", "demo", "--slice", "S-001", "--", "test", "0", "-eq", "0")
-    run(project, "run-check", "demo", "--slice", "S-001", "--human",
-        "涉众确认邀请邮件文案", "--note", "ok")
-    run(
-        project, "run-check", "demo", "--slice", "S-001",
-        "--judge", "注册→登录 UI 旅程，按 rubrics/s-001.md",
-        "--verdict", "fail", "--trace", "rubrics/s-001.md；按钮无障碍失败",
-    )
-    assert run(project, "done", "demo", "--slice", "S-001") == 1
-    err = capsys.readouterr().err
-    assert "judge" in err and "failed" in err
-    prd = (project / ".arbor" / "tasks" / "demo" / "prd.md").read_text(encoding="utf-8")
-    assert "### [x]" not in prd
-
-
-def test_human_signoff_satisfies_gate(project: Path, capsys):
-    single_slice_task(project, "### [ ] S-001 三类验证", KINDS_SLICE)
-    run(project, "run-check", "demo", "--slice", "S-001", "--", "test", "0", "-eq", "0")
-    (project / "shot.png").write_bytes(b"fake-png")
-    run(
-        project, "run-check", "demo", "--slice", "S-001",
-        "--judge", "注册→登录 UI 旅程，按 rubrics/s-001.md",
-        "--verdict", "pass", "--trace", "rubrics/s-001.md",
-        "--artifact", "shot.png",
-    )
-    assert run(
-        project, "run-check", "demo", "--slice", "S-001", "--human",
-        "涉众确认邀请邮件文案", "--note", "文案定稿", "--by", "PM-alice",
-    ) == 0
-    assert run(project, "done", "demo", "--slice", "S-001") == 0
-    prd = (project / ".arbor" / "tasks" / "demo" / "prd.md").read_text(encoding="utf-8")
-    assert "### [x] S-001 三类验证" in prd
-
-
-# --- smoke detection ---------------------------------------------------------
-
-def test_smoke_detection():
-    assert seed.looks_like_smoke("curl -s http://localhost:8000/api/health")[0] is True
-    assert seed.looks_like_smoke("curl -sf http://x")[0] is False
-    assert seed.looks_like_smoke("curl -s http://x | grep ok")[0] is False
-    assert seed.looks_like_smoke("echo hi")[0] is True
-    assert seed.looks_like_smoke("true")[0] is True
-    assert seed.looks_like_smoke("php artisan test --filter=Ledger")[0] is False
-    assert seed.looks_like_smoke("test 0 -eq 0")[0] is False
-
-
-def test_run_check_warns_on_smoke(project: Path, capsys):
-    slice_md = (
-        "# S-001 烟雾\n\n## 交付面\n\n- compliance\n\n## 验收\n\nAC\n\n## 验证面\n\n"
-        "- [human][compliance] 涉众签收\n"
-        "- `echo hi`\n"
-    )
-    single_slice_task(project, "### [ ] S-001 烟雾", slice_md)
-    assert run(project, "run-check", "demo", "--slice", "S-001", "--", "echo", "hi") == 0
-    captured = capsys.readouterr()
-    assert "烟雾警告" in captured.err
-    assert "不构成有效验证" in captured.err
-
-
-def test_status_flags_smoke_in_report(project: Path, capsys):
-    slice_md = (
-        "# S-001 烟雾\n\n## 交付面\n\n- compliance\n\n## 验收\n\nAC\n\n## 验证面\n\n"
-        "- [human][compliance] 涉众签收\n"
-        "- `curl -s http://localhost:8000/health`\n"
-    )
-    single_slice_task(project, "### [ ] S-001 烟雾", slice_md)
-    assert run(project, "status", "demo", "--json") == 0
-    data = json.loads(capsys.readouterr().out)
-    assert data["slices"][0]["checks"][1]["smoke"] is True
-
-
-# --- judge artifact ----------------------------------------------------------
-
-def test_judge_artifact_existence_checked_and_recorded(project: Path, capsys):
-    single_slice_task(project, "### [ ] S-001 三类验证", KINDS_SLICE)
-    (project / "shot.png").write_bytes(b"fake-png")
-    code = run(
-        project, "run-check", "demo", "--slice", "S-001",
-        "--judge", "注册→登录 UI 旅程，按 rubrics/s-001.md",
-        "--verdict", "pass", "--trace", "rubrics/s-001.md", "--artifact", "shot.png",
-    )
-    assert code == 0
-    rec = _latest_record(project, "demo", "S-001")
-    assert rec["artifact"] == "shot.png"
-    # 截图被 status 在该 judge 项上展示出来（review/续作可见）
-    capsys.readouterr()
-    assert run(project, "status", "demo", "--json") == 0
-    data = json.loads(capsys.readouterr().out)
-    judge_check = next(c for c in data["slices"][0]["checks"] if c["kind"] == "judge")
-    assert judge_check["artifact"] == "shot.png"
-
-
-def test_judge_artifact_missing_file_rejected(project: Path, capsys):
-    single_slice_task(project, "### [ ] S-001 三类验证", KINDS_SLICE)
-    code = run(
-        project, "run-check", "demo", "--slice", "S-001",
-        "--judge", "注册→登录 UI 旅程，按 rubrics/s-001.md",
-        "--verdict", "pass", "--trace", "t", "--artifact", "nope.png",
-    )
-    assert code == 1
-    assert "不存在" in capsys.readouterr().err
-    ev = project / ".arbor" / "tasks" / "demo" / "evidence" / "S-001"
-    assert not list(ev.glob("*.json"))  # 校验在落盘前，未写入伪证据
-
-
-def test_done_message_does_not_overclaim_unstated_quality(project: Path, capsys):
-    make_task(project)
-    run(project, "run-check", "demo", "--slice", "S-001", "--", "test", "0", "-eq", "0")
-    run(project, "done", "demo", "--slice", "S-001")
-    run(project, "run-check", "demo", "--slice", "S-002", "--", "test", "0", "-eq", "0")
-    run(project, "run-check", "demo", "--slice", "S-002", "--manual",
-        "浏览器确认页面渲染正常", "--note", "ok", "--evidence", "x")
-    capsys.readouterr()
-    assert run(project, "done", "demo", "--slice", "S-002") == 0
-    out = capsys.readouterr().out
-    assert "未声明维度仍需 review" in out
-    assert "质量没有上限" in out
-
-
-# --- obligation ---------------------------------------------------------------
-
-OBLIGATION_SLICE = """# S-001 验收义务
-
-## 交付面
-
-- backend-domain
-- web-ui
-- compliance
-
-## 验收
-
-AC-1
-
-## 验证面
-
-- [assert][backend-domain] AC-1·金额非法: 提交金额≤0 → 422 且不落库
-- [assert][web-ui] AC-1·记账流: 浏览器 3 步内记一笔
-- [judge][web-ui] AC-ui·视觉: 报表页可读、无 AI 味
-- [human][compliance] AC-合规·文案: 法务签收
-"""
-
-
-def test_obligation_format_parsed(project: Path, capsys):
-    single_slice_task(project, "### [ ] S-001 验收义务", OBLIGATION_SLICE)
-    assert run(project, "status", "demo", "--json") == 0
-    data = json.loads(capsys.readouterr().out)
-    checks = {c["obligation_id"]: c for c in data["slices"][0]["checks"]}
-    assert checks["AC-1·金额非法"]["kind"] == "assert"
-    assert checks["AC-1·金额非法"]["surfaces"] == ["backend-domain"]
-    assert checks["AC-1·金额非法"]["target"] == "提交金额≤0 → 422 且不落库"
-    # AC-N slug 整串保留，helper 不特殊解析 AC
-    assert "AC-1·金额非法" in checks
-    assert checks["AC-ui·视觉"]["kind"] == "judge"
-    assert checks["AC-合规·文案"]["kind"] == "human"
-
-
-def test_obligation_assert_without_command_or_colon_broken(project: Path, capsys):
-    slice_md = (
-        "# S-001 坏义务\n\n## 交付面\n\n- backend-domain\n\n## 验收\n\nAC-1\n\n## 验证面\n\n"
-        "- [assert][backend-domain] 跑一下测试\n"
-    )
-    single_slice_task(project, "### [ ] S-001 坏义务", slice_md)
-    assert run(project, "status", "demo", "--json") == 1
-    data = json.loads(capsys.readouterr().out)
-    assert any("声明了 [assert]" in err for err in data["errors"])
-
-
-def test_obligation_empty_id_broken(project: Path, capsys):
-    # ": 行为" 首字符是冒号，OBLIGATION_RE 不匹配 → 走 assert broken（无 obligation 也无行首反引号命令）
-    slice_md = (
-        "# S-001 空id\n\n## 交付面\n\n- backend-domain\n\n## 验收\n\nAC-1\n\n## 验证面\n\n"
-        "- [assert][backend-domain] : 行为描述\n"
-    )
-    single_slice_task(project, "### [ ] S-001 空id", slice_md)
-    assert run(project, "status", "demo", "--json") == 1
-    data = json.loads(capsys.readouterr().out)
-    assert any("声明了 [assert]" in err for err in data["errors"])
-
-
-def test_run_check_obligation_binds_id(project: Path, capsys):
-    single_slice_task(project, "### [ ] S-001 验收义务", OBLIGATION_SLICE)
-    assert run(
-        project, "run-check", "demo", "--slice", "S-001",
-        "--obligation", "AC-1·金额非法", "--", "test", "0", "-eq", "0",
-    ) == 0
-    rec = _latest_record(project, "demo", "S-001")
-    assert rec["kind"] == "assert"
-    assert rec["obligation_id"] == "AC-1·金额非法"
-    assert rec["command"] == "test 0 -eq 0"
-    assert rec["status"] == "passed"
-
-
-def test_run_check_obligation_unknown_rejected(project: Path, capsys):
-    single_slice_task(project, "### [ ] S-001 验收义务", OBLIGATION_SLICE)
-    assert run(
-        project, "run-check", "demo", "--slice", "S-001",
-        "--obligation", "不存在的义务", "--", "test", "0", "-eq", "0",
-    ) == 1
-    assert "未声明" in capsys.readouterr().err
-
-
-def test_run_check_smoke_blocked_for_non_compliance_obligation(project: Path, capsys):
-    slice_md = (
-        "# S-001 烟雾义务\n\n## 交付面\n\n- backend-domain\n\n## 验收\n\nAC\n\n## 验证面\n\n"
-        "- [assert][backend-domain] obl-x: 验证余额\n"
-    )
-    single_slice_task(project, "### [ ] S-001 烟雾义务", slice_md)
-    code = run(
-        project, "run-check", "demo", "--slice", "S-001",
-        "--obligation", "obl-x", "--", "curl", "-s", "http://localhost/api",
-    )
-    assert code == 1
-    assert "烟雾命令无法覆盖" in capsys.readouterr().err
-    ev = project / ".arbor" / "tasks" / "demo" / "evidence" / "S-001"
-    assert not list(ev.glob("*.json"))  # 硬阻断，不落盘伪证据
-
-
-def test_run_check_smoke_allowed_for_compliance_obligation(project: Path, capsys):
-    slice_md = (
-        "# S-001 合规烟雾\n\n## 交付面\n\n- compliance\n\n## 验收\n\nAC\n\n## 验证面\n\n"
-        "- [assert][compliance] obl-c: 备案可达\n"
-    )
-    single_slice_task(project, "### [ ] S-001 合规烟雾", slice_md)
-    assert run(
-        project, "run-check", "demo", "--slice", "S-001",
-        "--obligation", "obl-c", "--", "echo", "hi",
-    ) == 0
-    captured = capsys.readouterr()
-    assert "烟雾警告" in captured.err
-
-
-def test_done_gaps_report_obligation_id(project: Path, capsys):
-    single_slice_task(project, "### [ ] S-001 验收义务", OBLIGATION_SLICE)
-    assert run(project, "done", "demo", "--slice", "S-001") == 1
-    err = capsys.readouterr().err
-    assert "AC-1·金额非法" in err
-    assert "missing" in err
-
-
-def test_judge_obligation_records_verdict(project: Path, capsys):
-    single_slice_task(project, "### [ ] S-001 验收义务", OBLIGATION_SLICE)
-    (project / "report.png").write_bytes(b"fake-png")
-    code = run(
-        project, "run-check", "demo", "--slice", "S-001",
-        "--obligation", "AC-ui·视觉", "--verdict", "pass",
-        "--trace", "报表页截图，无 AI 味",
-        "--artifact", "report.png",
-    )
-    assert code == 0
-    rec = _latest_record(project, "demo", "S-001")
-    assert rec["kind"] == "judge"
-    assert rec["obligation_id"] == "AC-ui·视觉"
-    assert rec["verdict"] == "pass"
-
-
-def test_judge_pass_without_artifact_rejected(project: Path, capsys):
-    # judge verdict=pass 必须附 --artifact（看真实产物），防无产物裁决
-    single_slice_task(project, "### [ ] S-001 验收义务", OBLIGATION_SLICE)
-    code = run(
-        project, "run-check", "demo", "--slice", "S-001",
-        "--obligation", "AC-ui·视觉", "--verdict", "pass",
-        "--trace", "未附产物",
-    )
-    assert code == 1
-    assert "必须附 --artifact" in capsys.readouterr().err
-    ev = project / ".arbor" / "tasks" / "demo" / "evidence" / "S-001"
-    assert not list(ev.glob("*.json"))  # 无产物裁决被拦，不落盘
-
-
-def test_judge_score_file_computes_pass_and_done(project: Path, capsys):
-    single_slice_task(project, "### [ ] S-001 验收义务", OBLIGATION_SLICE)
-    run(project, "run-check", "demo", "--slice", "S-001", "--obligation", "AC-1·金额非法", "--", "test", "0", "-eq", "0")
-    run(project, "run-check", "demo", "--slice", "S-001", "--obligation", "AC-1·记账流", "--", "test", "0", "-eq", "0")
-    run(project, "run-check", "demo", "--slice", "S-001", "--obligation", "AC-合规·文案", "--note", "ok")
-    rubric, score_file = _write_rubric_and_score(
-        project,
-        scores={"information_hierarchy": 4, "visual_consistency": 3, "empty_error_states": 4},
-        min_average=3.5,
-    )
-    (project / "report.png").write_bytes(b"fake-png")
-    assert run(
-        project, "run-check", "demo", "--slice", "S-001",
-        "--obligation", "AC-ui·视觉",
-        "--rubric", rubric, "--score-file", score_file,
-        "--trace", "DESIGN.md + report.png",
-        "--artifact", "report.png",
-    ) == 0
-    rec = _latest_record(project, "demo", "S-001")
-    assert rec["verdict"] == "pass"
-    assert rec["status"] == "passed"
-    assert rec["verdict_source"] == "score-file"
-    assert rec["score_summary"]["failed_dimensions"] == []
-    assert rec["rubric_sha256"]
-    assert run(project, "done", "demo", "--slice", "S-001") == 0
-
-
-def test_judge_score_file_computes_fail_and_blocks_done(project: Path, capsys):
-    single_slice_task(project, "### [ ] S-001 验收义务", OBLIGATION_SLICE)
-    run(project, "run-check", "demo", "--slice", "S-001", "--obligation", "AC-1·金额非法", "--", "test", "0", "-eq", "0")
-    run(project, "run-check", "demo", "--slice", "S-001", "--obligation", "AC-1·记账流", "--", "test", "0", "-eq", "0")
-    run(project, "run-check", "demo", "--slice", "S-001", "--obligation", "AC-合规·文案", "--note", "ok")
-    rubric, score_file = _write_rubric_and_score(
-        project,
-        scores={"information_hierarchy": 4, "visual_consistency": 3, "empty_error_states": 2},
-        min_average=3.0,
-    )
-    (project / "report.png").write_bytes(b"fake-png")
-    assert run(
-        project, "run-check", "demo", "--slice", "S-001",
-        "--obligation", "AC-ui·视觉",
-        "--rubric", rubric, "--score-file", score_file,
-        "--trace", "DESIGN.md + report.png",
-        "--artifact", "report.png",
-    ) == 1
-    rec = _latest_record(project, "demo", "S-001")
-    assert rec["verdict"] == "fail"
-    assert rec["status"] == "failed"
-    assert rec["score_summary"]["failed_dimensions"] == ["empty_error_states"]
-    assert run(project, "done", "demo", "--slice", "S-001") == 1
-    assert "failed" in capsys.readouterr().err
-
-
-def test_judge_score_file_average_fail(project: Path, capsys):
-    single_slice_task(project, "### [ ] S-001 验收义务", OBLIGATION_SLICE)
-    rubric, score_file = _write_rubric_and_score(
-        project,
-        scores={"information_hierarchy": 3, "visual_consistency": 3, "empty_error_states": 3},
-        min_average=3.5,
-    )
-    (project / "report.png").write_bytes(b"fake-png")
-    assert run(
-        project, "run-check", "demo", "--slice", "S-001",
-        "--obligation", "AC-ui·视觉",
-        "--rubric", rubric, "--score-file", score_file,
-        "--trace", "DESIGN.md + report.png",
-        "--artifact", "report.png",
-    ) == 1
-    rec = _latest_record(project, "demo", "S-001")
-    assert "__average__" in rec["score_summary"]["failed_dimensions"]
-
-
-def test_judge_score_file_rejects_bad_inputs(project: Path, capsys):
-    single_slice_task(project, "### [ ] S-001 验收义务", OBLIGATION_SLICE)
-    rubric, score_file = _write_rubric_and_score(
-        project,
-        scores={"information_hierarchy": 4, "visual_consistency": 3},
-    )
-    (project / "report.png").write_bytes(b"fake-png")
-    assert run(
-        project, "run-check", "demo", "--slice", "S-001",
-        "--obligation", "AC-ui·视觉",
-        "--rubric", rubric, "--score-file", score_file,
-        "--trace", "DESIGN.md + report.png",
-        "--artifact", "report.png",
-    ) == 1
-    assert "缺少维度分数" in capsys.readouterr().err
-    ev = project / ".arbor" / "tasks" / "demo" / "evidence" / "S-001"
-    assert not list(ev.glob("*.json"))
-
-
-def test_judge_score_file_requires_rubric_artifact_and_no_manual_verdict(project: Path, capsys):
-    single_slice_task(project, "### [ ] S-001 验收义务", OBLIGATION_SLICE)
-    rubric, score_file = _write_rubric_and_score(
-        project,
-        scores={"information_hierarchy": 4, "visual_consistency": 3, "empty_error_states": 4},
-    )
-    assert run(
-        project, "run-check", "demo", "--slice", "S-001",
-        "--obligation", "AC-ui·视觉",
-        "--score-file", score_file,
-        "--trace", "missing rubric",
-        "--artifact", "report.png",
-    ) == 1
-    assert "--rubric" in capsys.readouterr().err
-    assert run(
-        project, "run-check", "demo", "--slice", "S-001",
-        "--obligation", "AC-ui·视觉",
-        "--rubric", rubric, "--score-file", score_file,
-        "--trace", "missing artifact",
-    ) == 1
-    assert "--artifact" in capsys.readouterr().err
-    (project / "report.png").write_bytes(b"fake-png")
-    assert run(
-        project, "run-check", "demo", "--slice", "S-001",
-        "--obligation", "AC-ui·视觉",
-        "--rubric", rubric, "--score-file", score_file,
-        "--verdict", "pass",
-        "--trace", "manual verdict",
-        "--artifact", "report.png",
-    ) == 1
-    assert "不能同时手写" in capsys.readouterr().err
-
-
-def test_status_reports_score_summary(project: Path, capsys):
-    single_slice_task(project, "### [ ] S-001 验收义务", OBLIGATION_SLICE)
-    rubric, score_file = _write_rubric_and_score(
-        project,
-        scores={"information_hierarchy": 4, "visual_consistency": 3, "empty_error_states": 2},
-    )
-    (project / "report.png").write_bytes(b"fake-png")
-    run(
-        project, "run-check", "demo", "--slice", "S-001",
-        "--obligation", "AC-ui·视觉",
-        "--rubric", rubric, "--score-file", score_file,
-        "--trace", "DESIGN.md + report.png",
-        "--artifact", "report.png",
-    )
-    capsys.readouterr()
-    assert run(project, "status", "demo", "--json") == 0
-    data = json.loads(capsys.readouterr().out)
-    check = next(c for c in data["slices"][0]["checks"] if c["obligation_id"] == "AC-ui·视觉")
-    assert check["verdict"] == "fail"
-    assert check["artifact"] == "report.png"
-    assert check["rubric"] == rubric
-    assert check["score_file"] == score_file
-    assert check["score_summary"]["failed_dimensions"] == ["empty_error_states"]
-
+# --- score aggregate ---------------------------------------------------------
 
 def test_score_aggregate_computes_median(project: Path, capsys):
-    # 准备 rubric
     rubric = {
         "id": "test-rubric",
         "scale": {"min": 0, "max": 5},
-        "dimensions": {
-            "visual": {"min": 2},
-            "hierarchy": {"min": 3}
-        }
+        "dimensions": {"visual": {"min": 2}, "hierarchy": {"min": 3}},
     }
     (project / "rubric.json").write_text(json.dumps(rubric))
 
-    # 准备 3 个 score-file
     scores = [
         {"rubric_id": "test-rubric", "scores": {"visual": 2, "hierarchy": 4}},
         {"rubric_id": "test-rubric", "scores": {"visual": 3, "hierarchy": 4}},
-        {"rubric_id": "test-rubric", "scores": {"visual": 4, "hierarchy": 3}}
+        {"rubric_id": "test-rubric", "scores": {"visual": 4, "hierarchy": 3}},
     ]
     for i, s in enumerate(scores):
         (project / f"score-{i}.json").write_text(json.dumps(s))
 
-    # 运行聚合
     assert run(project, "score", "aggregate",
                "--rubric", "rubric.json",
                "--score-files", "score-0.json", "score-1.json", "score-2.json",
                "--out", "aggregate.json") == 0
 
-    # 检查结果
     agg = json.loads((project / "aggregate.json").read_text())
     assert agg["method"] == "median"
-    assert agg["dimensions"]["visual"]["score"] == 3.0  # median of [2, 3, 4]
-    assert agg["dimensions"]["hierarchy"]["score"] == 4.0  # median of [3, 4, 4]
+    assert agg["dimensions"]["visual"]["score"] == 3.0
+    assert agg["dimensions"]["hierarchy"]["score"] == 4.0
     assert agg["average"] == 3.5
 
 
-def test_run_check_accepts_aggregation_file(project: Path, capsys):
-    single_slice_task(project, "### [ ] S-001 验收义务", OBLIGATION_SLICE)
-
-    # 准备 rubric
-    rubric = {
-        "id": "test-rubric",
-        "scale": {"min": 0, "max": 5},
-        "aggregate": {"min_average": 3.5},
-        "dimensions": {
-            "visual": {"min": 2}
-        }
-    }
-    (project / "rubric.json").write_text(json.dumps(rubric))
-
-    # 准备 aggregation-file
-    agg = {
-        "rubric_id": "test-rubric",
-        "method": "median",
-        "dimensions": {
-            "visual": {"score": 4.0}
-        },
-        "average": 4.0
-    }
-    (project / "aggregate.json").write_text(json.dumps(agg))
-    (project / "artifact.png").write_bytes(b"fake")
-
-    # 运行 run-check
-    assert run(project, "run-check", "demo", "--slice", "S-001",
-               "--obligation", "AC-ui·视觉",
-               "--rubric", "rubric.json",
-               "--aggregation-file", "aggregate.json",
-               "--trace", "multi-judge aggregation",
-               "--artifact", "artifact.png") == 0
-
-    rec = _latest_record(project, "demo", "S-001")
-    assert rec["verdict"] == "pass"
+def test_makefile_with_existing_package_json_commands(project: Path):
+    (project / "package.json").write_text(json.dumps({
+        "scripts": {"test": "jest"}
+    }))
+    (project / "Makefile").write_text("test:\n\tpytest\nbuild:\n\tmake build\n")
+    cmds = seed._read_project_commands(project)
+    assert cmds["test"] == "npm test"
+    assert cmds["build"] == "make build"

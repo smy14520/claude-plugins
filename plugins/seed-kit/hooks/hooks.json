@@ -9,16 +9,6 @@
             "command": "python3 ${CLAUDE_PLUGIN_ROOT}/hooks/seed_guard.py"
           }
         ]
-      },
-      {
-        "matcher": "Bash",
-        "hooks": [
-          {
-            "type": "command",
-            "if": "Bash(*done*)",
-            "command": "python3 ${CLAUDE_PLUGIN_ROOT}/hooks/review_gate.py"
-          }
-        ]
       }
     ],
     "PostToolUse": [
@@ -47,6 +37,16 @@
             "if": "Bash(*done*)",
             "command": "python3 ${CLAUDE_PLUGIN_ROOT}/hooks/generate_living_prd.py",
             "async": true
+          }
+        ]
+      }
+    ],
+    "Stop": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "python3 ${CLAUDE_PLUGIN_ROOT}/hooks/review_on_complete.py"
           }
         ]
       }
