@@ -17,8 +17,9 @@ description: "执行一个 seed-kit 任务的 PRD：seed status 找到断点，�
 **单 slice 模式**：用户点名了某 slice（如"做 S-003"）时，只做那一个。
 
 1. `seed status <task>` —— 找到第一个未完成 slice。
-2. 通读 prd.md 全文（Goal、Acceptance Criteria、Out of Scope），理解整体再动手编排。
-3. 读项目质量标准：`CLAUDE.md` / `DESIGN.md` / `.claude/rules/`（有就全读，没有跳过）——这些会传给 agent。
+2. `seed wiki index --json` 加载项目记忆——全量索引轻量暖场，实现过程中自行读相关的 gotcha / cross_cut 页（前人踩过的坑、验证过的跨文件链路）。
+3. 通读 prd.md 全文（Goal、Acceptance Criteria、Out of Scope），理解整体再动手编排。
+4. 读项目质量标准：`CLAUDE.md` / `DESIGN.md` / `.claude/rules/`（有就全读，没有跳过）——这些会传给 agent。
 
 ## 实现
 

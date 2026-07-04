@@ -12,7 +12,7 @@
 | brainstorm | 访谈式收敛需求：一次一问 + 推荐答案 | `.arbor/tasks/<task>/prd.md`（可证伪 AC + 品质意图 + 有序 Slices） |
 | impl | 逐 slice 执行 PRD，硬事实通过才勾选完成 | 代码 |
 | review | 干净视角逐验收条目对账 diff，专查偷懒签名 | 追加 `review.md` |
-| wiki | 项目知识层：长期资料 + 多文件链路知识 | `.wiki/` 页面 |
+| wiki | 项目知识层：长期资料 + 多文件链路知识 | `.arbor/.wiki/` 页面 |
 
 skill 之间没有自动流转：brainstorm 不主动搜索 research，impl 不主动查 wiki，review 由用户主动触发。
 
@@ -38,7 +38,7 @@ seed review-mark <task> --verdict <reason> [--round N] # 落 review-loop 终态 
 seed score aggregate --rubric <rubric.json> \
   --score-files <file1.json> <file2.json> ... \
   --out <aggregate.json>                              # 聚合多个 score-file（多裁判模式）
-seed wiki index|search|collect|lint                   # .wiki/ 工具
+seed wiki index|search|collect|lint                   # .arbor/.wiki/ 工具
 ```
 
 ## 验证设计

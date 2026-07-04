@@ -19,7 +19,7 @@ description: "把模糊想法收敛成可执行的 PRD。访谈式提问——�
 - **提问通道看场景**：人在环上（真实交互）用 **AskUserQuestion 工具**——`questions` 只放一条（一次一题），2–4 个选项，推荐项置首、label 带"(推荐)"，取舍写进各选项 description；开放题也走选项（用户可选 Other 自由输入）。**脚本化 / 无交互驱动**（如自动化测试 harness）改用**纯文本散文一次一题**——不要调用 AskUserQuestion（驱动端无法回答菜单，会卡死）。
 - 能从仓库代码确认的事实先自行查证，不要问用户。
 - **易过期事实**（版本号、发布日期、最新 API、依赖兼容性、弃用状态）——推荐前先通过 WebSearch/WebFetch 查官方源（releases、官方文档、changelog）的**当前值**，不靠回忆。这是"不主动搜索"的唯一例外：只查单个易过期事实，不开 research 主题。进 PRD 时这类事实带 `查证于 <日期>（<来源>）` 标注，例如 `Laravel 13.x（查证于 2026-06-15，laravel.com/releases）`。架构概念、语法、原理等非易过期事实照常靠记忆。
-- 只有用户明确指定时才读 `.arbor/research/<topic>/` 或查 `.wiki/`；不主动搜索。
+- 入场时跑 `seed wiki index --json` 加载项目记忆——全量索引（title + description + type + area），轻量无负担。访谈过程中扫描索引，自行读取相关的 decision / module / cross_cut 页作为背景上下文。
 
 ## 产出 PRD
 
@@ -29,6 +29,7 @@ description: "把模糊想法收敛成可执行的 PRD。访谈式提问——�
 2. 按模板填写 `prd.md`（Goal + Acceptance Criteria + Out of Scope）：
    - **Goal**：一段话概述——这是什么、为什么做。有可感面时，期望的体验方向（参考产品、设计语言、"感觉像 X"）自然融入。
    - **Acceptance Criteria**：有序 slice（`### [ ] S-NNN 标题`），每个 slice 下用 `* [ ]` 写验收条目。一个 `* [ ]` 一个测试用例——正向一条、反向一条、边界一条。技术决策融入相关条目，不独立成段。
+   - **wiki 知识区分**：精确位置（文件/函数/插入点）直接写进验收条目——这是 task 特定的，没有复利价值。模式/原理/陷阱（"为什么这么设计""这个坑怎么避"）用 `[[../.wiki/页面路径]]` 引用——让 impl 自己去读原文，同一个原理不存两份。
    - **Out of Scope**：明确不做什么。
    - 不再创建单独 slice 文件——所有 slice 内容直接在 prd.md 的 `### [ ] S-NNN` heading 下写。
 4. `seed status <task>` 校验结构通过（有结构错误必须修复）。
@@ -41,4 +42,9 @@ slice 拆分由你推荐、用户拍板；不强制最小切片，也不要为�
 
 ## 停止
 
-PRD 写好并通过 `seed status` 校验后停止。建议用户先跑 `/seed-kit:review-prd`（独立审查 PRD + 读代码对账），再进 impl。由用户决定是否触发 review-prd，不自动进入 impl。
+PRD 写好并通过 `seed status` 校验后：
+- **project-scoped 决策**——以后做其他 task 的人也需要知道的——落 `.arbor/.wiki/decision/` 页；决策融入验收条目的部分已在 PRD 里，不重复。
+- **新模块或模块边界变化**落 `.arbor/.wiki/module/` 页。
+- 跑 `seed wiki index --write` 刷新索引和日志。
+
+建议用户先跑 `/seed-kit:review-prd`（独立审查 PRD + 读代码对账），再进 impl。由用户决定是否触发 review-prd，不自动进入 impl。

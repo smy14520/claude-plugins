@@ -23,6 +23,8 @@ description: "审实现是否兑现 PRD：逐验收条目对账、查偷懒签�
 
 先读项目的 `CLAUDE.md`、`.claude/rules/`、`DESIGN.md`——硬规则与审美标准；项目未提供时用默认基准。
 
+入场时 `seed wiki collect --query "<task 关键概念>"` 精准拉相关页面——交叉验证已有 decision（实现是否符合历史决策？）和 cross_cut（改动是否覆盖了已知的受影响文件？）。
+
 ## 何时 review
 
 - `seed done` 后 PostToolUse hook 软提醒。
@@ -31,7 +33,9 @@ description: "审实现是否兑现 PRD：逐验收条目对账、查偷懒签�
 
 ## 产出
 
-结论**追加**到 `.arbor/tasks/<task>/review.md`（不覆盖历史）：逐条 AC 的实现位置 / 测试覆盖 / 差距 + 结论（通过 | 通过但有备注 | 需要返工）+ 返工清单。
+结论**追加**到 `.arbor/tasks/<task>/review.md`（不覆盖历史）：逐条验收条目兑现情况 / 覆盖缺口 + 结论（通过 | 通过但有备注 | 需要返工）+ 返工清单。
+
+**收尾写 wiki**：本轮验证过的 knowledge 落 `.arbor/.wiki/`——新发现的陷阱→`gotcha/`，验证过的跨文件链路→`cross_cut/`，被推翻或修正的旧决策在原页标 superseded、新建 correction 页。写完后 `seed wiki index --write` 刷新索引。
 
 ## 边界
 
