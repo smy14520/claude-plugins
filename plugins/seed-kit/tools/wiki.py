@@ -174,6 +174,8 @@ def _page_entry(root: Path, path: Path, include_content: bool) -> dict[str, Any]
         "area": meta.get("area") if isinstance(meta.get("area"), str) else None,
         "package": meta.get("package") if isinstance(meta.get("package"), str) else None,
         "source_checkpoint": meta.get("source_checkpoint") if isinstance(meta.get("source_checkpoint"), str) else None,
+        "last_updated": meta.get("last_updated") if isinstance(meta.get("last_updated"), str) else None,
+        "confidence": meta.get("confidence") if isinstance(meta.get("confidence"), str) else None,
         "links": _links(body),
         "backlinks": [],
         "locators": _locators(body),
@@ -186,6 +188,51 @@ def _page_entry(root: Path, path: Path, include_content: bool) -> dict[str, Any]
 
 def _resolve_wikilink(link: str, by_title: dict[str, dict[str, Any]], by_stem: dict[str, dict[str, Any]]) -> dict[str, Any] | None:
     return by_title.get(link) or by_stem.get(Path(link).stem)
+
+
+def _ripple_candidates(pages: list[dict[str, Any]], directory: Path) -> str:
+    """计算新页面与已有页面的 token overlap，输出涟漪候选提示。"""
+    # 找最近更新的页面（index.md/log.md 可能刚更新，只看内容页）
+    from datetime import datetime, timezone, timedelta
+    now = datetime.now(timezone.utc)
+    content_pages = [p for p in pages if p.get("type") and p.get("type") not in ("index",)]
+    if len(content_pages) < 2:
+        return ""
+    # 按 last_updated 排——最近批次
+    # 实际上我们不知道"这次"写了哪些页面。用 last_updated 近似：找最晚日期的那批。
+    try:
+        latest_date = max(
+            datetime.strptime(p.get("last_updated", "1970-01-01"), "%Y-%m-%d").replace(tzinfo=timezone.utc)
+            for p in content_pages
+        )
+    except ValueError:
+        return ""
+    # 这批和不是这批的
+    batch = [p for p in content_pages if p.get("last_updated", "").startswith(latest_date.strftime("%Y-%m-%d"))]
+    rest = [p for p in content_pages if p not in batch]
+    if not batch or not rest:
+        return ""
+    candidates: list[str] = []
+    for bp in batch:
+        b_tokens = _tokens(bp.get("title", "")) | _tokens(bp.get("description", "")) | _tokens(bp.get("summary", "")) | _tokens(" ".join(bp.get("tags", [])))
+        if not b_tokens:
+            continue
+        for rp in rest:
+            r_tokens = _tokens(rp.get("title", "")) | _tokens(rp.get("description", ""))
+            if not r_tokens:
+                continue
+            overlap = b_tokens & r_tokens
+            if len(overlap) >= 3:
+                # 检查是否已有链接
+                existing = set(bp.get("links", []))
+                r_title = rp.get("title", "")
+                r_stem = Path(rp.get("path", "")).stem
+                if r_title in existing or r_stem in existing:
+                    continue
+                candidates.append(f"  [[{rp['title']}]] ← 可能与 [{bp['title']}] 相关 (重叠 {len(overlap)} token: {', '.join(sorted(list(overlap)[:5]))})")
+    if not candidates:
+        return ""
+    return "涟漪候选（新页面可能与已有页面相关，考虑补 wikilink）：\n" + "\n".join(candidates[:10])
 
 
 def _write_index_md(directory: Path, pages: list[dict[str, Any]], root: Path | None = None) -> None:
@@ -224,6 +271,9 @@ def _write_index_md(directory: Path, pages: list[dict[str, Any]], root: Path | N
 
     # 维护 log.md：记录本次索引的页面快照
     _append_log_md(directory, pages)
+
+    # 涟漪候选提示
+    return _ripple_candidates(pages, directory)
 
 
 def _append_log_md(directory: Path, pages: list[dict[str, Any]]) -> None:
@@ -516,8 +566,10 @@ def main(argv: list[str] | None = None) -> int:
                     print(f"{page['path']} [{page.get('type') or '-'}] {page['title']}")
             if getattr(args, "write_index", False):
                 directory = wiki_root_path(root, args.wiki_root)
-                _write_index_md(directory, result["pages"], root)
+                ripple = _write_index_md(directory, result["pages"], root)
                 print(f"已生成 {directory.relative_to(root).as_posix() if directory.is_relative_to(root) else str(directory)}/index.md（{len(result['pages'])} pages）")
+                if ripple:
+                    print(ripple)
             return 0
         if args.command == "search":
             result = wiki_search(root, args.query, args.wiki_root, args.limit)
