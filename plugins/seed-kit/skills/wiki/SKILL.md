@@ -33,32 +33,18 @@ frontmatter 必填：
 - `description` — 何时该读此页（写场景不写主题，让 agent 能自然命中）
 - `type` — 封闭集：`entity` / `concept` / `gotcha` / `decision` / `source` / `module` / `cross_cut`
 - `area` — 自由轴，按项目领域自然划分
-- `confidence` — `high`（代码实锤）/ `medium`（推断）/ `low`（不确定）。新页面默认 `high`；被质疑或发现跟代码偏离时降级。`low` + 30 天未更新 = lint 警告「建议验证或归档」。
-- `last_updated` — 最后更新日期（YYYY-MM-DD）。每次对照代码核实后刷新。
+- `confidence` — `high`（代码实锤）/ `medium`（推断）/ `low`（不确定）
+- `last_updated` — 最后更新日期（YYYY-MM-DD）
 
-**页面生命周期**：`high → medium → low → 归档`。新页面从 `high` 起步，发现矛盾时降为 `low` 并注明冲突（不直接删除——保留错误记录也是知识）。`seed wiki lint` 会提醒过期低置信页。
-
-## 收录标准
-
-**写之前先问：这个信息在代码里能直接读到吗？** 能 → 不写。wiki 存的是代码说不清的东西。
-
-必收（至少满足一）：
-- **代码读不出的 why**：为什么这么设计、当时否决了什么替代方案、有什么隐藏契约（不变量、时序假设）
-- **散在 3+ 文件里的横切**：改 X 要动 A/B/C，每处的角色和注意什么
-- **踩了坑才知道的**：真 bug、反直觉行为、静默失效、不应该复用看似相似的既有模式的原因
-
-不收：
-- 代码结构概述（模块有哪些、文件在哪——读代码/目录就知道）
-- 教科书式教程（how to add X——既有实现就是模板，agent 会照抄）
-- API 清单（方法签名/参数——类型声明就是文档）
-- 能从 git log/PRD/既有代码一眼确认的事实
+页面里指向代码用 `文件路径#符号名`（符号锚：存符号不存行号，显示时 `seed wiki index --resolve` 实时转行号，`seed wiki lint` 验证符号是否存在）。避免旧式 `文件:行号`——会随代码漂移失效。互相引用用 `[[../gotcha/页面名]]`（跨目录的相对 wikilink）。
 
 ## 操作
 
-- **收录（ingest）**：按上述标准，每发现一个**代码说不清**的知识点写一页。链路类页面按"入口 → 要改的每一处 → 注意什么"组织，写明当下的代码位置。
-  全部收录完跑 `seed wiki index --write`——生成 `index.md` + `log.md`，终端输出**涟漪候选**（新页面与已有页面的 token overlap 提示，辅助判断要不要补跨页引用）。
+- **收录（ingest）**：用户指明来源（research 资料、对话结论、某次排坑过程）→ 每发现一个独立知识点写一页。链路类页面按"入口 → 要改的每一处 → 注意什么"组织，写明当下的代码位置。
+  **涟漪更新**：写完新页后，扫描已有页面——找到主题相关的页，在相关页里补 `[[新页面]]` 引用。如果新发现和已有页面矛盾，在旧页标注 `confidence: low` 并注明冲突，不直接覆盖。
+  全部收录完跑 `seed wiki index --write`——生成 `index.md`（按 type 分组索引）和 `log.md`（变更日志）。
 
-- **更新（update）**：对照当前代码逐条核对页面引用，修正失效的符号锚（`seed wiki lint` 会标出文件不存在/符号找不到的锚点）；代码已变而页面没变是 wiki 最大的失效模式。核实后将 `confidence` 重置为 `high` 并刷新 `last_updated`。更新后跑 `seed wiki index --write` 刷新索引和日志。
+- **更新（update）**：对照当前代码逐条核对页面引用，修正失效的符号锚（`seed wiki lint` 会标出文件不存在/符号找不到的锚点）；代码已变而页面没变是 wiki 最大的失效模式。更新后跑 `seed wiki index --write` 刷新索引和日志。
 
 - **查询**：先看 `index.md` 扫类型→挑相关页；看 `log.md` 了解最近变更。精确检索用 `seed wiki search "<query>"` / `seed wiki collect --query "<query>" --limit 5 --json`。
 
