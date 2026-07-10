@@ -10,7 +10,7 @@
 // - agentType 指向插件 agent（seed-kit:seed-*）→ 角色硬分离、生成者≠验证者。
 //
 // 控制流（每轮做满）：
-//   ① 客观锚：跑项目声明的测试+质量命令（lint/typecheck/build），不绿→impl 修
+//   ① 客观锚：重放 done-log 或项目/PRD 显式声明的测试+质量命令（lint/typecheck/build），不绿→impl 修
 //   ② code-review（审代码）+ judge（审产物）并行；一路 null=盲审
 //   ③ propose-kill：JURY 个 validator 各自批量证伪全部 finding（默认 1）
 //   ④ 收敛：两路 reviewer 都非 null 且 survived blocking 清空 → converged
@@ -50,8 +50,11 @@ const FINDINGS_SCHEMA = {
 }
 const ASSERT_SCHEMA = {
   type: 'object', additionalProperties: false,
-  properties: { all_passed: { type: 'boolean' }, failures: { type: 'string' }, summary: { type: 'string' } },
-  required: ['all_passed', 'summary'],
+  properties: {
+    status: { type: 'string', enum: ['passed', 'failed', 'assert-unavailable'] },
+    all_passed: { type: 'boolean' }, failures: { type: 'string' }, summary: { type: 'string' },
+  },
+  required: ['status', 'summary'],
 }
 const BATCH_VERDICT_SCHEMA = {
   type: 'object', additionalProperties: false,
@@ -81,21 +84,25 @@ while (round < MAX_ROUNDS) {
   round++
   log(`round ${round}/${MAX_ROUNDS}`)
 
-  // ① 客观锚：跑项目声明的测试+质量命令。不绿 → impl 修，不浪费语义 review
+  // ① 客观锚：重放 done-log 或项目/PRD 显式声明的测试+质量命令。不绿 → impl 修，不浪费语义 review
   const assertRes = await agent(
     `跑 ${TASK}${SLICE ? ' / ' + SLICE : ''} 的客观锚。项目根 ${REPO}。\n` +
-    `读项目配置文件（package.json / Makefile / pyproject.toml / Cargo.toml），` +
-    `找到项目声明的测试命令 + 质量命令（lint / typecheck / build 等）。` +
-    `逐条执行。exit 0 即 passed。全部通过 → all_passed=true。` +
-    `有失败的 → all_passed=false + failures 列出失败命令和输出。`,
+    `优先重放 .arbor/tasks/${TASK}/done-logs/ 中记录的命令；没有日志时，只执行调用方、项目说明或 PRD 明确写出的命令。` +
+    `不要枚举技术栈配置文件，不要发明命令。无显式命令 → status=assert-unavailable。` +
+    `实际执行后返回 status、exit code 与有限输出摘要。`,
     { agentType: 'seed-kit:seed-assert', schema: ASSERT_SCHEMA, label: `assert:r${round}`, phase: 'Audit' }
   )
-  const assertOk = assertRes && typeof assertRes.all_passed === 'boolean'
-  if (!assertOk) {
-    await agent(`客观锚不可达（seed-assert 未返回有效 all_passed）。自查项目测试/质量命令能否真实执行，修复使其能跑出真实结果。改完跑测试验 PASS_TO_PASS 报回。`,
-      { agentType: 'seed-kit:seed-impl', label: `impl:r${round}`, phase: 'Audit' })
+  const assertUnavailable = !assertRes || assertRes.status === 'assert-unavailable'
+  if (assertUnavailable) {
     rounds.push({ round, stage: 'assert-unavailable' })
-    continue
+    terminalReason = 'assert-unavailable'
+    break
+  }
+  const assertOk = typeof assertRes.all_passed === 'boolean'
+  if (!assertOk) {
+    rounds.push({ round, stage: 'assert-unavailable' })
+    terminalReason = 'assert-unavailable'
+    break
   }
   if (!assertRes.all_passed) {
     await agent(`修这些测试/质量命令失败。改完必须跑测试验证既有用例仍绿（PASS_TO_PASS），把结果报回：\n${assertRes.failures}`,

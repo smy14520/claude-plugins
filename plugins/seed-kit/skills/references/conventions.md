@@ -23,7 +23,7 @@
 
 - **Skill**（用户主动触发，**无** `seed-` 前缀）：`seed-kit:brainstorm` / `seed-kit:impl` / `seed-kit:review` / `seed-kit:research` / `seed-kit:wiki`
 - **编排命令**（slash command）：`seed-kit:review-loop` / `seed-kit:review-prd`
-- **Agent**（review-loop 内部编排派发，**带** `seed-` 前缀，用户/模型不直接调用）：`seed-kit:seed-impl` / `seed-kit:seed-review` / `seed-kit:seed-judge` / `seed-kit:seed-validator` / `seed-kit:seed-assert`
+- **Agent**（由 skill/command 编排派发，**带** `seed-` 前缀，用户不直接调用）：`seed-kit:seed-impl` / `seed-kit:seed-review` / `seed-kit:seed-judge` / `seed-kit:seed-validator` / `seed-kit:seed-assert` / `seed-kit:seed-prd-review`
 
 > 拿不准时回查这张表。常见错：把 skill `seed-kit:impl` 喊成 agent 名 `seed-kit:seed-impl` → Unknown skill。
 
@@ -37,12 +37,12 @@
 
 ## seed CLI
 
-`seed` 入口：`${CLAUDE_PLUGIN_ROOT}/bin/seed`（也可 `python3 ${CLAUDE_PLUGIN_ROOT}/tools/seed.py`），在项目根目录运行。**`CLAUDE_PLUGIN_ROOT` 在 bash 子 shell 常为空**，确定性兜底：`PLUGIN_ROOT=${CLAUDE_PLUGIN_ROOT:-$(dirname $(dirname $(readlink -f $(command -v seed))))}`，再用 `$PLUGIN_ROOT/bin/seed`。
+`seed` 入口：`${CLAUDE_PLUGIN_ROOT}/bin/seed`（也可 `python3 ${CLAUDE_PLUGIN_ROOT}/tools/seed.py`），在项目根目录运行。**`CLAUDE_PLUGIN_ROOT` 在 bash 子 shell 常为空**，确定性兜底：`SEED_PATH=$(command -v seed) && PLUGIN_ROOT=${CLAUDE_PLUGIN_ROOT:-$(cd "$(dirname "$(dirname "$SEED_PATH")")" && pwd -P)}`，再用 `$PLUGIN_ROOT/bin/seed`。
 
 ```bash
 seed new <task>                                  # 脚手架任务目录 + prd.md 模板
-seed status [<task>] [--json]                    # 进度 / 质量命令 / 结构校验 / next slice
-seed done <task> --slice S-NNN                   # 跑项目测试+质量命令+验产物，全过则翻 checkbox（唯一合法入口）
+seed status [<task>] [--json]                    # 进度 / 结构校验 / next slice
+seed done <task> --slice S-NNN --test "..." [--quality "..."]  # 跑 agent 传入的测试+质量命令，全过则翻 checkbox（唯一合法入口）
 seed review-mark <task> --verdict <reason> [--round N]  # 落 review-loop 终态 marker
 seed score aggregate --rubric <rubric.json> \
   --score-files <file1.json> <file2.json> ... \

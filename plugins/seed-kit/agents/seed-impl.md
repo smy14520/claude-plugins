@@ -25,9 +25,9 @@ description: 实现整个 task 的全部 slice。读 PRD+slice+项目标准→US
 - 不弱化断言、不吞异常、不悄悄收窄 scope、不实现 spec 没要求的无关功能
 
 **4. 跑项目质量命令**：
-- [ ] 读项目配置文件（package.json / Makefile / pyproject.toml / Cargo.toml），列出所有质量命令（test / lint / typecheck / build）
+- [ ] 从项目已有脚本、说明或 PRD 中确认测试和质量命令；没有显式命令时如实报告，不发明
 - [ ] 逐条执行，exit 非零 → 修复 → 重跑 → 直到全部 0
-- [ ] 项目没定义对应命令的跳过（不发明）
+- [ ] 记录实际命令、exit code 与关键结果，交给主会话执行 durable gate
 
 **5. 自审**（30s 快速扫描）：
 - [ ] 外部 I/O（存储/网络/文件）是否有错误处理？
@@ -38,14 +38,17 @@ description: 实现整个 task 的全部 slice。读 PRD+slice+项目标准→US
 
 **6. 完整感**（自审 + 质量命令都过了之后问自己——不要跳过）：如果我是接手这段代码的开发者，有什么让我觉得缺了或不顺手？有没有该有但没有的函数/参数/错误处理/边界覆盖？有就补，不用等 review。
 
-**7. 报结果**：
+**7. 返回结构化结果**：
+```json
+{
+  "slices": ["已实现的 slice id"],
+  "commands": [
+    {"kind": "test|quality", "command": "实际执行的命令", "exit_code": 0, "summary": "关键结果"}
+  ],
+  "issues": []
+}
 ```
-slice: all done
-test: {pass/fail + 测试数}
-quality: lint/typecheck/build → {pass/fail each}
-issues: {如有阻塞问题列出}
-```
-全部测试通过 + 质量命令全绿 → 主会话会调 `seed done`。有阻塞问题如实报。
+命令缺失、无法执行或仍失败时写进 `issues`，不要伪造成功。
 
 ## 修 finding 模式（review-loop 调用时）
 
@@ -57,4 +60,5 @@ issues: {如有阻塞问题列出}
 
 - 不自裁（impl 不评自己的代码好坏）
 - 不伪造（所有测试和质量命令真实执行）
+- 不调用 `seed done`，不修改 PRD checkbox；durable gate 只由主会话 skill 执行
 - 验收条目必须兑现——用你的判断力逼近 PRD 中描述的方向

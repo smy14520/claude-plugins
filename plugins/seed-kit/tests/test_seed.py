@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import hashlib
 import json
 import sys
 from pathlib import Path
@@ -123,12 +124,11 @@ def test_status_lists_all_tasks(project: Path, capsys):
     assert "beta: 0/2" in out
 
 
-def test_status_reports_quality_commands(project: Path, capsys):
+def test_status_does_not_infer_project_commands(project: Path, capsys):
     make_task(project, package_json={"scripts": {"test": "node --test", "lint": "eslint ."}})
     assert run(project, "status", "demo", "--json") == 0
     data = json.loads(capsys.readouterr().out)
-    assert "test" in data["commands"]
-    assert "lint" in data["commands"]
+    assert "commands" not in data
 
 
 # --- done --------------------------------------------------------------------
@@ -160,7 +160,7 @@ def _setup_pass_test_with_lint(project: Path):
 def test_done_flips_checkbox_when_tests_pass(project: Path, capsys):
     make_task(project)
     _setup_pass_test(project)
-    assert run(project, "done", "demo", "--slice", "S-001") == 0
+    assert run(project, "done", "demo", "--slice", "S-001", "--test", "node --test test.js") == 0
     out = capsys.readouterr().out
     assert "已完成" in out
     assert "next: S-002" in out
@@ -179,21 +179,21 @@ def test_done_blocked_by_failing_test(project: Path, capsys):
         "test('fails', () => { assert.fail('expected failure'); });\n"
     )
     make_task(project)
-    assert run(project, "done", "demo", "--slice", "S-001") == 1
+    assert run(project, "done", "demo", "--slice", "S-001", "--test", "node --test failing.test.js") == 1
     assert "测试命令未通过" in capsys.readouterr().err
     prd = (project / ".arbor" / "tasks" / "demo" / "prd.md").read_text(encoding="utf-8")
     assert "### [x]" not in prd
 
 
 def test_done_blocked_by_fake_test(project: Path, capsys):
-    make_task(project, package_json={"scripts": {"test": "true"}})
-    assert run(project, "done", "demo", "--slice", "S-001") == 1
+    make_task(project)
+    assert run(project, "done", "demo", "--slice", "S-001", "--test", "true") == 1
     assert "伪装的" in capsys.readouterr().err
 
 
 def test_done_blocked_by_echo_test(project: Path, capsys):
-    make_task(project, package_json={"scripts": {"test": "echo all passed"}})
-    assert run(project, "done", "demo", "--slice", "S-001") == 1
+    make_task(project)
+    assert run(project, "done", "demo", "--slice", "S-001", "--test", "echo all passed") == 1
     assert "伪装的" in capsys.readouterr().err
 
 
@@ -206,19 +206,53 @@ def test_done_allows_echo_with_real_test(project: Path, capsys):
         "const {test} = require('node:test');\n"
         "test('passes', () => {});\n"
     )
-    assert run(project, "done", "demo", "--slice", "S-001") == 0
+    assert run(project, "done", "demo", "--slice", "S-001", "--test", "echo starting && node --test test.js") == 0
 
 
 def test_done_blocked_by_bin_true(project: Path, capsys):
-    make_task(project, package_json={"scripts": {"test": "/bin/true"}})
-    assert run(project, "done", "demo", "--slice", "S-001") == 1
+    make_task(project)
+    assert run(project, "done", "demo", "--slice", "S-001", "--test", "/bin/true") == 1
     assert "伪装的" in capsys.readouterr().err
 
 
 def test_done_blocked_by_node_e_without_test(project: Path, capsys):
-    make_task(project, package_json={"scripts": {"test": "node -e \"process.exit(0)\""}})
-    assert run(project, "done", "demo", "--slice", "S-001") == 1
+    make_task(project)
+    assert run(project, "done", "demo", "--slice", "S-001", "--test", "node -e \"process.exit(0)\"") == 1
     assert "伪装的" in capsys.readouterr().err
+
+
+@pytest.mark.parametrize("command", [
+    "true && echo ok",
+    "(true; printf ok)",
+    "sh -c 'true && echo ok'",
+    "bash -c \"sh -c 'exit 0'\"",
+    "python -c 'sys.exit(0)'",
+    "python3 -c 'raise SystemExit(0)'",
+    "ruby -e 'exit(0)'",
+])
+def test_obvious_noop_detection_recurses_through_compound_commands(command: str):
+    assert seed._looks_like_obvious_noop(command) is True
+
+
+@pytest.mark.parametrize("command", [
+    "echo starting && project-check",
+    "sh -c 'echo starting && project-check'",
+    "python -c 'print(42)'",
+])
+def test_obvious_noop_detection_allows_commands_with_substantive_leaf(command: str):
+    assert seed._looks_like_obvious_noop(command) is False
+
+
+def test_done_rejects_obvious_noop_quality_command(project: Path, capsys):
+    make_task(project)
+    _setup_pass_test(project)
+    assert run(
+        project,
+        "done", "demo", "--slice", "S-001",
+        "--test", "node --test test.js",
+        "--quality", "sh -c 'true && echo ok'",
+    ) == 1
+    assert "质量命令像伪装的空操作" in capsys.readouterr().err
 
 
 def test_done_blocked_by_failing_lint(project: Path, capsys):
@@ -233,25 +267,31 @@ def test_done_blocked_by_failing_lint(project: Path, capsys):
         "test('passes', () => {});\n"
     )
     make_task(project)
-    assert run(project, "done", "demo", "--slice", "S-001") == 1
+    assert run(project, "done", "demo", "--slice", "S-001", "--test", "node --test test.js", "--quality", "node -e \"process.exit(1)\"") == 1
     assert "质量命令未通过" in capsys.readouterr().err
 
 
 def test_done_quality_commands_all_pass(project: Path, capsys):
     make_task(project)
     _setup_pass_test_with_lint(project)
-    assert run(project, "done", "demo", "--slice", "S-001") == 0
+    assert run(
+        project,
+        "done", "demo", "--slice", "S-001",
+        "--test", "node --test test.js",
+        "--quality", "npm run lint",
+        "--quality", "npm run typecheck",
+    ) == 0
     out = capsys.readouterr().out
     assert "已完成" in out
-    assert "lint:" in out
-    assert "typecheck:" in out
+    assert "npm run lint:" in out
+    assert "npm run typecheck:" in out
 
 
 def test_done_is_idempotent(project: Path, capsys):
     make_task(project)
     _setup_pass_test(project)
-    assert run(project, "done", "demo", "--slice", "S-001") == 0
-    assert run(project, "done", "demo", "--slice", "S-001") == 0
+    assert run(project, "done", "demo", "--slice", "S-001", "--test", "node --test test.js") == 0
+    assert run(project, "done", "demo", "--slice", "S-001", "--test", "node --test test.js") == 0
     assert "已是完成状态" in capsys.readouterr().out
 
 
@@ -261,20 +301,36 @@ def test_done_unknown_slice(project: Path, capsys):
     assert "不存在" in capsys.readouterr().err
 
 
-def test_done_blocked_without_project_config(project: Path, capsys):
+def test_done_requires_explicit_test_command(project: Path, capsys):
     make_task(project)
     assert run(project, "done", "demo", "--slice", "S-001") == 1
-    assert "未找到项目测试命令" in capsys.readouterr().err
+    assert "需要提供 --test" in capsys.readouterr().err
 
 
 def test_done_records_log(project: Path, capsys):
     make_task(project)
     _setup_pass_test(project)
-    assert run(project, "done", "demo", "--slice", "S-001") == 0
+    assert run(project, "done", "demo", "--slice", "S-001", "--test", "node --test test.js") == 0
     logs = list((project / ".arbor" / "tasks" / "demo" / "done-logs").glob("*.json"))
     assert len(logs) == 1
     log_data = json.loads(logs[0].read_text())
-    assert log_data["test"]["exit_code"] == 0
+    test_result = log_data["test"]
+    assert test_result["exit_code"] == 0
+    assert isinstance(test_result["output_summary"], str)
+    assert len(test_result["output_sha256"]) == 64
+    assert test_result["output_bytes"] >= len(test_result["output_summary"].encode())
+    assert test_result["output_truncated"] is False
+    assert log_data["quality"] == []
+
+
+def test_command_result_limits_summary_and_hashes_full_output():
+    output = "a" * 2000
+    result = seed._command_result("project-check", 7, output)
+    assert result["exit_code"] == 7
+    assert result["output_truncated"] is True
+    assert len(result["output_summary"]) < len(output)
+    assert result["output_sha256"] == hashlib.sha256(output.encode()).hexdigest()
+    assert result["output_bytes"] == 2000
 
 
 def test_done_all_slices_complete_message(project: Path, capsys):
@@ -282,7 +338,7 @@ def test_done_all_slices_complete_message(project: Path, capsys):
     make_task(project, prd=prd)
     _setup_pass_test(project)
     # Already done, should report idempotent
-    assert run(project, "done", "demo", "--slice", "S-001") == 0
+    assert run(project, "done", "demo", "--slice", "S-001", "--test", "node --test test.js") == 0
 
 
 # --- review-mark -------------------------------------------------------------
@@ -314,33 +370,6 @@ def test_review_mark_unknown_task(project: Path, capsys):
     assert "未找到" in capsys.readouterr().err
 
 
-# --- project commands detection ----------------------------------------------
-
-def test_detects_package_json_commands(project: Path):
-    (project / "package.json").write_text(json.dumps({
-        "scripts": {"test": "jest", "lint": "eslint .", "build": "tsc"}
-    }))
-    cmds = seed._read_project_commands(project)
-    assert cmds["test"] == "npm test"
-    assert cmds["lint"] == "npm run lint"
-    assert cmds["build"] == "npm run build"
-
-
-def test_detects_makefile_targets(project: Path):
-    (project / "Makefile").write_text("test:\n\tpytest\nlint:\n\truff check .\n")
-    cmds = seed._read_project_commands(project)
-    assert cmds["test"] == "make test"
-    assert cmds["lint"] == "make lint"
-
-
-def test_detects_cargo_commands(project: Path):
-    (project / "Cargo.toml").write_text("[package]\nname = \"test\"\n")
-    cmds = seed._read_project_commands(project)
-    assert cmds["test"] == "cargo test"
-    assert cmds["build"] == "cargo build"
-    assert cmds["lint"] == "cargo clippy"
-
-
 # --- score aggregate ---------------------------------------------------------
 
 def test_score_aggregate_computes_median(project: Path, capsys):
@@ -369,13 +398,3 @@ def test_score_aggregate_computes_median(project: Path, capsys):
     assert agg["dimensions"]["visual"]["score"] == 3.0
     assert agg["dimensions"]["hierarchy"]["score"] == 4.0
     assert agg["average"] == 3.5
-
-
-def test_makefile_with_existing_package_json_commands(project: Path):
-    (project / "package.json").write_text(json.dumps({
-        "scripts": {"test": "jest"}
-    }))
-    (project / "Makefile").write_text("test:\n\tpytest\nbuild:\n\tmake build\n")
-    cmds = seed._read_project_commands(project)
-    assert cmds["test"] == "npm test"
-    assert cmds["build"] == "make build"

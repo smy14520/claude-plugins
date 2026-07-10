@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import json
 import unittest
 from pathlib import Path
 
@@ -107,6 +108,52 @@ class SeedPromptContractTests(unittest.TestCase):
         cmd = self.read_plugin_file("commands", "review-loop.md")
         self.assertIn("review-loop", cmd)
         self.assertIn("客观锚", cmd)
+
+    def test_review_only_turn_is_not_forced_into_review_loop(self):
+        hooks = json.loads(self.read_plugin_file("hooks", "hooks.json"))["hooks"]
+        review = self.read_plugin_file("skills", "review", "SKILL.md")
+
+        self.assertNotIn("Stop", hooks)
+        self.assertIn("不自动触发下一轮", review)
+
+    def test_impl_ownership_keeps_durable_gate_in_main_skill(self):
+        skill = self.read_plugin_file("skills", "impl", "SKILL.md")
+        agent = self.read_plugin_file("agents", "seed-impl.md")
+
+        self.assertIn("主会话执行 durable gate", skill)
+        self.assertIn("不调用 `seed done`", agent)
+        self.assertIn("不修改 PRD checkbox", agent)
+        self.assertIn('"commands"', agent)
+        self.assertNotIn("docs/PRD", skill)
+
+    def test_assert_replays_explicit_commands_without_stack_inference(self):
+        agent = self.read_plugin_file("agents", "seed-assert.md")
+        workflow = self.read_plugin_file("templates", "review-loop.template.js")
+
+        self.assertIn("done-log 优先", agent)
+        self.assertIn("assert-unavailable", agent)
+        self.assertIn("不枚举配置文件或技术栈", agent)
+        self.assertIn("done-logs", workflow)
+        self.assertIn("status=assert-unavailable", workflow)
+        for stack_file in ("package.json", "Makefile", "pyproject.toml", "Cargo.toml"):
+            self.assertNotIn(stack_file, agent)
+            self.assertNotIn(stack_file, workflow)
+
+    def test_review_prd_uses_calibrated_independent_agent(self):
+        command = self.read_plugin_file("commands", "review-prd.md")
+        agent = self.read_plugin_file("agents", "seed-prd-review.md")
+
+        self.assertIn('subagent_type="seed-kit:seed-prd-review"', command)
+        for dimension in (
+            "completeness", "consistency", "clarity", "scope",
+            "falsifiable acceptance criteria", "slice ordering",
+            "buildability", "code assumptions",
+        ):
+            self.assertIn(dimension, agent.lower())
+        self.assertIn("只报告", agent)
+        self.assertIn("serious gap", agent)
+        self.assertIn("不发明项目标准", command)
+        self.assertIn("不自动推进", command)
 
     def test_no_stack_specific_tools_in_verification(self):
         verification = self.read_plugin_file("skills", "references", "verification.md")

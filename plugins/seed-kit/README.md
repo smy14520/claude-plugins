@@ -32,8 +32,9 @@ skill 之间没有自动流转：brainstorm 不主动搜索 research，impl 不�
 
 ```bash
 seed new <task>                                       # 脚手架任务目录 + prd.md 模板
-seed status [<task>] [--json]                         # 进度 / 质量命令 / 结构校验 / next slice
-seed done <task> --slice S-NNN                        # 跑项目测试+质量命令+验产物，全过则翻 checkbox
+seed status [<task>] [--json]                         # 进度 / 结构校验 / next slice
+seed done <task> --slice S-NNN --test "<cmd>" \
+  [--quality "<cmd>"]...                              # 跑 agent 传入的测试+质量命令，全过则翻 checkbox
 seed review-mark <task> --verdict <reason> [--round N] # 落 review-loop 终态 marker
 seed score aggregate --rubric <rubric.json> \
   --score-files <file1.json> <file2.json> ... \
@@ -47,7 +48,7 @@ Slice 内联在 PRD 的 `### [ ] S-NNN` heading 下，验收用 `* [ ]` 条目�
 
 ### Gate 只卡硬事实
 
-`seed done` 从项目配置文件自动检测测试+质量命令，逐条执行。全过 → 翻 checkbox。
+`seed done` 执行 agent 显式传入的 `--test` 与可重复 `--quality` 命令；测试命令若是 `true`/`echo` 等显而易见的空操作会被拒绝。全过 → 翻 checkbox。
 
 ### Loop 守好坏
 

@@ -40,7 +40,7 @@ seed-kit 是上一代工作流的轻量继任者：取其精华（PRD source of 
 
 ### impl — 执行 PRD
 
-职责：按 `## Slices` 顺序执行，一个 agent 依次做所有 slice（保持品质连贯）。`seed done` 跑测试+质量命令+验产物 → 翻 checkbox。
+职责：按 `## Slices` 顺序执行，一个 agent 依次做所有 slice（保持品质连贯）。`seed done` 跑 agent 显式传入的测试+质量命令 → 翻 checkbox。
 
 ### review — 语义审计
 ### wiki — 项目知识层
@@ -81,7 +81,7 @@ seed-kit 是上一代工作流的轻量继任者：取其精华（PRD source of 
 |---|---|
 | `seed new <task>` | 脚手架 `.arbor/tasks/<task>/` |
 | `seed status [<task>]` | slice 进度、验收条目列表、下一个未完成 slice、结构校验 |
-| `seed done <task> --slice S-NNN` | 跑项目测试+质量命令+验产物，全过则翻 checkbox |
+| `seed done <task> --slice S-NNN --test "<cmd>" [--quality "<cmd>"]...` | 跑 agent 传入的测试+质量命令，全过则翻 checkbox |
 | `seed review-mark <task> --verdict <reason>` | 落 review-loop 终态 marker |
 | `seed score aggregate` | 多裁判评分聚合（review-loop judge 用） |
 | `seed wiki ...` | wiki 家族 |
@@ -89,7 +89,7 @@ seed-kit 是上一代工作流的轻量继任者：取其精华（PRD source of 
 ## 防 AI 偷懒方案（分层）
 
 1. **写需求时就写可证伪的验收条目**（brainstorm 层）：每条一个可测试的行为路径（正向/反向/边界）。PRD 中描述的方向给 agent 创作空间，不进 gate。
-2. **硬 gate，只卡硬事实**（helper 层）：`seed done` 跑项目测试命令（exit 0 + >0 tests）+ 质量命令（lint/typecheck/build 全 exit 0）+ 验产物存在。不过则拒绝。
+2. **硬 gate，只卡硬事实**（helper 层）：`seed done` 跑 agent 传入的项目测试命令（exit 0，且拒绝 `true`/`echo` 等显而易见的空操作）+ 质量命令（全 exit 0）。不过则拒绝。
 3. **hook 守底线**（hook 层）：拦截直接改 checkbox、破坏性命令。
 4. **生成者 ≠ 验证者**（review 层）：review 用干净上下文逐验收条目对账，查偷懒签名；judge 看真实产物按 PRD 中描述的方向评体验。
 5. **一个 agent 做所有 slice**（流程层）：保持跨切片品质连贯，不做 per-slice sub-agent dispatch。
@@ -117,7 +117,7 @@ seed-kit 是上一代工作流的轻量继任者：取其精华（PRD source of 
 
 **带走**：PRD 的 Goal + Acceptance Criteria + Out of Scope 三段结构；brainstorm 访谈循环；research index-first 工作区；wiki 四命令；破坏性命令拦截。
 
-**丢弃**：六态 lifecycle、task.json、obligation 框架、evidence 目录、run-check、烟雾命令检测、AC 覆盖校验、amendment 编号仪式。
+**丢弃**：六态 lifecycle、task.json、obligation 框架、evidence 目录、run-check、栈特定测试命令自动探测、AC 覆盖校验、amendment 编号仪式。
 
 ## 实施路线
 

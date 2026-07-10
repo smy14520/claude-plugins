@@ -40,16 +40,6 @@
           }
         ]
       }
-    ],
-    "Stop": [
-      {
-        "hooks": [
-          {
-            "type": "command",
-            "command": "python3 ${CLAUDE_PLUGIN_ROOT}/hooks/review_on_complete.py"
-          }
-        ]
-      }
     ]
   }
 }

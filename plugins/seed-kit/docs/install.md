@@ -26,7 +26,7 @@ impl 做完全部 slice → 跑一次整体 `/seed-kit:review-loop` 到 converge
 
 收敛判定由 review-loop 的显式终态 `terminal_reason` 驱动：`converged` 才推 done；`assert-stalled` / `assert-unavailable` / `reviewer-blind` / `circuit-breaker` / `rounds-exhausted` 都 escalate 交人。
 
-`review_on_complete` Stop hook 在所有 slice done 时检查 review-loop marker 是否存在——必须落了 marker 才放行 turn 收尾。
+review-loop marker 记录该次循环的明确终态；`impl` skill 负责在全部 slice 完成后调用整体 review-loop。普通 review 等其他 skill 不会被全局 Stop hook 自动推进。
 
 ## 为什么不用 install
 

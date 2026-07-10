@@ -35,7 +35,7 @@ PRD 三段——Goal / Acceptance Criteria / Out of Scope。Slice 内联在 `###
 
 按"谁判定它对"分类验证手段，用于 brainstorm 设计验证和 review-loop 编排：
 
-- **assert** — 机械断言。项目测试框架的测试用例，exit 非零即失败。`seed done` 会执行项目声明的测试命令。
+- **assert** — 机械断言。项目测试框架的测试用例，exit 非零即失败。`seed done` 会执行 agent 显式传入的项目测试命令。
 - **judge** — 独立裁判。由独立上下文的 agent 看真实产物（可感知输出/运行实例/生成文件），按 PRD 中描述的方向 + DESIGN.md + rubric 评体验质量。不进 gate，走 review-loop。
 - **human** — 真人签收。用于合规/备案/品味等本质不可自动化事项。用 human 覆盖可断言的验收条目是设计气味。
 
@@ -45,8 +45,8 @@ PRD 三段——Goal / Acceptance Criteria / Out of Scope。Slice 内联在 `###
 
 `seed done <task> --slice <id>` 只卡硬事实：
 
-1. **项目测试命令**：从项目配置文件自动检测测试命令并执行。必须是真实测试框架（jest/pytest/cargo test 等），true/echo 等伪装命令被拒绝。exit 0 → 通过。
-2. **项目质量命令**：自动检测 lint / typecheck / build 等命令并执行。全部 exit 0 → 通过。
+1. **项目测试命令**：agent 传入（`--test`），run，exit 0 → 通过。
+2. **项目质量命令**：agent 传入（`--quality`，可重复），全部 exit 0 → 通过。
 
 全过 → 翻转 slice checkbox。任何一项失败 → 拒绝 done，列出失败原因。
 
@@ -99,9 +99,9 @@ PRD 三段——Goal / Acceptance Criteria / Out of Scope。Slice 内联在 `###
 
 ## 测试方法：由项目定义，不由插件预置
 
-用什么工具、什么断言手段，由项目在配置文件（package.json/Makefile 等）中声明。插件不预置任何技术栈的测试方法清单——对 Web 成立的测试手段对 CLI / 游戏引擎 / 嵌入式不成立。
+用什么工具、什么断言手段，由项目声明或由仓库现有脚本体现，agent 查证后传入 `seed done`。插件不预置任何技术栈的测试方法清单。
 
-方向：读项目配置，用项目声明的命令；项目未声明的不发明。
+方向：先读项目已有配置/脚本/文档，用可实际执行的命令；项目未声明的不发明。
 
 ## 审美：客观骨架 assert，主观品味 judge
 
@@ -113,4 +113,4 @@ PRD 三段——Goal / Acceptance Criteria / Out of Scope。Slice 内联在 `###
 - `seed done` 跑项目测试+质量命令，全过才翻 checkbox
 - `seed done` 是勾选 checkbox 的唯一合法入口（seed_guard hook 拦截直接编辑）
 - 破坏性命令（rm -rf / git reset --hard / git push --force）被 seed_guard 拦截
-- 所有 slice done 后，review_on_complete hook 要求 review-loop marker 存在才放行
+- review-loop 由显式 command 或 impl skill 编排；普通 review 不自动流转到修复循环

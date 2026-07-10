@@ -1,20 +1,12 @@
 ---
-description: 独立审 PRD：查访谈遗漏 + PRD 假设与现有代码的出入。brainstorm 后、impl 前的手动 gate。
+description: 派独立 agent 审 seed PRD 的严重可实施性缺口；只报告，不修改、不自动推进。
 ---
 
-独立审 `.arbor/tasks/<task>/prd.md`。brainstorm 自审有确认偏见——独立 reviewer 换视角、读代码，抓 brainstorm 自审容易漏的两类问题：
+独立审查 `.arbor/tasks/<task>/prd.md`。
 
-- **访谈遗漏**：验收条目不可证伪、漏的场景/边界/非功能、失败路径缺口、有可感面时 Goal 中缺少方向描述。
-- **代码出入**：PRD 的技术假设（选型/数据模型/API/接缝）与现有代码现状不一致（已有项目尤其值得审查）。
+1. 从 `$ARGUMENTS` 取 task 名；未提供时仅在 `.arbor/tasks/` 恰有一个 task 时使用它，否则询问用户。
+2. 用 `Agent` 工具派 `subagent_type="seed-kit:seed-prd-review"`，在独立上下文中审查目标 task。让 agent 读取 PRD、相关现有代码和项目已加载的标准；不要把 brainstorm 推理或预设结论传给它。
+3. 要求 agent 按 completeness、consistency、clarity、scope、可证伪 Acceptance Criteria、slice ordering、buildability、code assumptions 校验，只返回会导致错误实现、返工、无法验证或无法开工的 critical/high gap，并给出 PRD 或代码证据。
+4. 将结果原样整理给用户。无 serious gap 时明确说明；有缺口时列出进入实现前需要补齐的决策。
 
-这是 brainstorm 后、impl 前的手动 gate——在写代码前修 PRD，比改代码便宜。
-
-**步骤**：
-1. 派**独立 reviewer**（子代理，独立上下文，**不看 brainstorm 的访谈推理**；可用不同模型进一步减偏见）：
-   - **审 PRD 结构**：每条验收条目真可证伪？切片依赖顺序是否合理？漏关键场景/边界/非功能？有可感面时 Goal 中是否描述了方向？
-   - **读现有代码**对 PRD（已有项目）：PRD 的技术假设与代码现状一致吗？假设"已有"的真存在吗？有没有已部分实现或冲突的？
-   - **易过期事实带 `查证于` 的默认信任**：版本/API/兼容性这类事实，PRD 标了 `查证于 <日期>(<来源>)` = 已查证，默认信；要否定必须重新查证引源，**不准凭知识库/记忆反驳**（记忆滞后，会像"没有 Laravel 13"那样误报）。
-2. 产出**严重程度清单**（CRITICAL/HIGH/MEDIUM/LOW）：每条声明及其证据（PRD 行号 或 代码 file:line）。区分"遗漏"和"出入"。
-3. 清单交用户。用户据此改 PRD（按 brainstorm 的「修改既有 PRD」流程），或让 brainstorm 继续提问补全。改完可重复跑 `/seed-kit:review-prd`，直到无 CRITICAL/HIGH 问题。
-
-独立审查是核心价值——防确认偏见，用代码现实校验 PRD 假设。
+不修改 PRD，不发明项目标准，不调用 brainstorm/impl，不自动推进下一阶段。是否修订或进入实现由用户决定。

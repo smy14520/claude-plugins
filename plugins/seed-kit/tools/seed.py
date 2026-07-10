@@ -5,10 +5,7 @@
 Slice 内联在 PRD 中：`### [ ] S-NNN 标题` heading，checkbox + 内容在一起。
 heading 下面的 prose（到下一个 `###` 或 `##` 为止）是 slice 内容。
 
-gate 只卡硬事实：
-- 项目声明的测试命令 exit 0（必须是真实测试框架，true/echo 等伪装命令被拒绝）
-- 项目声明的质量命令（lint/typecheck/build）全 exit 0
-
+gate 只卡硬事实：agent 传入的测试命令和质量命令全部 exit 0 → 翻 checkbox。
 体验质量走 review-loop（loop 守好坏），不做 scoring gate 卡 done。
 """
 
@@ -19,6 +16,7 @@ import datetime as _dt
 import hashlib
 import json
 import re
+import shlex
 import subprocess
 import sys
 from dataclasses import dataclass
@@ -28,8 +26,6 @@ SLICE_HEADING_RE = re.compile(r"^### \[([ x])\] (S-\d{3})\s+(.+?)\s*$")
 BAD_SLICE_HEADING_RE = re.compile(r"^###\s")
 TASK_NAME_RE = re.compile(r"^[a-z0-9][a-z0-9._-]*$")
 
-QUALITY_SCRIPT_KEYS = ["lint", "typecheck", "build", "check", "format", "fmt"]
-
 
 class SeedError(Exception):
     pass
@@ -37,51 +33,6 @@ class SeedError(Exception):
 
 def _now() -> str:
     return _dt.datetime.now(_dt.timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ")
-
-
-# --- project config -----------------------------------------------------------
-
-def _read_project_commands(root: Path) -> dict[str, str]:
-    commands: dict[str, str] = {}
-    pkg = root / "package.json"
-    if pkg.is_file():
-        try:
-            data = json.loads(pkg.read_text(encoding="utf-8"))
-            scripts = data.get("scripts", {})
-            if isinstance(scripts, dict):
-                if "test" in scripts:
-                    commands["test"] = "npm test"
-                for key in QUALITY_SCRIPT_KEYS:
-                    if key in scripts and key not in commands:
-                        commands[key] = f"npm run {key}"
-        except (json.JSONDecodeError, OSError):
-            pass
-    makefile = root / "Makefile"
-    if makefile.is_file():
-        try:
-            content = makefile.read_text(encoding="utf-8")
-            for target in ["test", "lint", "typecheck", "build", "check"]:
-                if target not in commands and re.search(rf"^{target}\s*:", content, re.MULTILINE):
-                    commands[target] = f"make {target}"
-        except OSError:
-            pass
-    pyproject = root / "pyproject.toml"
-    if pyproject.is_file():
-        try:
-            content = pyproject.read_text(encoding="utf-8")
-            if "test" not in commands and re.search(r"\[tool\.pytest", content):
-                commands["test"] = "python -m pytest"
-        except OSError:
-            pass
-    cargo = root / "Cargo.toml"
-    if cargo.is_file():
-        if "test" not in commands:
-            commands["test"] = "cargo test"
-        if "build" not in commands:
-            commands["build"] = "cargo build"
-        if "lint" not in commands:
-            commands["lint"] = "cargo clippy"
-    return commands
 
 
 # --- prd parsing ---------------------------------------------------------------
@@ -217,6 +168,94 @@ def _run_command(command: str, cwd: Path, timeout: int = 300) -> tuple[int, str]
         return -1, (exc.stdout or "") + f"\n[seed] 超时（>{timeout}s），按失败记录\n"
 
 
+_SHELLS = {"sh", "bash", "zsh", "dash", "ksh"}
+_INLINE_INTERPRETERS = {"node", "python", "python3", "ruby", "perl", "php"}
+_COMPOUND_TOKENS = {"&&", "||", ";", "|", "&", "(", ")"}
+
+
+def _shell_tokens(command: str) -> list[str] | None:
+    try:
+        lexer = shlex.shlex(command, posix=True, punctuation_chars=";&|()")
+        lexer.whitespace_split = True
+        lexer.commenters = ""
+        return list(lexer)
+    except ValueError:
+        return None
+
+
+def _inline_program_is_noop(program: str) -> bool:
+    normalized = re.sub(r"\s+", " ", program.strip()).rstrip(";").strip()
+    if normalized in {"", "pass"}:
+        return True
+    patterns = (
+        r"(?:process\.|sys\.)?exit\s*\(\s*0\s*\)",
+        r"raise SystemExit(?:\s*\(\s*0\s*\))?",
+        r"exit\s+0",
+    )
+    return any(re.fullmatch(pattern, normalized) for pattern in patterns)
+
+
+def _simple_command_is_noop(parts: list[str]) -> bool:
+    if not parts:
+        return True
+    base = Path(parts[0]).name
+    if base in {"true", "false", ":", "echo", "printf"}:
+        return True
+    if base in _SHELLS and "-c" in parts:
+        idx = parts.index("-c")
+        return idx + 1 < len(parts) and _looks_like_obvious_noop(parts[idx + 1])
+    if base == "exit":
+        return len(parts) == 1 or parts[1:] == ["0"]
+    if base in _INLINE_INTERPRETERS:
+        inline_flag = next((flag for flag in ("-c", "-e", "-r") if flag in parts), None)
+        if inline_flag is not None:
+            idx = parts.index(inline_flag)
+            return idx + 1 < len(parts) and _inline_program_is_noop(parts[idx + 1])
+    return False
+
+
+def _looks_like_obvious_noop(command: str) -> bool:
+    """递归拒绝只由明显空操作组成的命令，不猜测真实测试工具。"""
+    tokens = _shell_tokens(command.strip())
+    if not tokens:
+        return True
+
+    segments: list[list[str]] = []
+    current: list[str] = []
+    for token in tokens:
+        if token in _COMPOUND_TOKENS:
+            if current:
+                segments.append(current)
+                current = []
+        else:
+            current.append(token)
+    if current:
+        segments.append(current)
+    return bool(segments) and all(_simple_command_is_noop(segment) for segment in segments)
+
+
+_OUTPUT_SUMMARY_LIMIT = 1000
+
+
+def _command_result(command: str, exit_code: int, output: str) -> dict[str, object]:
+    raw = output.encode("utf-8", errors="replace")
+    clean = output.strip()
+    truncated = len(clean) > _OUTPUT_SUMMARY_LIMIT
+    if truncated:
+        half = _OUTPUT_SUMMARY_LIMIT // 2
+        summary = clean[:half] + "\n...[truncated]...\n" + clean[-half:]
+    else:
+        summary = clean
+    return {
+        "command": command,
+        "exit_code": exit_code,
+        "output_summary": summary,
+        "output_sha256": hashlib.sha256(raw).hexdigest(),
+        "output_bytes": len(raw),
+        "output_truncated": truncated,
+    }
+
+
 def cmd_status(root: Path, task: str | None, json_output: bool) -> int:
     if task is None:
         base = tasks_root(root)
@@ -236,13 +275,11 @@ def cmd_status(root: Path, task: str | None, json_output: bool) -> int:
         return 0
 
     slices, errors = parse_prd(prd_path(root, task))
-    commands = _read_project_commands(root)
     reports = [{"id": sl.id, "title": sl.title, "done": sl.done} for sl in slices]
     next_slice = next((sl.id for sl in slices if not sl.done), None)
     if json_output:
         print(json.dumps({
-            "task": task, "slices": reports, "errors": errors,
-            "commands": {k: v for k, v in commands.items()}, "next": next_slice,
+            "task": task, "slices": reports, "errors": errors, "next": next_slice,
         }, ensure_ascii=False, indent=2))
         return 1 if errors else 0
 
@@ -254,8 +291,6 @@ def cmd_status(root: Path, task: str | None, json_output: bool) -> int:
         for err in errors:
             print(f"  - {err}")
         return 1
-    if commands:
-        print(f"质量命令: {', '.join(commands.keys())}")
     if next_slice:
         print(f"next: {next_slice}")
     else:
@@ -263,71 +298,33 @@ def cmd_status(root: Path, task: str | None, json_output: bool) -> int:
     return 0
 
 
-_KNOWN_TEST_RUNNERS = [
-    "jest", "mocha", "vitest", "node --test", "pytest", "cargo test",
-    "go test", "phpunit", "rspec", "unittest", "ctest", "dotnet test",
-]
-
-_FAKE_TEST_FIRST_WORDS = {"true", "echo", ":", "printf"}
-
-
-def _looks_like_fake_test(command: str, root: Path) -> bool:
-    pkg = root / "package.json"
-    if not (command.startswith("npm") and pkg.is_file()):
-        return False
-    try:
-        data = json.loads(pkg.read_text(encoding="utf-8"))
-        script = (data.get("scripts") or {}).get("test", "")
-    except (json.JSONDecodeError, OSError):
-        return False
-    if not script:
-        return False
-    if any(runner in script for runner in _KNOWN_TEST_RUNNERS):
-        return False
-    tokens = script.strip().split()
-    if not tokens:
-        return False
-    first = tokens[0]
-    base = first.rsplit("/", 1)[-1]
-    if base in _FAKE_TEST_FIRST_WORDS:
-        return True
-    if first in ("bash", "sh", "zsh", "eval", "exec") and len(tokens) >= 2:
-        second = tokens[1]
-        if second == "-c" and len(tokens) >= 3:
-            inner = tokens[2]
-            if inner in _FAKE_TEST_FIRST_WORDS or inner.rsplit("/", 1)[-1] in _FAKE_TEST_FIRST_WORDS:
-                return True
-        elif second in _FAKE_TEST_FIRST_WORDS or second.rsplit("/", 1)[-1] in _FAKE_TEST_FIRST_WORDS:
-            return True
-    if first == "node" and len(tokens) >= 2 and tokens[1] == "-e":
-        return True
-    return False
-
-
-def cmd_done(root: Path, task: str, slice_id: str) -> int:
+def cmd_done(root: Path, task: str, slice_id: str, test_cmd: str, quality_cmds: list[str]) -> int:
     slices = _require_valid_prd(root, task)
     sl = _find_slice(slices, slice_id)
     if sl.done:
         print(f"{slice_id} 已是完成状态")
         return 0
 
-    commands = _read_project_commands(root)
-    test_cmd = commands.get("test")
     if not test_cmd:
-        print(f"{slice_id} 还不能标记完成——未找到项目测试命令。", file=sys.stderr)
-        print("项目需在 package.json / Makefile / pyproject.toml / Cargo.toml 中声明 test 命令。", file=sys.stderr)
+        print(f"{slice_id} 还不能标记完成——需要提供 --test 命令。", file=sys.stderr)
+        print("示例: seed done <task> --slice S-001 --test \"npm test\" --quality \"npm run lint\"", file=sys.stderr)
         return 1
 
-    if _looks_like_fake_test(test_cmd, root):
-        print(f"{slice_id} 还不能标记完成——测试命令看起来是伪装的：{test_cmd}", file=sys.stderr)
-        print("测试命令必须调用真实的测试框架（jest/pytest/cargo test 等），不能用 true/echo 冒充。", file=sys.stderr)
+    if _looks_like_obvious_noop(test_cmd):
+        print(f"{slice_id} 还不能标记完成——测试命令像伪装的空操作：{test_cmd}", file=sys.stderr)
+        print("请传入项目真实的测试或验收命令。", file=sys.stderr)
         return 1
+    for cmd in quality_cmds:
+        if _looks_like_obvious_noop(cmd):
+            print(f"{slice_id} 还不能标记完成——质量命令像伪装的空操作：{cmd}", file=sys.stderr)
+            return 1
 
-    results: dict[str, dict] = {}
+    results: dict[str, object] = {"test": {}, "quality": []}
     failures: list[str] = []
 
+    # 跑测试命令
     exit_code, output = _run_command(test_cmd, root)
-    results["test"] = {"command": test_cmd, "exit_code": exit_code}
+    results["test"] = _command_result(test_cmd, exit_code, output)
     if exit_code != 0:
         print(f"{slice_id} 还不能标记完成——测试命令未通过：", file=sys.stderr)
         print(f"  {test_cmd} → exit {exit_code}", file=sys.stderr)
@@ -335,11 +332,12 @@ def cmd_done(root: Path, task: str, slice_id: str) -> int:
             print(f"  {output[-300:]}", file=sys.stderr)
         return 1
 
-    for label, cmd in commands.items():
-        if label == "test":
-            continue
+    # 跑质量命令
+    quality_results: list[dict[str, object]] = []
+    results["quality"] = quality_results
+    for cmd in quality_cmds:
         exit_code, output = _run_command(cmd, root)
-        results[label] = {"command": cmd, "exit_code": exit_code}
+        quality_results.append(_command_result(cmd, exit_code, output))
         if exit_code != 0:
             failures.append(f"质量命令失败 (exit {exit_code}): {cmd}\n{output[-500:]}")
 
@@ -349,6 +347,7 @@ def cmd_done(root: Path, task: str, slice_id: str) -> int:
             print(f"  {f[:200]}", file=sys.stderr)
         return 1
 
+    # 翻 checkbox
     path = prd_path(root, task)
     lines = path.read_text(encoding="utf-8").splitlines()
     lines[sl.line_no] = lines[sl.line_no].replace("### [ ]", "### [x]", 1)
@@ -359,8 +358,8 @@ def cmd_done(root: Path, task: str, slice_id: str) -> int:
     remaining = [other.id for other in slices if not other.done and other.id != slice_id]
     print(f"{slice_id} 已完成 ✓")
     print(f"  test: {test_cmd} → exit 0")
-    for label, r in results.items():
-        print(f"  {label}: {r['command']} → exit {r['exit_code']}")
+    for result in quality_results:
+        print(f"  {result['command']}: exit {result['exit_code']}")
     print("  建议现在 commit 本 slice 的改动。")
     if remaining:
         print(f"next: {remaining[0]}")
@@ -494,6 +493,8 @@ def build_parser() -> argparse.ArgumentParser:
     done_parser = sub.add_parser("done", help="跑项目测试+质量命令，全过则勾选 slice checkbox")
     done_parser.add_argument("task")
     done_parser.add_argument("--slice", dest="slice_id", required=True)
+    done_parser.add_argument("--test", dest="test_cmd", default="", help="测试命令（如 'npm test'）")
+    done_parser.add_argument("--quality", dest="quality_cmds", action="append", default=[], help="质量命令，可重复多次")
 
     rm_parser = sub.add_parser("review-mark", help="落整体 review-loop 终态 marker（task 级，Stop hook 查）")
     rm_parser.add_argument("task")
@@ -525,7 +526,7 @@ def main(argv: list[str] | None = None) -> int:
         if args.command == "status":
             return cmd_status(root, args.task, args.json_output)
         if args.command == "done":
-            return cmd_done(root, args.task, args.slice_id)
+            return cmd_done(root, args.task, args.slice_id, args.test_cmd, args.quality_cmds)
         if args.command == "review-mark":
             return cmd_review_mark(root, args.task, verdict=args.verdict, round_num=args.round_num, note=args.note)
         if args.command == "score":

@@ -26,9 +26,8 @@ disallowedTools: ["Edit", "Write", "NotebookEdit"]
    - [ ] 权限 / 数据一致 / 并发 / 安全任一未处理 → finding
 
 4. **工程卫生**：动作：
-   - [ ] 读项目配置文件，列出所有质量命令（lint / type-check / build / test）
-   - [ ] 逐条执行，exit 非零 → finding（severity=blocking，category=correctness）
-   - [ ] 搜索 legacy debug log（console.log / debugger / print）/ 死代码 / 抑制性注解（eslint-disable / @ts-ignore 等）/ 未清理的临时文件
+   - [ ] 读项目配置文件，确定测试和质量命令并执行，exit 非零 → finding（severity=blocking，category=correctness）
+   - [ ] 搜索 legacy debug log / 死代码 / 抑制性注解 / 未清理的临时文件
    - [ ] New function → unit test added? Bug fix → regression test added? Changed behavior → existing tests updated?
 
 5. **方向对账**：读 PRD 的 Goal + DESIGN.md → 代码是否支持 PRD 中描述的方向？有什么明明可以做但没做的（在合理范围内，不要求过度实现）？→ finding(severity=major/minor, category=experience)

@@ -1,6 +1,6 @@
 ---
 name: review
-description: "审实现是否兑现 PRD：逐验收条目对账、查偷懒签名与隐患、验产物是否缺失/达 PRD 中描述的方向，产出可证伪的 finding。生成者≠验证者——只看 PRD+diff+真实产物，不依赖 impl 的叙述。"
+description: "当用户要求 review/审计 seed-kit task，或说 use seed-kit review workflow 时调用。审实现是否兑现 PRD：逐验收条目对账、查偷懒签名与隐患，产出可证伪 finding 并追加到 .arbor/tasks/<task>/review.md。生成者≠验证者。"
 ---
 # Review
 
@@ -33,7 +33,7 @@ description: "审实现是否兑现 PRD：逐验收条目对账、查偷懒签�
 
 ## 产出
 
-结论**追加**到 `.arbor/tasks/<task>/review.md`（不覆盖历史）：逐条验收条目兑现情况 / 覆盖缺口 + 结论（通过 | 通过但有备注 | 需要返工）+ 返工清单。
+结论**追加**到 `.arbor/tasks/<task>/review.md`（不覆盖历史）：逐条验收条目兑现情况 / 覆盖缺口 + 结论（通过 | 通过但有备注 | 需要返工）+ 返工清单。每条 PRD 验收若指向文件、命令输出或产物值，先检查对应真实产物，再在 review 中写明可复制的 `expected` / `actual` 原文；发现不匹配时尤其不能只给解释、结论或转码证据。
 
 **收尾写 wiki**：本轮验证过的 knowledge 落 `.arbor/.wiki/`——新发现的陷阱→`gotcha/`，验证过的跨文件链路→`cross_cut/`，被推翻或修正的旧决策在原页标 superseded、新建 correction 页。写完后 `seed wiki index --write` 刷新索引。
 

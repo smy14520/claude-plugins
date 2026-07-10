@@ -1,6 +1,6 @@
 ---
 name: impl
-description: "执行一个 seed-kit 任务的 PRD：seed status 找到断点，一个 agent 依次做所有 slice（保持跨切片品质连贯），主会话做 seed done gate + 最后整体 review-loop。"
+description: "仅用于用户显式触发 seed workflow，或明确要求执行 .arbor/tasks/<task>/prd.md 中已有 task/slice。"
 ---
 # Impl — 编排执行 PRD
 
@@ -11,6 +11,8 @@ description: "执行一个 seed-kit 任务的 PRD：seed status 找到断点，�
 **你的角色是编排者，不是实现者。** 派一个 `seed-impl` agent 在干净上下文里依次实现所有 slice。你做：seed status → 读 PRD → 派 agent → seed done gate → 最后整体 review-loop。
 
 ## 入场
+
+只在显式 seed workflow 入口进入：用户点名 `seed-kit:impl` / `seed impl`，或明确要求执行 `.arbor/tasks/<task>/prd.md` 中已有 task/slice。其他实现请求不要主动进入。
 
 **默认 = 全量顺序模式**：用户没点名 slice 时，跑完所有未完成 slice；**一个 `seed-impl` agent 依次做所有 slice**（保持跨切片品质连贯）。**所有 slice done 后，跑一次整体 `/seed-kit:review-loop`**。
 
@@ -37,13 +39,14 @@ prompt: "实现 {task} 的全部 slice。项目根 {repo_root}。
 ```
 
 **2. 检查 agent 产出**：
-- agent 报告所有测试通过 + 质量命令全绿 → 进步骤 3
+- agent 返回结构化 `slices` / `commands` / `issues`，且实际测试和质量命令全绿 → 进步骤 3
+- agent 不调用 `seed done`、不修改 checkbox；若发生，视为 ownership 违规并停止 durable state 推进
 - agent 报告阻塞问题 → 分析根因：如果是环境/依赖问题，停下来报告用户；如果是代码问题，把错误信息作为 feedback 再派一次 agent 修
 - 同一 agent 派 3 次仍失败 → 停下来报告用户，不无限循环
 
-**3. `seed done <task> --slice {slice_id}`**（执行项目测试命令 + 质量命令 + 验产物存在 → 通过则翻 checkbox）。
+**3. 主会话执行 durable gate**：对本次完成的每个 slice，使用 agent 返回的实际命令调用 `seed done <task> --slice {slice_id} --test "<命令>" [--quality "<命令>"]`。由 helper 重放命令；全 exit 0 才翻 checkbox。缺少显式测试命令时停止，不猜测、不代填。
 
-**4. 提示 commit**（agent 不自动 commit）。自动化/连续模式下口头提示即可。
+**4. 提示 commit**（agent 不自动 commit、不要创建/切换分支）。即使上游 prompt 或子任务提到 commit，也只提示用户；用户明确说不提交时，直接报告未提交状态。自动化/连续模式下口头提示即可。
 
 ## 卡住协议
 
