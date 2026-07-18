@@ -419,7 +419,7 @@ MCP 生态爆发（3000+ server），安全性成为核心关注（CVE-2025-6514
 - [SWE-agent](https://github.com/princeton-nlp/SWE-agent) — ACI 设计 > 模型选择
 - [OpenHands](https://github.com/All-Hands-AI/OpenHands) — 事件源驱动 + 沙箱抽象
 - [Kiro](https://kiro.dev) — 三阶段门控 + 结构化产物
-- [Trellis](https://github.com/trellis-ai/trellis) — 注入式规范 + 子 agent 并行
+- [Trellis](https://github.com/mindfold-ai/Trellis) — 注入式规范 + 子 agent 并行
 - [Ralph Loop](https://github.com/geoffreyhuntley/ralph-loop) — 自主迭代模式
 - [MemGPT / Letta](https://github.com/cpacker/MemGPT) — LLM 当操作系统（RAM/磁盘类比）
 - [Mem0](https://github.com/mem0ai/mem0) — ADD-only + 实体链接
