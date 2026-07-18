@@ -323,7 +323,7 @@ bun run src/cli/index.ts check my-behavior-name
 | `seed new/status/done` | `seed-new-*` / `seed-status-*` / `seed-done-*` |
 | checkbox 只能由 done 翻 | `prd-checkbox-guard` |
 | 破坏性命令拦截 | `seed-guard-blocks-destructive` / `guard-refuses-destructive-cleanup` |
-| impl 读 PRD、跑验证、记证据 | `impl-reads-prd-before-coding` / `impl-runs-runnable-verification` / `impl-records-evidence` |
+| impl 读 PRD、跑验证、保留可核查记录 | `impl-reads-prd-before-coding` / `impl-runs-runnable-verification` / `impl-records-evidence`（历史场景名，现行按真实命令与 done-log 语义理解） |
 | review 只审不修 | `review-does-not-fix-while-reviewing` |
 | review-prd 独立抓缺口 | `review-prd-catches-planted-flaws` |
 | review-loop 修质量缺口 | `review-loop-repairs-project-quality-gap` |
@@ -337,7 +337,7 @@ bun run src/cli/index.ts check my-behavior-name
 ## 9. 给 AI 的操作纪律
 
 1. **默认 cwd = seed-kit-evals** 跑评测；改 skill 时 cwd = 本插件目录。
-2. **始终显式传** `--plugin-dir "$SEED_KIT_DIR"`（或 repair 时的 repo 相对 `plugins/seed-kit`），否则可能在测“裸 Claude”，不是 seed-kit。
+2. **始终显式传** `--plugin-dir "$SEED_KIT_DIR"`（repair 也使用该绝对路径），否则可能在测“裸 Claude”，不是 seed-kit。
 3. 语义场景先确认 `GAUNTLET_ROOT` 可用；没有 gauntlet 时优先跑 `headless` / mechanism。
 4. 先读 `verdict.json` + checks 记录再下结论；空 transcript / setup 失败 → `indeterminate`，不是插件“坏了”。
 5. 不要把一次失败立刻固化成 skill 永久规则（见仓库 `.claude/rules/workflow-design.md`：「不为一次失败加长期负担」）。

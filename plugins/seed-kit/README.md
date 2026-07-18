@@ -30,7 +30,7 @@ bun run src/cli/index.ts run-all --tier sentinel --agents claude --providers ali
 | review | 干净视角逐验收条目对账 diff，专查偷懒签名 | 追加 `review.md` |
 | wiki | 项目知识层：长期资料 + 多文件链路知识 | `.arbor/.wiki/` 页面 |
 
-skill 之间没有自动流转：brainstorm 不主动搜索 research，impl 不主动查 wiki，review 由用户主动触发。
+五个 skill 不自动相互流转：brainstorm 不主动进入 research；impl 会读取 wiki 索引，并在全量模式全部 slice done 后显式运行 review-loop command；review skill 本身仍由用户主动触发。
 
 ## 状态模型
 

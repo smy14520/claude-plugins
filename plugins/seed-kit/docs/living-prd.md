@@ -49,8 +49,11 @@ generator 以 git top-level 为项目根；无法取得时退回当前工作目�
 
 从目标项目根运行：
 
+先把 `SEED_KIT_DIR` 指向实际插件目录，再执行 generator：
+
 ```bash
-python3 /path/to/seed-kit/hooks/generate_living_prd.py
+export SEED_KIT_DIR=/absolute/path/to/plugins/seed-kit
+python3 "$SEED_KIT_DIR/hooks/generate_living_prd.py"
 ```
 
 仍需先在 `.arbor/config.json` 中设置 `living_prd.enabled: true`。
