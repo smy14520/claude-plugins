@@ -24,6 +24,18 @@ class SeedPromptContractTests(unittest.TestCase):
         self.assertNotIn("## 交付面", text)
         self.assertNotIn("## 验证面", text)
 
+    def test_brainstorm_checks_history_choices_and_prd_closure(self):
+        text = self.read_plugin_file("skills", "brainstorm", "SKILL.md")
+
+        self.assertIn("与需求直接相关的近期提交", text)
+        self.assertIn("不做无关历史考古", text)
+        self.assertIn("真实分叉", text)
+        self.assertIn("2–3 个可行方向", text)
+        self.assertIn("不为凑数制造方案", text)
+        self.assertIn("inline self-review", text)
+        self.assertIn("TBD/TODO", text)
+        self.assertIn("自审并修正后，再运行 `seed status <task>`", text)
+
     def test_prd_template_minimal_sections(self):
         template = self.read_plugin_file("templates", "prd.md")
 
@@ -74,6 +86,18 @@ class SeedPromptContractTests(unittest.TestCase):
         # 验收条目必须过
         self.assertIn("验收条目必须过", claude)
 
+    def test_progress_state_distinguishes_records(self):
+        readme = self.read_plugin_file("README.md")
+        design = self.read_plugin_file("DESIGN.md")
+        helper = self.read_plugin_file("tools", "seed.py")
+        combined = "\n".join([readme, design, helper])
+
+        self.assertIn("进度 source of truth", readme)
+        self.assertIn("done-logs/", readme)
+        self.assertIn("review-loop.json", readme)
+        self.assertNotIn("唯一状态", combined)
+        self.assertNotIn("唯一持久状态", combined)
+
     def test_design_acknowledges_minimal_satisfaction(self):
         design = self.read_plugin_file("DESIGN.md")
         self.assertIn("诚实地最小满足", design)
@@ -91,6 +115,15 @@ class SeedPromptContractTests(unittest.TestCase):
         # 无 provisional verdict（那是旧的 obligation judge 机制）
         self.assertNotIn("provisional", agent.lower())
 
+    def test_impl_keeps_user_owned_branch_and_commit_boundaries(self):
+        agent = self.read_plugin_file("agents", "seed-impl.md")
+        skill = self.read_plugin_file("skills", "impl", "SKILL.md")
+
+        self.assertIn("不创建或切换分支", agent)
+        self.assertIn("不执行 `git commit`", agent)
+        self.assertIn("分支和提交由用户决定", agent)
+        self.assertIn("agent 不自动 commit、不要创建/切换分支", skill)
+
     def test_review_agents_read_prd_goal_and_ac(self):
         review = self.read_plugin_file("agents", "seed-review.md")
         judge = self.read_plugin_file("agents", "seed-judge.md")
@@ -106,15 +139,29 @@ class SeedPromptContractTests(unittest.TestCase):
 
     def test_review_loop_command_exists(self):
         cmd = self.read_plugin_file("commands", "review-loop.md")
+        workflow = self.read_plugin_file("templates", "review-loop.template.js")
+
         self.assertIn("review-loop", cmd)
         self.assertIn("客观锚", cmd)
+        self.assertIn("不要同时传 `name`", cmd)
+        self.assertIn("const REPO = '.'", workflow)
+        self.assertNotIn("A.repo", workflow)
 
     def test_review_only_turn_is_not_forced_into_review_loop(self):
         hooks = json.loads(self.read_plugin_file("hooks", "hooks.json"))["hooks"]
         review = self.read_plugin_file("skills", "review", "SKILL.md")
 
         self.assertNotIn("Stop", hooks)
+        self.assertNotIn("`seed done` 后 PostToolUse hook 软提醒", review)
         self.assertIn("不自动触发下一轮", review)
+
+    def test_review_requires_evidence_before_write_and_fails_closed(self):
+        review = self.read_plugin_file("skills", "review", "SKILL.md")
+
+        self.assertIn("写 review 前必须成功读取该 task 的 PRD", review)
+        self.assertIn("取证失败时标明 unavailable 并停止猜测", review)
+        self.assertIn("不得编造文件、测试", review)
+        self.assertIn("真实产物或命令结果", review)
 
     def test_impl_ownership_keeps_durable_gate_in_main_skill(self):
         skill = self.read_plugin_file("skills", "impl", "SKILL.md")
@@ -154,6 +201,13 @@ class SeedPromptContractTests(unittest.TestCase):
         self.assertIn("serious gap", agent)
         self.assertIn("不发明项目标准", command)
         self.assertIn("不自动推进", command)
+        # 防止 review agent 递归自举（value 实验中 spawnDepth 1→5）
+        self.assertIn("Agent", agent.split("---", 2)[1])  # frontmatter disallowedTools
+        self.assertIn("禁止再派", agent)
+        # 子 agent 只做审查，不接修复任务
+        self.assertIn("只传审查任务给 agent", command)
+        self.assertIn("只做审查", agent)
+        self.assertIn("忽略修复部分", agent)
 
     def test_no_stack_specific_tools_in_verification(self):
         verification = self.read_plugin_file("skills", "references", "verification.md")

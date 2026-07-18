@@ -1,230 +1,77 @@
-# Living PRD 自动维护
+# Living PRD
 
-🎯 **零侵入、零等待、AI 自维护的 PRD 可视化**
+Living PRD 是 seed-kit 的可选派生视图：把当前 PRD slice 状态机械渲染成一个自包含 HTML。它只读 PRD、review 与 git，不修改任务状态；HTML 可删可重生。
 
-## 概述
+## 启用
 
-Living PRD 是 seed-kit 的一个可选特性，通过 hook 检测关键事件（PRD 变更、任务完成），后台异步生成 PRD 可视化 HTML 页面。
-
-**核心特性**：
-- ✅ **零侵入**：不改变任何 skill/helper/workflow
-- ✅ **零等待**：后台异步生成，主 session 不等待
-- ✅ **可配置**：通过 `.arbor/config.json` 灵活控制
-- ✅ **插件级作用域**：只在 seed-kit 项目生效
-- ✅ **Rate limiting**：避免频繁更新，节省资源
-
-## 工作原理
-
-```
-┌─────────────────────────────────────────┐
-│  主 Claude Code Session                  │
-│  - 用户交互 + workflow 执行              │
-└─────────────────────────────────────────┘
-              ↓ hook 触发
-┌─────────────────────────────────────────┐
-│  Python Hook（living_prd_trigger.py）    │
-│  - 检测 prd.md 变更 / 任务完成           │
-│  - 读取配置 + rate limiting              │
-│  - 启动后台 Bash 脚本                    │
-└─────────────────────────────────────────┘
-              ↓ nohup
-┌─────────────────────────────────────────┐
-│  Bash 脚本（generate_living_prd.sh）     │
-│  - 读取 prd.md + git log                 │
-│  - 生成 HTML 文件                        │
-│  - 存储在 .arbor/artifacts/              │
-└─────────────────────────────────────────┘
-```
-
-## 触发条件
-
-Living PRD 在以下情况自动触发：
-
-1. **PRD 变更**（PostToolUse on Write/Edit）
-   - 当 `.arbor/tasks/<task>/prd.md` 被修改时
-   - 适用于 brainstorm 阶段的需求调整、impl 阶段的 PRD 更新
-
-2. **任务完成**（Stop hook）
-   - 当 Claude Code session 结束时
-   - 适用于任务完成后的最终状态记录
-
-## 配置
-
-配置文件位于 `.arbor/config.json`：
+默认关闭。项目在 `.arbor/config.json` 中显式开启：
 
 ```json
 {
   "living_prd": {
-    "enabled": true,
-    "rate_limit_minutes": 30,
-    "output_dir": ".arbor/artifacts",
-    "triggers": {
-      "prd_change": true,
-      "task_completion": true
-    }
+    "enabled": true
   }
 }
 ```
 
-### 配置项说明
+当前只消费 `living_prd.enabled`。配置缺失、损坏或值不为 `true` 时不生成。
 
-| 配置项 | 类型 | 默认值 | 说明 |
-|--------|------|--------|------|
-| `enabled` | boolean | `true` | 是否启用 Living PRD |
-| `rate_limit_minutes` | integer | `30` | 最小更新间隔（分钟） |
-| `output_dir` | string | `".arbor/artifacts"` | HTML 输出目录 |
-| `triggers.prd_change` | boolean | `true` | 是否检测 PRD 变更 |
-| `triggers.task_completion` | boolean | `true` | 是否检测任务完成 |
+## 触发
 
-### 禁用 Living PRD
+`hooks/hooks.json` 使用原生异步 PostToolUse hook，直接调用 `hooks/generate_living_prd.py`：
 
-```json
-{
-  "living_prd": {
-    "enabled": false
-  }
-}
+- Write `.arbor/tasks/*/prd.md`
+- Edit `.arbor/tasks/*/prd.md`
+- 匹配 `Bash(*done*)`
+
+hook 异步执行，不阻塞主 session。当前没有 Stop hook。
+
+## 数据与输出
+
+generator 以 git top-level 为项目根；无法取得时退回当前工作目录。它读取：
+
+1. 排序后的第一个 `.arbor/tasks/*/prd.md`
+2. `seed status <task> --json`
+3. 同 task 下可选的 `review.md`
+4. 该 PRD 最近的 git log
+
+输出固定为：
+
+```text
+.arbor/artifacts/living-prd.html
 ```
 
-### 调整 Rate Limiting
+页面包含 PRD 标题、task、当前分支、slice 总数与完成进度、slice 列表、PRD git 时间线，以及存在时的 review 摘要。
 
-```json
-{
-  "living_prd": {
-    "rate_limit_minutes": 60
-  }
-}
-```
+若 `.arbor/tasks/`、PRD 或可用的 `seed status` 结果不存在，generator 直接跳过，不写 HTML。
 
-## 输出
+## 手动生成
 
-生成的 HTML 文件位于 `.arbor/artifacts/living-prd.html`，包含：
-
-1. **PRD 当前状态**
-   - 需求描述
-   - 验收条目
-   - Slices 列表
-
-2. **Slices 进度可视化**
-   - ✅ 已完成（绿色）
-   - 🔄 进行中（黄色，动画效果）
-   - ⬜ 待办（灰色）
-
-3. **变更历史时间线**
-   - 从 git log 提取的 PRD 变更
-   - 每条变更的时间和描述
-
-4. **响应式设计**
-   - 可在桌面和移动设备上查看
-   - 美观的渐变背景和动画效果
-
-## 查看 Living PRD
+从目标项目根运行：
 
 ```bash
-# 在浏览器中打开
-open .arbor/artifacts/living-prd.html  # macOS
-xdg-open .arbor/artifacts/living-prd.html  # Linux
-start .arbor\artifacts\living-prd.html  # Windows
+python3 /path/to/seed-kit/hooks/generate_living_prd.py
 ```
 
-## 手动触发
+仍需先在 `.arbor/config.json` 中设置 `living_prd.enabled: true`。
 
-如果需要手动生成 Living PRD（绕过 rate limiting）：
+## 查看
 
 ```bash
-bash plugins/seed-kit/hooks/generate_living_prd.sh
+open .arbor/artifacts/living-prd.html       # macOS
+xdg-open .arbor/artifacts/living-prd.html   # Linux
+start .arbor\artifacts\living-prd.html      # Windows
 ```
 
-## 日志
+## 当前边界
 
-后台脚本的日志位于 `.arbor/artifacts/living-prd.log`：
+当前实现没有：
 
-```bash
-tail -f .arbor/artifacts/living-prd.log
-```
+- `living_prd_trigger.py` 或 shell wrapper
+- Stop hook
+- rate limiting 或 PID 文件
+- 可配置 output dir
+- 独立日志文件
+- 多 task 聚合
 
-## 故障排查
-
-### Living PRD 未生成
-
-1. **检查配置**
-   ```bash
-   cat .arbor/config.json
-   ```
-   确保 `enabled: true`
-
-2. **检查是否是 seed-kit 项目**
-   ```bash
-   ls -la .arbor/tasks
-   ```
-   目录必须存在
-
-3. **检查 rate limiting**
-   ```bash
-   ls -la .arbor/.living-prd-last-update
-   ```
-   如果文件存在且时间 < 30 分钟，说明被 rate limit 阻止
-
-4. **查看日志**
-   ```bash
-   cat .arbor/artifacts/living-prd.log
-   ```
-
-### HTML 显示异常
-
-1. **检查浏览器编码**
-   - 确保浏览器使用 UTF-8 编码
-   - 中文应该正常显示
-
-2. **检查文件权限**
-   ```bash
-   ls -la .arbor/artifacts/living-prd.html
-   ```
-   确保文件可读
-
-## 技术细节
-
-### Hook 实现
-
-- **Python Hook**（`living_prd_trigger.py`）
-  - 检测触发条件
-  - 读取配置
-  - Rate limiting
-  - 启动后台脚本
-
-- **Bash 脚本**（`generate_living_prd.sh`）
-  - 读取 prd.md + git log + slices 状态
-  - 生成自包含 HTML
-  - 响应式设计
-
-### 并发控制
-
-- 使用 PID 文件（`.arbor/.living-prd-update.pid`）防止多个后台进程同时运行
-- 使用原子文件操作（touch）更新时间戳
-
-### 错误处理
-
-- Hook 失败不影响主 session（fail open）
-- 后台脚本失败记录到日志
-- 配置文件损坏使用默认值
-
-## 未来增强
-
-计划中的增强功能：
-
-1. **Artifact 发布**
-   - 自动发布为 Claude Code Artifact
-   - 可分享给团队成员
-
-2. **更丰富的可视化**
-   - Evidence 状态展示
-   - 依赖关系图
-   - 进度趋势图
-
-3. **智能触发**
-   - 基于变更重要性判断是否触发
-   - 批量更新合并
-
-## 反馈
-
-如有问题或建议，请在 GitHub Issues 中反馈。
+这些不是隐藏配置；如需扩展，应先修改 generator、hook contract 与测试。

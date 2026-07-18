@@ -27,13 +27,12 @@ description: "当用户要求 review/审计 seed-kit task，或说 use seed-kit 
 
 ## 何时 review
 
-- `seed done` 后 PostToolUse hook 软提醒。
-- 用户触发（"review 这个 slice"）。
-- impl 完成后兜底。
+- 用户主动触发（"review 这个 slice"）。
+- impl 全量模式在所有 slice done 后显式调用整体 review-loop；没有 PostToolUse review 提醒或全局 Stop hook。
 
 ## 产出
 
-结论**追加**到 `.arbor/tasks/<task>/review.md`（不覆盖历史）：逐条验收条目兑现情况 / 覆盖缺口 + 结论（通过 | 通过但有备注 | 需要返工）+ 返工清单。每条 PRD 验收若指向文件、命令输出或产物值，先检查对应真实产物，再在 review 中写明可复制的 `expected` / `actual` 原文；发现不匹配时尤其不能只给解释、结论或转码证据。
+结论**追加**到 `.arbor/tasks/<task>/review.md`（不覆盖历史）：逐条验收条目兑现情况 / 覆盖缺口 + 结论（通过 | 通过但有备注 | 需要返工）+ 返工清单。写 review 前必须成功读取该 task 的 PRD，以及每个要引用为 `actual` 的真实产物或命令结果；取证失败时标明 unavailable 并停止猜测，不得编造文件、测试、`expected` / `actual`。每条 PRD 验收若指向文件、命令输出或产物值，先检查对应真实产物，再在 review 中写明可复制的 `expected` / `actual` 原文；发现不匹配时尤其不能只给解释、结论或转码证据。
 
 **收尾写 wiki**：本轮验证过的 knowledge 落 `.arbor/.wiki/`——新发现的陷阱→`gotcha/`，验证过的跨文件链路→`cross_cut/`，被推翻或修正的旧决策在原页标 superseded、新建 correction 页。写完后 `seed wiki index --write` 刷新索引。
 

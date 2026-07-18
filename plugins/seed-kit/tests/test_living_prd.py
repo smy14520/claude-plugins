@@ -1,8 +1,4 @@
-"""generate_living_prd 的单元测试：config + 非 seed-kit 项目跳过。
-
-living_prd_trigger.py 已移除——改用 hook 原生 async 直接调 generate_living_prd.py，
-测试对象从 trigger 迁移到 generate。
-"""
+"""generate_living_prd 的单元测试：opt-in、跳过条件与真实 HTML 生成。"""
 from __future__ import annotations
 
 import importlib.util
@@ -47,13 +43,41 @@ def test_opt_in_default_off(tmp_path: Path):
 
 
 def test_opt_in_enabled_generates(tmp_path: Path):
-    """config enabled:true → 触发生成（无 prd.md 时 generate 会早退，但不因 enabled 阻断）。"""
-    (tmp_path / ".arbor" / "tasks" / "demo").mkdir(parents=True)
+    """config enabled:true + 有效 PRD → 生成固定位置的 HTML。"""
+    task_dir = tmp_path / ".arbor" / "tasks" / "demo"
+    task_dir.mkdir(parents=True)
+    (task_dir / "prd.md").write_text(
+        """# Demo Product
+
+## Goal
+
+验证 Living PRD 的真实生成路径。
+
+## Acceptance Criteria
+
+### [ ] S-001 Render status
+
+* [ ] 显示当前 slice。
+
+## Out of Scope
+
+* 不测试浏览器展示。
+""",
+        encoding="utf-8",
+    )
     (tmp_path / ".arbor" / "config.json").write_text(
         json.dumps({"living_prd": {"enabled": True}}), encoding="utf-8"
     )
+
     r = run_generate(tmp_path)
-    assert r.returncode == 0  # enabled 通过；无 prd.md 则 find_task 返回 None 早退，不报错
+
+    assert r.returncode == 0
+    output = tmp_path / ".arbor" / "artifacts" / "living-prd.html"
+    assert output.is_file()
+    rendered = output.read_text(encoding="utf-8")
+    assert "Demo Product" in rendered
+    assert "demo" in rendered
+    assert "S-001" in rendered
 
 
 def test_config_disabled_skips(tmp_path: Path):
@@ -67,22 +91,45 @@ def test_config_disabled_skips(tmp_path: Path):
     assert not (tmp_path / ".arbor" / "artifacts" / "living-prd.html").exists()
 
 
+def test_invalid_config_shapes_skip(tmp_path: Path):
+    """合法 JSON 但 schema 错误或 enabled 非 true → 安全跳过。"""
+    invalid_configs = [
+        [],
+        {"living_prd": []},
+        {"living_prd": {"enabled": "true"}},
+        {"living_prd": {"enabled": 1}},
+    ]
+    for index, config in enumerate(invalid_configs):
+        root = tmp_path / str(index)
+        task_dir = root / ".arbor" / "tasks" / "demo"
+        task_dir.mkdir(parents=True)
+        (task_dir / "prd.md").write_text(
+            "# Demo\n\n## Acceptance Criteria\n\n### [ ] S-001 Demo\n",
+            encoding="utf-8",
+        )
+        (root / ".arbor" / "config.json").write_text(json.dumps(config), encoding="utf-8")
+
+        r = run_generate(root)
+
+        assert r.returncode == 0
+        assert not (root / ".arbor" / "artifacts" / "living-prd.html").exists()
+
+
 def test_load_config_missing(tmp_path: Path):
-    """无 config.json → 返回空（默认 enabled=true）。"""
+    """无 config.json → 返回空，由调用方按默认关闭处理。"""
     gen = _load_gen()
     assert gen._load_config(tmp_path) == {}
 
 
 def test_load_config_enabled(tmp_path: Path):
-    """正常 config → 返回 dict。"""
+    """正常 config → 返回 enabled 配置。"""
     gen = _load_gen()
     (tmp_path / ".arbor").mkdir()
     (tmp_path / ".arbor" / "config.json").write_text(
-        json.dumps({"living_prd": {"enabled": True, "rate_limit_minutes": 10}}), encoding="utf-8"
+        json.dumps({"living_prd": {"enabled": True}}), encoding="utf-8"
     )
     cfg = gen._load_config(tmp_path)
-    assert cfg["living_prd"]["enabled"] is True
-    assert cfg["living_prd"]["rate_limit_minutes"] == 10
+    assert cfg == {"living_prd": {"enabled": True}}
 
 
 def test_load_config_malformed(tmp_path: Path):

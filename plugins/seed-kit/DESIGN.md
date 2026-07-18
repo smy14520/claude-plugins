@@ -50,10 +50,11 @@ seed-kit 是上一代工作流的轻量继任者：取其精华（PRD source of 
 ```
 .arbor/
 ├── tasks/<task>/
-│   ├── prd.md        # 唯一状态：slice 内联（### [ ] S-NNN heading + prose）
-│   ├── review.md     # review 追加记录
-│   ├── done-logs/    # seed done 日志
-│   └── notes/        # impl 过程备注（可选）
+│   ├── prd.md           # 进度 source of truth：slice 内联（### [ ] S-NNN heading + prose）
+│   ├── review.md        # review 追加记录
+│   ├── done-logs/       # seed done 机械验证记录
+│   ├── review-loop.json # 显式 task 级 review-loop 终态（可选）
+│   └── notes/           # impl 过程备注（可选）
 └── research/<topic>/
 ```
 

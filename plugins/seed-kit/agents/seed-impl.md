@@ -61,4 +61,5 @@ description: 实现整个 task 的全部 slice。读 PRD+slice+项目标准→US
 - 不自裁（impl 不评自己的代码好坏）
 - 不伪造（所有测试和质量命令真实执行）
 - 不调用 `seed done`，不修改 PRD checkbox；durable gate 只由主会话 skill 执行
+- 不创建或切换分支，不执行 `git commit`；分支和提交由用户决定
 - 验收条目必须兑现——用你的判断力逼近 PRD 中描述的方向

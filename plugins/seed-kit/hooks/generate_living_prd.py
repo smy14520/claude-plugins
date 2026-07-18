@@ -180,7 +180,8 @@ def _load_config(root: Path) -> dict:
     if not p.exists():
         return {}
     try:
-        return json.loads(p.read_text(encoding="utf-8"))
+        data = json.loads(p.read_text(encoding="utf-8"))
+        return data if isinstance(data, dict) else {}
     except (json.JSONDecodeError, OSError):
         return {}
 
@@ -189,7 +190,8 @@ def main() -> int:
     root = _project_root()
     if not (root / ".arbor" / "tasks").is_dir():
         return 0
-    if not _load_config(root).get("living_prd", {}).get("enabled", False):
+    living_prd = _load_config(root).get("living_prd")
+    if not isinstance(living_prd, dict) or living_prd.get("enabled") is not True:
         return 0
     found = _find_task(root)
     if not found:

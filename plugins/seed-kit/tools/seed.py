@@ -1,7 +1,8 @@
 #!/usr/bin/env python3
 """seed — seed-kit 的最小 PRD checkbox 状态 helper。
 
-状态模型：`.arbor/tasks/<task>/prd.md` 是唯一持久状态。无 task.json，无状态机。
+进度模型：`.arbor/tasks/<task>/prd.md` 的 checkbox 是进度 source of truth。无 task.json，无阶段状态机。
+`done-logs/` 记录机械验证，`review-loop.json` 记录显式循环终态；两者不是第二套进度状态。
 Slice 内联在 PRD 中：`### [ ] S-NNN 标题` heading，checkbox + 内容在一起。
 heading 下面的 prose（到下一个 `###` 或 `##` 为止）是 slice 内容。
 
@@ -478,7 +479,7 @@ def cmd_score_aggregate(root: Path, rubric_path: str, score_files: list[str], ou
 def build_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(
         prog="seed",
-        description="seed-kit helper：prd.md 是唯一状态；done 跑项目测试+质量命令，全过翻 checkbox。",
+        description="seed-kit helper：prd.md checkbox 记进度；done 跑项目测试+质量命令，全过翻 checkbox并写验证记录。",
     )
     parser.add_argument("--root", default=".", help="项目根目录（含 .arbor/）")
     sub = parser.add_subparsers(dest="command", required=True)
@@ -496,7 +497,7 @@ def build_parser() -> argparse.ArgumentParser:
     done_parser.add_argument("--test", dest="test_cmd", default="", help="测试命令（如 'npm test'）")
     done_parser.add_argument("--quality", dest="quality_cmds", action="append", default=[], help="质量命令，可重复多次")
 
-    rm_parser = sub.add_parser("review-mark", help="落整体 review-loop 终态 marker（task 级，Stop hook 查）")
+    rm_parser = sub.add_parser("review-mark", help="落显式 task 级 review-loop 终态 marker")
     rm_parser.add_argument("task")
     rm_parser.add_argument("--verdict", required=True)
     rm_parser.add_argument("--round", dest="round_num", type=int, default=None)

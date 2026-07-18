@@ -24,6 +24,7 @@ HEADING_RE = re.compile(r"^(#{1,6})\s+(.+?)\s*$")
 SYMBOL_RE = re.compile(r"`([A-Za-z_][A-Za-z0-9_:.#/-]*)`")
 REQUIRED_FRONTMATTER = {"title", "description", "type"}
 VALID_PAGE_TYPES = {"entity", "concept", "gotcha", "decision", "source", "module", "cross_cut"}
+GENERATED_WIKI_FILES = {"index.md", "log.md"}
 # 符号锚：`lib/core/Axios.js#_request` — 存符号不存行号，显示时 resolve
 CODE_ANCHOR_RE = re.compile(r"`?([\w./-]+\.\w+)#([\w.#-]+)`?")
 # 旧式行号引用（lint 降级警告用）
@@ -40,6 +41,10 @@ def wiki_root_path(root: Path, wiki_root: str | None = None) -> Path:
     if path.is_absolute():
         return path
     return root / path
+
+
+def _is_generated_wiki_file(path: Path, directory: Path) -> bool:
+    return path.parent == directory and path.name in GENERATED_WIKI_FILES
 
 
 def _parse_frontmatter(text: str) -> tuple[dict[str, Any], str]:
@@ -265,7 +270,11 @@ def wiki_index(root: Path, wiki_root: str | None = None, tag: str | None = None,
     directory = wiki_root_path(root, wiki_root)
     if not directory.exists():
         return {"wiki_root": str(directory.relative_to(root)) if directory.is_relative_to(root) else str(directory), "pages": []}
-    pages = [_page_entry(root, path, include_content) for path in sorted(directory.rglob("*.md")) if path.is_file() and path.name not in ("index.md", "log.md")]
+    pages = [
+        _page_entry(root, path, include_content)
+        for path in sorted(directory.rglob("*.md"))
+        if path.is_file() and not _is_generated_wiki_file(path, directory)
+    ]
     by_title = {page["title"]: page for page in pages}
     by_stem = {Path(page["path"]).stem: page for page in pages}
     for page in pages:
@@ -317,7 +326,7 @@ def wiki_lint(root: Path, wiki_root: str | None = None) -> dict[str, Any]:
     by_stem: dict[str, list[dict[str, Any]]] = {}
     module_packages: dict[str, list[dict[str, Any]]] = {}
     for path in sorted(directory.rglob("*.md")):
-        if not path.is_file():
+        if not path.is_file() or _is_generated_wiki_file(path, directory):
             continue
         text = path.read_text(encoding="utf-8")
         meta, body = _parse_frontmatter(text)
@@ -369,7 +378,7 @@ def wiki_lint(root: Path, wiki_root: str | None = None) -> dict[str, Any]:
         if len(items) > 1:
             errors.append(_lint_issue("duplicate_title", items[0]["path"], f"wiki 标题重复：{title}", title=title, paths=[item["path"] for item in items]))
     for stem, items in sorted(by_stem.items()):
-        if len(items) > 1 and stem != "index":
+        if len(items) > 1:
             errors.append(_lint_issue("duplicate_stem", items[0]["path"], f"wiki 文件 stem 重复：{stem}", stem=stem, paths=[item["path"] for item in items]))
     for package, items in sorted(module_packages.items()):
         if len(items) > 1:
@@ -386,7 +395,7 @@ def wiki_lint(root: Path, wiki_root: str | None = None) -> dict[str, Any]:
             if target is not None:
                 linked_paths.add(target["path"])
     for page in pages:
-        if page["path"] not in linked_paths and page["links"] == [] and Path(page["path"]).name != "index.md":
+        if page["path"] not in linked_paths and page["links"] == []:
             warnings.append(_lint_issue("orphan_page", page["path"], "页面没有 wikilink 也没有 backlink"))
 
     return {

@@ -8,6 +8,7 @@
 // - args 在当前 runtime 被 stringify 注入 → 开头 JSON.parse 还原（别用默认值验证 args）。
 // - return 精简（只 claim 级 + 截断 evidence）→ 防 structuredClone 崩。
 // - agentType 指向插件 agent（seed-kit:seed-*）→ 角色硬分离、生成者≠验证者。
+// - 项目根固定为 Workflow 启动时的 cwd（`.`）→ 不猜 HOME/workdir 等并不存在的路径。
 //
 // 控制流（每轮做满）：
 //   ① 客观锚：重放 done-log 或项目/PRD 显式声明的测试+质量命令（lint/typecheck/build），不绿→impl 修
@@ -30,7 +31,7 @@ export const meta = {
 const A = typeof args === 'string' ? JSON.parse(args) : (args || {})
 const TASK = A.task                    // 必填：任务目录名
 const SLICE = A.slice || null          // 可选：单 slice id（如 S-005）；null = 审整个任务
-const REPO = A.repo || '.'             // 项目根（默认 cwd）
+const REPO = '.'                       // Workflow 与 agents 共享启动 cwd；不接受猜测出的绝对路径
 const MAX_ROUNDS = A.max_rounds || 3   // 熔断兜底
 
 // —— schema ——

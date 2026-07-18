@@ -28,4 +28,14 @@
 - 插件不内置技术栈特定的测试方法清单——测试工具由项目配置声明
 - 体验质量走 review loop，不用 scoring gate 卡 done
 - skill 由用户主动触发，不自动流转
-- agent 不自动 commit——改动落 evidence/状态，提交由用户决定
+- agent 不自动 commit——PRD checkbox 记进度，done-log 记机械验证，review-loop marker 记显式终态；提交由用户决定
+
+## 行为评估（seed-kit-evals）
+
+测本插件是否真正塑造 Coding-Agent 行为时，用独立仓库 **seed-kit-evals**，不要在本目录里发明第二套 benchmark 流程。
+
+- 操作手册：[`EVALS.md`](EVALS.md)（必读：怎么 `run` / `run-all` / baseline / score / evolve --repair）
+- 旧历史：[`EVAL_HANDOFF.md`](EVAL_HANDOFF.md)（2026-06 快照，不是现行手册）
+- 默认路径：`/Users/camellia/Personal/Code/claude/seed-kit-evals`
+- 跑评测务必 `--plugin-dir` 指向本目录；语义场景需要 `GAUNTLET_ROOT`
+- 失败先归因（机制缺口 / 场景误标 / harness / 项目标准 / 模型方差），再决定改插件还是改场景

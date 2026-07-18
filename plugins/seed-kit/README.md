@@ -1,8 +1,24 @@
 # seed-kit
 
-轻量 PRD-first 工作流。五个 skill 全部由用户主动触发、互不自动耦合；状态就是 `prd.md` 的 slice checkbox，没有状态机、没有 task.json。
+轻量 PRD-first 工作流。五个 skill 全部由用户主动触发、互不自动耦合；进度状态以 `prd.md` 的 slice checkbox 为准，没有 task.json 或阶段状态机。
 
 设计动机与取舍见 [`DESIGN.md`](DESIGN.md)。
+
+## 评估（seed-kit-evals）
+
+本插件的行为回归与自进化实验室在独立仓库 **seed-kit-evals**（不是本目录内的 pytest）。
+
+- **现行操作手册（给 AI / 人类）** → [`EVALS.md`](EVALS.md)
+- 旧 harness 历史快照（勿当操作手册）→ [`EVAL_HANDOFF.md`](EVAL_HANDOFF.md)
+- 默认路径：`/Users/camellia/Personal/Code/claude/seed-kit-evals`
+- 跑评测时通过 `--plugin-dir` 加载本目录；语义场景另需 `GAUNTLET_ROOT`
+
+```bash
+export PATH="$HOME/.bun/bin:$PATH"
+cd /Users/camellia/Personal/Code/claude/seed-kit-evals
+bun run src/cli/index.ts run-all --tier sentinel --agents claude --providers ali-qwen \
+  --plugin-dir /Users/camellia/Personal/Code/claude/claude-plugins/plugins/seed-kit
+```
 
 ## 五个 skill
 
@@ -20,13 +36,14 @@ skill 之间没有自动流转：brainstorm 不主动搜索 research，impl 不�
 
 ```
 .arbor/tasks/<task>/
-├── prd.md        # 唯一状态：slice 内联（### [ ] S-NNN heading + prose）
-├── review.md     # review 追加记录
-├── done-logs/    # seed done 日志
-└── notes/        # impl 过程备注（可选）
+├── prd.md           # 进度 source of truth：slice 内联（### [ ] S-NNN heading + prose）
+├── review.md        # review 追加记录
+├── done-logs/       # seed done 机械验证记录
+├── review-loop.json # 显式 task 级 review-loop 终态（可选）
+└── notes/           # impl 过程备注（可选）
 ```
 
-单一归属：PRD 是唯一文件，slice 内联在 `### [ ] S-NNN` heading 下。断点续作 = `seed status <task>` + git log。代码就是进度。
+单一进度归属：PRD checkbox 表示 slice 进度；`done-logs/` 与 `review-loop.json` 分别记录机械验证和显式循环终态，不构成第二套阶段状态。断点续作 = `seed status <task>` + git log。
 
 ## seed CLI（核心 3 个命令 + wiki 家族）
 

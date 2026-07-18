@@ -1,7 +1,12 @@
 # seed-kit 评估与栈无关化改进 — 工作交接
 
-> 给接手者（人或 AI）：我们在做什么、怎么做、想什么、走到哪。读完应能接手跑评估、改 seed-kit，且不重蹈覆辙。
-> 最后更新：2026-06-28
+> **历史快照（截至 2026-06-28）**：本文保留当时 benchmark、机制与演化背景，不是当前操作手册。独立 slice/evidence、`seed run-check`、AC/obligation gate 与 Stop hook 等描述均属于当时版本；现行事实以 `README.md`、`DESIGN.md`、`skills/`、`tools/` 和 `hooks/hooks.json` 为准。
+>
+> **现行评估操作手册**（seed-kit-evals 怎么跑 / 怎么回归 / 怎么 evolve）→ [`EVALS.md`](EVALS.md)。
+> 当前评估 harness 已迁到 `/Users/camellia/Personal/Code/claude/seed-kit-evals`；文中 `claude-plugin-auto-evolution` 仅为历史路径。
+>
+> 给接手者（人或 AI）：我们当时在做什么、怎么做、想什么、走到哪。读完应能理解这段评估历史，且不重蹈覆辙。
+> 最后更新：2026-06-28（入口指针更新：2026-07-11）
 
 ---
 
@@ -35,24 +40,24 @@ node src/drive.mjs <benchmark> <harness> <provider>
 # 例: node src/drive.mjs react-todo seed-kit ali-qwen
 ```
 
-**drive 是多轮自动驱动**（全程无人提问）：
+**当时的 drive 是多轮自动驱动**（全程无人提问）：
 1. spawn session（cwd=runDir）→ sanity（pwd + 验 seed 可用）
-2. **brainstorm 循环**：发 `brainstorm(bm)` prompt → CCA 写 PRD（`.arbor/tasks/<task>/prd.md` + `slices/S-NNN.md`）→ `readState` 看到 slice 就 break
+2. **brainstorm 循环**：发 `brainstorm(bm)` prompt → CCA 写当时格式的 PRD（`.arbor/tasks/<task>/prd.md` + `slices/S-NNN.md`）→ `readState` 看到 slice 就 break
 3. **impl 循环**（最多 15 turn）：turn 0 发 `impl(bm)`，之后每轮 `readState` → `nudge`（基于状态发下一句）→ 直到 `done` 或 `escalated`
-4. 产出 `runs/<bm>-<h>-<stamp>/`：`summary.json`（结果）、`drive.log`（每轮状态）、`dialogue.md`（精简）、`trace.md`（完整工具流，审 review-loop 真假看这）、`.arbor/tasks/<task>/`（prd/slices/evidence）、源码
+4. 当时产出 `runs/<bm>-<h>-<stamp>/`：`summary.json`（结果）、`drive.log`（每轮状态）、`dialogue.md`（精简）、`trace.md`（完整工具流，审 review-loop 真假看这）、`.arbor/tasks/<task>/`（prd/slices/evidence）、源码
 
-**关键**：CCA 真实执行——跑 `seed run-check`/`npm test`/`npm run build`/playwright 截图、用 Workflow 工具启动 review-loop（async 多 agent）、TaskOutput 取结果、`seed review-mark` 落 marker。Stop hook（`hooks/review_on_complete.py`）在所有 slice done 时强制 task 级 review-loop marker。
+**当时的关键链路**：CCA 会跑 `seed run-check`/`npm test`/`npm run build`/playwright 截图，用 Workflow 工具启动 review-loop、TaskOutput 取结果、`seed review-mark` 落 marker；当时注册的 Stop hook（`hooks/review_on_complete.py`）会在所有 slice done 时强制 task 级 review-loop marker。上述 `run-check`、独立 slices/evidence 与 Stop hook 后来均已移除。
 
 ---
 
-## 3. seed-kit 的机制
+## 3. 当时 seed-kit 的机制
 
 - **5 skill**：research / brainstorm / impl / review / wiki
-- **AC 驱动**：每个 slice 的 `## 验收`（`AC-N`，可证伪 Given/When/Then 含失败路径）+ `## 验证`（`[kind] <obligation-id> (AC-N): <可观测行为>`）
+- **当时的 AC 驱动格式**：每个独立 slice 文件含 `## 验收` 与绑定 obligation 的 `## 验证`
 - **三类 kind**：`assert`（机械断言，exit 0 才过）/ `judge`（独立裁判主观产物）/ `human`（真人签收）
-- **gate 守对错，loop 守好坏**：`seed done` = assert 全绿 + AC 覆盖校验（每 AC 有 obligation 绑它）；体验质量走 review-loop 迭代收敛，不做 scoring gate 卡 done
-- **review-loop**（`templates/review-loop.template.js`）：async Workflow 多 agent——`seed-review`（审代码）/ `seed-judge`（审产物）/ `seed-validator`（批量证伪 finding）/ `seed-assert`（客观锚）/ `seed-impl`（修 blocking），loop 到 `converged`（无 survived blocking）或熔断
-- **seed CLI**（`tools/seed.py`）：`new/status/run-check/done/review-mark/score`，机械 gate + AC 覆盖校验 + 烟雾命令硬阻断（裸 curl/echo 拒绝落盘）
+- **当时的 gate**：`seed done` 要求 assert 全绿并做 AC/obligation 覆盖校验；体验质量走 review-loop
+- **review-loop**：以多 agent 审代码、审产物、批量证伪 finding、重放客观锚并修复 blocking，直到收敛或熔断
+- **当时的 seed CLI**：包含后来移除的 `run-check`，并围绕独立 slices/evidence 做机械 gate
 
 ---
 
@@ -134,4 +139,4 @@ workflow 全面排查（7 agent 读全部 prompt）：**seed-kit 的 helper 代�
 - 默认中文，代码/命令/路径/JSON 保持原样
 - **少即是多**：规则写成方向不是补丁清单；给模型留判断空间
 - 改 seed-kit 前必读 `.claude/rules/`（workflow-design.md + prompt-design.md）——那里是判断"该不该改、怎么改"的依据
-- **agent 不自动 commit**；改动落 evidence/状态，不替用户决定
+- **agent 不自动 commit**；现行机制由 PRD checkbox 记进度、done-log 记机械验证、review-loop marker 记显式终态，提交由用户决定

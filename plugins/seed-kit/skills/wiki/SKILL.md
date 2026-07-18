@@ -32,23 +32,22 @@ frontmatter 必填：
 - `title` — 页面标题
 - `description` — 何时该读此页（写场景不写主题，让 agent 能自然命中）
 - `type` — 封闭集：`entity` / `concept` / `gotcha` / `decision` / `source` / `module` / `cross_cut`
-- `area` — 自由轴，按项目领域自然划分
-- `confidence` — `high`（代码实锤）/ `medium`（推断）/ `low`（不确定）
-- `last_updated` — 最后更新日期（YYYY-MM-DD）
+
+可选增强：`area`（项目领域自由轴）、`summary`（精简摘要）、`tags`（检索标签）。`module` 页推荐再写 `package` 与 `source_checkpoint`，缺失时 lint 只 warning。
 
 页面里指向代码用 `文件路径#符号名`（符号锚：存符号不存行号，显示时 `seed wiki index --resolve` 实时转行号，`seed wiki lint` 验证符号是否存在）。避免旧式 `文件:行号`——会随代码漂移失效。互相引用用 `[[../gotcha/页面名]]`（跨目录的相对 wikilink）。
 
 ## 操作
 
 - **收录（ingest）**：用户指明来源（research 资料、对话结论、某次排坑过程）→ 每发现一个独立知识点写一页。链路类页面按"入口 → 要改的每一处 → 注意什么"组织，写明当下的代码位置。
-  **涟漪更新**：写完新页后，扫描已有页面——找到主题相关的页，在相关页里补 `[[新页面]]` 引用。如果新发现和已有页面矛盾，在旧页标注 `confidence: low` 并注明冲突，不直接覆盖。
+  **涟漪更新**：写完新页后，扫描已有页面——找到主题相关的页，在相关页里补 `[[新页面]]` 引用。如果新发现和已有页面矛盾，记录冲突、依据与修正关系，不静默覆盖旧结论。
   全部收录完跑 `seed wiki index --write`——生成 `index.md`（按 type 分组索引）和 `log.md`（变更日志）。
 
 - **更新（update）**：对照当前代码逐条核对页面引用，修正失效的符号锚（`seed wiki lint` 会标出文件不存在/符号找不到的锚点）；代码已变而页面没变是 wiki 最大的失效模式。更新后跑 `seed wiki index --write` 刷新索引和日志。
 
 - **查询**：先看 `index.md` 扫类型→挑相关页；看 `log.md` 了解最近变更。精确检索用 `seed wiki search "<query>"` / `seed wiki collect --query "<query>" --limit 5 --json`。
 
-- **体检**：`seed wiki lint --json`——断链、缺 frontmatter、孤儿页、行号 locator 漂移、低置信度页面过期提醒。
+- **体检**：`seed wiki lint --json`——断链、缺 frontmatter、孤儿页、行号 locator 与符号锚漂移。
 
 ## 边界
 
