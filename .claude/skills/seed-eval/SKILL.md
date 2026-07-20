@@ -13,6 +13,31 @@ description: "为任意一次插件技能更新，因地制宜设计评估（des
 
 ---
 
+## 建立一道测试用例（完整流程）
+
+> 「用 seed-eval 建测试用例」走这条流程。操作细节在 seed-kit 插件目录的 **EVALS.md**（本机 `/Users/camellia/Personal/Code/claude/claude-plugins/plugins/seed-kit/EVALS.md`）；下面是骨架，按类型选分支，不要凭记忆猜用法、不要重新摸索。
+
+**通用骨架**：判断类型 → 写 scenario 三件套（story/setup/checks）→ `check`+`check-red` 校验 → 按类型跑 → 看结果。
+
+| 要测什么 | 类型 | driver | 出题读 EVALS.md | 跑法 |
+|---|---|---|---|---|
+| CLI/hook/文件态机制 | mechanism | headless | §4（checks 盯产物/退出码） | §5.1 / §5.2 |
+| 工作流接线对不对 | sentinel | gauntlet | §4.6（可点名 skill，checks 断言 skill 调用） | §5.1 |
+| 工作流行为质量 | semantic | gauntlet | §4 + §4.6 | §5.1 / §5.2 |
+| 有/无某能力是否更好 | value_ab | gauntlet | §6（两臂 + control pack + outcome + rubric） | §5.3 experiment |
+| 改 skill 后有无进步 | value_ab + candidate 臂 | gauntlet | §6（冻结变量只换 plugin+label） | §5.3 |
+
+**通用不变式**：始终 `--plugin-dir` 指向 seed-kit；语义场景设 `GAUNTLET_ROOT`；改 skill 时 cwd=插件目录、跑评测时 cwd=seed-kit-evals；先 `check`/`check-red` 再跑。价值/outcome 场景：User Task 中性不点名 skill、planted gaps 藏 author-only 段、checks 不把 skill 调用当 pass、顶部 `# red-fixture: skip`。
+
+**选题维度（别默认只挑基建类）**：
+- **基建类**（工具库/中间件/协议：配置、队列、认证、限流…）→ 模糊需求漏**技术边界**（并发/突发/协议字段/失败语义）。
+- **业务类**（领域逻辑/业务流程：订单、审批、计费、排期、工单、库存…）→ 模糊需求漏**业务规则歧义、状态机分支、角色权限、异常流程、跨实体一致性**。
+- 同一 value_axis 尽量两类搭配，别清一色基建。**具体项目按维度自选，本表不指定项目。**
+
+下面的 design（产出 Spec）与 lab（执行）是本流程"出题之后"的细化阶段。
+
+---
+
 ## design 阶段
 
 目标：产出一份可评审的 Experiment Spec 草案。**人不确认不落盘、不跑模型**。

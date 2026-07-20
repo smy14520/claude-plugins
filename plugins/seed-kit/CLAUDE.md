@@ -34,8 +34,9 @@
 
 测本插件是否真正塑造 Coding-Agent 行为时，用独立仓库 **seed-kit-evals**，不要在本目录里发明第二套 benchmark 流程。
 
-- 操作手册：[`EVALS.md`](EVALS.md)（必读：怎么 `run` / `run-all` / baseline / score / evolve --repair）
-- 旧历史：[`EVAL_HANDOFF.md`](EVAL_HANDOFF.md)（2026-06 快照，不是现行手册）
-- 默认路径：`/Users/camellia/Personal/Code/claude/seed-kit-evals`
+**每次要出题、跑测试用例、做"有/无 seed-kit"对照之前，先读 [`EVALS.md`](EVALS.md)**——它是完整操作手册（场景三件套 + checks DSL + experiment 价值对照 + Gauntlet 真实交互 + 判分三层 + 命令速查），照着就能做，不要凭记忆猜用法。
+
+- 默认路径：`/Users/camellia/Personal/Code/claude/seed-kit-evals`；改 skill 时 cwd=本目录，跑评测时 cwd=evals
 - 跑评测务必 `--plugin-dir` 指向本目录；语义场景需要 `GAUNTLET_ROOT`
 - 失败先归因（机制缺口 / 场景误标 / harness / 项目标准 / 模型方差），再决定改插件还是改场景
+- 旧历史 [`EVAL_HANDOFF.md`](EVAL_HANDOFF.md) 是 2026-06 快照，不是现行手册
