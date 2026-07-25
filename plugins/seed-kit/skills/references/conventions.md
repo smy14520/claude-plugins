@@ -6,9 +6,9 @@
 
 - **不确定时查证，别假设**：动手前查权威依据（文档、既有约定、代码现状、官方源），下结论前验证（跑命令、看输出）。别用记忆、习惯或单次结果代替证据。
 - 五个 skill（research、brainstorm、impl、review、wiki）全部由用户主动触发，互不自动切换阶段——skill 之间不自动推进。
-- `.arbor/.wiki/` 是项目记忆层：brainstorm、impl、review 入场时自然加载 `seed wiki index --json` 暖场，访谈/实现/对账中按需读相关页，收尾时按阶段职责写回（brainstorm 写 decision/module，review 写 gotcha/cross_cut），写回后 `seed wiki index --write` 刷新索引。不主动搜 research，不自动推进下一阶段，除非用户明确指定。
+- `.arbor/.wiki/` 是项目记忆层：`seed wiki index --json` 看地图（有哪些页），`seed wiki collect --query "<概念>"` 按需精准拉取相关页——给地图，按需放大，不全量倾倒。收尾时按阶段职责写回（brainstorm 写 decision/module，review 写 gotcha/cross_cut），写回后 `seed wiki index --write` 刷新索引。
 - `prd.md` 是需求 source of truth：slice 内联在 PRD 中（`### [ ] S-NNN 标题` heading，checkbox + prose 在一起）。进度状态 = checkbox；git log 是代码进度。没有其他状态文件。
-- agent 不自动 commit；在合适的节点提示用户 commit。
+- 分支与提交属于用户；agent 在合适的节点提示 commit。
 - **标准分层（机制在插件，标准在项目）**：插件只给栈无关机制（三类验证手段、验收条目、gate、review-loop、`seed` CLI）。项目标准自管，分三处：
   - **测试纪律**（测试工具、覆盖门槛、DoD）放 `.claude/rules/`。
   - **品味、设计语言**（参考产品、配色字体、质量门槛）放 `DESIGN.md`。

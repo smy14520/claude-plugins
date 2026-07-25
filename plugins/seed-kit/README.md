@@ -4,21 +4,21 @@
 
 设计动机与取舍见 [`DESIGN.md`](DESIGN.md)。
 
-## 评估（seed-kit-evals）
+## 评估（seed-kit-evals-v2）
 
-本插件的行为回归与自进化实验室在独立仓库 **seed-kit-evals**（不是本目录内的 pytest）。
+本插件的行为回归与效果对比实验室在独立仓库 **seed-kit-evals-v2**（不是本目录内的 pytest）。
 
-- **现行操作手册（给 AI / 人类）** → [`EVALS.md`](EVALS.md)
-- 旧 harness 历史快照（勿当操作手册）→ [`EVAL_HANDOFF.md`](EVAL_HANDOFF.md)
-- 默认路径：`/Users/camellia/Personal/Code/claude/seed-kit-evals`
-- 跑评测时通过 `--plugin-dir` 加载本目录；语义场景另需 `GAUNTLET_ROOT`
+- **本目录使用说明(快速上手)** → [`EVALS.md`](EVALS.md)
+- **完整手册** → `/Users/camellia/Personal/Code/claude/seed-kit-evals-v2/EVALS.md`;活跃套件与理由 → 同仓库 `scenarios/MANIFEST.md`
+- 旧版实验室 `seed-kit-evals`（v1）与 [`EVALS_V1.md`](EVALS_V1.md) 为历史资料；新工作一律走 v2
 
 ```bash
-export PATH="$HOME/.bun/bin:$PATH"
-cd /Users/camellia/Personal/Code/claude/seed-kit-evals
-bun run src/cli/index.ts run-all --tier sentinel --agents claude --providers ali-qwen \
-  --plugin-dir /Users/camellia/Personal/Code/claude/claude-plugins/plugins/seed-kit
+# 一次配置 config/local.json 后，日常只需：
+/Users/camellia/Personal/Code/claude/seed-kit-evals-v2/bin/seed-evals doctor       # 环境自检
+/Users/camellia/Personal/Code/claude/seed-kit-evals-v2/bin/seed-evals sentinel     # 分钟级冒烟回归
+/Users/camellia/Personal/Code/claude/seed-kit-evals-v2/bin/seed-evals value <exp>  # 效果对比实验
 ```
+
 
 ## 五个 skill
 

@@ -13,13 +13,15 @@ description: 实现整个 task 的全部 slice。读 PRD+slice+项目标准→US
 ## 工作流（全量实现时）
 
 **1. 读输入**：
-- `prd.md`：`## Goal`（任务概述 + 方向描述）、`## Acceptance Criteria` 段中每个 `### S-NNN` 的 `* [ ]` 条目（要交付什么 + 测试覆盖），`## Out of Scope`（明确不做什么）
-- 项目根 `CLAUDE.md` / `DESIGN.md` / `.claude/rules/`（项目质量标准，有就全读，没有跳过）
+- `prd.md` 通读——它是合同：`## Goal`（任务概述 + 方向描述）、`## Acceptance Criteria` 段中每个 `### S-NNN` 的 `* [ ]` 条目（要交付什么 + 测试覆盖），`## Out of Scope`（边界）
+- 项目质量标准：`DESIGN.md` / `.claude/rules/` 存在则按需读（`CLAUDE.md` 已由 harness 自动加载）
 
 **2. 声明 USE/BUILD**：基座（脚手架、库、既有代码）用现成的，核心逻辑自己写。别手搓框架能生成的东西，也别拉个成品冒充交付。
 
+拿不准技术方案时，可以先起一次性探针（spike）验证可行性——探针产物不进交付，验证完丢弃，按验收正式实现。
+
 **3. 逐 slice 实现**（按 PRD 中 slice 顺序，一个 agent 做所有 slice——保持跨切片品质连贯）：
-- 读每个 `### S-NNN` 的 `* [ ]` 条目理解要交付什么
+- 读每个 `### S-NNN` 的 `* [ ]` 条目理解要交付什么；项目有 wiki 时先 `seed wiki collect --query "<slice 关键概念>"` 拉取相关 gotcha / cross_cut（前人踩过的坑）
 - 围绕条目中的验收描述写代码、补测试——每个条目对应一个测试用例
 - 用你的判断力逼近 PRD 中描述的方向，不额外加 spec 没要求的功能
 - 不弱化断言、不吞异常、不悄悄收窄 scope、不实现 spec 没要求的无关功能
@@ -56,10 +58,10 @@ description: 实现整个 task 的全部 slice。读 PRD+slice+项目标准→US
 - 修完必须跑测试验证 PASS_TO_PASS
 - 不自审——那是 seed-review/seed-validator 的事
 
-## 铁律
+## 职责边界（ownership）
 
-- 不自裁（impl 不评自己的代码好坏）
-- 不伪造（所有测试和质量命令真实执行）
-- 不调用 `seed done`，不修改 PRD checkbox；durable gate 只由主会话 skill 执行
-- 不创建或切换分支，不执行 `git commit`；分支和提交由用户决定
+- 评你产出好坏的是独立 review；你的职责是实现与如实报告
+- 所有测试和质量命令真实执行，结果（包括失败）如实进报告
+- durable gate（`seed done` 与 PRD checkbox）属于主会话 skill；你交付真实命令与结果供其重放
+- 分支与提交属于用户；你交付工作树内的改动与证据
 - 验收条目必须兑现——用你的判断力逼近 PRD 中描述的方向

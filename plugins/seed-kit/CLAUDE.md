@@ -30,13 +30,14 @@
 - skill 由用户主动触发，不自动流转
 - agent 不自动 commit——PRD checkbox 记进度，done-log 记机械验证，review-loop marker 记显式终态；提交由用户决定
 
-## 行为评估（seed-kit-evals）
+## 行为评估（seed-kit-evals-v2）
 
-测本插件是否真正塑造 Coding-Agent 行为时，用独立仓库 **seed-kit-evals**，不要在本目录里发明第二套 benchmark 流程。
+测本插件是否真正塑造 Coding-Agent 行为时，用独立仓库 **seed-kit-evals-v2**，不要在本目录里发明第二套 benchmark 流程。
 
-**每次要出题、跑测试用例、做"有/无 seed-kit"对照之前，先读 [`EVALS.md`](EVALS.md)**——它是完整操作手册（场景三件套 + checks DSL + experiment 价值对照 + Gauntlet 真实交互 + 判分三层 + 命令速查），照着就能做，不要凭记忆猜用法。
+**每次要出题、跑测试用例、做效果对比之前，先读本目录 [`EVALS.md`](EVALS.md)（快速上手）与 evals-v2 仓库的 `EVALS.md`（完整手册）**——场景合同以 `seed-evals check` 为准。
 
-- 默认路径：`/Users/camellia/Personal/Code/claude/seed-kit-evals`；改 skill 时 cwd=本目录，跑评测时 cwd=evals
-- 跑评测务必 `--plugin-dir` 指向本目录；语义场景需要 `GAUNTLET_ROOT`
-- 失败先归因（机制缺口 / 场景误标 / harness / 项目标准 / 模型方差），再决定改插件还是改场景
-- 旧历史 [`EVAL_HANDOFF.md`](EVAL_HANDOFF.md) 是 2026-06 快照，不是现行手册
+- 默认路径：`/Users/camellia/Personal/Code/claude/seed-kit-evals-v2`；改 skill 时 cwd=本目录，跑评测时用 `/Users/camellia/Personal/Code/claude/seed-kit-evals-v2/bin/seed-evals`（任意 cwd 可用）
+- 套件方向：全流程旅程 + 效果对比实验 + 极少量 infra 冒烟；不做每触发点微点覆盖，活跃资产见 `scenarios/MANIFEST.md`
+- 环境与默认值在 `config/local.json`；`seed-evals doctor` 自检，`sentinel` 日常回归，`value <exp>` 跑对比实验
+- 失败先归因（infra / 场景质量 / 插件行为 / harness），再决定改插件还是改场景；infra 类 indeterminate 会自动重试并入 `seed-evals stability` 统计
+- 旧版 v1 实验室与 [`EVALS_V1.md`](EVALS_V1.md) 是历史资料（2026-07-18 前）；改 prompt 前先翻 evals-v2 各实验的 CONCLUSION.md，别重复已被证伪的方向

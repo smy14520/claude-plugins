@@ -119,10 +119,9 @@ class SeedPromptContractTests(unittest.TestCase):
         agent = self.read_plugin_file("agents", "seed-impl.md")
         skill = self.read_plugin_file("skills", "impl", "SKILL.md")
 
-        self.assertIn("不创建或切换分支", agent)
-        self.assertIn("不执行 `git commit`", agent)
-        self.assertIn("分支和提交由用户决定", agent)
-        self.assertIn("agent 不自动 commit、不要创建/切换分支", skill)
+        # 正向 ownership 表述:边界语义不变,措辞不再用禁令
+        self.assertIn("分支与提交属于用户", agent)
+        self.assertIn("分支与提交属于用户", skill)
 
     def test_review_agents_read_prd_goal_and_ac(self):
         review = self.read_plugin_file("agents", "seed-review.md")
@@ -168,8 +167,8 @@ class SeedPromptContractTests(unittest.TestCase):
         agent = self.read_plugin_file("agents", "seed-impl.md")
 
         self.assertIn("主会话执行 durable gate", skill)
-        self.assertIn("不调用 `seed done`", agent)
-        self.assertIn("不修改 PRD checkbox", agent)
+        self.assertIn("属于主会话 skill", agent)
+        self.assertIn("PRD checkbox", agent)
         self.assertIn('"commands"', agent)
         self.assertNotIn("docs/PRD", skill)
 
