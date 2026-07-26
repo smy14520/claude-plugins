@@ -183,6 +183,28 @@
 - 2025-2026 的一手证据在"多 agent 编排 vs 单长会话"上收敛出清晰边界，且与 seed-kit 的价值实验（impl-agent +2pp/+645%）高度互证。三条主线：(1) 写路径拆分（per-slice/per-task 派生执行 agent）是全行业公认的低收益高成本区——Anthropic 明言 coding 缺乏可并行子任务、多 agent 耗 15x token；Cognition 2026 更新坚持"写保持单线程"；Anthropic 自己在 Opus 4.6 上删掉了 sprint 拆分构造。(2) 被生产验证存活的多 agent 模式几乎只剩两类：干净 context 的 review/评估 agent（Cognition 实测每 PR 抓 2 bug、58% 严重；且"不共享先前 context 反而表现最好"）和只读研究型 subagent——这正是 seed-kit review 家族的形态，是该加码的强模型杠杆。(3) 删脚手架有硬底线：即使旗舰模型，"compaction isn't sufficient"，未测就宣称完成、context rot 在 2026 模型上依然存在；外部状态锚（progress 文件/git/结构化 checkbox）+ 强制验证 gate 是不随模型变强贬值的真实不变量。对 seed-kit 的净结论：降级 impl-agent 的 per-slice 写者拆分与 per-slice review（贬值资产，METR 显示模型自主时长每 3-4 个月翻倍），保留并强化 prd.md SoT + done 硬 gate + hook 底线 + review 家族（永久资产），新增杠杆在于：review 派生时刻意做窄 context、把 gate 失败 trace 喂回模型 context、用 prd.md 剩余项做 recitation、以及用逐组件消融实验代替直觉来决定删留。
 - 2025-2026 年 coding agent 知识层实践已收敛出清晰共识：(1) 强模型时代 agentic search（grep+读代码）取代预建索引/百科式 wiki，Anthropic 明确"smarter models require less prescriptive engineering"；(2) 常驻上下文的知识有硬预算（CLAUDE.md <200 行），官方 /doctor 的删减判据可直接复用——"删代码可推导的（目录结构/架构综述/依赖清单），留坑、决策理由、偏离默认的约定"；(3) 避免死层的结构解法不是"强制流程消费 wiki"，而是把知识放进天然消费路径：小索引常驻 + 正文按需（Claude Code auto memory 的 MEMORY.md 架构）、每条知识带检索触发条件（Devin Knowledge）、或直接降级为 skills/rules/AGENTS.md 这类被 harness 原生加载的标准载体；(4) 跨会话 agent 自写记忆有实测收益（memory tool +39%，Rakuten 首轮错误 -97%），且模型判别力提升使自动维护越来越可靠——该加的杠杆是 agent 自维护、人可审计的记忆，而非人工策展 wiki；(5) 反面教训（Cline Memory Bank 膨胀、context rot 实证）证明每会话全量灌注知识层是负优化。对 seed-kit：wiki 作为独立 .arbor/.wiki 终点存储应降级或重构为"生成 CLAUDE.md/rules/skills 条目的工作台"，收录判据和体积预算机器化进 lint，知识捕获接到 review 收敛/熔断留痕等既有纠错时刻。
 
+## 第二轮调研:预塑形的文献证据与评估方法论(2026-07-26,未认证)
+
+p03 实验发现"预塑形"机制后,专项检索文献验证。结果既支撑也修正了我们的结论:
+
+### 塑形词有独立文献支撑,且可能随模型变强而升值
+
+- NestJS 实证(2026-01):constraint-driven prompt(显式质量约束)在安全维度 63.4→86.6,"LLM 把显式质量约束当作优化目标"——条款在生成期起作用,与 p03 取证一致。
+- 安全前缀实验(arXiv 2502.06039):一句 "security-aware developer" 塑形词,GPT-4o 漏洞 -56%、GPT-4o-mini -47%、**GPT-3.5 反而有害**——塑形词效果随模型代际增强。**修正原判据**:ETH"程序性 context 是纯税"只适用于步骤指令;质量方向类塑形词可能是随模型升值的资产。"信息增量 vs 能力补偿"判据需加第三类:**塑形词(质量方向的先验激活)**,清剪前单独评估。
+- PartialOrderEval:spec 内的 edge-case 描述与 I/O 规格是 prompt 细节增益的最大驱动——支持 B′(隐性期望进 AC)方向。
+- 平衡证据(CodePromptEval/Chalmers):现代模型上多数 prompt 技巧效果 ≤10pp 且有 correctness/quality 权衡——塑形词不是万能,量级有限。
+
+### Invisible Lottery:中性词也在塑形——对 p03 归因的诚实修正
+
+arXiv 2606.04057(46,535 组对照):prompt 中的微妙线索系统性操纵算法选择——**连设计为中性 placebo 的词(团队名/颜色)都平均产生 26pp 的实现策略漂移**,语义线索 67pp。含义两条:(1) p03 结论"轮询差异与实验变量无关(纯 N=1 方差)"**可能过强**——清剪本身也可能通过非语义通道 steering 了编排行为;批次 2 trials=2 的预注册检验:若 treatment 跨 trial 稳定不轮询而 control 稳定轮询,则是 steering 而非方差,归因需改写。(2) 唯一可靠缓解是显式规格(实测 100% 合规)——支持派发方式显式化(A)与探针/AC 显式化(P0-1)。
+
+### 评估方法论:我们的检测力边界(直接数字)
+
+- SWE-bench 方差研究(60,000 轨迹):单 run pass@1 波动 2.2-6.0pp,temp=0 仍 σ>1.5pp;轨迹在前几百 token 即分岔并级联为不同策略。**检测 2pp 改进需 ~9 runs,1pp 需 36 runs**——p03 的 -0.3/-0.7pp"持平"在 trials=1 下本就不可判读(结账已如实写);批次 2 的 trials=2 只能检测 ~5pp 级效应,结论措辞须按此校准。
+- ICC 研究:建议报告 accuracy + 组内方差;结构化任务 ICC 收敛需 8-16 trials。evals-v2 长期应引入配对比较(McNemar/paired bootstrap——同场景两臂天然配对)。
+- METR algorithmic vs holistic:测试全过的 agent PR 人审 **0/15 可直接合并**(平均还差 26 分钟工作;测试覆盖/文档/卫生各维度 75-100% 有缺陷)——gate 通过≠可交付的最强外部证据,review 家族价值的直接背书;同时警示:judge 的 target 评分也是"算法评分"类,有同样盲区(p03 已实证其看不见防御层差异)。
+- OpenAI SWE-Bench Pro 审计(2026-07):~30% 任务本身是坏的(过严测试/欠规格 prompt/低覆盖);其"agent 审计 pipeline + 多人标注"的基准体检方法可借鉴到 evals-v2 场景质量维护(check-red 同思想的深化)。
+
 ## 状态
 
 - **P0-3 第一批:认证未通过,candidate 不合并(2026-07-26)。** judge 原判 improved/tradeoff,被 5-agent 盲评审计 + trajectory 取证推翻(详见 evals-v2 两份 CONCLUSION.md):
