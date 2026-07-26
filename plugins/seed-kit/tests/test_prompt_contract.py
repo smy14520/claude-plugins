@@ -172,6 +172,29 @@ class SeedPromptContractTests(unittest.TestCase):
         self.assertIn('"commands"', agent)
         self.assertNotIn("docs/PRD", skill)
 
+    def test_impl_agent_orchestrates_per_slice_with_clean_boundaries(self):
+        skill = self.read_plugin_file("skills", "impl-agent", "SKILL.md")
+        agent = self.read_plugin_file("agents", "seed-slice.md")
+
+        # 编排者角色 + 机器事实驱动（无 phase 自报）+ handoff 衔接
+        self.assertIn("编排者", skill)
+        self.assertIn("seed next-action", skill)
+        self.assertIn("impl-state", skill)
+        self.assertIn("handoff", skill)
+        self.assertNotIn("_advance", skill)  # 编排依据是机器事实，没有模型自报的 phase 转移
+        self.assertIn("reset-attempts", skill)  # 熔断闭环：升级给用户后有显式清零路径
+        # durable gate 与 git 边界：slice agent 不碰 gate、不碰 git
+        self.assertIn("agent 不调用 `seed done`", skill)
+        self.assertIn("不碰 git", skill)
+        self.assertIn("指定的那一个 slice", agent)
+        self.assertIn("不执行 `git commit`", agent)
+        self.assertIn('"handoff"', agent)
+
+    def test_naming_registry_includes_impl_agent_family(self):
+        conventions = self.read_plugin_file("skills", "references", "conventions.md")
+        self.assertIn("seed-kit:impl-agent", conventions)
+        self.assertIn("seed-kit:seed-slice", conventions)
+
     def test_assert_replays_explicit_commands_without_stack_inference(self):
         agent = self.read_plugin_file("agents", "seed-assert.md")
         workflow = self.read_plugin_file("templates", "review-loop.template.js")

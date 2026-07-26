@@ -1,6 +1,6 @@
 # seed-kit
 
-轻量 PRD-first 工作流。五个 skill 全部由用户主动触发、互不自动耦合；进度状态以 `prd.md` 的 slice checkbox 为准，没有 task.json 或阶段状态机。
+轻量 PRD-first 工作流。六个 skill 全部由用户主动触发、互不自动耦合；进度状态以 `prd.md` 的 slice checkbox 为准，没有 task.json，也没有阶段状态机（impl-agent 的 `impl-state.json` 只是任务锚点，`gate-attempts/` 只是失败留痕，都不构成第二套进度）。
 
 设计动机与取舍见 [`DESIGN.md`](DESIGN.md)。
 
@@ -20,17 +20,18 @@
 ```
 
 
-## 五个 skill
+## 六个 skill
 
 | skill | 职责 | 产出 |
 |---|---|---|
 | research | 给需求收集外部资料（竞品、API、数据源） | `.arbor/research/<topic>/`（index.md / raw/ / notes/） |
 | brainstorm | 访谈式收敛需求：一次一问 + 推荐答案 | `.arbor/tasks/<task>/prd.md`（可证伪 AC + 品质意图 + 有序 Slices） |
 | impl | 逐 slice 执行 PRD，硬事实通过才勾选完成 | 代码 |
+| impl-agent | 同 impl，但每 slice 派独立 seed-slice agent（干净 context + handoff 衔接），主会话 per-slice review 后 commit 检查点 | 代码 + per-slice commit |
 | review | 干净视角逐验收条目对账 diff，专查偷懒签名 | 追加 `review.md` |
 | wiki | 项目知识层：长期资料 + 多文件链路知识 | `.arbor/.wiki/` 页面 |
 
-五个 skill 不自动相互流转：brainstorm 不主动进入 research；impl 会读取 wiki 索引，并在全量模式全部 slice done 后显式运行 review-loop command；review skill 本身仍由用户主动触发。
+六个 skill 不自动相互流转：brainstorm 不主动进入 research；impl 会读取 wiki 索引，并在全量模式全部 slice done 后显式运行 review-loop command；impl-agent 用集成 review 收口（review-loop 降为可选深兜底）；review skill 本身仍由用户主动触发。
 
 ## 状态模型
 
@@ -40,10 +41,12 @@
 ├── review.md        # review 追加记录
 ├── done-logs/       # seed done 机械验证记录
 ├── review-loop.json # 显式 task 级 review-loop 终态（可选）
+├── impl-state.json  # impl-agent 任务锚点：起点 SHA / 单 slice 目标（可选；非进度）
+├── gate-attempts/   # seed done 失败留痕（impl-agent 熔断计数依据）
 └── notes/           # impl 过程备注（可选）
 ```
 
-单一进度归属：PRD checkbox 表示 slice 进度；`done-logs/` 与 `review-loop.json` 分别记录机械验证和显式循环终态，不构成第二套阶段状态。断点续作 = `seed status <task>` + git log。
+单一进度归属：PRD checkbox 表示 slice 进度；`done-logs/`（只有成功）、`gate-attempts/`（失败留痕）与 `review-loop.json` 分别记录机械验证、失败尝试和显式循环终态，不构成第二套阶段状态。断点续作 = `seed status <task>` + git log。
 
 ## seed CLI（核心 3 个命令 + wiki 家族）
 
@@ -53,6 +56,8 @@ seed status [<task>] [--json]                         # 进度 / 结构校验 / 
 seed done <task> --slice S-NNN --test "<cmd>" \
   [--quality "<cmd>"]...                              # 跑 agent 传入的测试+质量命令，全过则翻 checkbox
 seed review-mark <task> --verdict <reason> [--round N] # 落 review-loop 终态 marker
+seed impl-state init|show|reset-attempts <task>       # impl-agent 锚点：起点 SHA / 单 slice 目标 / 熔断清零
+seed next-action <task>                               # impl-agent 编排驱动：读 checkbox+失败留痕+锚点 → 现在该干嘛
 seed score aggregate --rubric <rubric.json> \
   --score-files <file1.json> <file2.json> ... \
   --out <aggregate.json>                              # 聚合多个 score-file（多裁判模式）
