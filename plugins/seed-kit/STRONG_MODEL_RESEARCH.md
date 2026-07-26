@@ -214,3 +214,14 @@ arXiv 2606.04057(46,535 组对照):prompt 中的微妙线索系统性操纵算�
   - candidate/p0-3-prune 分支保留;复测前置:编排派发机器化、evals token 口径修复、trials≥2。
 - **新增最高优先候选(源自本次审计):编排等待机器化**——sleep 轮询占 27% fresh input/62% 墙钟,是 30% 级杠杆;SKILL 应把子 agent 派发方式定为机制(同步派发),不留给运行方差。P0-3 优化的是 <0.1% 级杠杆,主次要倒回来。
 - 其余提案待逐条评审;每条动手前先按本文件 eval_plan 设计实验,遵循"确认有效果才合并"。
+
+---
+
+## 批次 2 取证结论(2026-07-26,wf_95686eec 五路取证;详见 evals-v2 两份 CONCLUSION)
+
+- **A 同步派发条款:认证通过,且是纠偏不是保险**。control 后台派发+sleep 轮询率 3/3(含 p03),是现行版系统性倾向而非方差;treatment 10/10 次派发同步、零轮询。去重口径 token -47.9%,两臂无重叠。
+- **防御性反转(p03 退化零复现)**:保留自审条款的 treatment raise 8/10 vs control 0/0。附注:control 防御性跨轮方差巨大(p03 的 12 raises vs 本轮 0)——预塑形效应方向可信、量级估计不稳。
+- **新机制发现:"看见未闭环"**。amount_off 契约陷阱 treatment 2/2 违约,且 handoff 明确记录了差异却未消解——B′ 隐性期望通道能让缺口被看见,但"看见"不产生修复动作。批次 3 方向【设想·未认证】:契约缺口从"记录差异"升级为"强制消解(实现或改宣称)",候选载体:AC 探针 / 集成 review 对账步骤。
+- **C 契约对账层在批次 2 两个实验中零覆盖**(不在 impl-agent 与 review-loop 执行路径上),维持未认证;需走 `/seed-kit:review` 路径的专属场景,按 holdout 规矩出新题。
+- **validator test-gap 击杀监控项**:impl-review 中 treatment validator 杀 2 条 test-gap finding 提前收敛,可辩护但偏激进;1 轮 vs 2 轮的工具调用差(-44%)是裁决方差,不可归因清剪。
+- **框架级修复项(evals-v2)**:final-gate-correctness 死指标(历史 14/14 评估两臂 0/0,unsafe/block 错配 outcome 场景);token 口径 message.id 去重(放大 2.6-3.5x 且臂间不等);访谈场景 25m 预算结构性不足(访谈完成但 PRD 未落盘即超时,2/2 复现)已改 40m。
