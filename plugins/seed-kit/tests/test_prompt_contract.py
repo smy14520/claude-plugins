@@ -190,6 +190,31 @@ class SeedPromptContractTests(unittest.TestCase):
         self.assertIn("不执行 `git commit`", agent)
         self.assertIn('"handoff"', agent)
 
+    def test_batch2_certified_partial_contract(self):
+        """P1 批次 2 部分合并合同(认证依据 run-20260726T081132Z-98223cc328,
+        取证 wf_95686eec,结账见 evals-v2 p1b2-impl-agent/CONCLUSION.md):
+        (a) A 同步派发条款——control 后台轮询率 3/3 系统性倾向,条款为纠偏,
+            去重口径 token -47.9%;(b) impl-agent 快扫删除(D2,improved 证据内);
+        (c) 塑形条款(自审/完整感)按 p03 预塑形证据保留——删除须先过 eval。
+        未合并部分(B'/C/review 与 brainstorm 侧 D2)留在 candidate/p1-batch2 待各自认证。"""
+        impl_skill = self.read_plugin_file("skills", "impl", "SKILL.md")
+        impl_agent = self.read_plugin_file("skills", "impl-agent", "SKILL.md")
+        seed_impl = self.read_plugin_file("agents", "seed-impl.md")
+        seed_slice = self.read_plugin_file("agents", "seed-slice.md")
+        seed_review = self.read_plugin_file("agents", "seed-review.md")
+
+        # (a) 同步派发是机制说明,两个编排 SKILL 都要有
+        self.assertIn("run_in_background: false", impl_skill)
+        self.assertIn("run_in_background: false", impl_agent)
+        self.assertNotIn("不要 `run_in_background`", impl_skill)
+        # (b) 快扫不得回归
+        self.assertNotIn("快扫", impl_agent)
+        # (c) 塑形条款保留(p03:预塑形机制,删除未获认证)
+        for text in (seed_impl, seed_slice):
+            self.assertIn("30s 快速扫描", text)
+            self.assertIn("完整感", text)
+        self.assertIn("完整感", seed_review)
+
     def test_naming_registry_includes_impl_agent_family(self):
         conventions = self.read_plugin_file("skills", "references", "conventions.md")
         self.assertIn("seed-kit:impl-agent", conventions)

@@ -27,7 +27,7 @@ description: "仅用于用户显式触发 seed workflow，或明确要求执行 
 
 **1. 派 `seed-impl` agent**：
 
-用 `Agent` 工具（`subagent_type="seed-kit:seed-impl"`，**不要 `run_in_background`**——你要看到 agent 的完整产出）：
+用 `Agent` 工具（`subagent_type="seed-kit:seed-impl"`，`run_in_background: false` 同步派发——子 agent 的结果是流程的串行依赖，后台派发只会引入轮询等待）：
 
 ```
 prompt: "实现 {task} 的全部 slice。项目根 {repo_root}。

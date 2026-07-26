@@ -30,7 +30,7 @@ description: "仅用于用户显式触发 seed workflow，或明确要求执行 
 
 ### 1. `start_slice` → 派 seed-slice agent
 
-派 seed-slice agent（干净 context）实现 `next_slice`：
+派 seed-slice agent（干净 context，`run_in_background: false` 同步派发——slice 结果是后续步骤的串行依赖，后台派发只会引入轮询等待）实现 `next_slice`：
 
 ```
 prompt: "实现 {task} 的 {slice_id}（只这一个 slice）。项目根 {repo_root}。
@@ -71,7 +71,7 @@ agent 返回的 `commands` 全绿 → `seed done <task> --slice {slice_id} --tes
 
 ### 4. Commit per-slice（主会话执行，agent 不碰 git）
 
-review 过了（无严重问题）→ 先 `git status` 快扫，确认没有无关文件混入；再由主会话执行：
+review 过了（无严重问题）→ 主会话执行：
 
 ```
 git add -A
