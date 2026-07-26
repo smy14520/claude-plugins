@@ -61,6 +61,18 @@ Skills(repo 内 SKILL.md,可执行程序性知识,**Devin 学到新东西后自�
 
 推理与编辑分工:同一模型自己跟自己配对也涨分(Sonnet 77.4→80.5)。角色拆分的收益有 benchmark 级证据,但主要解决"编辑格式遵从"问题,Claude Code 原生编辑已消化;保留其原理:**验证/生成分工的收益 > 执行拆分**(与 Cognition 数据一致)。
 
+### HumanLayer(Dex Horthy)——context engineering 源头
+
+12-factor agents("**不要用 prompt 做控制流**——确定的部分做成确定性代码,LLM 步骤小而聚焦")+ frequent intentional compaction(research→plan→implement 三个独立 session,每阶段压缩成文档,人审插在杠杆最高处——**审 research 和 plan 的杠杆远大于审代码**)。两个新洞见:(1) **意图污染**——做 research 时把 ticket 从 context 里拿掉、只留问题,否则"研究文档后半截会自己长出实现方案,决策在无人环节就被做掉了";(2) **vertical plans > horizontal plans**——模型天然爱写水平计划(先全部 model 层再全部 service 层……直到最后才有可检查的东西),应强制垂直切片、每片有可检查的里程碑——**这是 seed-kit slice 教义的独立验证**。"You're completely right!" 出现 = trajectory 已中毒,该开新 session。
+
+### Codex 官方最佳实践(OpenAI)
+
+每个任务四要素:Goal / Context / Constraints / **Done when**(机器可验证的完成条件)——与 AC 教义同构。AGENTS.md 纪律:"保持小;**只在发现重复错误后才加规则**;同一错误犯两次 → 让 agent 做 retrospective 并自己更新 AGENTS.md";还有 **scheduled drift check**(定期任务扫描指导缺口、建议增补)。"给 AGENTS.md 配上强制设施:pre-commit hook/linter/type checker——让系统在你看到之前就拦下"——prompt 规则应毕业为机器强制,即教训升格阶梯的官方版。TDD 模式:失败测试先 commit 作 checkpoint + **显式禁止 agent 改测试**。Skills 渐进披露(metadata→SKILL.md→references 按需加载)。
+
+### Cursor plan mode
+
+research→澄清→计划→人审/编辑计划→build。关键操作观:"agent 建歪了,**别用追问修,回到计划**——revert + 改计划 + 重跑,比修进行中的 agent 更快更干净"——plan 是 source of truth、regenerate 优于 patch(与 Anthropic 迁移"改 rulebook 重生成、代码从不 hand-patch"同一原理)。
+
 ## 汇总:对 seed-kit 的增量结论
 
 **新增候选提案**(STRONG_MODEL_RESEARCH 八条之外):
@@ -68,12 +80,13 @@ Skills(repo 内 SKILL.md,可执行程序性知识,**Devin 学到新东西后自�
 | # | 机制 | 来源 | 判据归类 |
 |---|---|---|---|
 | N1 | 工作发现通道:`seed discover` 落盘途中发现的工作,收口时人裁决 | Beads discovered-from | 盘上机器事实(升值) |
-| N2 | 规则上移:review-loop 同类 finding 重复 → 提议沉淀项目规则,人批准 | Anthropic 迁移 rulebook + Every compound | 供给侧闭环(升值) |
+| N2 | 规则上移:review-loop 同类 finding 重复 → 提议沉淀项目规则,人批准 | Anthropic 迁移 rulebook + Every compound + Codex retrospective + Devin auto-suggest(四源汇合) | 供给侧闭环(升值) |
 | N3 | judge 红样自检:review-loop 的 judge 须证明"能抓故意破坏的产物" | Anthropic 迁移"校验判官" | 激励对抗(永不贬值) |
 | N4 | 教训升格阶梯:wiki prose → 项目规则 → 探针/测试,每层问"下次能自动抓住吗" | Every compound + verification loops | 供给侧闭环 |
 | N5 | review 家族异模型选项(Oracle 模式) | Amp Oracle | 可选增强,低优先 |
 
 **被外部验证的既有设计**(不动,信心增强):
+- slice 教义 = "vertical plans"(HumanLayer:模型天然写水平计划,垂直切片让每步可检查)
 - `seed done` 真实执行命令的 oracle 设计(对照 /goal transcript-only oracle 的社区批评)
 - P1 评分链路防篡改(Ralph 清单"oracle 必须 agent 不可写"+ METR)
 - checkbox/盘上可重建队列("done = 文件在盘上"同构)
