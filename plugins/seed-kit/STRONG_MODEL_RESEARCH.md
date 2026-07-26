@@ -3,6 +3,8 @@
 > 2026-07-26。方法:7-agent workflow——5 路并行 web 调研(harness 设计哲学 / spec-driven 生态 / 验证机制 / 多 agent 编排 / 记忆知识层,2025-2026 一手来源)+ 1 路仓库机制盘点(逐条区分保姆条款与不变量)+ 1 路综合裁决。
 > 研究问题:哪些机制在强模型(Claude 5 级)下贬值该删、哪些是真实不变量该留、该新增什么杠杆。
 
+> **状态:未认证调研。** 八条提案是研究结论,**未经 seed-kit-evals-v2 实验认证**;唯一进入认证流程的是 P0-3 第一批(实验 p03-prompt-prune-impl / p03-prompt-prune-review 进行中)。每条提案实施前必须按其 eval_plan 拿数据并写 CONCLUSION 结账,认证结果回写本文件;调研引用的外部数据(Anthropic/METR/论文等)是设计依据,不是本插件语境的验证。
+
 ## 两条总判据(所有争议的裁刀)
 
 1. **升值 vs 贬值**:一行机制/规则是否提供**模型无法自行推断的信息**(任务需求、项目约定、盘上事实 → 升值,加大投资),还是**模型能力的补偿**(步骤提醒、自审 checklist、常识枚举 → 贬值,删)。依据:ETH Zurich 实测程序性 context 文件 +20% 成本不升成功率;Anthropic 官方判定式 "Would removing this cause Claude to make mistakes? If not, cut it"。

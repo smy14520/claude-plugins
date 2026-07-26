@@ -3,6 +3,8 @@
 > 2026-07-26。逐个拆解业界高水平工作流的核心机制,标注 seed-kit 可吸收点。
 > 判据沿用 [`STRONG_MODEL_RESEARCH.md`](STRONG_MODEL_RESEARCH.md):只吸收"提供模型无法自行推断的信息"或"激励对抗"类机制;能力补偿类一律不进。
 
+> **状态:未认证调研。** 本文全部内容(机制拆解、候选提案 N1-N6、外部证据)是外部资料归纳,**未经 seed-kit-evals-v2 实验认证**。外部来源的"生产验证"只说明它在别人的语境下成立,不能替代本插件语境下的实验数据。任何条目实施前必须按 [`EVALS.md`](EVALS.md) 流程设计实验、拿到数据、写 CONCLUSION 结账;认证通过后在此标注,否则永远停留在候选。
+
 ## 逐家机制拆解
 
 ### Compound Engineering(Every / Kieran Klaassen)
@@ -87,7 +89,7 @@ Greptile:从**commit 对比**(comment 是否被采纳)、reactions、回复中�
 
 ## 汇总:对 seed-kit 的增量结论
 
-**新增候选提案**(STRONG_MODEL_RESEARCH 八条之外):
+**新增候选提案**(STRONG_MODEL_RESEARCH 八条之外;**全部未认证**,实施前须逐条过 eval):
 
 | # | 机制 | 来源 | 判据归类 |
 |---|---|---|---|
@@ -98,7 +100,7 @@ Greptile:从**commit 对比**(comment 是否被采纳)、reactions、回复中�
 | N5 | review 家族异模型选项(Oracle 模式) | Amp Oracle | 可选增强,低优先 |
 | N6 | 降级校准量化门槛:per-slice review 降级、validator 权重调整等决策绑定 override/假杀率数据,不拍脑袋 | 暗厂分级信任 + Greptile 采纳率信号 | 机器事实驱动决策 |
 
-**被外部验证的既有设计**(不动,信心增强):
+**外部证据支持的既有设计**(不动;注意这是外部佐证、非本插件认证,信心增强但不改变任何验证义务):
 - slice 教义 = "vertical plans"(HumanLayer:模型天然写水平计划,垂直切片让每步可检查)
 - `seed done` 真实执行命令的 oracle 设计(对照 /goal transcript-only oracle 的社区批评)
 - P1 评分链路防篡改(Ralph 清单"oracle 必须 agent 不可写"+ METR)
