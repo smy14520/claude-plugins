@@ -87,6 +87,18 @@ research→澄清→计划→人审/编辑计划→build。关键操作观:"agen
 
 Greptile:从**commit 对比**(comment 是否被采纳)、reactions、回复中学习;某类 comment 被忽略 3+ 次即抑制,但 security/logic 类**永不抑制**(分层抑制);从团队行为**自动推断 custom rules**("团队总在评论'DB 调用移到 service 层' → 自动生成规则")。CodeRabbit:learnings 从 chat 反馈自动生成,**可配管理员审批延迟**;写 learning 要"讲 why 不只讲 what";季度清 stale、"更新而非堆积"。→ seed-kit:这是 N2(规则上移)的信号设计参考——finding category × 采纳率是可机器统计的(review.md vs 修复 diff),推断出的规则走人批准入 `.claude/rules`,且"验收类永不抑制"的分层与 gate/loop 分层同构。
 
+### 游戏栈验证生态(2026 专项扫描)——多栈支持的空白已被生态填上
+
+此前标注"游戏引擎没有 Playwright 同等物"的空白,实测已不成立。每个主流引擎都有面向 agent 验证的 MCP 工具,且**独立收敛出与 seed-kit 相同的验证哲学**:
+
+- **verified-unreal-mcp**(UE 5.8):"agent 必须用证据证明改动生效,不许自称 done"——PASS 需 **≥2 个独立强源**(盘上数据/视觉/运行时)且零反对信号;`NOT_TESTED` 是一等公民(≈ seed-assert 的 assert-unavailable);**"agent 的 claim 不是证据"**——verdict_validate 把 agent 自报的 manifest 与盘上文件复核(≈ P1 评分链路防篡改的游戏域同构);fresh-process 读盘(不信编辑器内存);截图必须过 png_ok+img_diff("一帧不能证明动画在动")。
+- **headless-unity-mcp**:batchmode spawn-and-exit,"**verdict 来自证据,永不信 exit code**"(编译=log grep,测试=NUnit XML 且缺 XML 即 FAIL,构建=.app 在盘上)——与 `seed done` 拒空操作同构;context 炸弹管理:返回 PNG 路径、让抛弃式 subagent 读图。
+- **godot-mcp**:**确定性 playtest**——冻结游戏时钟、按精确切片步进、step-until-condition,"观察永不与游戏竞速";**结构化状态优于像素**(实体位置/速度直接出 JSON,"大多数'屏幕上发生了什么'不用花 vision token")。
+- **Gamebrew**(Unity 多 agent playtest):orchestrator 独占生命周期,playtest/美术 agent 只拿租约窗口 + default-deny 白名单;"**confirm, don't trust**——orchestrator 逐条复核 finding"(生成者≠验证者);"**feel is the human's**"——agent 只裁定可理解/正确,好不好看归人(≈ judge/human 分层)。
+- **godot-sight** 最有普适价值的模式:**Playwrite capture→replay→promote**——把真人玩的一次真实交互录成草稿 playtest,回放验证后晋升为带检查点的回归资产。**人类签收从一次性事件变成 durable 机器证据**——这是 human 类验证手段的重大升级,且栈无关(CLI 会话录制/web codegen/游戏输入捕获同构)。
+
+**对 seed-kit 的结论**:多栈支持不需要插件做任何引擎特定的事——判定式继续成立。游戏项目把这些 MCP 工具声明为项目标准(质量命令=headless test,judge 产物=截图/playtest,assert=playwrite 回放),seed-kit 机制原样接入。新增两条候选:**N7 多源证据判定**(assert 从单源命令重放扩展为"≥2 独立源"选项,盘上/视觉/运行时)与 **N8 人类演示晋升回归资产**(human 验证的 durable 化,capture-replay-promote 模式)。
+
 ## 汇总:对 seed-kit 的增量结论
 
 **新增候选提案**(STRONG_MODEL_RESEARCH 八条之外;**全部未认证**,实施前须逐条过 eval):
@@ -99,6 +111,8 @@ Greptile:从**commit 对比**(comment 是否被采纳)、reactions、回复中�
 | N4 | 教训升格阶梯:wiki prose → 项目规则 → 探针/测试,每层问"下次能自动抓住吗" | Every compound + verification loops | 供给侧闭环 |
 | N5 | review 家族异模型选项(Oracle 模式) | Amp Oracle | 可选增强,低优先 |
 | N6 | 降级校准量化门槛:per-slice review 降级、validator 权重调整等决策绑定 override/假杀率数据,不拍脑袋 | 暗厂分级信任 + Greptile 采纳率信号 | 机器事实驱动决策 |
+| N7 | 多源证据判定:assert 支持"≥2 独立源"(盘上数据/视觉/运行时)选项,agent claim 须与盘上证据复核 | verified-unreal-mcp 判定组合器 | 激励对抗(升值) |
+| N8 | 人类演示晋升回归资产:human 验证的一次真实交互 capture→replay→promote 为 durable 回归证据 | godot-sight Playwrite | human 手段升级(栈无关模式) |
 
 **外部证据支持的既有设计**(不动;注意这是外部佐证、非本插件认证,信心增强但不改变任何验证义务):
 - slice 教义 = "vertical plans"(HumanLayer:模型天然写水平计划,垂直切片让每步可检查)
