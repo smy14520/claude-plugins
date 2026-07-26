@@ -73,6 +73,18 @@ Skills(repo 内 SKILL.md,可执行程序性知识,**Devin 学到新东西后自�
 
 research→澄清→计划→人审/编辑计划→build。关键操作观:"agent 建歪了,**别用追问修,回到计划**——revert + 改计划 + 重跑,比修进行中的 agent 更快更干净"——plan 是 source of truth、regenerate 优于 patch(与 Anthropic 迁移"改 rulebook 重生成、代码从不 hand-patch"同一原理)。
 
+### Stripe Minions——1300 PR/周的无人值守规模
+
+核心机制 **Blueprints**:"用代码定义的工作流,每个节点要么跑确定性代码、要么跑聚焦的 agent loop"——"能预见的小决定用确定性代码做掉,省 token 且少给 agent 犯错机会;'把 LLM 装进受约束的盒子'在系统层面复利成可靠性"。这是 seed-kit "skill 管流程/helper 管机械动作"分工在最大生产规模上的验证。其他:规则**几乎全部按子目录条件加载**("无条件全局规则会在 agent 开工前就塞满 context");跑前确定性预热 context(对链接先跑 MCP 工具);CI 经济学——**最多两轮 CI**("边际收益递减"),本地能确定性修的(lint autofix)绝不进 CI 循环;"对人好的基建对 agent 也好"。
+
+### 暗厂模式(env.dev / StrongDM Attractor)——holdout 分离与分级信任
+
+**Holdout scenarios**:验收场景写在 coding agent 永远看不到的目录,只有独立 evaluator 能读——训练/测试分离防过拟合(agent 能读场景就会写出恰好过这些场景的代码)。**分级信任推进**:shadow mode(人对照 evaluator 数周)→ evaluator-advised → 低风险自动合并 → 全自动;门槛全部量化:override rate <10% 持续 30 天、场景覆盖 ≥80%、回滚率 <5%。→ seed-kit:evals-v2 的 planted gaps/author-only 段已是 holdout 思想;**分级信任的量化门槛**可直接用于 per-slice review 降级(P0-2)的校准——不是拍脑袋降,是 override/假杀率数据说了算。
+
+### Greptile / CodeRabbit——review 学习系统的生产实现
+
+Greptile:从**commit 对比**(comment 是否被采纳)、reactions、回复中学习;某类 comment 被忽略 3+ 次即抑制,但 security/logic 类**永不抑制**(分层抑制);从团队行为**自动推断 custom rules**("团队总在评论'DB 调用移到 service 层' → 自动生成规则")。CodeRabbit:learnings 从 chat 反馈自动生成,**可配管理员审批延迟**;写 learning 要"讲 why 不只讲 what";季度清 stale、"更新而非堆积"。→ seed-kit:这是 N2(规则上移)的信号设计参考——finding category × 采纳率是可机器统计的(review.md vs 修复 diff),推断出的规则走人批准入 `.claude/rules`,且"验收类永不抑制"的分层与 gate/loop 分层同构。
+
 ## 汇总:对 seed-kit 的增量结论
 
 **新增候选提案**(STRONG_MODEL_RESEARCH 八条之外):
@@ -84,6 +96,7 @@ research→澄清→计划→人审/编辑计划→build。关键操作观:"agen
 | N3 | judge 红样自检:review-loop 的 judge 须证明"能抓故意破坏的产物" | Anthropic 迁移"校验判官" | 激励对抗(永不贬值) |
 | N4 | 教训升格阶梯:wiki prose → 项目规则 → 探针/测试,每层问"下次能自动抓住吗" | Every compound + verification loops | 供给侧闭环 |
 | N5 | review 家族异模型选项(Oracle 模式) | Amp Oracle | 可选增强,低优先 |
+| N6 | 降级校准量化门槛:per-slice review 降级、validator 权重调整等决策绑定 override/假杀率数据,不拍脑袋 | 暗厂分级信任 + Greptile 采纳率信号 | 机器事实驱动决策 |
 
 **被外部验证的既有设计**(不动,信心增强):
 - slice 教义 = "vertical plans"(HumanLayer:模型天然写水平计划,垂直切片让每步可检查)
