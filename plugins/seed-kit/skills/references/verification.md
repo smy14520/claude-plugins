@@ -108,6 +108,10 @@ PRD 三段——Goal / Acceptance Criteria / Out of Scope。Slice 内联在 `###
 - **客观骨架**：配色/字体/布局等有确定值的属性 → 写进测试（assert），`seed done` 执行时自然覆盖
 - **主观品味**：层次/精致感/气质 → review-loop judge 审产物，按 PRD 中描述的方向 + DESIGN.md 评
 
+## 质量期望的载体
+
+质量期望的唯一可靠载体是机器链：AC 条目 → gate 执行 → 测试覆盖 → review 对账。只活在 prompt 词里的期望（agent 仪式、自审提醒）是易失的——清剪或换模型时就会丢。哪些质量维度重要由项目定义（标准层）；插件保证被声明的维度能进入机器链（brainstorm 把基线转译成条目、gate 执行、review 对账）。
+
 ## 硬规则（helper / hook 保证）
 
 - `seed done` 跑项目测试+质量命令，全过才翻 checkbox

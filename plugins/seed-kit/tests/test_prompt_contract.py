@@ -28,10 +28,8 @@ class SeedPromptContractTests(unittest.TestCase):
         text = self.read_plugin_file("skills", "brainstorm", "SKILL.md")
 
         self.assertIn("与需求直接相关的近期提交", text)
-        self.assertIn("不做无关历史考古", text)
         self.assertIn("真实分叉", text)
         self.assertIn("2–3 个可行方向", text)
-        self.assertIn("不为凑数制造方案", text)
         self.assertIn("inline self-review", text)
         self.assertIn("TBD/TODO", text)
         self.assertIn("自审并修正后，再运行 `seed status <task>`", text)
@@ -209,7 +207,16 @@ class SeedPromptContractTests(unittest.TestCase):
         self.assertNotIn("不要 `run_in_background`", impl_skill)
         # (b) 快扫不得回归
         self.assertNotIn("快扫", impl_agent)
-        # (c) 塑形条款保留(p03:预塑形机制,删除未获认证)
+        # (c) B' 隐性期望通道(认证 run-20260726T123412Z + 取证 wf_abdae488:
+        #     3/3 场景触发、沉默假设消灭、错误语义具名化;成本 +17.6% 已知)
+        brainstorm = self.read_plugin_file("skills", "brainstorm", "SKILL.md")
+        verification = self.read_plugin_file("skills", "references", "verification.md")
+        self.assertIn("隐性期望", brainstorm)
+        self.assertIn("质量期望的载体", verification)
+        # (d) brainstorm 负向禁令删除(同认证:被禁行为零出现,禁令冗余)
+        self.assertNotIn("不做无关历史考古", brainstorm)
+        self.assertNotIn("不为凑数制造方案", brainstorm)
+        # (e) 塑形条款保留(p03:预塑形机制,删除未获认证)
         for text in (seed_impl, seed_slice):
             self.assertIn("30s 快速扫描", text)
             self.assertIn("完整感", text)
