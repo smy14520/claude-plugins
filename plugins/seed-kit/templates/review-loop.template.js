@@ -120,7 +120,7 @@ while (round < MAX_ROUNDS) {
       `再读 ${REPO}/.arbor/tasks/${TASK}/prd.md 的 \`## Goal\`（任务概述 + 方向描述）和 \`### S-NNN\` 的 \`* [ ]\` 条目。\n` +
       `再在 ${REPO} 下找到对应实现代码（Glob/Grep）。\n\n` +
       `审五层（每层是动作，必须执行）：\n` +
-      `① **兑现**：逐验收条目打开实现文件和测试文件，标注每条条目中行为在代码里的实现位置(file:line)和测试覆盖。没有实现或没有测试的条目 → finding。\n` +
+      `① **兑现**：逐验收条目打开实现文件和测试文件，标注每条条目中行为在代码里的实现位置(file:line)和测试覆盖。没有实现或没有测试的条目 → finding。兑现只看代码与测试本身——PRD checkbox 勾选状态与 done-log 属 gate（seed done）领地，不作为兑现证据，也不构成 finding。\n` +
       `② **偷懒签名**：读测试文件，验断言是否真触及条目声称的可观测行为（而非只测代理指标如 class 存在就过）。同样查：吞异常 / 抄实现的假测试 / 悄悄收窄 scope / 边界与失败路径没真覆盖。\n` +
       `③ **隐患**：读 diff 中错误处理、外部数据入口、状态变更路径。外部 I/O 无错误处理 / 外部数据无输入校验 / 权限 / 数据一致 / 并发 / 安全问题 → finding(file:line)。\n` +
       `④ **工程卫生**：跑项目 lint/type-check/build → 查 debug log / 死代码 / 抑制性注解 → New function → unit test? Bug fix → regression test? Changed behavior → existing tests updated?\n` +

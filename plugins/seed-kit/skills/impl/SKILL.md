@@ -14,7 +14,9 @@ description: "仅用于用户显式触发 seed workflow，或明确要求执行 
 
 只在显式 seed workflow 入口进入：用户点名 `seed-kit:impl` / `seed impl`，或明确要求执行 `.arbor/tasks/<task>/prd.md` 中已有 task/slice。其他实现请求不要主动进入。
 
-**默认 = 全量顺序模式**：用户没点名 slice 时，跑完所有未完成 slice；**一个 `seed-impl` agent 依次做所有 slice**（保持跨切片品质连贯）。**所有 slice done 后，跑一次整体 `/seed-kit:review-loop`**。
+PRD 尚不存在而需要临时创建时（小任务直取路径），slice 拆分同样受模板约束：每条 `* [ ]` 必须是能被测试或命令证实的行为/产物；调研、复现、与用户确认等过程动作不构成 slice 或条目——结论写进 Goal / Out of Scope。
+
+**默认 = 全量顺序模式**：用户没点名 slice 时，跑完所有未完成 slice；**一个 `seed-impl` agent 依次做所有 slice**（保持跨切片品质连贯）。**所有 slice done 后，先跑 `seed-kit:check`，再跑一次整体 `/seed-kit:review-loop`**。
 
 **单 slice 模式**：用户点名了某 slice（如"做 S-003"）时，只做那一个。
 
@@ -55,4 +57,12 @@ prompt: "实现 {task} 的全部 slice。项目根 {repo_root}。
 
 ## 结束
 
-所有 slice done 后：**跑一次整体 `/seed-kit:review-loop`（不带 slice，审整个 task）**——看全 diff + 全产物，直接修直到全绿；拿到 terminal_reason 后调 `seed review-mark <task> --verdict <terminal_reason>` 落 task 级 marker。完成后汇总改动范围与证据位置。
+所有 slice done 后，依次两步：
+
+1. **跑 `seed-kit:check`（题面对照 + 轻量快扫）**：对照原始需求逐条声称问归属，无归属的缺口交用户拍板（补 AC 或经确认进 Out of Scope）；缺口补做完再进下一步。review-loop 审的是"PRD 兑现了没有"，收敛时丢掉的声称对它不可见——这一步是 review 之外的防漏点。
+2. **默认审查（单 agent，快）**：派 **1 个 `seed-review` agent** 审兑现——干净上下文、只读审全 diff + 源码 + 测试，按审五层逐验收条目对账，产出结构化 finding。**finding 主会话逐条核验后处置**：确认属实的修（改完重跑对应测试），证据不足的跳过（单 agent 无对抗证伪，主会话核验补上这一层）。修完可再派一次复查（最多 2 轮）。
+3. **落 marker**：调 `seed review-mark <task> --verdict <terminal_reason> --depth single` 落 task 级 marker（默认路径的审查深度是 single）。
+
+**review-loop / judge 是增强项，默认不跑**：需要对抗性深审（多视角 review + judge 审产物 + validator 批量证伪）、或客观锚重放、或体验质量评审时，用户显式点名 `/seed-kit:review-loop`（不带 slice，审整个 task）再跑——拿到 terminal_reason 后 `seed review-mark --verdict <terminal_reason> --depth full`。默认路径已完成 check + 单 agent 兑现审查，深审只在用户要求时增加。
+
+完成后汇总改动范围与证据位置。

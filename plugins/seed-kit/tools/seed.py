@@ -28,6 +28,8 @@ from pathlib import Path
 SLICE_HEADING_RE = re.compile(r"^### \[([ x])\] (S-\d{3})\s+(.+?)\s*$")
 BAD_SLICE_HEADING_RE = re.compile(r"^###\s")
 TASK_NAME_RE = re.compile(r"^[a-z0-9][a-z0-9._-]*$")
+OOS_HEADING_RE = re.compile(r"^##\s+Out of Scope\s*$")
+OOS_CONFIRMED_RE = re.compile(r"[（(]用户确认[）)]")
 
 
 class SeedError(Exception):
@@ -86,7 +88,24 @@ def parse_prd(path: Path) -> tuple[list[Slice], list[str]]:
     slices: list[Slice] = []
     errors: list[str] = []
     seen: set[str] = set()
+    in_oos = False
     for idx, line in _skip_html_comments(lines):
+        stripped = line.strip()
+        if stripped.startswith("## "):
+            in_oos = bool(OOS_HEADING_RE.match(stripped))
+            continue
+        if in_oos:
+            if stripped.startswith("### "):
+                in_oos = False  # slice heading 开始新区段，落回正常解析
+            else:
+                # 排除是用户的决策：Out of Scope 顶层条目必须带（用户确认）来源标注，
+                # 防止 agent 单方"不值得做"把题面声称静默排除。
+                if (line.startswith("* ") or line.startswith("- ")) and not OOS_CONFIRMED_RE.search(line):
+                    errors.append(
+                        f"第 {idx + 1} 行：Out of Scope 条目缺少（用户确认）标注：{stripped}"
+                        "——排除必须由用户拍板，确认后在条目末尾加（用户确认）"
+                    )
+                continue
         heading = SLICE_HEADING_RE.match(line)
         if heading:
             sl = Slice(
@@ -389,10 +408,20 @@ def cmd_done(root: Path, task: str, slice_id: str, test_cmd: str, quality_cmds: 
         print(f"  失败已留痕：{attempt.relative_to(root)}", file=sys.stderr)
         return 1
 
-    # 翻 checkbox
+    # 翻 checkbox：slice 头 + 该 slice 区段内的全部验收条目原子翻转，账本保持自洽
     path = prd_path(root, task)
     lines = path.read_text(encoding="utf-8").splitlines()
     lines[sl.line_no] = lines[sl.line_no].replace("### [ ]", "### [x]", 1)
+    section_end = len(lines)
+    for idx in range(sl.line_no + 1, len(lines)):
+        stripped = lines[idx].lstrip()
+        if stripped.startswith("### ") or stripped.startswith("## "):
+            section_end = idx
+            break
+    for idx in range(sl.line_no + 1, section_end):
+        stripped = lines[idx].lstrip()
+        if stripped.startswith("* [ ]") or stripped.startswith("- [ ]"):
+            lines[idx] = lines[idx].replace("[ ]", "[x]", 1)
     path.write_text("\n".join(lines) + "\n", encoding="utf-8")
 
     _write_done_log(root, task, slice_id, results)
@@ -413,7 +442,7 @@ def cmd_done(root: Path, task: str, slice_id: str, test_cmd: str, quality_cmds: 
 _VALID_VERDICTS = {"converged", "assert-stalled", "assert-unavailable", "reviewer-blind", "circuit-breaker", "rounds-exhausted"}
 
 
-def cmd_review_mark(root: Path, task: str, *, verdict: str, round_num: int | None = None, note: str | None = None) -> int:
+def cmd_review_mark(root: Path, task: str, *, verdict: str, round_num: int | None = None, note: str | None = None, depth: str = "single") -> int:
     if verdict not in _VALID_VERDICTS:
         raise SeedError(f"--verdict 必须是 {', '.join(sorted(_VALID_VERDICTS))} 之一，不允许：{verdict}")
     if round_num is not None and round_num < 1:
@@ -421,7 +450,27 @@ def cmd_review_mark(root: Path, task: str, *, verdict: str, round_num: int | Non
     task_dir = task_dir_path(root, task)
     if not task_dir.is_dir():
         raise SeedError(f"未找到 task 目录：{task}（先 `seed new {task}`）")
-    record = {"task": task, "terminal_reason": verdict, "converged": verdict == "converged"}
+    if verdict == "converged":
+        # 整体 review-loop 的前置是所有 slice 已过 gate；对未完成 task 写 converged
+        # 会让终态与账本矛盾。硬闸在 durable state 层，绕不过去。
+        slices, errors = parse_prd(prd_path(root, task))
+        if errors:
+            print(
+                "拒绝写 converged：prd.md 结构有误，先修复：\n"
+                + "\n".join(f"  - {err}" for err in errors),
+                file=sys.stderr,
+            )
+            return 1
+        unfinished = [sl.id for sl in slices if not sl.done]
+        if unfinished:
+            print(
+                f"拒绝写 converged：task 还有未完成 slice（{', '.join(unfinished)}）。\n"
+                f"先逐个 `seed done {task} --slice <id> --test \"<命令>\"` 关闭；"
+                f"slice 无法用命令验证时说明它不是可交付的 slice——修 PRD（并入可验证条目或移入 Goal/Out of Scope），不要绕过 gate。",
+                file=sys.stderr,
+            )
+            return 1
+    record = {"task": task, "terminal_reason": verdict, "converged": verdict == "converged", "depth": depth}
     if round_num is not None:
         record["round"] = round_num
     if note:
@@ -467,12 +516,13 @@ def _write_impl_state(root: Path, task: str, state: dict) -> Path:
 
 
 def _normalized_prd_sha(root: Path, task: str) -> str:
-    """PRD 指纹：把 slice checkbox 归一化回未勾选再 hash——
+    """PRD 指纹：把 slice 与条目 checkbox 归一化回未勾选再 hash——
     翻 checkbox 是工作流自己的动作，不算需求变化。"""
     prd = prd_path(root, task)
     if not prd.is_file():
         return ""
     text = re.sub(r"^### \[x\] ", "### [ ] ", prd.read_text(encoding="utf-8"), flags=re.MULTILINE)
+    text = re.sub(r"^(\s*[*-]) \[x\] ", r"\1 [ ] ", text, flags=re.MULTILINE)
     return hashlib.sha256(text.encode("utf-8")).hexdigest()
 
 
@@ -743,6 +793,8 @@ def build_parser() -> argparse.ArgumentParser:
     rm_parser.add_argument("--verdict", required=True)
     rm_parser.add_argument("--round", dest="round_num", type=int, default=None)
     rm_parser.add_argument("--note", default=None)
+    rm_parser.add_argument("--depth", choices=["single", "full"], default="single",
+                           help="审查深度：single=单 agent 兑现审查（默认路径）；full=5 agent review-loop（增强项）")
 
     # impl-agent 编排锚点（plumbing，只在 impl-agent 模式用）
     impl_state_parser = sub.add_parser("impl-state", help="impl-agent 编排锚点（起点 SHA / 单 slice 目标 / 失败计数清零）")
@@ -785,7 +837,7 @@ def main(argv: list[str] | None = None) -> int:
         if args.command == "done":
             return cmd_done(root, args.task, args.slice_id, args.test_cmd, args.quality_cmds)
         if args.command == "review-mark":
-            return cmd_review_mark(root, args.task, verdict=args.verdict, round_num=args.round_num, note=args.note)
+            return cmd_review_mark(root, args.task, verdict=args.verdict, round_num=args.round_num, note=args.note, depth=args.depth)
         if args.command == "impl-state":
             if args.impl_state_cmd == "init":
                 return cmd_impl_state_init(root, args.task, target_slice=args.target_slice)

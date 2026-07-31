@@ -1,7 +1,7 @@
 {
   "name": "seed-kit",
   "version": "0.3.5",
-  "description": "轻量的 PRD-first 工作流：五个 skill 由用户主动触发，prd.md 复选框记录 slice 进度，seed done 重放显式检查并写 done-logs；无 evidence 目录、task.json 或阶段状态机。review-loop 由独立 agent 编排到收敛或熔断。",
+  "description": "轻量的 PRD-first 工作流：skill 全部由用户主动触发，prd.md 复选框记录 slice 进度，seed done 重放显式检查并写 done-logs；无 evidence 目录、task.json 或阶段状态机。收尾默认 check + 单 agent 审查，review-loop 多 agent 深审为可选增强项。",
   "author": {
     "name": "camellia",
     "email": "camellia@gmail.com"

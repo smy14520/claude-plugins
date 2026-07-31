@@ -205,8 +205,14 @@ class SeedPromptContractTests(unittest.TestCase):
         self.assertIn("run_in_background: false", impl_skill)
         self.assertIn("run_in_background: false", impl_agent)
         self.assertNotIn("不要 `run_in_background`", impl_skill)
-        # (b) 快扫不得回归
-        self.assertNotIn("快扫", impl_agent)
+        # (b) 快扫不得回归：impl-agent 不自己实现快扫，只委托 seed-kit:check
+        #     （"快扫"字样仅允许出现在 check 委托行；执行清单归 check skill）
+        quickscan_lines = [ln for ln in impl_agent.splitlines() if "快扫" in ln]
+        assert quickscan_lines, "impl-agent 应委托 check（含快扫）"
+        assert all("seed-kit:check" in ln for ln in quickscan_lines), (
+            "impl-agent 的快扫字样只能出现在 check 委托行："
+            + "\n".join(quickscan_lines)
+        )
         # (c) B' 隐性期望通道(认证 run-20260726T123412Z + 取证 wf_abdae488:
         #     3/3 场景触发、沉默假设消灭、错误语义具名化;成本 +17.6% 已知)
         brainstorm = self.read_plugin_file("skills", "brainstorm", "SKILL.md")
@@ -221,6 +227,65 @@ class SeedPromptContractTests(unittest.TestCase):
             self.assertIn("30s 快速扫描", text)
             self.assertIn("完整感", text)
         self.assertIn("完整感", seed_review)
+
+    def test_ledger_belongs_to_gate_not_review(self):
+        """账本闹剧修复合同(取证 cross-plugin-bugfix run-20260730T160455Z:三轮 review-loop
+        全部 blocking 为 PRD 簿记而非代码;根因=过程 slice 无交付物 + 子项无人翻 + review 审账本):
+        (a) seed done 原子翻 slice 头与区段内条目(seed.py cmd_done);
+        (b) PRD 条目必须可验证,过程动作不成条目(模板+impl skill);
+        (c) review 兑现层不把 checkbox/done-log 当证据(agent md + 模板内联 prompt 双源同步)。"""
+        review = self.read_plugin_file("agents", "seed-review.md")
+        workflow = self.read_plugin_file("templates", "review-loop.template.js")
+        template = self.read_plugin_file("templates", "prd.md")
+        impl = self.read_plugin_file("skills", "impl", "SKILL.md")
+        for text in (review, workflow):
+            self.assertIn("不作为兑现证据", text)
+        for text in (template, impl):
+            self.assertIn("过程动作", text)
+        self.assertIn("不手工勾选", template)
+
+    def test_oos_owned_by_user_and_check_closes_claim_gap(self):
+        """AC6 漏做修复合同(取证 approval-hard 四臂对比:agent 想到进阶规则却单方写进 OoS,
+        访谈锚定骨架/review-loop 只审兑现/QA 外部追问三层防线全部失守;
+        p1b2b:"review 期检测缺口的最优修复点在 spec 期"):
+        (a) 排除必须用户拍板——模板标注 + brainstorm 确认动作 + seed status 硬校验(见 test_seed);
+        (b) 收敛后对照题面——独立 check skill,impl 收尾默认调用,双形态;
+        机制只含"声称逐条有归属"与"排除必须用户确认"两条抽象纪律,不带取证场景业务词。"""
+        template = self.read_plugin_file("templates", "prd.md")
+        brainstorm = self.read_plugin_file("skills", "brainstorm", "SKILL.md")
+        check = self.read_plugin_file("skills", "check", "SKILL.md")
+        impl = self.read_plugin_file("skills", "impl", "SKILL.md")
+        conventions = self.read_plugin_file("skills", "references", "conventions.md")
+        # (a) 排除归用户拍板
+        for text in (template, brainstorm):
+            self.assertIn("（用户确认）", text)
+        self.assertIn("排除是用户的决策", brainstorm)
+        # (b) check：对照的是原始需求不是 PRD，缺口交用户，不单方排除
+        self.assertIn("原始需求", check)
+        self.assertIn("归属", check)
+        self.assertIn("不能用收敛结果审收敛结果", check)
+        self.assertIn("seed-kit:check", impl)
+        self.assertIn("seed-kit:check", conventions)
+        # 防过拟合：机制层不携带取证场景的业务词与场景形态词
+        for text in (template, check):
+            for word in ("审批", "超时转交", "驳回", "档位"):
+                self.assertNotIn(word, text)
+
+    def test_default_review_is_single_agent_and_deep_review_is_enhanced(self):
+        """审查分层合同(依据 review-loop-impl-quality 取证:5 agent 深审成本确定上升、
+        +1.7pp 收益与噪音不可区分,降为增强项):
+        (a) impl 收尾默认 = check + 单 agent 审查,落 --depth single;
+        (b) review-loop(5 agent)与 judge 是增强项,用户显式点名才跑;
+        (c) marker 记录审查深度,converged 不字面说谎(见 test_seed depth 断言)。"""
+        impl = self.read_plugin_file("skills", "impl", "SKILL.md")
+        check = self.read_plugin_file("skills", "check", "SKILL.md")
+        review_loop = self.read_plugin_file("commands", "review-loop.md")
+        self.assertIn("单 agent", impl)
+        self.assertIn("增强项", impl)
+        self.assertIn("--depth single", impl)
+        self.assertIn("review-loop", check)
+        # 增强项入口保留完整能力(5 agent 编排模板不因降级而删减)
+        self.assertIn("validator", review_loop)
 
     def test_naming_registry_includes_impl_agent_family(self):
         conventions = self.read_plugin_file("skills", "references", "conventions.md")
