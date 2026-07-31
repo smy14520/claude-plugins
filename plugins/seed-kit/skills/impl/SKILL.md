@@ -8,7 +8,7 @@ description: "仅用于用户显式触发 seed workflow，或明确要求执行 
 
 通用约定见 [`../references/conventions.md`](../references/conventions.md)；验证设计（三类 kind / judge / rubric / 硬规则）见 [`../references/verification.md`](../references/verification.md)。
 
-**你的角色是编排者，不是实现者。** 派一个 `seed-impl` agent 在干净上下文里依次实现所有 slice。你做：seed status → 读 PRD → 派 agent → seed done gate → 最后整体 review-loop。
+**你的角色是编排者，不是实现者。** 派一个 `seed-impl` agent 在干净上下文里依次实现所有 slice。你做：seed status → 读 PRD → 派 agent → seed done gate → check（题面对照）→ 默认审查（单 agent）→ review-mark。
 
 ## 入场
 
@@ -16,7 +16,7 @@ description: "仅用于用户显式触发 seed workflow，或明确要求执行 
 
 PRD 尚不存在而需要临时创建时（小任务直取路径），slice 拆分同样受模板约束：每条 `* [ ]` 必须是能被测试或命令证实的行为/产物；调研、复现、与用户确认等过程动作不构成 slice 或条目——结论写进 Goal / Out of Scope。
 
-**默认 = 全量顺序模式**：用户没点名 slice 时，跑完所有未完成 slice；**一个 `seed-impl` agent 依次做所有 slice**（保持跨切片品质连贯）。**所有 slice done 后，先跑 `seed-kit:check`，再跑一次整体 `/seed-kit:review-loop`**。
+**默认 = 全量顺序模式**：用户没点名 slice 时，跑完所有未完成 slice；**一个 `seed-impl` agent 依次做所有 slice**（保持跨切片品质连贯）。**所有 slice done 后，进入收尾流程（check + 默认审查 + marker，详见「结束」节）**。
 
 **单 slice 模式**：用户点名了某 slice（如"做 S-003"）时，只做那一个。
 

@@ -56,7 +56,7 @@ seed new <task>                                       # 脚手架任务目录 + 
 seed status [<task>] [--json]                         # 进度 / 结构校验 / next slice
 seed done <task> --slice S-NNN --test "<cmd>" \
   [--quality "<cmd>"]...                              # 跑 agent 传入的测试+质量命令，全过则翻 checkbox
-seed review-mark <task> --verdict <reason> [--round N] # 落 review-loop 终态 marker
+seed review-mark <task> --verdict <reason> [--round N] [--depth single|full] # 落终态 marker（single=默认单 agent 审查 / full=5 agent review-loop）
 seed impl-state init|show|reset-attempts <task>       # impl-agent 锚点：起点 SHA / 单 slice 目标 / 熔断清零
 seed next-action <task>                               # impl-agent 编排驱动：读 checkbox+失败留痕+锚点 → 现在该干嘛
 seed score aggregate --rubric <rubric.json> \
