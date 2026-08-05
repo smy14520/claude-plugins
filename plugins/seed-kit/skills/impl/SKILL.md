@@ -65,7 +65,7 @@ prompt: "实现 {task} 的全部 slice。项目根 {repo_root}。
 
 深度由你判断：简单任务快扫即过，复杂任务逐条细对。**自查有一个永远抓不到的东西：你自己写代码时带进去的盲点**——同一个脑子、同一份 context，复审自己等于带着假设找假设。**当代码难以用测试完全覆盖、或你对某处正确性不是有把握时，派 1 个 `seed-review` agent 在干净 context 里审那一段（不必先请示）**——这是你能给自己的、自己也给不了的帮助。finding 主会话逐条核验后处置，确认属实的修，证据不足的跳过。
 
-**3. 落 marker（必做）**：自查收敛后 `seed review-mark <task> --verdict converged --depth inline`（升级派过 seed-review 时 `--depth single`）；仍有未处置的 blocking 问题时不落 converged，停下报告用户。
+**3. 落 marker（必做）**：自查收敛后 `seed review-mark <task> --verdict converged --depth inline`（升级派过 seed-review 时 `--depth single`）。**实现层 blocking**（AC 没兑现 / 没测试 / 偷懒签名 / 测试挂）在兑现对账那步直接修，不停；**只有决策层 blocking 修不掉时才不落 converged、停下报告用户**——题面缺口未拍板、AC 歧义、修了会动 scope 或契约、AC 本身错——这些你无权单方定。
 
 **review-loop / judge 是增强项，默认不跑**：需要对抗性深审（多视角 review + judge 审产物 + validator 批量证伪）、或客观锚重放、或体验质量评审时，用户显式点名 `/seed-kit:review-loop`（不带 slice，审整个 task）再跑——拿到 terminal_reason 后 `seed review-mark --verdict <terminal_reason> --depth full`。
 

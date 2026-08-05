@@ -292,6 +292,10 @@ class SeedPromptContractTests(unittest.TestCase):
         self.assertIn("干净 context", impl)
         self.assertIn("--depth single", impl)
         self.assertIn("盲点", impl)
+        # (b3) blocking 分层:实现层(AC没兑现/没测试/偷懒签名/测试挂)直接修不停;
+        #      只有决策层(缺口未拍板/AC歧义/动scope/AC错)修不掉才停报用户——避免把可修的甩给用户
+        self.assertIn("决策层", impl)
+        self.assertIn("实现层", impl)
         # (c) 增强项入口保留完整能力(5 agent 编排模板不因降级而删减),marker 落 full
         self.assertIn("增强项", impl)
         self.assertIn("validator", review_loop)
