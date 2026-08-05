@@ -793,8 +793,8 @@ def build_parser() -> argparse.ArgumentParser:
     rm_parser.add_argument("--verdict", required=True)
     rm_parser.add_argument("--round", dest="round_num", type=int, default=None)
     rm_parser.add_argument("--note", default=None)
-    rm_parser.add_argument("--depth", choices=["single", "full"], default="single",
-                           help="审查深度：single=单 agent 兑现审查（默认路径）；full=5 agent review-loop（增强项）")
+    rm_parser.add_argument("--depth", choices=["inline", "single", "full"], default="single",
+                           help="审查深度：inline=编排者内联自查（impl 默认收尾 / impl-agent 集成 review）；single=派过 1 个 review agent；full=5 agent review-loop（增强项）")
 
     # impl-agent 编排锚点（plumbing，只在 impl-agent 模式用）
     impl_state_parser = sub.add_parser("impl-state", help="impl-agent 编排锚点（起点 SHA / 单 slice 目标 / 失败计数清零）")

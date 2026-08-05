@@ -249,7 +249,7 @@ class SeedPromptContractTests(unittest.TestCase):
         访谈锚定骨架/review-loop 只审兑现/QA 外部追问三层防线全部失守;
         p1b2b:"review 期检测缺口的最优修复点在 spec 期"):
         (a) 排除必须用户拍板——模板标注 + brainstorm 确认动作 + seed status 硬校验(见 test_seed);
-        (b) 收敛后对照题面——独立 check skill,impl 收尾默认调用,双形态;
+        (b) 收敛后对照题面——check skill 是对照协议 source of truth,impl 收尾按其清单内联执行,双形态;
         机制只含"声称逐条有归属"与"排除必须用户确认"两条抽象纪律,不带取证场景业务词。"""
         template = self.read_plugin_file("templates", "prd.md")
         brainstorm = self.read_plugin_file("skills", "brainstorm", "SKILL.md")
@@ -271,21 +271,34 @@ class SeedPromptContractTests(unittest.TestCase):
             for word in ("审批", "超时转交", "驳回", "档位"):
                 self.assertNotIn(word, text)
 
-    def test_default_review_is_single_agent_and_deep_review_is_enhanced(self):
-        """审查分层合同(依据 review-loop-impl-quality 取证:5 agent 深审成本确定上升、
-        +1.7pp 收益与噪音不可区分,降为增强项):
-        (a) impl 收尾默认 = check + 单 agent 审查,落 --depth single;
-        (b) review-loop(5 agent)与 judge 是增强项,用户显式点名才跑;
-        (c) marker 记录审查深度,converged 不字面说谎(见 test_seed depth 断言)。"""
+    def test_default_finish_is_inline_and_deep_review_is_enhanced(self):
+        """收尾分层合同(依据 review-loop-impl-quality 取证:5 agent 深审成本确定上升、
+        +1.7pp 收益与噪音不可区分,降为增强项;后续内联化:impl-agent 集成 review 已内联,
+        impl 收尾拉齐为编排者内联自查,升级通道保留):
+        (a) impl 收尾默认 = 内联自查(题面对照 + 兑现对账 + 关键假设外显),落 --depth inline;
+        (b) 升级通道保留——高风险面/拿不准时派 seed-review 干净 context,落 --depth single;
+        (c) review-loop(5 agent)与 judge 是增强项,用户显式点名才跑,落 --depth full;
+        (d) marker 记录审查深度,converged 不字面说谎(见 test_seed depth 断言)。"""
         impl = self.read_plugin_file("skills", "impl", "SKILL.md")
         check = self.read_plugin_file("skills", "check", "SKILL.md")
+        conventions = self.read_plugin_file("skills", "references", "conventions.md")
         review_loop = self.read_plugin_file("commands", "review-loop.md")
-        self.assertIn("单 agent", impl)
-        self.assertIn("增强项", impl)
+        # (a) 内联自查:自己做、不 dispatch,假设外显,marker 落 inline
+        self.assertIn("收尾自查", impl)
+        self.assertIn("不派 agent", impl)
+        self.assertIn("关键假设", impl)
+        self.assertIn("--depth inline", impl)
+        # (b) 升级通道未被删:干净 context 单 agent 审,落 single;触发靠通用原则而非 overfit 类目清单
+        self.assertIn("干净 context", impl)
         self.assertIn("--depth single", impl)
-        self.assertIn("review-loop", check)
-        # 增强项入口保留完整能力(5 agent 编排模板不因降级而删减)
+        self.assertIn("盲点", impl)
+        # (c) 增强项入口保留完整能力(5 agent 编排模板不因降级而删减),marker 落 full
+        self.assertIn("增强项", impl)
         self.assertIn("validator", review_loop)
+        self.assertIn("--depth full", review_loop)
+        # (d) depth 词汇表三值,conventions 登记
+        self.assertIn("inline|single|full", conventions)
+        self.assertIn("review-loop", check)
 
     def test_naming_registry_includes_impl_agent_family(self):
         conventions = self.read_plugin_file("skills", "references", "conventions.md")

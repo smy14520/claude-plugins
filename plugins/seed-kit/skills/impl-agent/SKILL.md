@@ -99,7 +99,7 @@ git commit -m "feat(<task>): {slice_id} <slice 标题>"
 
 ## 结束：集成 review（主会话做，最多 2 轮）
 
-`next-action` 返回 `integration_review`（全部 slice done）→ **先跑 `seed-kit:check`（题面对照 + 轻量快扫）**：对照原始需求逐条声称问归属，无归属的缺口交用户拍板（补 AC 或经确认进 Out of Scope），缺口补做完再进集成 review。然后做**集成 review**（主会话自己做，不派独立 review agent），diff 范围直接用返回的 `diff_range`。集成 review 补 per-slice review 看不到的盲区——跨 slice 集成问题。
+`next-action` 返回 `integration_review`（全部 slice done）→ **先按 `seed-kit:check` 的清单内联做一轮题面对照 + 轻量快扫**（编排者自己执行，不 dispatch）：对照原始需求逐条声称问归属，无归属的缺口交用户拍板（补 AC 或经确认进 Out of Scope），缺口补做完再进集成 review。然后做**集成 review**（主会话自己做，不派独立 review agent），diff 范围直接用返回的 `diff_range`。集成 review 补 per-slice review 看不到的盲区——跨 slice 集成问题。
 
 **第 1 轮起，重复直到无新 finding 或达 2 轮上限：**
 
@@ -118,7 +118,7 @@ git commit -m "feat(<task>): {slice_id} <slice 标题>"
 **达 2 轮仍有 finding** → 停下报告用户。建议手动 `/seed-kit:review-loop` 做多轮对抗深审。
 
 收尾：
-- 落 task 级 marker：收敛 → `seed review-mark <task> --verdict converged --depth single --note "integration-review"`；2 轮仍有 finding → `seed review-mark <task> --verdict rounds-exhausted --depth single --note "integration-review escalated"`。
+- 落 task 级 marker：收敛 → `seed review-mark <task> --verdict converged --depth inline --note "integration-review"`；2 轮仍有 finding → `seed review-mark <task> --verdict rounds-exhausted --depth inline --note "integration-review escalated"`。
 - **报告改动范围**（给人审用）：
   ```
   本任务改动：<task_start_sha>..HEAD（N 个 per-slice commit + M 个 integration fix）

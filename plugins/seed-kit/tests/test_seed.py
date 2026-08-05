@@ -443,8 +443,11 @@ def test_review_mark_writes_marker(project: Path, capsys):
     assert data["terminal_reason"] == "converged"
     assert data["converged"] is True
     assert data["round"] == 2
-    # 默认路径审查深度 = single（单 agent）；增强项 = full（5 agent review-loop）
+    # 省略 --depth 保持 single（不改变既有调用行为）；inline=编排者内联自查；full=5 agent review-loop
     assert data["depth"] == "single"
+    assert run(project, "review-mark", "demo", "--verdict", "converged", "--depth", "inline") == 0
+    data = json.loads(marker.read_text())
+    assert data["depth"] == "inline"
     assert run(project, "review-mark", "demo", "--verdict", "converged", "--depth", "full") == 0
     data = json.loads(marker.read_text())
     assert data["depth"] == "full"
