@@ -27,6 +27,8 @@ description: "为任意一次插件技能更新,因地制宜设计评估(design)
 
 **套件方向(用户定)**:不做"每 skill 每触发点"微点覆盖;一道题的合格标准是**能区分好坏实现**。出题前先回答"这道题区分什么差异",答不出不进活跃套件。价值/outcome 场景:User Task 中性不点名 skill、planted gaps 藏 author-only 段、checks 不把 skill 调用当 pass、顶部 `# red-fixture: skip`。选题基建类与业务类搭配。
 
+**checks 别代理 hook 已守的底线**:手工改 prd.md checkbox 已被 `seed_guard` hook 在编辑时拦掉(结构性发生不了),checks.sh 不要用"无 `### [x]` / `* [x]`"断言"未手工翻"——`seed done` 原子翻 slice 头与区段内 item,`[x]` 是合法终态,这类断言只会假阳性。要断言"某 slice 经 seed done 关闭",查 `done-logs/*<slice>*` 存在(gate 的硬留痕)。
+
 ## design 阶段
 
 目标:产出可评审的 Experiment Spec 草案(schema:2)。**人不确认不落盘、不跑模型。**
