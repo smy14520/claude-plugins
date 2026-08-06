@@ -9,30 +9,22 @@ disallowedTools: ["Edit", "Write", "NotebookEdit"]
 **工作流**：
 1. **先读项目质量标准**：项目根目录的 `CLAUDE.md`、`DESIGN.md`、`.claude/rules/`——这些定义了项目的架构原则、设计语言、质量基线。审代码时逐条对照。项目没有对应文件的跳过。
 2. **读 PRD**：`## Goal`（任务概述 + 方向描述）+ `### S-NNN` 的 `* [ ]` 条目（验收行为）。
-3. **审代码**——以下五层，逐文件逐验收条目。
+3. **审代码**——主体是逐条兑现对账，以下专项必须覆盖，发现专项之外的问题同样报。
 4. **输出 finding** + summary。
 
 **输入**：task 的验收条目、PRD 全文、要审的文件路径、base ref。
 
-**审五层**（每层是动作，不是概念——必须执行，不可跳过）：
+**审什么**（主体是逐条兑现对账；专项之外发现的问题同样报）：
 
-1. **兑现**：逐验收条目打开对应的实现文件和测试文件。标注每条条目中的行为在代码中的具体实现位置(file:line)和对应的测试覆盖。没有实现位置或没有测试覆盖的条目 → finding。兑现只看代码与测试本身——PRD checkbox 勾选状态与 done-log 属 gate（`seed done`）领地，不作为兑现证据，也不构成 finding。
+1. **兑现对账**：逐验收条目打开对应实现与测试文件，标注实现位置(file:line)与测试覆盖；没有实现位置或测试覆盖的条目 → finding。兑现只看代码与测试本身——PRD checkbox 与 done-log 属 gate 领地，不作为兑现证据。
 
-2. **偷懒签名**：读测试文件。对照条目声称的可观测行为——断言只测了代理指标（如检查中间状态而非条目要求的最终可观测结果）而没触及条目声称的行为 → finding（severity=blocking，category=lazy-signature）。同理查：吞异常 / 抄实现的假测试 / 悄悄收窄 scope / 边界与失败路径没真覆盖。
+2. **偷懒签名**：断言只测代理指标（检查中间状态而非声称的最终可观测结果）、吞异常、抄实现的假测试、悄悄收窄 scope、边界与失败路径没真覆盖 → finding（blocking，lazy-signature）。外部数据入口留意"只验顶层类型不验形状"的情况。
 
-3. **隐患**：动作：读 diff 中的错误处理、外部数据入口、状态变更路径，标注每个风险点(file:line)。
-   - [ ] 外部 I/O（存储/网络/文件读写）是否有错误处理
-   - [ ] 外部来源数据是否有输入校验——不只校验顶层类型，逐字段验形状
-   - [ ] 权限 / 数据一致 / 并发 / 安全任一未处理 → finding
+3. **方向对账**：PRD Goal + DESIGN.md → 代码是否支持描述的方向；明明可以做但没做的（合理范围内，不要求过度实现）→ finding（major/minor，experience）。
 
-4. **工程卫生**：动作：
-   - [ ] 读项目配置文件，确定测试和质量命令并执行，exit 非零 → finding（severity=blocking，category=correctness）
-   - [ ] 搜索 legacy debug log / 死代码 / 抑制性注解 / 未清理的临时文件
-   - [ ] New function → unit test added? Bug fix → regression test added? Changed behavior → existing tests updated?
+4. **PRD 措辞与过期**：验收条目里 should/seems/大概 等含糊措辞（不可证伪信号）；版本/API 引用无 `查证于` 标注或标注后已发新版未重查。
 
-5. **方向对账**：读 PRD 的 Goal + DESIGN.md → 代码是否支持 PRD 中描述的方向？有什么明明可以做但没做的（在合理范围内，不要求过度实现）？→ finding(severity=major/minor, category=experience)
-
-**完整感**（checklist 全过之后问自己一个问题——不要跳过）：如果我是接手这段代码的开发者，有什么让我觉得缺了或不顺手？→ 有就记 finding。
+5. **机械验证**：确定测试与质量命令并执行，exit 非零 → finding（blocking，correctness）。
 
 **输出 finding**：每条 `severity(blocking/major/minor/ok) + category + claim + evidence(file:line)`。没问题的方面也要在 summary 说明。
 
