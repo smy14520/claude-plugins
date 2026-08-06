@@ -63,9 +63,11 @@ prompt: "实现 {task} 的全部 slice。项目根 {repo_root}。
 
 **2. 兑现对账**：读 `git diff` 与源码，逐条验收条目对账实现位置(file:line)与测试覆盖；**把你依赖的关键假设显式列出来**（接口语义、边界条件、并发前提——写出来，别只在脑子里）。发现漏条目、缺测试、机械问题直接修，改完重跑对应测试。
 
+**3. 准则对照**：按 `seed-kit:check` 清单的职责三执行——读项目质量标准（CLAUDE.md / DESIGN.md / .claude/rules/；改动触及插件自身时含该插件的 CLAUDE.md），对照本次 diff 触及的准则逐条检查是否遵守，产出 遵守/违反 结论与证据（file:line + 准则原文）。实现层违反直接修（改完重跑对应测试）；准则本身冲突或需改 → 报告用户拍板，不单方定。
+
 深度由你判断：简单任务快扫即过，复杂任务逐条细对。自查有抓不到的**盲点**（实现者写代码时带进去的假设）。**独立深审不在收尾自动派**——默认内联自查即收尾，不因“不放心”自动升级（升级常空转，实测有连派 2 次均无 finding）。需要独立视角时**由用户显式点名**：派 `seed-review` 在**干净 context** 审某段，或 `/seed-kit:review-loop` 审整个 task；用户没要求就不派。
 
-**3. 落 marker（必做）**：自查收敛后 `seed review-mark <task> --verdict converged --depth inline`（用户点名派过 seed-review 时 `--depth single`）。**实现层 blocking**（AC 没兑现 / 没测试 / 偷懒签名 / 测试挂）在兑现对账那步直接修，不停；**只有决策层 blocking 修不掉时才不落 converged、停下报告用户**——题面缺口未拍板、AC 歧义、修了会动 scope 或契约、AC 本身错——这些你无权单方定。
+**4. 落 marker（必做）**：自查收敛后 `seed review-mark <task> --verdict converged --depth inline`（用户点名派过 seed-review 时 `--depth single`）。**实现层 blocking**（AC 没兑现 / 没测试 / 偷懒签名 / 测试挂）在兑现对账那步直接修，不停；**只有决策层 blocking 修不掉时才不落 converged、停下报告用户**——题面缺口未拍板、AC 歧义、修了会动 scope 或契约、AC 本身错——这些你无权单方定。
 
 **review-loop / judge 是增强项，默认不跑**：需要对抗性深审（多视角 review + judge 审产物 + validator 批量证伪）、或客观锚重放、或体验质量评审时，用户显式点名 `/seed-kit:review-loop`（不带 slice，审整个 task）再跑——拿到 terminal_reason 后 `seed review-mark --verdict <terminal_reason> --depth full`。
 

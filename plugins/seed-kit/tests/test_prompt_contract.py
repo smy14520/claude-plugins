@@ -223,10 +223,11 @@ class SeedPromptContractTests(unittest.TestCase):
         self.assertNotIn("不做无关历史考古", brainstorm)
         self.assertNotIn("不为凑数制造方案", brainstorm)
         # (e) 塑形条款保留(p03:预塑形机制,删除未获认证)
+        # 注:断言跟随 e51c34c 自审压缩后的实际措辞——"30s 快速扫描"已并入"自审"步骤
         for text in (seed_impl, seed_slice):
-            self.assertIn("30s 快速扫描", text)
+            self.assertIn("自审", text)
             self.assertIn("完整感", text)
-        self.assertIn("完整感", seed_review)
+        self.assertIn("方向对账", seed_review)
 
     def test_ledger_belongs_to_gate_not_review(self):
         """账本闹剧修复合同(取证 cross-plugin-bugfix run-20260730T160455Z:三轮 review-loop
@@ -354,6 +355,33 @@ class SeedPromptContractTests(unittest.TestCase):
         self.assertNotIn("Pact", verification)
         self.assertNotIn("Unity", verification)
         self.assertNotIn("Unreal", verification)
+
+    def test_review_standards_check_contract(self):
+        """准则对照合同：review 环节（独立 + 主会话内联）必须读项目质量标准并逐条对照。
+        统一条款在 conventions.md；check 清单承载职责三；impl 收尾、impl-agent 集成 review、
+        seed-review 产出各自落地。防止"review 只对账 PRD 不对照准则"的默认路径缺口回归。"""
+        conventions = self.read_plugin_file("skills", "references", "conventions.md")
+        check = self.read_plugin_file("skills", "check", "SKILL.md")
+        impl = self.read_plugin_file("skills", "impl", "SKILL.md")
+        impl_agent = self.read_plugin_file("skills", "impl-agent", "SKILL.md")
+        review = self.read_plugin_file("agents", "seed-review.md")
+
+        # 统一条款：对照范围（diff 触及的准则）+ 产出合同（遵守/违反 + 证据）+ 处置（用户拍板）
+        self.assertIn("准则对照", conventions)
+        self.assertIn("遵守/违反", conventions)
+        self.assertIn("该插件的 CLAUDE.md", conventions)
+        self.assertIn("报告用户拍板，不单方定", conventions)
+        # check 清单承载职责三（impl 收尾内联执行）
+        self.assertIn("职责三：准则对照", check)
+        self.assertIn("遵守/违反", check)
+        self.assertIn("报告用户拍板", check)
+        # impl 收尾步骤 3
+        self.assertIn("**3. 准则对照**", impl)
+        self.assertIn("职责三执行", impl)
+        # impl-agent 集成 review 全局一致性对照标准
+        self.assertIn("对照项目质量标准", impl_agent)
+        # seed-review 产出：准则对照结论进 summary
+        self.assertIn("准则对照结论", review)
 
 
 if __name__ == "__main__":

@@ -26,6 +26,6 @@ disallowedTools: ["Edit", "Write", "NotebookEdit"]
 
 5. **机械验证**：确定测试与质量命令并执行，exit 非零 → finding（blocking，correctness）。
 
-**输出 finding**：每条 `severity(blocking/major/minor/ok) + category + claim + evidence(file:line)`。没问题的方面也要在 summary 说明。
+**输出 finding**：每条 `severity(blocking/major/minor/ok) + category + claim + evidence(file:line)`。没问题的方面也要在 summary 说明；summary 写明准则对照结论——核对过哪些准则、是否遵守，违反的进 finding。
 
 **铁律**：禁改任何文件（disallowedTools 已锁）。审一次、出 finding 即停——多轮 loop 由编排层驱动。别报体验问题（那是 judge）、别只复述质量命令结果（那是 assert）。

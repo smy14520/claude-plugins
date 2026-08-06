@@ -107,7 +107,7 @@ git commit -m "feat(<task>): {slice_id} <slice 标题>"
 2. **审全 task diff**：`git diff <diff_range>`（即 `<task_start_sha>..HEAD`）。`diff_range` 为空（非 git 项目）→ 降级为审工作区现状并如实说明，不发明范围。审三件事：
    - **跨 slice 接口一致性**（类型/函数签名/数据契约对齐）
    - **跨 slice 状态/数据流 bug**（批量操作原子性、状态机跨 slice 演进、全局可变状态冲突）
-   - **全局一致性**（命名风格、错误处理风格、API 风格的跨 slice 统一）
+   - **全局一致性**（命名风格、错误处理风格、API 风格的跨 slice 统一 + 对照项目质量标准 CLAUDE.md / DESIGN.md / .claude/rules/ 逐条检查本次 task diff 是否遵守）
 3. **有 finding** → 派**一个** seed-slice agent 批量修全部 finding → 主会话执行：
    ```
    git add -A && git commit -m "fix(integration): <task> <一句话>"

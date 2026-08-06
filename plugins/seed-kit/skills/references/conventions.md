@@ -14,6 +14,7 @@
   - **品味、设计语言**（参考产品、配色字体、质量门槛）放 `DESIGN.md`。
   - `CLAUDE.md` 做入口。
   skill 写验收条目、写测试、对账时读它们；项目未提供标准时，插件只提供默认基准。
+- **review 环节必须做准则对照**：读项目质量标准（CLAUDE.md / DESIGN.md / .claude/rules/；改动触及插件自身时含该插件的 CLAUDE.md），对照本次 diff 触及的准则逐条检查是否遵守。产出：每条准则 → 遵守/违反 → 证据（file:line + 准则原文）。实现层违反直接修；准则本身冲突或需改 → 报告用户拍板，不单方定。
 
 > PRD 验证设计（验收条目驱动 / 三类验证 / judge loop / rubric 格式 / 硬规则）见 [`verification.md`](./verification.md)——brainstorm / impl / review 读；research / wiki 不需要。
 
