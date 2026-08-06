@@ -57,15 +57,15 @@ prompt: "实现 {task} 的全部 slice。项目根 {repo_root}。
 
 ## 结束
 
-所有 slice done 后，收尾自查——你自己做，不派 agent。**用全新的视角复审产出，重点找可能写错的地方**；整个自查闭环（发现问题→修→重验→需要时升级→落 marker）自动推进，不停下来请示——只有缺口拍板和 commit 归用户。
+所有 slice done 后，收尾自查——你自己做，不派 agent。**用全新的视角复审产出，重点找可能写错的地方**；整个自查闭环（发现问题→修→重验→落 marker）自动推进，不停下来请示——只有缺口拍板和 commit 归用户。独立深审（seed-review / review-loop）不在闭环内自动派，由用户点名。
 
 **1. 题面对照**：按 `seed-kit:check` 的清单内联执行（不 dispatch 该 skill）——对照原始需求（不是 prd.md）逐条声称问归属：某条 `* [ ]` 条目、Out of Scope（用户确认），或缺口。缺口交用户拍板（补 AC 走补做，或经确认进 Out of Scope），不单方排除；顺带做一轮轻量质量快扫。review-loop 审的是"PRD 兑现了没有"，收敛时丢掉的声称对它不可见——这一步是 review 之外的防漏点。
 
 **2. 兑现对账**：读 `git diff` 与源码，逐条验收条目对账实现位置(file:line)与测试覆盖；**把你依赖的关键假设显式列出来**（接口语义、边界条件、并发前提——写出来，别只在脑子里）。发现漏条目、缺测试、机械问题直接修，改完重跑对应测试。
 
-深度由你判断：简单任务快扫即过，复杂任务逐条细对。**自查有一个永远抓不到的东西：你自己写代码时带进去的盲点**——同一个脑子、同一份 context，复审自己等于带着假设找假设。**当代码难以用测试完全覆盖、或你对某处正确性不是有把握时，派 1 个 `seed-review` agent 在干净 context 里审那一段（不必先请示）**——这是你能给自己的、自己也给不了的帮助。finding 主会话逐条核验后处置，确认属实的修，证据不足的跳过。
+深度由你判断：简单任务快扫即过，复杂任务逐条细对。自查有抓不到的**盲点**（实现者写代码时带进去的假设）。**独立深审不在收尾自动派**——默认内联自查即收尾，不因“不放心”自动升级（升级常空转，实测有连派 2 次均无 finding）。需要独立视角时**由用户显式点名**：派 `seed-review` 在**干净 context** 审某段，或 `/seed-kit:review-loop` 审整个 task；用户没要求就不派。
 
-**3. 落 marker（必做）**：自查收敛后 `seed review-mark <task> --verdict converged --depth inline`（升级派过 seed-review 时 `--depth single`）。**实现层 blocking**（AC 没兑现 / 没测试 / 偷懒签名 / 测试挂）在兑现对账那步直接修，不停；**只有决策层 blocking 修不掉时才不落 converged、停下报告用户**——题面缺口未拍板、AC 歧义、修了会动 scope 或契约、AC 本身错——这些你无权单方定。
+**3. 落 marker（必做）**：自查收敛后 `seed review-mark <task> --verdict converged --depth inline`（用户点名派过 seed-review 时 `--depth single`）。**实现层 blocking**（AC 没兑现 / 没测试 / 偷懒签名 / 测试挂）在兑现对账那步直接修，不停；**只有决策层 blocking 修不掉时才不落 converged、停下报告用户**——题面缺口未拍板、AC 歧义、修了会动 scope 或契约、AC 本身错——这些你无权单方定。
 
 **review-loop / judge 是增强项，默认不跑**：需要对抗性深审（多视角 review + judge 审产物 + validator 批量证伪）、或客观锚重放、或体验质量评审时，用户显式点名 `/seed-kit:review-loop`（不带 slice，审整个 task）再跑——拿到 terminal_reason 后 `seed review-mark --verdict <terminal_reason> --depth full`。
 

@@ -276,7 +276,7 @@ class SeedPromptContractTests(unittest.TestCase):
         +1.7pp 收益与噪音不可区分,降为增强项;后续内联化:impl-agent 集成 review 已内联,
         impl 收尾拉齐为编排者内联自查,升级通道保留):
         (a) impl 收尾默认 = 内联自查(题面对照 + 兑现对账 + 关键假设外显),落 --depth inline;
-        (b) 升级通道保留——高风险面/拿不准时派 seed-review 干净 context,落 --depth single;
+        (b) 升级通道保留(用户点名触发,不自动派)——派 seed-review 干净 context 审,落 --depth single;
         (c) review-loop(5 agent)与 judge 是增强项,用户显式点名才跑,落 --depth full;
         (d) marker 记录审查深度,converged 不字面说谎(见 test_seed depth 断言)。"""
         impl = self.read_plugin_file("skills", "impl", "SKILL.md")
