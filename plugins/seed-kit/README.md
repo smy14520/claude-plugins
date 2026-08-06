@@ -1,6 +1,6 @@
 # seed-kit
 
-轻量 PRD-first 工作流。七个 skill 全部由用户主动触发、互不自动耦合；进度状态以 `prd.md` 的 slice checkbox 为准，没有 task.json，也没有阶段状态机（impl-agent 的 `impl-state.json` 只是任务锚点，`gate-attempts/` 只是失败留痕，都不构成第二套进度）。
+轻量 PRD-first 工作流。八个 skill 全部由用户主动触发、互不自动耦合；进度状态以 `prd.md` 的 slice checkbox 为准，没有 task.json，也没有阶段状态机（impl-agent 的 `impl-state.json` 只是任务锚点，`gate-attempts/` 只是失败留痕，都不构成第二套进度）。
 
 设计动机与取舍见 [`DESIGN.md`](DESIGN.md)。
 
@@ -20,7 +20,7 @@
 ```
 
 
-## 七个 skill
+## 八个 skill
 
 | skill | 职责 | 产出 |
 |---|---|---|
@@ -31,8 +31,9 @@
 | check | 收尾自查：对照原始需求逐条声称问归属（AC / 用户确认的 OoS / 缺口）+ 轻量快扫 | 归属表 + 缺口拍板记录 |
 | review | 干净视角逐验收条目对账 diff，专查偷懒签名 | 追加 `review.md` |
 | wiki | 项目知识层：长期资料 + 多文件链路知识 | `.arbor/.wiki/` 页面 |
+| init | 新项目初始化时推荐默认基准（Fowler 12 味代码审查基准） | 项目标准文件（CLAUDE.md / .claude/rules/） |
 
-七个 skill 不自动相互流转：brainstorm 不主动进入 research；impl 会读取 wiki 索引，并在全量模式全部 slice done 后由编排者内联收尾自查（按 check 清单做题面对照 + 兑现对账），落 `review-mark --depth inline`；触及高风险面或拿不准时升级派 seed-review（`--depth single`）；review-loop（5 agent 对抗深审）与 judge（产物评审）是**增强项**，用户显式点名才跑；impl-agent 用集成 review 收口（同样先内联题面对照）；review skill 本身仍由用户主动触发。
+八个 skill 不自动相互流转：brainstorm 不主动进入 research；impl 会读取 wiki 索引，并在全量模式全部 slice done 后由编排者内联收尾自查（按 check 清单做题面对照 + 兑现对账），落 `review-mark --depth inline`；触及高风险面或拿不准时升级派 seed-review（`--depth single`）；review-loop（5 agent 对抗深审）与 judge（产物评审）是**增强项**，用户显式点名才跑；impl-agent 用集成 review 收口（同样先内联题面对照）；review skill 本身仍由用户主动触发。
 
 ## 状态模型
 
