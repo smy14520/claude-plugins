@@ -54,4 +54,5 @@ frontmatter 必填：
 - 用户触发 wiki skill 时做**集中收录、批量更新、体检**（ingest / update / lint）。
 - brainstorm、impl、review 入场时各自加载 `seed wiki index --json` 暖场，收尾时按阶段职责写入——这些是各阶段的内部动作，不叫「触发 wiki skill」。
 - 不收录代码本身能直接回答的事实（函数签名、单文件实现细节）；收录的是跨文件、易遗忘、有"为什么"的知识。
+- `concept` / `entity` 页是术语表：只放定义、边界与反例，零实现细节——与代码重复的事实让代码自己回答；实现链路归 `cross_cut`，决策归因归 `decision`。
 - 与 `.arbor/` 无依赖：wiki 跟项目走，不跟任务走。
