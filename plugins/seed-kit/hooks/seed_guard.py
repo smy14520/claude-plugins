@@ -14,7 +14,7 @@ from pathlib import Path
 from typing import Any
 
 PRD_RE = re.compile(r"(^|/)\.arbor/tasks/[^/]+/prd\.md$")
-DESTRUCTIVE_RE = re.compile(r"\b(git\s+reset\s+--hard|git\s+clean\s+-|git\s+push\s+--force|rm\s+-rf)\b")
+DESTRUCTIVE_RE = re.compile(r"\b(git\s+reset\s+--hard|git\s+clean\s+-|git\s+push\s+--force)\b")
 CHECKED_HEADING_RE = re.compile(r"^### \[x\] ", re.MULTILINE)
 
 

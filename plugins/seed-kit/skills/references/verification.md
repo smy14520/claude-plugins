@@ -116,5 +116,5 @@ PRD 三段——Goal / Acceptance Criteria / Out of Scope。Slice 内联在 `###
 
 - `seed done` 跑项目测试+质量命令，全过才翻 checkbox
 - `seed done` 是勾选 checkbox 的唯一合法入口（seed_guard hook 拦截直接编辑）
-- 破坏性命令（rm -rf / git reset --hard / git push --force）被 seed_guard 拦截
+- 破坏性命令（git reset --hard / git clean / git push --force）被 seed_guard 拦截
 - review-loop 由显式 command 或 impl skill 编排；普通 review 不自动流转到修复循环

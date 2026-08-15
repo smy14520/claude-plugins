@@ -51,7 +51,7 @@ def test_allows_write_preserving_checked_count(tmp_path: Path):
 
 
 def test_blocks_destructive_commands():
-    for command in ["rm -rf build", "git reset --hard HEAD~1", "git push --force origin main"]:
+    for command in ["git reset --hard HEAD~1", "git push --force origin main", "git clean -fd"]:
         payload = {"tool_name": "Bash", "tool_input": {"command": command}}
         assert seed_guard.evaluate(payload)["decision"] == "block", command
 
