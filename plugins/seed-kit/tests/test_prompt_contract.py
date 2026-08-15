@@ -1,10 +1,12 @@
 from __future__ import annotations
 
 import json
+import re
 import unittest
 from pathlib import Path
 
 PLUGIN_ROOT = Path(__file__).resolve().parents[1]
+REPO_ROOT = PLUGIN_ROOT.parent.parent
 
 
 class SeedPromptContractTests(unittest.TestCase):
@@ -382,6 +384,177 @@ class SeedPromptContractTests(unittest.TestCase):
         self.assertIn("对照项目质量标准", impl_agent)
         # seed-review 产出：准则对照结论进 summary
         self.assertIn("准则对照结论", review)
+
+    # --- prototype-wayfinder 合同 --------------------------------------------------
+
+    def test_seed_prototype_agent_contract(self):
+        """seed-prototype agent 合同：两类入口（编排派发 + 用户语义点名）、两分支（问题决定形态）、
+        铁律（自包含单 HTML / 无持久化 / 全量状态 / 结论折真代码本体不进交付）。
+        栈特定框架词禁入——判定式：对所有技术栈同等成立才留插件。"""
+        agent = self.read_plugin_file("agents", "seed-prototype.md")
+
+        # description 覆盖两类入口
+        self.assertIn("被 brainstorm / wayfinder 编排派发", agent)
+        self.assertIn('用户点名"使用 prototype"时主会话直接派发', agent)
+        # 两分支，问题决定形态
+        self.assertIn("逻辑走查", agent)
+        self.assertIn("UI 变体切换面板", agent)
+        self.assertIn("问题决定形态", agent)
+        # 铁律
+        self.assertIn(".arbor/prototypes/<slug>/", agent)
+        self.assertIn("自包含单 HTML", agent)
+        self.assertIn("默认无持久化", agent)
+        self.assertIn("每次交互后展示全量状态", agent)
+        self.assertIn("原型本体不进交付", agent)
+        # 栈特定框架词禁入（反向）
+        for word in ("React", "Vue", "Svelte", "Angular", "Playwright",
+                     "Vite", "webpack", "jest", "cypress", "tailwind"):
+            self.assertNotIn(word, agent)
+
+    def test_brainstorm_dispatches_prototype_and_routes_map(self):
+        """brainstorm 接缝合同：体验方向分支派 seed-prototype（verdict 折进访谈）；
+        入场分流（大到装不下/雾里 → 先开图）+ 收敛入口（图清后读票不重问）。"""
+        text = self.read_plugin_file("skills", "brainstorm", "SKILL.md")
+
+        # prototype 派发线
+        self.assertIn("形容词吵不出结果", text)
+        self.assertIn("seed-prototype", text)
+        self.assertIn(".arbor/prototypes/<slug>/", text)
+        self.assertIn("verdict", text)
+        # wayfinder 分流线 + 收敛入口
+        self.assertIn("开图还是直接访谈", text)
+        self.assertIn("/seed-kit:wayfinder", text)
+        self.assertIn("## Resolution", text)
+        self.assertIn("不重问", text)
+
+    def test_wayfinder_map_and_ticket_format(self):
+        """wayfinder 合同（形态）：map.md 五节 + 票文件格式
+        （frontmatter type/status/blocked-by + Question/Resolution 两节）；helper 面 new/status 成文。"""
+        skill = self.read_plugin_file("skills", "wayfinder", "SKILL.md")
+        template = self.read_plugin_file("templates", "map.md")
+        conventions = self.read_plugin_file("skills", "references", "conventions.md")
+
+        for section in ("## Destination", "## Notes", "## Decisions so far",
+                        "## Not yet specified", "## Out of scope"):
+            self.assertIn(section, skill)
+            self.assertIn(section, template)
+        # 票格式
+        self.assertIn("type: research | prototype | grilling | task", skill)
+        self.assertIn("status: open | closed", skill)
+        self.assertIn("blocked-by", skill)
+        self.assertIn("## Question", skill)
+        self.assertIn("## Resolution", skill)
+        # helper 面：new / status 两个子命令，frontier 从盘上推导
+        self.assertIn("seed map new <slug>", skill)
+        self.assertIn("seed map status", skill)
+        self.assertIn("从盘上推导", skill)
+        self.assertIn("seed map new <slug>", conventions)
+        self.assertIn("seed map status <slug> [--json]", conventions)
+
+    def test_wayfinder_ticket_types_and_discipline(self):
+        """wayfinder 合同（分工与纪律）：四票型执行分工（grilling 走提问通道 / research 轻重分流 /
+        prototype 派 agent / task 记事实）；HITL 票 agent 不代答；一会话一票；图清三条件交棒。"""
+        skill = self.read_plugin_file("skills", "wayfinder", "SKILL.md")
+
+        for ticket_type in ("grilling", "research", "prototype", "task"):
+            self.assertIn(f"**{ticket_type}**", skill)
+        # grilling：brainstorm 提问通道（AskUserQuestion 一次一题）
+        self.assertIn("AskUserQuestion 一次一题", skill)
+        # research：轻调查派 sub-agent、重调查建 research 工作区
+        self.assertIn("sub-agent", skill)
+        self.assertIn(".arbor/research/<topic>/", skill)
+        # prototype：派 seed-prototype，verdict 写 Resolution
+        self.assertIn("seed-prototype", skill)
+        # task：Resolution 记录做了什么与产生的事实（供下游票引用）
+        self.assertIn("凭据位置", skill)
+        # HITL 边界：agent 不得代替用户作答
+        self.assertIn("HITL 票 agent 不得代替用户作答", skill)
+        # 会话纪律：一会话一票（research 例外可并行）
+        self.assertIn("一会话只解决一张票", skill)
+        self.assertIn("research 例外", skill)
+        # 图清 = 三条件 → 建议转 brainstorm 收敛，不自动进 impl
+        self.assertIn("frontier 空 + 雾区（Not yet specified）空 + 全票 closed", skill)
+        self.assertIn("不自动进 impl", skill)
+
+    def test_wayfinder_ledger_separation(self):
+        """账本分离合同（反向语义）：票是决策账本，不是交付账本——
+        不进 seed done、不翻 PRD checkbox、不是 slice；.arbor/maps/ 不构成第二套进度，图清即冻结。"""
+        skill = self.read_plugin_file("skills", "wayfinder", "SKILL.md")
+        design = self.read_plugin_file("DESIGN.md")
+
+        self.assertIn("票不进 `seed done`", skill)
+        self.assertIn("不翻 PRD checkbox", skill)
+        self.assertIn("不是 slice", skill)
+        self.assertIn("不构成第二套进度", skill)
+        self.assertIn("图清即冻结", skill)
+        # 收票是 agent 语义动作，helper 保持只读（map 子命令族无其他写操作）
+        self.assertIn("helper 保持只读", skill)
+        # 设计原则层：两套账本分离成文
+        self.assertIn("两套账本严格分离", design)
+
+    def test_directory_ledger_reconciles_with_disk(self):
+        """目录对账：conventions 登记表 ↔ 磁盘 skills/（含 SKILL.md 的目录）、agents/、commands/ 逐项一致（双向）。
+        登记表人为删去任一条目时本测试红——红灯演示记录见
+        .arbor/tasks/prototype-wayfinder/notes/red-demo.md。"""
+        conventions = self.read_plugin_file("skills", "references", "conventions.md")
+
+        disk_skills = sorted(p.parent.name for p in (PLUGIN_ROOT / "skills").glob("*/SKILL.md"))
+        disk_agents = sorted(p.stem for p in (PLUGIN_ROOT / "agents").glob("*.md"))
+        disk_commands = sorted(p.stem for p in (PLUGIN_ROOT / "commands").glob("*.md"))
+        self.assertTrue(disk_skills and disk_agents and disk_commands)  # 采集本身不能空转
+
+        # 磁盘 → 登记表：磁盘上存在的实体必须登记（漏登记 = 红）
+        for name in disk_skills + disk_agents + disk_commands:
+            self.assertIn(f"seed-kit:{name}", conventions)
+
+        # 登记表 → 磁盘：登记的调用名必须真实存在（幽灵登记 = 红）
+        registered = set(re.findall(r"seed-kit:([a-z][a-z-]*)", conventions))
+        valid = set(disk_skills) | set(disk_agents) | set(disk_commands)
+        ghosts = registered - valid
+        self.assertFalse(ghosts, f"登记表引用了磁盘上不存在的调用名：{sorted(ghosts)}")
+
+    def test_skill_count_ledgers_match_disk(self):
+        """数量对账：六处账本（plugin.json / marketplace.json / 根 README / DESIGN.md /
+        插件 README / conventions）的 skill 数量与清单和磁盘 skills/ 目录一致，过时数量词全部清除。
+        磁盘数量变化时各账本必须同步——写死数字而不改账本会红。"""
+        disk_skills = sorted(p.parent.name for p in (PLUGIN_ROOT / "skills").glob("*/SKILL.md"))
+        cn_num = {10: "十", 11: "十一", 12: "十二"}.get(len(disk_skills))
+        self.assertIsNotNone(cn_num, "skill 数超出预设数量词映射，请同步更新本测试")
+
+        conventions = self.read_plugin_file("skills", "references", "conventions.md")
+        plugin_readme = self.read_plugin_file("README.md")
+        design = self.read_plugin_file("DESIGN.md")
+        root_readme = (REPO_ROOT / "README.md").read_text(encoding="utf-8")
+        marketplace = (REPO_ROOT / ".claude-plugin" / "marketplace.json").read_text(encoding="utf-8")
+        plugin_json = self.read_plugin_file(".claude-plugin", "plugin.json")
+
+        # conventions：数量词 + 括号列举与磁盘集合完全一致（双向）
+        match = re.search(r"个 skill（([^）]+)）", conventions)
+        self.assertIsNotNone(match, "conventions 应有「N 个 skill（列举…）」形态的数量声明")
+        listed = [x.strip() for x in match.group(1).split("、") if x.strip()]
+        self.assertEqual(
+            sorted(listed), disk_skills,
+            f"conventions 列举 {sorted(listed)} ≠ 磁盘 {disk_skills}",
+        )
+        self.assertIn(f"{cn_num}个 skill", conventions)
+        # 插件 README：标题数量词 + 表格行与磁盘一一对应
+        self.assertIn(f"## {cn_num}个 skill", plugin_readme)
+        section = plugin_readme.split(f"## {cn_num}个 skill", 1)[1].split("\n## ", 1)[0]
+        rows = [ln for ln in section.splitlines()
+                if ln.startswith("|") and "---" not in ln and not ln.startswith("| skill ")]
+        self.assertEqual(len(rows), len(disk_skills), f"README 表格 {len(rows)} 行 ≠ 磁盘 {len(disk_skills)} 个 skill")
+        for row in rows:
+            name = row.split("|")[1].strip()
+            self.assertIn(name, disk_skills)
+        # 根 README 数量词一致
+        self.assertIn(f"{cn_num}个 skill", root_readme)
+        # plugin.json 指向 skills/ 目录（清单由目录承载，不复制名单）
+        self.assertEqual(json.loads(plugin_json)["skills"], ["./skills/"])
+        # 过时数量词全部清除（六处）
+        stale = ("五个 skill", "六个 skill", "九个 skill", "five skill", "six skill", "nine skill")
+        for text in (conventions, plugin_readme, design, root_readme, marketplace, plugin_json):
+            for word in stale:
+                self.assertNotIn(word, text, f"{word} 是过时数量词，应修整为与磁盘一致")
 
 
 if __name__ == "__main__":

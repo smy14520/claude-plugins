@@ -1,0 +1,11 @@
+{
+  "test": {
+    "command": "git diff bde3084 -- plugins/seed-kit --quiet && grep -q '用户拍板（2026-08-15）' /Users/camellia/Personal/Code/claude/seed-kit-evals-v2/experiments/wayfinder-foggy-value/CONCLUSION.md && grep -q '用户拍板（2026-08-15）' /Users/camellia/Personal/Code/claude/seed-kit-evals-v2/experiments/prototype-direction-value/CONCLUSION.md && echo CERTIFIED-TREE-INTACT-AND-DECISION-RECORDED",
+    "exit_code": 0,
+    "output_summary": "CERTIFIED-TREE-INTACT-AND-DECISION-RECORDED",
+    "output_sha256": "ce49d28e338258dbace42aa5205de96dc1d06c72cb9df589b7c8501c55080e68",
+    "output_bytes": 44,
+    "output_truncated": false
+  },
+  "quality": []
+}

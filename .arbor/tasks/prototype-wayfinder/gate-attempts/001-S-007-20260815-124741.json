@@ -1,0 +1,15 @@
+{
+  "slice": "S-007",
+  "result": "fail",
+  "failed_stage": "test",
+  "test": {
+    "command": "git diff bde3084 -- plugins/seed-kit --quiet && grep -q '用户拍板（2026-08-15）：合并' /Users/camellia/Personal/Code/claude/seed-kit-evals-v2/experiments/wayfinder-foggy-value/CONCLUSION.md && grep -q '用户拍板（2026-08-15）：合并' /Users/camellia/Personal/Code/claude/seed-kit-evals-v2/experiments/prototype-direction-value/CONCLUSION.md && echo CERTIFIED-TREE-INTACT-AND-DECISION-RECORDED",
+    "exit_code": 1,
+    "output_summary": "",
+    "output_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+    "output_bytes": 0,
+    "output_truncated": false
+  },
+  "quality": [],
+  "recorded_at": "2026-08-15T12:47:41Z"
+}

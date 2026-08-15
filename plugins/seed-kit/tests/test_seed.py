@@ -497,3 +497,178 @@ def test_score_aggregate_computes_median(project: Path, capsys):
     assert agg["dimensions"]["visual"]["score"] == 3.0
     assert agg["dimensions"]["hierarchy"]["score"] == 4.0
     assert agg["average"] == 3.5
+
+
+# --- map（wayfinder 决策图 helper）---------------------------------------------
+
+def make_ticket(
+    root: Path,
+    map_slug: str,
+    name: str,
+    *,
+    status: str = "open",
+    blocked_by: str = "",
+    resolution: bool = False,
+    raw: str | None = None,
+) -> Path:
+    tickets = root / ".arbor" / "maps" / map_slug / "tickets"
+    tickets.mkdir(parents=True, exist_ok=True)
+    if raw is not None:
+        body = raw
+    else:
+        blocked = f"[{blocked_by}]" if blocked_by else "[]"
+        body = (
+            "---\n"
+            f"type: grilling\n"
+            f"status: {status}\n"
+            f"blocked-by: {blocked}\n"
+            "---\n"
+            "\n"
+            "## Question\n"
+            "\n"
+            "这是一个决策问题。\n"
+        )
+        if resolution:
+            body += "\n## Resolution\n\n已拍板。\n"
+    path = tickets / f"{name}.md"
+    path.write_text(body, encoding="utf-8")
+    return path
+
+
+def test_map_new_scaffolds_map_and_tickets(project: Path, capsys):
+    assert run(project, "map", "new", "auth-map") == 0
+    map_dir = project / ".arbor" / "maps" / "auth-map"
+    assert (map_dir / "tickets").is_dir()
+    content = (map_dir / "map.md").read_text(encoding="utf-8")
+    assert "# map: auth-map" in content
+    for section in ("## Destination", "## Notes", "## Decisions so far",
+                    "## Not yet specified", "## Out of scope"):
+        assert section in content
+
+
+def test_map_new_rejects_existing_slug(project: Path, capsys):
+    assert run(project, "map", "new", "auth-map") == 0
+    capsys.readouterr()
+    assert run(project, "map", "new", "auth-map") == 1
+    assert "已存在" in capsys.readouterr().err
+
+
+def test_map_new_rejects_bad_slug(project: Path, capsys):
+    assert run(project, "map", "new", "Bad Map") == 1
+    assert "图名" in capsys.readouterr().err
+
+
+def test_map_status_missing_map(project: Path, capsys):
+    assert run(project, "map", "status", "nope") == 1
+    assert "未找到" in capsys.readouterr().err
+
+
+def test_map_status_empty_map(project: Path, capsys):
+    run(project, "map", "new", "empty-map")
+    capsys.readouterr()  # 丢弃 new 的提示输出
+    assert run(project, "map", "status", "empty-map", "--json") == 0
+    data = json.loads(capsys.readouterr().out)
+    assert data["tickets"] == {"open": 0, "closed": 0, "total": 0}
+    assert data["frontier"] == []
+
+
+def test_map_status_derives_frontier_from_blocked_by(project: Path, capsys):
+    run(project, "map", "new", "chain-map")
+    capsys.readouterr()  # 丢弃 new 的提示输出
+    make_ticket(project, "chain-map", "data-shape", status="open")
+    make_ticket(project, "chain-map", "auth-choice", status="open", blocked_by="data-shape")
+    make_ticket(project, "chain-map", "stack-call", status="closed", resolution=True)
+    assert run(project, "map", "status", "chain-map", "--json") == 0
+    data = json.loads(capsys.readouterr().out)
+    assert data["tickets"] == {"open": 2, "closed": 1, "total": 3}
+    # frontier = open 且 blocked-by 全 closed：无依赖的 data-shape；auth-choice 被 data-shape 挡住
+    assert data["frontier"] == ["data-shape"]
+    # 依赖拍板后毕业进 frontier
+    make_ticket(project, "chain-map", "data-shape", status="closed", resolution=True)
+    assert run(project, "map", "status", "chain-map", "--json") == 0
+    data = json.loads(capsys.readouterr().out)
+    assert data["frontier"] == ["auth-choice"]
+
+
+def test_map_status_json_excludes_prose_sections(project: Path, capsys):
+    """--json 只含票 frontmatter 推导的事实；map.md 散文节（雾区等）不进输出。"""
+    run(project, "map", "new", "prose-map")
+    capsys.readouterr()  # 丢弃 new 的提示输出
+    make_ticket(project, "prose-map", "first")
+    map_md = project / ".arbor" / "maps" / "prose-map" / "map.md"
+    map_md.write_text(
+        map_md.read_text(encoding="utf-8").replace(
+            "## Not yet specified",
+            "## Not yet specified\n\n- 雾区条目：还看不清、立不了票的问题",
+        ),
+        encoding="utf-8",
+    )
+    assert run(project, "map", "status", "prose-map", "--json") == 0
+    data = json.loads(capsys.readouterr().out)
+    assert set(data.keys()) == {"map", "tickets", "frontier", "errors"}
+    assert "雾区条目" not in capsys.readouterr().out
+
+
+def test_map_status_flags_duplicate_ticket_id(project: Path, capsys):
+    run(project, "map", "new", "dup-map")
+    make_ticket(project, "dup-map", "same-id")
+    # frontmatter id 与另一张票的文件名 stem 相同 → 票号重复
+    make_ticket(project, "dup-map", "other", raw=(
+        "---\nid: same-id\nstatus: open\nblocked-by: []\n---\n\n## Question\n\nQ\n"
+    ))
+    assert run(project, "map", "status", "dup-map") == 1
+    assert "重复" in capsys.readouterr().out
+
+
+def test_map_status_flags_unknown_blocked_by(project: Path, capsys):
+    run(project, "map", "new", "ref-map")
+    make_ticket(project, "ref-map", "blocked", blocked_by="ghost")
+    assert run(project, "map", "status", "ref-map") == 1
+    assert "ghost" in capsys.readouterr().out
+
+
+def test_map_status_flags_bad_status_value(project: Path, capsys):
+    run(project, "map", "new", "enum-map")
+    make_ticket(project, "enum-map", "weird", status="in-progress")
+    assert run(project, "map", "status", "enum-map") == 1
+    assert "open 或 closed" in capsys.readouterr().out
+
+
+def test_map_status_flags_closed_without_resolution(project: Path, capsys):
+    run(project, "map", "new", "res-map")
+    make_ticket(project, "res-map", "closed-bare", status="closed", resolution=False)
+    assert run(project, "map", "status", "res-map") == 1
+    assert "## Resolution" in capsys.readouterr().out
+
+
+def test_map_status_flags_missing_frontmatter(project: Path, capsys):
+    run(project, "map", "new", "fm-map")
+    make_ticket(project, "fm-map", "naked", raw="## Question\n\n没有 frontmatter 的票\n")
+    assert run(project, "map", "status", "fm-map") == 1
+    assert "frontmatter" in capsys.readouterr().out
+
+
+def test_map_status_lists_all_errors_not_just_first(project: Path, capsys):
+    """结构校验列出全部错误：坏 status 与缺失 Resolution 同时存在时两条都报。"""
+    run(project, "map", "new", "multi-map")
+    make_ticket(project, "multi-map", "bad-one", status="paused")
+    make_ticket(project, "multi-map", "bad-two", status="closed", resolution=False)
+    assert run(project, "map", "status", "multi-map") == 1
+    out = capsys.readouterr().out
+    assert "bad-one" in out and "open 或 closed" in out
+    assert "bad-two" in out and "## Resolution" in out
+
+
+def test_map_status_is_readonly(project: Path, capsys):
+    """status 只读：执行前后 map.md 与全部票文件内容不变（含校验失败路径）。"""
+    run(project, "map", "new", "ro-map")
+    make_ticket(project, "ro-map", "open-one")
+    make_ticket(project, "ro-map", "closed-one", status="closed", resolution=True)
+    make_ticket(project, "ro-map", "broken", status="paused")  # 校验失败也不改盘
+    map_dir = project / ".arbor" / "maps" / "ro-map"
+    before = {p.name: p.read_bytes() for p in sorted(map_dir.rglob("*")) if p.is_file()}
+    assert before  # 快照非空：map.md + 三张票
+    assert run(project, "map", "status", "ro-map") == 1  # broken 票 → 非零，但只读
+    assert run(project, "map", "status", "ro-map", "--json") == 1
+    after = {p.name: p.read_bytes() for p in sorted(map_dir.rglob("*")) if p.is_file()}
+    assert before == after

@@ -1,0 +1,11 @@
+{
+  "test": {
+    "command": "cd /Users/camellia/Personal/Code/claude/seed-kit-evals-v2 && bin/seed-evals check worklog-prd-interview && bin/seed-evals check family-ledger-prd-interview && bin/seed-evals experiment show prototype-direction-value > /dev/null && bin/seed-evals experiment show wayfinder-foggy-value > /dev/null",
+    "exit_code": 0,
+    "output_summary": "✓ worklog-prd-interview\n  ✓ family-ledger-prd-interview",
+    "output_sha256": "50c47072527900bf10596b38d3080e66761c73a581bff4fd639b75a6c9c32060",
+    "output_bytes": 62,
+    "output_truncated": false
+  },
+  "quality": []
+}

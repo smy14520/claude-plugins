@@ -22,14 +22,15 @@ seed-kit 是上一代工作流的轻量继任者：取其精华（PRD source of 
 
 ## 设计原则
 
-1. **六个 skill 全部由用户主动触发，互不自动耦合。**
+1. **Skill 全部由用户主动触发，互不自动耦合。**
 2. **纯 Markdown 状态，没有状态机。** `prd.md` 的 slice checkbox + git log 就是全部进度；断点续作 = 读 prd.md + git log。没有 task.json。impl-agent 附带的 `impl-state.json`（任务锚点）与 `gate-attempts/`（失败留痕）只是推导输入，不记录也不驱动阶段——`next-action` 的每个输出都从 checkbox + 留痕 + 锚点现算。
 3. **helper 只做确定性的状态读写。** 脚手架、解析校验、执行测试/质量命令、勾选 checkbox——全是确定性动作，不调用 LLM。`seed done` 是唯一的硬 gate。
-4. **命令面极小：核心 3 个（new / status / done），其余（review-mark / score / wiki 家族 / impl-agent 的 impl-state + next-action）各守窄职责。**
+4. **命令面极小：核心 3 个（new / status / done），其余（review-mark / score / wiki 家族 / map 家族 / impl-agent 的 impl-state + next-action）各守窄职责。**
 5. **hook 只守底线：** 拦截破坏性命令；拦截绕过 gate 手工勾选 checkbox。
 6. **用户拥有 commit。**
+7. **两套账本严格分离。** PRD checkbox 是交付账本（gate 唯一翻动）；wayfinder 的决策票是决策账本——票不进 `seed done`、不翻 checkbox、不是 slice，`.arbor/maps/` 状态不构成第二套进度，图清即冻结。
 
-## 六个 skill
+## Skill 职责
 
 ### research — 给需求收集外部资料
 ### brainstorm — 需求收敛访谈
@@ -37,6 +38,15 @@ seed-kit 是上一代工作流的轻量继任者：取其精华（PRD source of 
 职责：把模糊想法收敛成可执行的 PRD。终点：`seed new <task>` + 写入 `prd.md`（Goal + Acceptance Criteria + Out of Scope，slice 内联在 `### S-NNN` heading 下，验收用 `* [ ]` 条目写）。
 
 - PRD 中描述的方向是期望而非检查清单——给 agent 创作方向，给 judge 评审依据。
+- 入场先判断形态：大到一张 PRD 装不下或决策链还在雾里 → 建议先开图（wayfinder）；图清后回来收敛，已拍的决策读票不重问。访谈中"跑起来才知道"的设计分叉派 `seed-prototype` agent 造一次性原型，verdict 折进访谈结论。
+
+### wayfinder — 大且雾任务的决策图
+
+职责：把决策链拆成票（`.arbor/maps/<slug>/`），跨会话一张张拍到路清，交棒 brainstorm 收敛出 PRD。设计要点：
+
+- **票是决策账本，不是交付账本**——票不进 gate、不翻 PRD checkbox（见原则 7）。误关一张票的代价是补一张票，不是伪造交付承诺，所以不加 hook 硬闸。
+- **frontier 从盘上推导**：`seed map status` 读票 frontmatter（type / status / blocked-by）算出 open/closed 与 frontier，不维护第二套状态；收票（写 Resolution、翻 status）是 agent 的语义动作，helper 保持只读。
+- 一会话只解决一张票（research 轻调查可并行）；图清 = frontier 空 + 雾区空 + 全票 closed → 建议转 brainstorm 收敛，不自动进 impl。
 
 ### impl — 执行 PRD
 
@@ -55,7 +65,9 @@ seed-kit 是上一代工作流的轻量继任者：取其精华（PRD source of 
 │   ├── done-logs/       # seed done 机械验证记录
 │   ├── review-loop.json # 显式 task 级 review-loop 终态（可选）
 │   └── notes/           # impl 过程备注（可选）
-└── research/<topic>/
+├── research/<topic>/
+├── maps/<slug>/         # wayfinder 决策图：map.md 索引 + tickets/ 决策票（决策账本，非进度）
+└── prototypes/<slug>/   # seed-prototype 一次性原型（弃置产物，不进交付）
 ```
 
 ### PRD 骨架（slice 内联）
@@ -86,6 +98,7 @@ seed-kit 是上一代工作流的轻量继任者：取其精华（PRD source of 
 | `seed review-mark <task> --verdict <reason>` | 落 review-loop 终态 marker |
 | `seed score aggregate` | 多裁判评分聚合（review-loop judge 用） |
 | `seed wiki ...` | wiki 家族 |
+| `seed map new / status` | wayfinder 决策图：脚手架 + frontier 推导（只读，无收票写操作） |
 
 ## 防 AI 偷懒方案（分层）
 
