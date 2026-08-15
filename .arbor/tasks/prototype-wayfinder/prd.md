@@ -47,17 +47,17 @@
 * [x] 全部场景过 `seed-evals check` 与 `check-red`；defaults：execution = deepseek-v4-flash（wanjie 中转已登记；unicom 凭据若已配可作备选）、judge = glm-5.3（需在 model-profiles.json judge 块新增登记）、trials ≥ 2（正向）
 * [x] 两个新实验按该仓库惯例登记进 `scenarios/MANIFEST.md`（含存在理由；归档时同步移除）（正向）
 
-### [ ] S-006 跑实验与 CONCLUSION 结账（seed-kit-evals-v2 仓库）
+### [x] S-006 跑实验与 CONCLUSION 结账（seed-kit-evals-v2 仓库）
 
-* [ ] `seed-evals value` 跑通两个实验，各产出 conclusion 枚举（improved/regressed/tradeoff/no_clear_difference/insufficient_evidence）与 cited_metric_ids（正向）
-* [ ] 两份 `experiments/<id>/CONCLUSION.md`：结论 + 由此建议的动作 + 模型指纹 + 置信度限制 + run-group id 与两臂插件 digest（供合并 gate 引用）（正向）
-* [ ] infra 类失败按归因纪律处理（indeterminate 重试 ≤2、不冒充行为结论）；无未结账实验残留（边界）
+* [x] `seed-evals value` 跑通两个实验，各产出 conclusion 枚举（improved/regressed/tradeoff/no_clear_difference/insufficient_evidence）与 cited_metric_ids（正向）
+* [x] 两份 `experiments/<id>/CONCLUSION.md`：结论 + 由此建议的动作 + 模型指纹 + 置信度限制 + run-group id 与两臂插件 digest（供合并 gate 引用）（正向）
+* [x] infra 类失败按归因纪律处理（indeterminate 重试 ≤2、不冒充行为结论）；无未结账实验残留（边界）
 
-### [ ] S-007 认证决策与合并 gate
+### [x] S-007 认证决策与合并 gate
 
-* [ ] CONCLUSION 含用户拍板记录：合并 / 回滚 / 修改后重试，三选一及理由（正向）
-* [ ] 拍板为合并：合并进 main 的被测面 diff 与认证 run 引用的候选树 digest 一致（不一致则认证作废，需重跑）（边界）
-* [ ] 拍板为不合并：候选分支归档保留，main 工作树与基线一致、零残留（反向）
+* [x] CONCLUSION 含用户拍板记录：合并 / 回滚 / 修改后重试，三选一及理由（正向）
+* [x] 拍板为合并：合并进 main 的被测面 diff 与认证 run 引用的候选树 digest 一致（不一致则认证作废，需重跑）（边界）
+* [x] 拍板为不合并：候选分支归档保留，main 工作树与基线一致、零残留（反向）
 
 ## Out of Scope
 

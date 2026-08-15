@@ -1,0 +1,11 @@
+{
+  "test": {
+    "command": "test -f /Users/camellia/Personal/Code/claude/seed-kit-evals-v2/experiments/prototype-direction-value/CONCLUSION.md && test -f /Users/camellia/Personal/Code/claude/seed-kit-evals-v2/experiments/wayfinder-foggy-value/CONCLUSION.md && grep -q '\"conclusion\": \"improved\"' /Users/camellia/Personal/Code/claude/seed-kit-evals-v2/results/experiments/prototype-direction-value/run-groups/run-20260815T033718Z-7888b9c9ca/evaluations/eval-20260815T063134Z-a0e7ad1fc1-treatment/evaluation.json && grep -q 'tradeoff' /Users/camellia/Personal/Code/claude/seed-kit-evals-v2/results/experiments/wayfinder-foggy-value/run-groups/run-20260815T062406Z-75a772706c/evaluations/eval-20260815T082028Z-bd1fe4e5ca-treatment/evaluation.json && echo CONCLUSIONS-OK",
+    "exit_code": 0,
+    "output_summary": "CONCLUSIONS-OK",
+    "output_sha256": "248c90b2dca37fed793ad4a5148ccd1d5a311ab209523f7501718aadba0ca01f",
+    "output_bytes": 15,
+    "output_truncated": false
+  },
+  "quality": []
+}
