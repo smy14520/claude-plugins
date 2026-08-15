@@ -5,7 +5,7 @@
 ## 原则
 
 - **不确定时查证，别假设**：动手前查权威依据（文档、既有约定、代码现状、官方源），下结论前验证（跑命令、看输出）。别用记忆、习惯或单次结果代替证据。
-- 九个 skill（research、brainstorm、impl、impl-agent、check、review、wiki、init、handoff）全部由用户主动触发，互不自动切换阶段——skill 之间不自动推进（例外：impl / impl-agent 收尾的内联自查是点名该 skill 即选择的收尾语义——编排者按 seed-kit:check 的清单自己执行，不 dispatch；check 作为独立 skill 仍可随时触发）。
+- 十个 skill（research、brainstorm、wayfinder、impl、impl-agent、check、review、wiki、init、handoff）全部由用户主动触发，互不自动切换阶段——skill 之间不自动推进（例外：impl / impl-agent 收尾的内联自查是点名该 skill 即选择的收尾语义——编排者按 seed-kit:check 的清单自己执行，不 dispatch；check 作为独立 skill 仍可随时触发）。
 - `.arbor/.wiki/` 是项目记忆层：`seed wiki index --json` 看地图（有哪些页），`seed wiki collect --query "<概念>"` 按需精准拉取相关页——给地图，按需放大，不全量倾倒。收尾时按阶段职责写回（brainstorm 写 decision/module，review 写 gotcha/cross_cut），写回后 `seed wiki index --write` 刷新索引。
 - `prd.md` 是需求 source of truth：slice 内联在 PRD 中（`### [ ] S-NNN 标题` heading，checkbox + prose 在一起）。进度状态 = checkbox；git log 是代码进度。impl-agent 的 `impl-state.json` 只是任务锚点（起点 SHA / 单 slice 目标），`gate-attempts/` 只是 gate 失败留痕（熔断计数依据）——都不构成第二套进度。
 - 分支与提交属于用户；agent 在合适的节点提示 commit（impl-agent 模式例外：用户点名该 skill 即选择其 per-slice commit 检查点语义，由主会话执行，agent 仍不碰 git）。
@@ -22,9 +22,9 @@
 
 命名不对称是历史遗留，**直接照抄下列全名**，不要加/减前缀：
 
-- **Skill**（用户主动触发，**无** `seed-` 前缀）：`seed-kit:brainstorm` / `seed-kit:impl` / `seed-kit:impl-agent` / `seed-kit:check` / `seed-kit:review` / `seed-kit:research` / `seed-kit:wiki` / `seed-kit:init` / `seed-kit:handoff`
+- **Skill**（用户主动触发，**无** `seed-` 前缀）：`seed-kit:brainstorm` / `seed-kit:impl` / `seed-kit:impl-agent` / `seed-kit:check` / `seed-kit:review` / `seed-kit:research` / `seed-kit:wayfinder` / `seed-kit:wiki` / `seed-kit:init` / `seed-kit:handoff`
 - **编排命令**（slash command）：`seed-kit:review-loop` / `seed-kit:review-prd`
-- **Agent**（由 skill/command 编排派发，**带** `seed-` 前缀，用户不直接调用）：`seed-kit:seed-impl` / `seed-kit:seed-slice` / `seed-kit:seed-review` / `seed-kit:seed-judge` / `seed-kit:seed-validator` / `seed-kit:seed-assert` / `seed-kit:seed-prd-review`
+- **Agent**（由 skill/command 编排派发，**带** `seed-` 前缀，用户不直接调用）：`seed-kit:seed-impl` / `seed-kit:seed-slice` / `seed-kit:seed-review` / `seed-kit:seed-judge` / `seed-kit:seed-validator` / `seed-kit:seed-assert` / `seed-kit:seed-prd-review` / `seed-kit:seed-prototype`
 
 > 拿不准时回查这张表。常见错：把 skill `seed-kit:impl` 喊成 agent 名 `seed-kit:seed-impl` → Unknown skill。
 
@@ -33,6 +33,8 @@
 ```
 .arbor/tasks/<task>/      # prd.md / review.md / done-logs/ / notes/
 .arbor/research/<topic>/  # index.md / raw/ / notes/
+.arbor/maps/<slug>/       # wayfinder 决策图：map.md 索引 + tickets/ 决策票（决策账本，非进度）
+.arbor/prototypes/<slug>/ # seed-prototype 一次性原型（弃置产物，不进交付）
 .arbor/.wiki/            # 项目知识层（导航层，非 source of truth）
 ```
 
@@ -51,4 +53,6 @@ seed score aggregate --rubric <rubric.json> \
   --score-files <file1.json> <file2.json> ... \
   --out <aggregate.json>                        # 聚合多个 score-file（多裁判模式）
 seed wiki index|search|collect|lint              # .wiki/ 工具
+seed map new <slug>                              # 脚手架 .arbor/maps/<slug>/（map.md + tickets/）
+seed map status <slug> [--json]                  # 决策图状态：open/closed 计数 + frontier 推导（只读）
 ```

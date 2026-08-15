@@ -126,7 +126,7 @@ skill 不要 copy 文件；skill 不要 patch；skill 不要自己 diff；skill 
 
 ## 给 agent 读的文档：指针措辞、先导词、no-op 测试
 
-（吸收自 mattpocock/skills 的 writing-for-agents；本仓库维护 9 个 skill + 7 个 agent 的 prompt 资产，这些是"一行 prompt 该怎么写"的另一半判据。）
+（吸收自 mattpocock/skills 的 writing-for-agents；本仓库维护 10 个 skill + 8 个 agent 的 prompt 资产，这些是"一行 prompt 该怎么写"的另一半判据。）
 
 **指针的措辞决定触发**。skill description、CLAUDE.md 里指向另一份文档的那行字，决定 agent 何时够到它——是措辞在触发，不是目标本身。指针要前置触发词；一个分支一个触发词，同义改写算一个分支写了两遍，合并；正文已承载的说明不在指针里重复。
 

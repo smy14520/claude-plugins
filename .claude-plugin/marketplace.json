@@ -10,7 +10,7 @@
   "plugins": [
     {
       "name": "seed-kit",
-      "description": "Lightweight PRD-first workflow: research / brainstorm / impl / review / wiki, all user-triggered and decoupled. prd.md checkboxes track slice progress; `seed done` replays explicit checks and records done-logs; no evidence directory, task.json, or phase state machine.",
+      "description": "Lightweight PRD-first workflow with ten user-triggered, decoupled skills: decision maps (wayfinder) for large foggy tasks, one-shot prototypes for run-to-know design questions, interview-driven PRDs, and gate-checked delivery. prd.md checkboxes track slice progress; `seed done` replays explicit checks and records done-logs; no evidence directory, task.json, or phase state machine.",
       "version": "0.3.5",
       "source": "./plugins/seed-kit",
       "category": "development",

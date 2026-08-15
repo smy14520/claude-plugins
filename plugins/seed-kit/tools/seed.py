@@ -765,6 +765,153 @@ def cmd_score_aggregate(root: Path, rubric_path: str, score_files: list[str], ou
         return 1
 
 
+# --- map（wayfinder 决策图 helper）--------------------------------------------
+#
+# .arbor/maps/<slug>/：map.md（五节索引，散文）+ tickets/（决策票，frontmatter 记状态）。
+# helper 只做确定性动作：new 脚手架、status 从票 frontmatter 推导 frontier 并做结构校验。
+# 收票（写 Resolution / 翻 status）是 agent 的语义动作，helper 保持只读——map 子命令族无其他写操作。
+# 票不进 gate、不翻 PRD checkbox：决策账本与交付账本严格分离。
+
+MAP_DIRNAME = "maps"
+RESOLUTION_HEADING_RE = re.compile(r"^##\s+Resolution\s*$", re.MULTILINE)
+
+
+def maps_root(root: Path) -> Path:
+    return root / ".arbor" / MAP_DIRNAME
+
+
+def map_dir_path(root: Path, slug: str) -> Path:
+    return maps_root(root) / slug
+
+
+@dataclass
+class Ticket:
+    id: str
+    path: Path
+    status: str
+    blocked_by: list[str]
+    has_resolution: bool
+
+
+def _parse_frontmatter(text: str) -> dict[str, str]:
+    """解析 `---` 围起来的 frontmatter（扁平 key: value 子集，不引第三方依赖）。"""
+    lines = text.splitlines()
+    if not lines or lines[0].strip() != "---":
+        return {}
+    fields: dict[str, str] = {}
+    for line in lines[1:]:
+        stripped = line.strip()
+        if stripped in ("---", "..."):
+            break
+        key, sep, value = stripped.partition(":")
+        if not sep:
+            continue
+        fields[key.strip()] = value.strip()
+    return fields
+
+
+def _split_refs(raw: str) -> list[str]:
+    """blocked-by 值 → 票号列表；兼容 `a`、`a, b`、`[a, b]` 三种写法。"""
+    value = raw.strip().strip("[]")
+    if not value:
+        return []
+    refs: list[str] = []
+    for token in re.split(r"[,;\s]+", value):
+        token = token.strip().strip("\"'")
+        if token:
+            refs.append(token)
+    return refs
+
+
+def _load_tickets(tickets_dir: Path) -> tuple[list[Ticket], list[str]]:
+    """读 tickets/*.md → (tickets, errors)。票号 = frontmatter id（缺省用文件名 stem）。"""
+    tickets: list[Ticket] = []
+    errors: list[str] = []
+    if not tickets_dir.is_dir():
+        return tickets, errors
+    seen: dict[str, Path] = {}
+    for path in sorted(tickets_dir.glob("*.md")):
+        text = path.read_text(encoding="utf-8", errors="replace")
+        fields = _parse_frontmatter(text)
+        if "status" not in fields:
+            errors.append(f"{path.name}：缺少 frontmatter（--- 围起的 type/status 块）或 status 字段")
+            continue
+        ticket_id = fields.get("id", "").strip().strip("\"'") or path.stem
+        if ticket_id in seen:
+            errors.append(f"票号重复：{ticket_id}（{seen[ticket_id].name} 与 {path.name}）")
+            continue
+        seen[ticket_id] = path
+        blocked_raw = fields.get("blocked-by") or fields.get("blocked_by") or ""
+        tickets.append(Ticket(
+            id=ticket_id,
+            path=path,
+            status=fields["status"].strip().strip("\"'"),
+            blocked_by=_split_refs(blocked_raw),
+            has_resolution=bool(RESOLUTION_HEADING_RE.search(text)),
+        ))
+    return tickets, errors
+
+
+def _validate_tickets(tickets: list[Ticket], errors: list[str]) -> list[str]:
+    """结构校验：status 枚举、blocked-by 引用存在、closed 票必有 ## Resolution（票号唯一在加载时查）。"""
+    known = {t.id for t in tickets}
+    for t in tickets:
+        if t.status not in ("open", "closed"):
+            errors.append(f"{t.path.name}：status 必须是 open 或 closed，当前：{t.status or '(空)'}")
+        for ref in t.blocked_by:
+            if ref not in known:
+                errors.append(f"{t.path.name}：blocked-by 引用了不存在的票：{ref}")
+        if t.status == "closed" and not t.has_resolution:
+            errors.append(f"{t.path.name}：closed 票缺少 `## Resolution` 节")
+    return errors
+
+
+def cmd_map_new(root: Path, slug: str) -> int:
+    if not TASK_NAME_RE.match(slug):
+        raise SeedError(f"图名只允许小写字母/数字/._-：{slug}")
+    map_dir = map_dir_path(root, slug)
+    if map_dir.exists():
+        raise SeedError(f"{map_dir} 已存在；用 `seed map status {slug}` 查看图状态")
+    template_dir = Path(__file__).resolve().parent.parent / "templates"
+    template = (template_dir / "map.md").read_text(encoding="utf-8")
+    (map_dir / "tickets").mkdir(parents=True)
+    (map_dir / "map.md").write_text(template.replace("{{SLUG}}", slug), encoding="utf-8")
+    print(f"已创建 {map_dir.relative_to(root)}/（map.md + tickets/）")
+    print(f"下一步：拍 Destination，把能立住的问题写进 tickets/，然后 `seed map status {slug}` 看 frontier")
+    return 0
+
+
+def cmd_map_status(root: Path, slug: str, json_output: bool) -> int:
+    map_dir = map_dir_path(root, slug)
+    if not map_dir.is_dir():
+        raise SeedError(f"未找到 {map_dir}；先用 `seed map new {slug}` 开图")
+    tickets, errors = _load_tickets(map_dir / "tickets")
+    _validate_tickets(tickets, errors)
+    closed_ids = {t.id for t in tickets if t.status == "closed"}
+    open_ids = [t.id for t in tickets if t.status == "open"]
+    frontier = [
+        t.id for t in tickets
+        if t.status == "open" and all(ref in closed_ids for ref in t.blocked_by)
+    ]
+    if json_output:
+        # 只输出从票 frontmatter 推导的事实；map.md 散文节（Not yet specified 等）不进 JSON
+        print(json.dumps({
+            "map": slug,
+            "tickets": {"open": len(open_ids), "closed": len(closed_ids), "total": len(tickets)},
+            "frontier": frontier,
+            "errors": errors,
+        }, ensure_ascii=False, indent=2))
+        return 1 if errors else 0
+    print(f"open {len(open_ids)} / closed {len(closed_ids)} / 共 {len(tickets)} 张票")
+    print(f"frontier：{', '.join(frontier) if frontier else '空'}")
+    if errors:
+        print("结构问题：")
+        for err in errors:
+            print(f"  - {err}")
+        return 1
+    return 0
+
+
 # --- entry ------------------------------------------------------------------
 
 def build_parser() -> argparse.ArgumentParser:
@@ -818,6 +965,14 @@ def build_parser() -> argparse.ArgumentParser:
     agg_parser.add_argument("--score-files", nargs="+", required=True, help="score-file JSON 路径列表")
     agg_parser.add_argument("--out", required=True, help="输出聚合结果路径")
 
+    map_new_parser = sub.add_parser("map", help="wayfinder 决策图（.arbor/maps/<slug>/）")
+    map_sub = map_new_parser.add_subparsers(dest="map_cmd", required=True)
+    map_new = map_sub.add_parser("new", help="脚手架 .arbor/maps/<slug>/（map.md + tickets/）")
+    map_new.add_argument("slug")
+    map_status = map_sub.add_parser("status", help="从票 frontmatter 推导 open/closed 与 frontier（只读）")
+    map_status.add_argument("slug")
+    map_status.add_argument("--json", dest="json_output", action="store_true")
+
     return parser
 
 
@@ -855,6 +1010,11 @@ def main(argv: list[str] | None = None) -> int:
         if args.command == "score":
             if args.score_cmd == "aggregate":
                 return cmd_score_aggregate(root, args.rubric, args.score_files, args.out)
+        if args.command == "map":
+            if args.map_cmd == "new":
+                return cmd_map_new(root, args.slug)
+            if args.map_cmd == "status":
+                return cmd_map_status(root, args.slug, args.json_output)
     except SeedError as exc:
         print(str(exc), file=sys.stderr)
         return 1
