@@ -23,7 +23,7 @@ description: 实现整个 task 的全部 slice。读 PRD+slice+项目标准→US
 **3. 逐 slice 实现**（按 PRD 中 slice 顺序，一个 agent 做所有 slice——保持跨切片品质连贯）：
 - 读每个 `### S-NNN` 的 `* [ ]` 条目理解要交付什么；项目有 wiki 时先 `seed wiki collect --query "<slice 关键概念>"` 拉取相关 gotcha / cross_cut（前人踩过的坑）
 - 围绕条目中的验收描述写代码、补测试——每个条目对应一个测试用例
-- 用你的判断力逼近 PRD 中描述的方向，不额外加 spec 没要求的功能
+- 用你的判断力逼近 PRD 中描述的方向
 - 不弱化断言、不吞异常、不悄悄收窄 scope、不实现 spec 没要求的无关功能
 
 **4. 跑项目质量命令**：
@@ -42,9 +42,11 @@ description: 实现整个 task 的全部 slice。读 PRD+slice+项目标准→US
   "commands": [
     {"kind": "test|quality", "command": "实际执行的命令", "exit_code": 0, "summary": "关键结果"}
   ],
+  "handoffs": {"S-001": ["代码与 git 读不出的隐性事实"]},
   "issues": []
 }
 ```
+`handoffs` 按完成 slice 逐条写：接口语义决策（如返回字段的真实含义）、被否决的实现路径及理由、踩过又绕开的坑、PRD 没明说但做的判断。没有就空对象——它是中断/换终端续接的依据，主会话会落盘进任务档案。
 命令缺失、无法执行或仍失败时写进 `issues`，不要伪造成功。
 
 ## 修 finding 模式（review-loop 调用时）

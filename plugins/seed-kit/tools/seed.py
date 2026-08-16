@@ -2,9 +2,9 @@
 """seed — seed-kit 的最小 PRD checkbox 状态 helper。
 
 进度模型：`.arbor/tasks/<task>/prd.md` 的 checkbox 是进度 source of truth。无 task.json，无阶段状态机。
-`done-logs/` 记录机械验证（只有成功），`gate-attempts/` 记录 gate 失败留痕（impl-agent 熔断计数依据），
-`review-loop.json` 记录显式循环终态，`impl-state.json` 是 impl-agent 的任务锚点（起点 SHA / 单 slice 目标）；
-以上都不是第二套进度状态。
+`done-logs/` 记录机械验证（只有成功），`gate-attempts/` 记录 gate 失败留痕（熔断计数依据），
+`review-loop.json` 记录显式循环终态；`impl-state.json` 是任务档案（dossier）：锚点（起点 SHA，写一次
+锁死）+ 每 slice handoff + 证据指针——供任意新会话接手。以上都不是第二套进度状态。
 Slice 内联在 PRD 中：`### [ ] S-NNN 标题` heading，checkbox + 内容在一起。
 heading 下面的 prose（到下一个 `###` 或 `##` 为止）是 slice 内容。
 
@@ -162,7 +162,7 @@ def _write_done_log(root: Path, task: str, slice_id: str, results: dict) -> Path
 
 # --- gate-attempts（gate 失败留痕）--------------------------------------------
 #
-# `seed done` 失败时留痕：impl-agent 熔断计数的唯一依据（从盘上数出来，不靠模型记忆）。
+# `seed done` 失败时留痕：熔断计数的唯一依据（从盘上数出来，不靠模型记忆）。
 # 与 done-logs/ 分开存——done-logs 只有成功记录，seed-assert / 集成 review 重放其中的
 # 命令时不会误拿失败尝试里的命令。
 
@@ -328,17 +328,57 @@ def cmd_status(root: Path, task: str | None, json_output: bool) -> int:
         return 0
 
     slices, errors = parse_prd(prd_path(root, task))
-    reports = [{"id": sl.id, "title": sl.title, "done": sl.done} for sl in slices]
-    next_slice = next((sl.id for sl in slices if not sl.done), None)
+    state = _read_impl_state(root, task) or {}
+    raw_dossier = state.get("slices")
+    dossier = raw_dossier if isinstance(raw_dossier, dict) else {}
+    reports = []
+    circuit_broken: list[str] = []
+    for sl in slices:
+        failures = _count_gate_attempts(root, task, sl.id)
+        entry = dossier.get(sl.id) if isinstance(dossier.get(sl.id), dict) else {}
+        handoff = entry.get("handoff")
+        reports.append({
+            "id": sl.id, "title": sl.title, "done": sl.done,
+            "gate_failures": failures,
+            "handoff": len(handoff) if isinstance(handoff, list) else 0,
+            "evidence": bool(entry.get("evidence")),
+        })
+        if not sl.done and failures >= CIRCUIT_BREAK_THRESHOLD:
+            circuit_broken.append(sl.id)
+    target = state.get("target_slice")
+    scope = [sl for sl in slices if sl.id == target] if target and any(sl.id == target for sl in slices) else slices
+    next_slice = next((sl.id for sl in scope if not sl.done), None)
     if json_output:
         print(json.dumps({
-            "task": task, "slices": reports, "errors": errors, "next": next_slice,
+            "task": task,
+            "task_start_sha": state.get("task_start_sha") or None,
+            "target_slice": state.get("target_slice") or None,
+            "slices": reports,
+            "circuit_broken": circuit_broken,
+            "next": next_slice,
+            "errors": errors,
         }, ensure_ascii=False, indent=2))
         return 1 if errors else 0
 
     for report in reports:
         mark = "x" if report["done"] else " "
-        print(f"[{mark}] {report['id']} {report['title']}")
+        notes = []
+        if report["handoff"]:
+            notes.append(f"handoff {report['handoff']} 条")
+        if report["evidence"]:
+            notes.append("evidence ✓")
+        if report["gate_failures"]:
+            notes.append(f"gate 失败 {report['gate_failures']} 次")
+        suffix = f"（{'，'.join(notes)}）" if notes else ""
+        print(f"[{mark}] {report['id']} {report['title']}{suffix}")
+    sha = state.get("task_start_sha")
+    if sha:
+        print(f"锚点 task_start_sha: {sha}（整体 diff：{sha}..HEAD）")
+    else:
+        print("无锚点（未 `impl-state init`；handoff / evidence 写入需要档案）")
+    if circuit_broken:
+        print(f"熔断：{', '.join(circuit_broken)} 的 gate 失败 ≥{CIRCUIT_BREAK_THRESHOLD} 次——停下报告用户；"
+              f"处理后 `seed impl-state reset-attempts {task} --slice <id>` 清零再继续。")
     if errors:
         print("结构问题：")
         for err in errors:
@@ -351,7 +391,8 @@ def cmd_status(root: Path, task: str | None, json_output: bool) -> int:
     return 0
 
 
-def cmd_done(root: Path, task: str, slice_id: str, test_cmd: str, quality_cmds: list[str]) -> int:
+def cmd_done(root: Path, task: str, slice_id: str, test_cmd: str, quality_cmds: list[str],
+             evidence_files: list[str] | None = None, evidence_url: str | None = None) -> int:
     slices = _require_valid_prd(root, task)
     sl = _find_slice(slices, slice_id)
     if sl.done:
@@ -408,6 +449,12 @@ def cmd_done(root: Path, task: str, slice_id: str, test_cmd: str, quality_cmds: 
         print(f"  失败已留痕：{attempt.relative_to(root)}", file=sys.stderr)
         return 1
 
+    # 账本与证据先于 checkbox 落盘：中断最坏态 = 有证据未勾选（重跑补齐），
+    # 永不出"已勾选但无证据"
+    _write_done_log(root, task, slice_id, results)
+    if evidence_files or evidence_url:
+        _write_slice_evidence(root, task, slice_id, evidence_files or [], evidence_url)
+
     # 翻 checkbox：slice 头 + 该 slice 区段内的全部验收条目原子翻转，账本保持自洽
     path = prd_path(root, task)
     lines = path.read_text(encoding="utf-8").splitlines()
@@ -423,8 +470,6 @@ def cmd_done(root: Path, task: str, slice_id: str, test_cmd: str, quality_cmds: 
         if stripped.startswith("* [ ]") or stripped.startswith("- [ ]"):
             lines[idx] = lines[idx].replace("[ ]", "[x]", 1)
     path.write_text("\n".join(lines) + "\n", encoding="utf-8")
-
-    _write_done_log(root, task, slice_id, results)
 
     remaining = [other.id for other in slices if not other.done and other.id != slice_id]
     print(f"{slice_id} 已完成 ✓")
@@ -482,12 +527,12 @@ def cmd_review_mark(root: Path, task: str, *, verdict: str, round_num: int | Non
     return 0
 
 
-# --- impl-state（impl-agent 编排锚点 + 纯推导 next-action）--------------------
+# --- impl-state（任务档案 dossier）---------------------------------------------
 #
-# 没有 phase 状态机：进度 SoT 是 PRD checkbox，失败次数从 gate-attempts/ 数出来，
-# impl-state.json 只存推导不出来的两样东西——task 起点 SHA（写一次即锁死，中断恢复
-# 的锚）和单 slice 模式的目标 slice。next-action 只读机器事实，不记录模型自报状态。
-# 只在 impl-agent 模式启用；impl 单 agent 模式忽略。
+# 没有 phase 状态机：进度 SoT 是 PRD checkbox，失败次数从 gate-attempts/ 数出来。
+# impl-state.json 只存协作上下文：task 起点 SHA（写一次即锁死，中断恢复与整体 diff
+# 的锚）+ 单 slice 模式目标 + 每 slice handoff + 证据指针。
+# `seed status` 从 checkbox + 留痕 + 档案现算全部派生事实（next / gate 计数 / 熔断）。
 
 IMPL_STATE_FILENAME = "impl-state.json"
 CIRCUIT_BREAK_THRESHOLD = 3
@@ -513,6 +558,33 @@ def _write_impl_state(root: Path, task: str, state: dict) -> Path:
     state["updated_at"] = _now()
     p.write_text(json.dumps(state, ensure_ascii=False, indent=2) + "\n", encoding="utf-8")
     return p
+
+
+def _require_impl_state(root: Path, task: str) -> dict:
+    state = _read_impl_state(root, task)
+    if state is None:
+        raise SeedError(f"未找到 impl-state.json——先 `seed impl-state init {task}` 建任务档案")
+    return state
+
+
+def _dossier_slices(state: dict) -> dict:
+    slices = state.setdefault("slices", {})
+    if not isinstance(slices, dict):
+        raise SeedError("impl-state.json 的 slices 字段损坏（应为对象），先人工检查档案")
+    return slices
+
+
+def _write_slice_evidence(root: Path, task: str, slice_id: str,
+                          files: list[str], url: str | None) -> Path:
+    state = _require_impl_state(root, task)
+    entry = _dossier_slices(state).setdefault(slice_id, {})
+    evidence = entry.setdefault("evidence", {"files": [], "artifact": {}, "commit": None})
+    evidence["files"] = list(dict.fromkeys([*evidence.get("files", []), *files]))
+    if url:
+        evidence["artifact"] = {"url": url}
+    sha, _ = _git_anchor(root)
+    evidence["commit"] = sha or None
+    return _write_impl_state(root, task, state)
 
 
 def _normalized_prd_sha(root: Path, task: str) -> str:
@@ -541,14 +613,6 @@ def _git_anchor(root: Path) -> tuple[str, str]:
         return "", ""
 
 
-def _standards_list(root: Path) -> list[str]:
-    standards = [name for name in ("CLAUDE.md", "DESIGN.md") if (root / name).is_file()]
-    rules_dir = root / ".claude" / "rules"
-    if rules_dir.is_dir():
-        standards.extend(sorted(p.name for p in rules_dir.iterdir() if p.is_file()))
-    return standards
-
-
 def cmd_impl_state_init(root: Path, task: str, *, target_slice: str | None = None) -> int:
     """落锚点文件。task_start_sha 写一次即锁死，之后任何 re-init 都不覆盖——
     它是中断恢复后人审 diff / revert / 集成 review 的起点。"""
@@ -570,8 +634,10 @@ def cmd_impl_state_init(root: Path, task: str, *, target_slice: str | None = Non
         "git_root": git_root,
         "target_slice": target_slice,
         "prd_sha256": prd_sha,
-        "standards": _standards_list(root),
         "created_at": existing.get("created_at") or _now(),
+        # re-init 保留已累积的 dossier（handoff/evidence）——init 只管锚点字段，
+        # 清空累积数据 = 交接资产丢失
+        "slices": existing.get("slices") if isinstance(existing.get("slices"), dict) else {},
     }
     p = _write_impl_state(root, task, state)
 
@@ -607,82 +673,19 @@ def cmd_reset_attempts(root: Path, task: str, *, slice_id: str) -> int:
     return 0
 
 
-def cmd_next_action(root: Path, task: str) -> int:
-    """编排驱动：只读机器事实（PRD checkbox + gate-attempts 失败留痕 + 锚点）→ 输出现在该干嘛。
-
-    不写任何状态。下一个 slice、熔断、收口时机全部从盘上推导，不依赖模型自报。"""
-    slices, errors = parse_prd(prd_path(root, task))
-    if errors:
-        print(json.dumps({"error": "PRD 结构问题", "details": errors},
-                         ensure_ascii=False), file=sys.stderr)
-        return 1
-
-    state = _read_impl_state(root, task)
-    done_count = sum(1 for sl in slices if sl.done)
-
-    if state is None:
-        # 无锚点 = 未入场。若有未完成 slice → 建议 init
-        next_slice = next((sl.id for sl in slices if not sl.done), None)
-        if next_slice is None:
-            print(json.dumps({"action": "noop", "reason": "all slices done, no impl-state"},
-                             ensure_ascii=False))
-            return 0
-        print(json.dumps({"action": "init_impl_state", "next_slice": next_slice},
-                         ensure_ascii=False))
-        return 0
-
-    target = state.get("target_slice")
-    if target:
-        scope = [sl for sl in slices if sl.id == target]
-        if not scope:
-            print(json.dumps({"error": f"target_slice {target} 不在 PRD 中"},
-                             ensure_ascii=False), file=sys.stderr)
-            return 1
-    else:
-        scope = slices
-    next_slice = next((sl.id for sl in scope if not sl.done), None)
-
-    out: dict[str, object] = {
-        "next_slice": next_slice,
-        "attempt_count": _count_gate_attempts(root, task, next_slice) if next_slice else 0,
-        "done_count": done_count,
-        "total_slices": len(slices),
-        "task_start_sha": state.get("task_start_sha", ""),
-    }
-    if target:
-        out["target_slice"] = target
-
-    attempt_count = out["attempt_count"]
-    if next_slice is None:
-        if target:
-            out["action"] = "finish"
-            out["note"] = f"单 slice 模式：{target} 已过 gate。per-slice review + commit 后即收，不做集成 review。"
-        else:
-            sha = state.get("task_start_sha", "")
-            out["action"] = "integration_review"
-            out["dispatch"] = "集成 review（主会话审 committed diff；修不净再手动 review-loop 深兜底）"
-            out["diff_range"] = f"{sha}..HEAD" if sha else None
-            if not sha:
-                out["note"] = "无 task_start_sha（非 git 项目）：降级为审工作区现状并如实说明，不发明 diff 范围。"
-    elif attempt_count >= CIRCUIT_BREAK_THRESHOLD:
-        out["action"] = "escalate"
-        out["hint"] = (
-            f"{next_slice} 的 gate 已失败 {attempt_count} 次（≥{CIRCUIT_BREAK_THRESHOLD}，熔断）：停下报告用户。"
-            f"用户处理后用 `seed impl-state reset-attempts {task} --slice {next_slice}` 清零计数再继续。"
-        )
-    else:
-        out["action"] = "start_slice"
-        dispatch = f"seed-slice agent for {next_slice}"
-        if done_count:
-            dispatch += "（注入 handoff）"
-        if attempt_count:
-            dispatch += f"——第 {attempt_count + 1} 次尝试，把 gate-attempts/ 里的失败输出一并注入"
-        out["dispatch"] = dispatch
-
-    print(json.dumps(out, ensure_ascii=False, indent=2))
+def cmd_handoff_add(root: Path, task: str, slice_id: str, note: str) -> int:
+    """追加 slice handoff 到任务档案。只收代码与 git 读不出的隐性事实。"""
+    slices = _require_valid_prd(root, task)
+    _find_slice(slices, slice_id)
+    if not note.strip():
+        raise SeedError("--note 不能为空")
+    state = _require_impl_state(root, task)
+    entry = _dossier_slices(state).setdefault(slice_id, {})
+    handoff = entry.setdefault("handoff", [])
+    handoff.append(note.strip())
+    p = _write_impl_state(root, task, state)
+    print(f"{slice_id} handoff 已记录（第 {len(handoff)} 条）→ {p.relative_to(root)}")
     return 0
-
-
 
 
 def _project_path(root: Path, value: str) -> Path:
@@ -934,6 +937,10 @@ def build_parser() -> argparse.ArgumentParser:
     done_parser.add_argument("--slice", dest="slice_id", required=True)
     done_parser.add_argument("--test", dest="test_cmd", default="", help="测试命令（如 'npm test'）")
     done_parser.add_argument("--quality", dest="quality_cmds", action="append", default=[], help="质量命令，可重复多次")
+    done_parser.add_argument("--evidence-file", dest="evidence_files", action="append", default=[], metavar="PATH",
+                             help="证据文件指针（截图等），可重复；写入 impl-state.json 档案对应 slice")
+    done_parser.add_argument("--evidence-url", dest="evidence_url", default=None,
+                             help="验收实例锚点 URL；写入 impl-state.json 档案对应 slice")
 
     rm_parser = sub.add_parser("review-mark", help="落显式 task 级 review-loop 终态 marker")
     rm_parser.add_argument("task")
@@ -941,22 +948,25 @@ def build_parser() -> argparse.ArgumentParser:
     rm_parser.add_argument("--round", dest="round_num", type=int, default=None)
     rm_parser.add_argument("--note", default=None)
     rm_parser.add_argument("--depth", choices=["inline", "single", "full"], default="single",
-                           help="审查深度：inline=编排者内联自查（impl 默认收尾 / impl-agent 集成 review）；single=派过 1 个 review agent；full=5 agent review-loop（增强项）")
+                           help="审查深度：inline=编排者内联自查（impl 默认收尾）；single=派过 1 个 review agent；full=5 agent review-loop（增强项）")
 
-    # impl-agent 编排锚点（plumbing，只在 impl-agent 模式用）
-    impl_state_parser = sub.add_parser("impl-state", help="impl-agent 编排锚点（起点 SHA / 单 slice 目标 / 失败计数清零）")
+    # 任务档案（dossier）
+    impl_state_parser = sub.add_parser("impl-state", help="任务档案：锚点（起点 SHA 写一次锁死）/ 单 slice 目标 / 熔断清零")
     impl_sub = impl_state_parser.add_subparsers(dest="impl_state_cmd", required=True)
     impl_init = impl_sub.add_parser("init", help="落锚点文件（task_start_sha 写一次即锁死）")
     impl_init.add_argument("task")
     impl_init.add_argument("--slice", dest="target_slice", default=None, help="单 slice 模式的目标 slice")
-    impl_show = impl_sub.add_parser("show", help="查看当前锚点")
-    impl_show.add_argument("task")
     impl_reset = impl_sub.add_parser("reset-attempts", help="熔断后清零某 slice 的 gate 失败计数（留痕移入 superseded/）")
     impl_reset.add_argument("task")
     impl_reset.add_argument("--slice", dest="slice_id", required=True)
 
-    na_parser = sub.add_parser("next-action", help="impl-agent 编排驱动：读 checkbox+失败留痕+锚点 → 现在该干嘛（只读）")
-    na_parser.add_argument("task")
+    handoff_parser = sub.add_parser("handoff", help="任务档案：写入 slice 交接（handoff）")
+    handoff_sub = handoff_parser.add_subparsers(dest="handoff_cmd", required=True)
+    handoff_add = handoff_sub.add_parser("add", help="追加一条 slice handoff（代码与 git 读不出的隐性事实）")
+    handoff_add.add_argument("task")
+    handoff_add.add_argument("--slice", dest="slice_id", required=True)
+    handoff_add.add_argument("--note", required=True)
+
 
     score_parser = sub.add_parser("score", help="评分聚合（review-loop judge 多裁判模式用）")
     score_sub = score_parser.add_subparsers(dest="score_cmd", required=True)
@@ -990,23 +1000,18 @@ def main(argv: list[str] | None = None) -> int:
         if args.command == "status":
             return cmd_status(root, args.task, args.json_output)
         if args.command == "done":
-            return cmd_done(root, args.task, args.slice_id, args.test_cmd, args.quality_cmds)
+            return cmd_done(root, args.task, args.slice_id, args.test_cmd, args.quality_cmds,
+                            evidence_files=args.evidence_files, evidence_url=args.evidence_url)
         if args.command == "review-mark":
             return cmd_review_mark(root, args.task, verdict=args.verdict, round_num=args.round_num, note=args.note, depth=args.depth)
         if args.command == "impl-state":
             if args.impl_state_cmd == "init":
                 return cmd_impl_state_init(root, args.task, target_slice=args.target_slice)
-            if args.impl_state_cmd == "show":
-                state = _read_impl_state(root, args.task)
-                if state is None:
-                    print(json.dumps({"status": "no impl-state（未入场）"}, ensure_ascii=False))
-                else:
-                    print(json.dumps(state, ensure_ascii=False, indent=2))
-                return 0
             if args.impl_state_cmd == "reset-attempts":
                 return cmd_reset_attempts(root, args.task, slice_id=args.slice_id)
-        if args.command == "next-action":
-            return cmd_next_action(root, args.task)
+        if args.command == "handoff":
+            if args.handoff_cmd == "add":
+                return cmd_handoff_add(root, args.task, slice_id=args.slice_id, note=args.note)
         if args.command == "score":
             if args.score_cmd == "aggregate":
                 return cmd_score_aggregate(root, args.rubric, args.score_files, args.out)

@@ -172,49 +172,19 @@ class SeedPromptContractTests(unittest.TestCase):
         self.assertIn('"commands"', agent)
         self.assertNotIn("docs/PRD", skill)
 
-    def test_impl_agent_orchestrates_per_slice_with_clean_boundaries(self):
-        skill = self.read_plugin_file("skills", "impl-agent", "SKILL.md")
-        agent = self.read_plugin_file("agents", "seed-slice.md")
-
-        # 编排者角色 + 机器事实驱动（无 phase 自报）+ handoff 衔接
-        self.assertIn("编排者", skill)
-        self.assertIn("seed next-action", skill)
-        self.assertIn("impl-state", skill)
-        self.assertIn("handoff", skill)
-        self.assertNotIn("_advance", skill)  # 编排依据是机器事实，没有模型自报的 phase 转移
-        self.assertIn("reset-attempts", skill)  # 熔断闭环：升级给用户后有显式清零路径
-        # durable gate 与 git 边界：slice agent 不碰 gate、不碰 git
-        self.assertIn("agent 不调用 `seed done`", skill)
-        self.assertIn("不碰 git", skill)
-        self.assertIn("指定的那一个 slice", agent)
-        self.assertIn("不执行 `git commit`", agent)
-        self.assertIn('"handoff"', agent)
-
     def test_batch2_certified_partial_contract(self):
         """P1 批次 2 部分合并合同(认证依据 run-20260726T081132Z-98223cc328,
         取证 wf_95686eec,结账见 evals-v2 p1b2-impl-agent/CONCLUSION.md):
         (a) A 同步派发条款——control 后台轮询率 3/3 系统性倾向,条款为纠偏,
-            去重口径 token -47.9%;(b) impl-agent 快扫删除(D2,improved 证据内);
-        (c) 塑形条款(自审/完整感)按 p03 预塑形证据保留——删除须先过 eval。
-        未合并部分(B'/C/review 与 brainstorm 侧 D2)留在 candidate/p1-batch2 待各自认证。"""
+            去重口径 token -47.9%;(c) 塑形条款(自审/完整感)按 p03 预塑形证据保留——
+            删除须先过 eval。impl-agent/seed-slice 侧断言随 unify-impl-dossier 删除移除。"""
         impl_skill = self.read_plugin_file("skills", "impl", "SKILL.md")
-        impl_agent = self.read_plugin_file("skills", "impl-agent", "SKILL.md")
         seed_impl = self.read_plugin_file("agents", "seed-impl.md")
-        seed_slice = self.read_plugin_file("agents", "seed-slice.md")
         seed_review = self.read_plugin_file("agents", "seed-review.md")
 
-        # (a) 同步派发是机制说明,两个编排 SKILL 都要有
+        # (a) 同步派发是机制说明,编排 SKILL 要有
         self.assertIn("run_in_background: false", impl_skill)
-        self.assertIn("run_in_background: false", impl_agent)
         self.assertNotIn("不要 `run_in_background`", impl_skill)
-        # (b) 快扫不得回归：impl-agent 不自己实现快扫，只委托 seed-kit:check
-        #     （"快扫"字样仅允许出现在 check 委托行；执行清单归 check skill）
-        quickscan_lines = [ln for ln in impl_agent.splitlines() if "快扫" in ln]
-        assert quickscan_lines, "impl-agent 应委托 check（含快扫）"
-        assert all("seed-kit:check" in ln for ln in quickscan_lines), (
-            "impl-agent 的快扫字样只能出现在 check 委托行："
-            + "\n".join(quickscan_lines)
-        )
         # (c) B' 隐性期望通道(认证 run-20260726T123412Z + 取证 wf_abdae488:
         #     3/3 场景触发、沉默假设消灭、错误语义具名化;成本 +17.6% 已知)
         brainstorm = self.read_plugin_file("skills", "brainstorm", "SKILL.md")
@@ -226,9 +196,8 @@ class SeedPromptContractTests(unittest.TestCase):
         self.assertNotIn("不为凑数制造方案", brainstorm)
         # (e) 塑形条款保留(p03:预塑形机制,删除未获认证)
         # 注:断言跟随 e51c34c 自审压缩后的实际措辞——"30s 快速扫描"已并入"自审"步骤
-        for text in (seed_impl, seed_slice):
-            self.assertIn("自审", text)
-            self.assertIn("完整感", text)
+        self.assertIn("自审", seed_impl)
+        self.assertIn("完整感", seed_impl)
         self.assertIn("方向对账", seed_review)
 
     def test_ledger_belongs_to_gate_not_review(self):
@@ -276,8 +245,7 @@ class SeedPromptContractTests(unittest.TestCase):
 
     def test_default_finish_is_inline_and_deep_review_is_enhanced(self):
         """收尾分层合同(依据 review-loop-impl-quality 取证:5 agent 深审成本确定上升、
-        +1.7pp 收益与噪音不可区分,降为增强项;后续内联化:impl-agent 集成 review 已内联,
-        impl 收尾拉齐为编排者内联自查,升级通道保留):
+        +1.7pp 收益与噪音不可区分,降为增强项;impl 收尾为编排者内联自查,升级通道保留):
         (a) impl 收尾默认 = 内联自查(题面对照 + 兑现对账 + 关键假设外显),落 --depth inline;
         (b) 升级通道保留(用户点名触发,不自动派)——派 seed-review 干净 context 审,落 --depth single;
         (c) review-loop(5 agent)与 judge 是增强项,用户显式点名才跑,落 --depth full;
@@ -307,10 +275,13 @@ class SeedPromptContractTests(unittest.TestCase):
         self.assertIn("inline|single|full", conventions)
         self.assertIn("review-loop", check)
 
-    def test_naming_registry_includes_impl_agent_family(self):
+    def test_naming_registry_matches_shipped_skills_and_agents(self):
+        """登记表与实际资产对齐：存活名在册，已删名不残留（unify-impl-dossier）。"""
         conventions = self.read_plugin_file("skills", "references", "conventions.md")
-        self.assertIn("seed-kit:impl-agent", conventions)
-        self.assertIn("seed-kit:seed-slice", conventions)
+        for alive in ("seed-kit:impl", "seed-kit:check", "seed-kit:review-loop", "seed-kit:seed-impl"):
+            self.assertIn(alive, conventions)
+        for dead in ("seed-kit:impl-agent", "seed-kit:seed-slice"):
+            self.assertNotIn(dead, conventions)
 
     def test_assert_replays_explicit_commands_without_stack_inference(self):
         agent = self.read_plugin_file("agents", "seed-assert.md")
@@ -360,12 +331,11 @@ class SeedPromptContractTests(unittest.TestCase):
 
     def test_review_standards_check_contract(self):
         """准则对照合同：review 环节（独立 + 主会话内联）必须读项目质量标准并逐条对照。
-        统一条款在 conventions.md；check 清单承载职责三；impl 收尾、impl-agent 集成 review、
+        统一条款在 conventions.md；check 清单承载职责三；impl 收尾、
         seed-review 产出各自落地。防止"review 只对账 PRD 不对照准则"的默认路径缺口回归。"""
         conventions = self.read_plugin_file("skills", "references", "conventions.md")
         check = self.read_plugin_file("skills", "check", "SKILL.md")
         impl = self.read_plugin_file("skills", "impl", "SKILL.md")
-        impl_agent = self.read_plugin_file("skills", "impl-agent", "SKILL.md")
         review = self.read_plugin_file("agents", "seed-review.md")
 
         # 统一条款：对照范围（diff 触及的准则）+ 产出合同（遵守/违反 + 证据）+ 处置（用户拍板）
@@ -380,8 +350,6 @@ class SeedPromptContractTests(unittest.TestCase):
         # impl 收尾步骤 3
         self.assertIn("**3. 准则对照**", impl)
         self.assertIn("职责三执行", impl)
-        # impl-agent 集成 review 全局一致性对照标准
-        self.assertIn("对照项目质量标准", impl_agent)
         # seed-review 产出：准则对照结论进 summary
         self.assertIn("准则对照结论", review)
 
@@ -518,7 +486,7 @@ class SeedPromptContractTests(unittest.TestCase):
         插件 README / conventions）的 skill 数量与清单和磁盘 skills/ 目录一致，过时数量词全部清除。
         磁盘数量变化时各账本必须同步——写死数字而不改账本会红。"""
         disk_skills = sorted(p.parent.name for p in (PLUGIN_ROOT / "skills").glob("*/SKILL.md"))
-        cn_num = {10: "十", 11: "十一", 12: "十二"}.get(len(disk_skills))
+        cn_num = {9: "九", 10: "十", 11: "十一", 12: "十二"}.get(len(disk_skills))
         self.assertIsNotNone(cn_num, "skill 数超出预设数量词映射，请同步更新本测试")
 
         conventions = self.read_plugin_file("skills", "references", "conventions.md")
@@ -551,7 +519,7 @@ class SeedPromptContractTests(unittest.TestCase):
         # plugin.json 指向 skills/ 目录（清单由目录承载，不复制名单）
         self.assertEqual(json.loads(plugin_json)["skills"], ["./skills/"])
         # 过时数量词全部清除（六处）
-        stale = ("五个 skill", "六个 skill", "九个 skill", "five skill", "six skill", "nine skill")
+        stale = ("五个 skill", "六个 skill", "十个 skill", "five skill", "six skill", "ten skill")
         for text in (conventions, plugin_readme, design, root_readme, marketplace, plugin_json):
             for word in stale:
                 self.assertNotIn(word, text, f"{word} 是过时数量词，应修整为与磁盘一致")

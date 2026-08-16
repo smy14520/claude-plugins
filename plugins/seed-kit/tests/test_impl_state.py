@@ -1,8 +1,11 @@
-"""impl-agent 编排锚点 + 纯推导 next-action 的 CLI 合同测试。
+"""任务档案（dossier）：锚点 + handoff + 证据指针 的 CLI 合同测试。
 
 设计合同：
 - 没有 phase 状态机——进度 SoT 是 PRD checkbox，失败次数从 gate-attempts/ 数出来。
-- impl-state.json 只存推导不出来的东西：task_start_sha（写一次即锁死）+ 单 slice 目标。
+- impl-state.json 是任务档案：task_start_sha（写一次即锁死）+ 单 slice 目标 +
+  每 slice handoff（`seed handoff add`）+ 证据指针（`seed done --evidence-*`）。
+- 写序：done-log 与 dossier 先于 checkbox 翻转——中断最坏态是"有证据未勾选"，
+  永不出"已勾选无证据"。
 - `seed done` 失败留痕到 gate-attempts/（与 done-logs/ 分开，客观锚只重放成功记录）。
 """
 from __future__ import annotations
@@ -95,12 +98,6 @@ def fake_attempts(root: Path, slice_id: str, n: int) -> None:
         )
 
 
-def next_action(root: Path, capsys) -> dict:
-    capsys.readouterr()
-    assert run(root, "next-action", "demo") == 0
-    return json.loads(capsys.readouterr().out)
-
-
 # --- init / 锚点 --------------------------------------------------------------
 
 def test_init_creates_anchor_without_phase(project: Path):
@@ -161,80 +158,62 @@ def test_init_rejects_unknown_target_slice(project: Path, capsys):
     assert "不存在" in capsys.readouterr().err
 
 
-def test_show_reports_missing_state(project: Path, capsys):
-    assert run(project, "impl-state", "show", "demo") == 0
-    assert "no impl-state" in capsys.readouterr().out
+# --- status 吸收编排派生（原 next-action）--------------------------------------
+
+def status_json(root: Path, capsys) -> dict:
+    capsys.readouterr()
+    assert run(root, "status", "demo", "--json") == 0
+    return json.loads(capsys.readouterr().out)
 
 
-# --- next-action：纯推导 ------------------------------------------------------
-
-def test_next_action_suggests_init_without_state(project: Path, capsys):
-    data = next_action(project, capsys)
-    assert data["action"] == "init_impl_state"
-    assert data["next_slice"] == "S-001"
-
-
-def test_next_action_noop_when_all_done_without_state(project: Path, capsys):
-    check_slice(project, "S-001")
-    check_slice(project, "S-002")
-    data = next_action(project, capsys)
-    assert data["action"] == "noop"
-
-
-def test_next_action_dispatches_next_unchecked_slice(project: Path, capsys):
-    assert run(project, "impl-state", "init", "demo") == 0
-    data = next_action(project, capsys)
-    assert data["action"] == "start_slice"
-    assert data["next_slice"] == "S-001"
-    assert data["attempt_count"] == 0
-    check_slice(project, "S-001")
-    data = next_action(project, capsys)
-    assert data["next_slice"] == "S-002"
-    assert "handoff" in data["dispatch"]
-
-
-def test_next_action_derives_attempts_and_circuit_breaks(project: Path, capsys):
+def test_status_reports_gate_failures_and_circuit_break(project: Path, capsys):
     assert run(project, "impl-state", "init", "demo") == 0
     fake_attempts(project, "S-001", 2)
-    data = next_action(project, capsys)
-    assert data["action"] == "start_slice"
-    assert data["attempt_count"] == 2
-    fake_attempts(project, "S-001", 1)  # 第 3 条,触发熔断阈值
-    data = next_action(project, capsys)
-    assert data["action"] == "escalate"
-    assert "reset-attempts" in data["hint"]
+    data = status_json(project, capsys)
+    by_id = {s["id"]: s for s in data["slices"]}
+    assert by_id["S-001"]["gate_failures"] == 2
+    assert data["circuit_broken"] == []
+    fake_attempts(project, "S-001", 1)  # 第 3 条 → 熔断
+    data = status_json(project, capsys)
+    assert data["circuit_broken"] == ["S-001"]
+    assert data["next"] == "S-001"
+    capsys.readouterr()
+    assert run(project, "status", "demo") == 0
+    out = capsys.readouterr().out
+    assert "熔断" in out and "reset-attempts" in out
 
 
-def test_next_action_integration_review_when_all_done(project: Path, capsys):
+def test_status_reports_anchor_and_dossier_presence(project: Path, capsys):
     sha = git_init_commit(project)
     assert run(project, "impl-state", "init", "demo") == 0
-    check_slice(project, "S-001")
-    check_slice(project, "S-002")
-    data = next_action(project, capsys)
-    assert data["action"] == "integration_review"
-    assert data["diff_range"] == f"{sha}..HEAD"
-    assert "review-loop" not in data["dispatch"].split("；")[0]  # 收口是集成 review，review-loop 只是兜底
+    assert run(project, "handoff", "add", "demo", "--slice", "S-001", "--note", "接口语义 X") == 0
+    data = status_json(project, capsys)
+    assert data["task_start_sha"] == sha
+    by_id = {s["id"]: s for s in data["slices"]}
+    assert by_id["S-001"]["handoff"] == 1
+    assert by_id["S-001"]["evidence"] is False
+    capsys.readouterr()
+    assert run(project, "status", "demo") == 0
+    assert "锚点" in capsys.readouterr().out
 
 
-def test_next_action_degrades_without_git_anchor(project: Path, capsys):
-    assert run(project, "impl-state", "init", "demo") == 0
-    check_slice(project, "S-001")
-    check_slice(project, "S-002")
-    data = next_action(project, capsys)
-    assert data["action"] == "integration_review"
-    assert data["diff_range"] is None
-    assert "降级" in data["note"]
+def test_status_without_dossier_degrades_cleanly(project: Path, capsys):
+    data = status_json(project, capsys)
+    assert data["task_start_sha"] is None
+    assert data["next"] == "S-001"
+    assert all(s["gate_failures"] == 0 and s["handoff"] == 0 for s in data["slices"])
+    capsys.readouterr()
+    assert run(project, "status", "demo") == 0
+    assert "无锚点" in capsys.readouterr().out
 
 
 def test_single_slice_mode_targets_named_slice(project: Path, capsys):
     assert run(project, "impl-state", "init", "demo", "--slice", "S-002") == 0
-    data = next_action(project, capsys)
-    assert data["action"] == "start_slice"
-    assert data["next_slice"] == "S-002"  # 不派 S-001
+    data = status_json(project, capsys)
+    assert data["target_slice"] == "S-002"
     check_slice(project, "S-002")
-    data = next_action(project, capsys)
-    assert data["action"] == "finish"
-    assert "集成 review" in data["note"]
+    data = status_json(project, capsys)
+    assert data["next"] is None  # 单 slice 模式目标已完成
 
 
 # --- gate-attempts：seed done 失败留痕 ----------------------------------------
@@ -277,20 +256,113 @@ def test_noop_rejection_does_not_count_as_attempt(project: Path, capsys):
 def test_reset_attempts_zeroes_count_and_keeps_history(project: Path, capsys):
     assert run(project, "impl-state", "init", "demo") == 0
     fake_attempts(project, "S-001", 3)
-    data = next_action(project, capsys)
-    assert data["action"] == "escalate"
+    assert status_json(project, capsys)["circuit_broken"] == ["S-001"]
     assert run(project, "impl-state", "reset-attempts", "demo", "--slice", "S-001") == 0
     assert len(list((attempts_dir(project) / "superseded").glob("*.json"))) == 3
-    data = next_action(project, capsys)
-    assert data["action"] == "start_slice"
-    assert data["attempt_count"] == 0
+    data = status_json(project, capsys)
+    assert data["circuit_broken"] == []
+    assert {s["id"]: s for s in data["slices"]}["S-001"]["gate_failures"] == 0
 
 
 # --- 边界：不碰 checkbox ------------------------------------------------------
 
 def test_state_commands_do_not_touch_checkbox(project: Path):
-    """锚点/留痕命令只是编排辅助：任何 init/reset 都不得改 PRD checkbox。"""
+    """档案/留痕命令只是协作辅助：任何 init/reset/handoff 都不得改 PRD checkbox。"""
     fake_attempts(project, "S-001", 3)
     assert run(project, "impl-state", "init", "demo") == 0
     assert run(project, "impl-state", "reset-attempts", "demo", "--slice", "S-001") == 0
+    assert run(project, "handoff", "add", "demo", "--slice", "S-001", "--note", "x") == 0
     assert "### [x]" not in prd_file(project).read_text(encoding="utf-8")
+
+
+# --- dossier：handoff / evidence / 写序 ---------------------------------------
+
+def _pass_test_setup(root: Path) -> None:
+    (root / "test.js").write_text(
+        "const {test} = require('node:test');\ntest('passes', () => {});\n",
+        encoding="utf-8",
+    )
+
+
+def test_handoff_add_appends_cumulatively(project: Path):
+    run(project, "impl-state", "init", "demo")
+    assert run(project, "handoff", "add", "demo", "--slice", "S-001",
+               "--note", "create_order() 返回 {status:'pending'}") == 0
+    assert run(project, "handoff", "add", "demo", "--slice", "S-001",
+               "--note", "回调必须查 pending 才放行") == 0
+    state = read_state(project)
+    assert state["slices"]["S-001"]["handoff"] == [
+        "create_order() 返回 {status:'pending'}",
+        "回调必须查 pending 才放行",
+    ]
+    # 锚点字段不受 handoff 写入影响
+    assert "task_start_sha" in state
+
+
+def test_handoff_add_rejects_unknown_slice_and_requires_dossier(project: Path, capsys):
+    run(project, "impl-state", "init", "demo")
+    assert run(project, "handoff", "add", "demo", "--slice", "S-999", "--note", "x") == 1
+    assert run(project, "handoff", "add", "demo", "--slice", "S-001", "--note", "  ") == 1
+    # 无档案（未 init）时拒绝并提示入口，不隐式创建
+    bare = project.parent / "bare"
+    (bare / ".arbor" / "tasks" / "demo").mkdir(parents=True)
+    (bare / ".arbor" / "tasks" / "demo" / "prd.md").write_text(PRD, encoding="utf-8")
+    assert run(bare, "handoff", "add", "demo", "--slice", "S-001", "--note", "x") == 1
+    assert "impl-state init" in capsys.readouterr().err
+    assert not (bare / ".arbor" / "tasks" / "demo" / "impl-state.json").exists()
+
+
+def test_done_writes_evidence_to_dossier_not_done_log(project: Path):
+    git_init_commit(project)
+    run(project, "impl-state", "init", "demo")
+    _pass_test_setup(project)
+    rc = run(project, "done", "demo", "--slice", "S-001", "--test", "node --test test.js",
+             "--evidence-file", "evidence/S-001-01-stroke.png",
+             "--evidence-file", "evidence/S-001-02-detail.png",
+             "--evidence-url", "http://localhost:5173")
+    assert rc == 0
+    ev = read_state(project)["slices"]["S-001"]["evidence"]
+    assert ev["files"] == ["evidence/S-001-01-stroke.png", "evidence/S-001-02-detail.png"]
+    assert ev["artifact"] == {"url": "http://localhost:5173"}
+    assert ev["commit"]  # git 仓库中记录验证时 HEAD
+    # done-log 仍是纯机器验证流水，不携带证据
+    log_file = next((project / ".arbor" / "tasks" / "demo" / "done-logs").glob("*S-001*.json"))
+    assert "evidence" not in log_file.read_text(encoding="utf-8")
+
+
+def test_done_write_order_log_and_dossier_precede_checkbox(project: Path, monkeypatch):
+    """中断安全合同：prd 写入（翻 checkbox）失败时，done-log 与 dossier 已在盘上；
+    反向（勾了但无证据）结构性不可能。"""
+    git_init_commit(project)
+    run(project, "impl-state", "init", "demo")
+    _pass_test_setup(project)
+    real_write_text = Path.write_text
+
+    def crash_before_flip(self, *args, **kwargs):
+        if self.name == "prd.md":
+            raise OSError("simulated crash before checkbox flip")
+        return real_write_text(self, *args, **kwargs)
+
+    monkeypatch.setattr(Path, "write_text", crash_before_flip)
+    with pytest.raises(OSError):
+        run(project, "done", "demo", "--slice", "S-001", "--test", "node --test test.js",
+            "--evidence-file", "evidence/x.png")
+    monkeypatch.undo()
+
+    assert "### [x]" not in prd_file(project).read_text(encoding="utf-8")  # 未翻
+    assert list((project / ".arbor" / "tasks" / "demo" / "done-logs").glob("*S-001*.json"))
+    assert read_state(project)["slices"]["S-001"]["evidence"]["files"] == ["evidence/x.png"]
+
+
+def test_reinit_preserves_dossier_slices(project: Path):
+    """re-init 只重申锚点字段，不得清空已累积的 handoff/evidence（dossier 是交接资产）。"""
+    assert run(project, "impl-state", "init", "demo") == 0
+    assert run(project, "handoff", "add", "demo", "--slice", "S-001", "--note", "接口语义 X") == 0
+    state = read_state(project)
+    state.setdefault("slices", {})["S-001"] = {**state["slices"]["S-001"],
+                                               "evidence": {"files": ["e/a.png"], "artifact": {}, "commit": None}}
+    state_path(project).write_text(json.dumps(state, ensure_ascii=False), encoding="utf-8")
+    assert run(project, "impl-state", "init", "demo") == 0
+    after = read_state(project)
+    assert after["slices"]["S-001"]["handoff"] == ["接口语义 X"]
+    assert after["slices"]["S-001"]["evidence"]["files"] == ["e/a.png"]

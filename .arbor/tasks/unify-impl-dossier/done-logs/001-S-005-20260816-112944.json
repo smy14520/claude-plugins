@@ -1,0 +1,11 @@
+{
+  "test": {
+    "command": "python3 -m pytest plugins/seed-kit/tests/ -q",
+    "exit_code": 0,
+    "output_summary": "........................................................................ [ 52%]\n.................................................................        [100%]\n137 passed in 2.98s",
+    "output_sha256": "ba7ea2672115efdc4e336c4a8b8c4b28e8072f6817dcdd21991082258d4a2e67",
+    "output_bytes": 180,
+    "output_truncated": false
+  },
+  "quality": []
+}

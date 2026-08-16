@@ -23,9 +23,9 @@ seed-kit 是上一代工作流的轻量继任者：取其精华（PRD source of 
 ## 设计原则
 
 1. **Skill 全部由用户主动触发，互不自动耦合。**
-2. **纯 Markdown 状态，没有状态机。** `prd.md` 的 slice checkbox + git log 就是全部进度；断点续作 = 读 prd.md + git log。没有 task.json。impl-agent 附带的 `impl-state.json`（任务锚点）与 `gate-attempts/`（失败留痕）只是推导输入，不记录也不驱动阶段——`next-action` 的每个输出都从 checkbox + 留痕 + 锚点现算。
+2. **纯 Markdown 状态，没有状态机。** `prd.md` 的 slice checkbox + git log 就是全部进度；断点续作 = 读 prd.md + git log + 任务档案。没有 task.json。`impl-state.json`（任务档案：锚点 + slice handoff + 证据指针）是协作上下文，`gate-attempts/`（失败留痕）是推导输入——都不记录也不驱动阶段；`seed status` 的每个派生输出（next / gate 计数 / 熔断）从 checkbox + 留痕 + 档案现算。
 3. **helper 只做确定性的状态读写。** 脚手架、解析校验、执行测试/质量命令、勾选 checkbox——全是确定性动作，不调用 LLM。`seed done` 是唯一的硬 gate。
-4. **命令面极小：核心 3 个（new / status / done），其余（review-mark / score / wiki 家族 / map 家族 / impl-agent 的 impl-state + next-action）各守窄职责。**
+4. **命令面极小：核心 3 个（new / status / done），其余（review-mark / score / wiki 家族 / map 家族 / impl-state 家族）各守窄职责。**
 5. **hook 只守底线：** 拦截破坏性命令；拦截绕过 gate 手工勾选 checkbox。
 6. **用户拥有 commit。**
 7. **两套账本严格分离。** PRD checkbox 是交付账本（gate 唯一翻动）；wayfinder 的决策票是决策账本——票不进 `seed done`、不翻 checkbox、不是 slice，`.arbor/maps/` 状态不构成第二套进度，图清即冻结。
@@ -106,7 +106,7 @@ seed-kit 是上一代工作流的轻量继任者：取其精华（PRD source of 
 2. **硬 gate，只卡硬事实**（helper 层）：`seed done` 跑 agent 传入的项目测试命令（exit 0，且拒绝 `true`/`echo` 等显而易见的空操作）+ 质量命令（全 exit 0）。不过则拒绝。
 3. **hook 守底线**（hook 层）：拦截直接改 checkbox、破坏性命令。
 4. **生成者 ≠ 验证者**（review 层）：review 用干净上下文逐验收条目对账，查偷懒签名；judge 看真实产物按 PRD 中描述的方向评体验。
-5. **一个 agent 做所有 slice 是 impl 的默认**（流程层）：保持跨切片品质连贯。`impl-agent` 提供用户显式选择的替代策略——per-slice 独立 agent（干净 context）+ handoff 衔接 + 主会话 per-slice review 与 commit 检查点；价值实验（impl-vs-impl-agent-value）显示其完成率小幅更高、成本显著更高，故作可选不作默认。
+5. **一个 agent 做所有 slice**（流程层）：保持跨切片品质连贯。per-slice 派发替代策略（impl-agent）经价值实验（impl-vs-impl-agent-value）证伪——完成率增益≈噪音、成本结构性上升（token +419%）——已删除；其可续接资产（锚点 / handoff / 证据）以 impl-state dossier 形式并入统一流程。
 
 第 2、3 层是机械的（脚本保证），第 1、4、5 层是流程约定。
 

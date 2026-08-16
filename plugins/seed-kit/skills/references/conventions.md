@@ -5,10 +5,10 @@
 ## 原则
 
 - **不确定时查证，别假设**：动手前查权威依据（文档、既有约定、代码现状、官方源），下结论前验证（跑命令、看输出）。别用记忆、习惯或单次结果代替证据。
-- 十个 skill（research、brainstorm、wayfinder、impl、impl-agent、check、review、wiki、init、handoff）全部由用户主动触发，互不自动切换阶段——skill 之间不自动推进（例外：impl / impl-agent 收尾的内联自查是点名该 skill 即选择的收尾语义——编排者按 seed-kit:check 的清单自己执行，不 dispatch；check 作为独立 skill 仍可随时触发）。
+- 九个 skill（research、brainstorm、wayfinder、impl、check、review、wiki、init、handoff）全部由用户主动触发，互不自动切换阶段——skill 之间不自动推进（例外：impl 收尾的内联自查是点名该 skill 即选择的收尾语义——编排者按 seed-kit:check 的清单自己执行，不 dispatch；check 作为独立 skill 仍可随时触发）。
 - `.arbor/.wiki/` 是项目记忆层：`seed wiki index --json` 看地图（有哪些页），`seed wiki collect --query "<概念>"` 按需精准拉取相关页——给地图，按需放大，不全量倾倒。收尾时按阶段职责写回（brainstorm 写 decision/module，review 写 gotcha/cross_cut），写回后 `seed wiki index --write` 刷新索引。
-- `prd.md` 是需求 source of truth：slice 内联在 PRD 中（`### [ ] S-NNN 标题` heading，checkbox + prose 在一起）。进度状态 = checkbox；git log 是代码进度。impl-agent 的 `impl-state.json` 只是任务锚点（起点 SHA / 单 slice 目标），`gate-attempts/` 只是 gate 失败留痕（熔断计数依据）——都不构成第二套进度。
-- 分支与提交属于用户；agent 在合适的节点提示 commit（impl-agent 模式例外：用户点名该 skill 即选择其 per-slice commit 检查点语义，由主会话执行，agent 仍不碰 git）。
+- `prd.md` 是需求 source of truth：slice 内联在 PRD 中（`### [ ] S-NNN 标题` heading，checkbox + prose 在一起）。进度状态 = checkbox；git log 是代码进度。`impl-state.json` 是任务档案（dossier）：锚点（起点 SHA，写一次锁死）+ 每 slice handoff + 证据指针——交接与续接用；`gate-attempts/` 是 gate 失败留痕（熔断计数依据）。以上都不构成第二套进度。
+- 分支与提交属于用户；agent 在合适的节点提示 commit。
 - **标准分层（机制在插件，标准在项目）**：插件只给栈无关机制（三类验证手段、验收条目、gate、review-loop、`seed` CLI）。项目标准自管，分三处：
   - **测试纪律**（测试工具、覆盖门槛、DoD）放 `.claude/rules/`。
   - **品味、设计语言**（参考产品、配色字体、质量门槛）放 `DESIGN.md`。
@@ -22,9 +22,9 @@
 
 命名不对称是历史遗留，**直接照抄下列全名**，不要加/减前缀：
 
-- **Skill**（用户主动触发，**无** `seed-` 前缀）：`seed-kit:brainstorm` / `seed-kit:impl` / `seed-kit:impl-agent` / `seed-kit:check` / `seed-kit:review` / `seed-kit:research` / `seed-kit:wayfinder` / `seed-kit:wiki` / `seed-kit:init` / `seed-kit:handoff`
+- **Skill**（用户主动触发，**无** `seed-` 前缀）：`seed-kit:brainstorm` / `seed-kit:impl` / `seed-kit:check` / `seed-kit:review` / `seed-kit:research` / `seed-kit:wayfinder` / `seed-kit:wiki` / `seed-kit:init` / `seed-kit:handoff`
 - **编排命令**（slash command）：`seed-kit:review-loop` / `seed-kit:review-prd`
-- **Agent**（由 skill/command 编排派发，**带** `seed-` 前缀，用户不直接调用）：`seed-kit:seed-impl` / `seed-kit:seed-slice` / `seed-kit:seed-review` / `seed-kit:seed-judge` / `seed-kit:seed-validator` / `seed-kit:seed-assert` / `seed-kit:seed-prd-review` / `seed-kit:seed-prototype`
+- **Agent**（由 skill/command 编排派发，**带** `seed-` 前缀，用户不直接调用）：`seed-kit:seed-impl` / `seed-kit:seed-review` / `seed-kit:seed-judge` / `seed-kit:seed-validator` / `seed-kit:seed-assert` / `seed-kit:seed-prd-review` / `seed-kit:seed-prototype`
 
 > 拿不准时回查这张表。常见错：把 skill `seed-kit:impl` 喊成 agent 名 `seed-kit:seed-impl` → Unknown skill。
 
@@ -44,11 +44,11 @@
 
 ```bash
 seed new <task>                                  # 脚手架任务目录 + prd.md 模板
-seed status [<task>] [--json]                    # 进度 / 结构校验 / next slice
+seed status [<task>] [--json]                    # 进度 / 结构校验 / next slice / gate 失败计数与熔断 / 锚点与档案存在性
 seed done <task> --slice S-NNN --test "..." [--quality "..."]  # 跑 agent 传入的测试+质量命令，全过则翻 checkbox（唯一合法入口）
 seed review-mark <task> --verdict <reason> [--round N] [--depth inline|single|full]  # 落终态 marker（inline=编排者内联自查 / single=派过 1 个 review agent / full=5 agent review-loop）
-seed impl-state init|show|reset-attempts <task>  # impl-agent 锚点：起点 SHA / 单 slice 目标 / 熔断清零（仅 impl-agent 模式）
-seed next-action <task>                          # impl-agent 编排驱动：读 checkbox+失败留痕+锚点 → 现在该干嘛
+seed impl-state init|reset-attempts <task>  # 任务档案：锚点（起点 SHA 写一次锁死）/ 单 slice 目标 / 熔断清零
+seed handoff add <task> --slice S-NNN --note "…" # 追加 slice handoff（隐性事实）到档案
 seed score aggregate --rubric <rubric.json> \
   --score-files <file1.json> <file2.json> ... \
   --out <aggregate.json>                        # 聚合多个 score-file（多裁判模式）
