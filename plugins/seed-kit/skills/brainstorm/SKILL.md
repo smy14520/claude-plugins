@@ -34,11 +34,11 @@ description: "把模糊想法收敛成可执行的 PRD。访谈式提问——�
 
 1. `seed new <task>` 创建任务目录。
 2. 按模板填写 `prd.md`（Goal + Acceptance Criteria + Out of Scope）：
-   - **Goal**：一段话概述——这是什么、为什么做。有可感面时，期望的体验方向（参考产品、设计语言、"感觉像 X"）自然融入。
+   - **Goal**：一段话概述——这是什么、为什么做；痛点句删掉方案词后必须仍成立（Problem 不依赖解）。有可感面时，期望的体验方向（参考产品、设计语言、"感觉像 X"）自然融入。
    - **Acceptance Criteria**：有序 slice（`### [ ] S-NNN 标题`），每个 slice 下用 `* [ ]` 写验收条目。一个 `* [ ]` 一个测试用例——正向一条、反向一条、边界一条。技术决策融入相关条目，不独立成段。
    - **wiki 知识区分**：精确位置（文件/函数/插入点）直接写进验收条目——这是 task 特定的，没有复利价值。模式/原理/陷阱（"为什么这么设计""这个坑怎么避"）用 `[[../.wiki/页面路径]]` 引用——让 impl 自己去读原文，同一个原理不存两份。
    - **Out of Scope**：明确不做什么。每条排除都必须是用户确认过的决定——访谈中问过的直接落盘，没问过的回提问通道补问一次；写入时末尾带（用户确认）标注（`seed status` 拒绝无标注条目）。
-   - 不再创建单独 slice 文件——所有 slice 内容直接在 prd.md 的 `### [ ] S-NNN` heading 下写。
+   - 所有 slice 内容直接写在 prd.md 的 `### [ ] S-NNN` heading 下，无单独 slice 文件。
 3. PRD 落盘后做一次 inline self-review：清除 TBD/TODO、占位符和模糊语句；核对 Goal、Acceptance Criteria、Out of Scope 是否一致，task 是否过大到应拆成独立 task，以及每条 AC 是否只有一种可执行解释。发现问题直接修当前 PRD，不新增 artifact 或 stage。
 4. 自审并修正后，再运行 `seed status <task>` 校验结构（有结构错误必须修复并重跑）。
 

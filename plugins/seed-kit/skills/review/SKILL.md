@@ -27,8 +27,8 @@ description: "当用户要求 review/审计 seed-kit task，或说 use seed-kit 
 
 ## 何时 review
 
-- 用户主动触发（"review 这个 slice"）。
-- impl 全量模式在所有 slice done 后显式调用整体 review-loop；没有 PostToolUse review 提醒或全局 Stop hook。
+- 用户主动触发：单 slice（"review 这个 slice"），或点名 `/seed-kit:review-loop` 审整个 task（impl 收尾默认是内联自查，独立深审不自动派）。
+- 没有 PostToolUse review 提醒或全局 Stop hook——review 不自动发生。
 
 ## 产出
 

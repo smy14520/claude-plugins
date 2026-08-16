@@ -9,7 +9,7 @@ description: "把当前会话压缩成 handoff 文档，供另一个 AI / 新会
 
 通用约定见 [`../references/conventions.md`](../references/conventions.md)。
 
-把当前会话压缩成一份 handoff 文档，让一个全新的 agent 能接手继续干活。写给"没看过本会话的人"——任务目标、当前进度、已做的决策、未完成的事、下一步。
+把当前会话压缩成一份 handoff 文档，让一个全新的 agent 能接手继续干活——写给"没看过本会话的人"。
 
 ## 何时
 

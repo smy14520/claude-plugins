@@ -54,11 +54,11 @@ blocked-by: []            # 依赖的其他票号，如 [data-shape]；无依赖
 - **prototype**（HITL）："该长什么样 / 手感对不对"的设计票。派 `seed-prototype`，用户玩出来的 verdict 写 Resolution。
 - **task**（HITL 或 AFK）：为解锁决策的体力活——取数、开权限、备环境。agent 能代办则代办（AFK）；否则给人精确步骤清单（HITL），照单执行。Resolution 记录做了什么与产生的事实（凭据位置、新地址、数据规模），供下游票引用。
 
-HITL = 人在环上：grilling、prototype（含用户玩原型）、需人手的 task；AFK = agent 独立完成。**HITL 票 agent 不得代替用户作答**——替用户回答了自己问题的访谈票是坏票。
+HITL = 人在环上，AFK = agent 独立完成。**HITL 票 agent 不得代替用户作答**——替用户回答了自己问题的访谈票是坏票。
 
 ## 会话纪律
 
-- 开工先跑 `seed map status <slug>`：frontier、open/closed 计数从盘上推导，不靠记忆挑票。
+- 开工先跑 `seed map status <slug>`：frontier、open/closed 计数从盘上推导。
 - **一会话只解决一张票**（research 例外：轻调查 sub-agent 可并行）。
 - 拍完一张票：答案写 `## Resolution`、frontmatter 翻 `status: closed`、map.md 的 Decisions so far 加一行要点；答案让雾区看得清了的，随手立新票并从雾区删掉对应条目；答案揭示某张票其实超出 Destination 的，把票关掉、Out of scope 记一行。
 - 每个会话开始先读 map.md（低清全景），按需再放大具体票——不全量倾倒。

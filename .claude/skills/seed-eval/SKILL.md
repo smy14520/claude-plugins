@@ -52,7 +52,7 @@ seed-evals stability                   # infra 失败率聚合
 
 - 长实验(>40 分钟)用 `nohup ... & disown` 脱离会话跑,日志落文件后轮询。
 - 低并发(jobs ≤2),避免与其他在途测试抢 provider 配额。
-- **结账纪律**:实验跑完必须写 `experiments/<id>/CONCLUSION.md`(结论 + 由此采取的动作);不合并的 candidate 归档 spec+结论、删 pack 副本(build 脚本保留可重建)。
+- **结账纪律**:实验跑完必须写 `experiments/<id>/CONCLUSION.md`(结论 + **它打败了什么**——alternatives considered 及胜出理由,防重新审判 + 由此采取的动作);不合并的 candidate 归档 spec+结论、删 pack 副本(build 脚本保留可重建)。
 
 ## v1 回退说明(如果 v2 不好用)
 

@@ -14,7 +14,7 @@ disallowedTools: ["Edit", "Write", "NotebookEdit"]
 
 **输入**：task 的验收条目、PRD 全文、要审的文件路径、base ref。
 
-**审什么**（主体是逐条兑现对账；专项之外发现的问题同样报）：
+**审什么**：
 
 1. **兑现对账**：逐验收条目打开对应实现与测试文件，标注实现位置(file:line)与测试覆盖；没有实现位置或测试覆盖的条目 → finding。兑现只看代码与测试本身——PRD checkbox 与 done-log 属 gate 领地，不作为兑现证据。
 

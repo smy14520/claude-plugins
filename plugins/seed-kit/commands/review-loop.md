@@ -4,7 +4,7 @@ description: 跑 seed-kit review-loop：审代码+产物+prove-kill(批量证伪
 
 跑 seed-kit review-loop 审当前任务的实现。
 
-**默认审整个 task（不带 slice 参数）**：impl 完成所有 slice 后跑**一次整体** review-loop（看全 diff + 全产物，直接修直到全绿），**不再每 slice 单独跑**。整体 review-loop 跑完必须 `seed review-mark <task> --verdict <terminal_reason>` 落 task 级 marker，保存本次明确终态。带 slice 参数仅用于单独深审某 slice（可选）。
+**默认审整个 task（不带 slice 参数）**：impl 完成所有 slice 后跑**一次整体** review-loop（看全 diff + 全产物，直接修直到全绿）。整体 review-loop 跑完必须 `seed review-mark <task> --verdict <terminal_reason>` 落 task 级 marker，保存本次明确终态。带 slice 参数仅用于单独深审某 slice（可选）。
 
 **步骤**：
 1. 定 task/slice：task 从当前项目 `.arbor/tasks/` 推断（唯一目录直接用，多个问用户）；slice 从 `$ARGUMENTS` 取形如 `S-NNN` 的部分（**忽略 task 名前缀**——如 `todo S-001` 只取 `S-001`），省略则审整个任务。**审整个任务前先跑 `seed status <task>`**：存在未完成 slice 时不启动循环——先逐个 `seed done` 关闭，或该 slice 无法用命令验证时修 PRD（并入可验证条目或移入 Goal/Out of Scope）。未完成 task 的 converged marker 会被 `seed review-mark` 直接拒绝。
@@ -16,6 +16,6 @@ description: 跑 seed-kit review-loop：审代码+产物+prove-kill(批量证伪
 
 review-loop 会派 `seed-review`（审代码）/ `seed-judge`（审产物）/ `seed-validator`（批量证伪）/ `seed-assert`（客观锚：跑测试+质量命令）/ `seed-impl`（修）循环到收敛或熔断。
 
-**结论在哪**：review-loop 的结论在 **`TaskOutput` 返回值的 `result`** 里（`terminal_reason` / `converged` / `verdict` / `trace`）。因为 Workflow 脚本不能写文件，必须 TaskOutput 取回 `terminal_reason`，再用 `seed review-mark` 落 task 级 `review-loop.json` marker（步骤 6）。**不落 `review.md`**——逐验收条目对账由 `/seed-kit:review` 单独写 `review.md`（人读 + living-prd 展示）。
+**结论在哪**：review-loop 的结论在 **`TaskOutput` 返回值的 `result`** 里（`terminal_reason` / `converged` / `verdict` / `trace`），取回 `terminal_reason` 后用 `seed review-mark` 落 task 级 marker（步骤 6）。**不落 `review.md`**——逐验收条目对账由 `/seed-kit:review` 单独写 `review.md`（人读 + living-prd 展示）。
 
 用法：`/seed-kit:review-loop S-001`（审 S-001）或 `/seed-kit:review-loop`（审整个 task）。
