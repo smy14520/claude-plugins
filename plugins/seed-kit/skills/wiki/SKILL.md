@@ -1,6 +1,6 @@
 ---
 name: wiki
-description: "维护项目的 .wiki/ 知识层：收录值得长期保留的资料与多文件链路知识，随代码更新，用 seed wiki index/search/collect/lint 查询与体检。仅用户主动触发。"
+description: "维护项目的 .arbor/.wiki/ 知识层：收录值得长期保留的资料与多文件链路知识，随代码更新，用 seed wiki index/search/collect/lint 查询与体检。仅用户主动触发。"
 ---
 # Wiki — 项目知识层
 

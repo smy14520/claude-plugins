@@ -1,6 +1,6 @@
 ---
 name: review
-description: "当用户要求 review/审计 seed-kit task，或说 use seed-kit review workflow 时调用。审实现是否兑现 PRD：逐验收条目对账、查偷懒签名与隐患，产出可证伪 finding 并追加到 .arbor/tasks/<task>/review.md。生成者≠验证者。"
+description: "当用户要求 review/审计 seed-kit task 时调用。审实现是否兑现 PRD：逐验收条目对账、查偷懒签名与隐患，产出可证伪 finding 并追加到 .arbor/tasks/<task>/review.md。生成者≠验证者。"
 ---
 # Review
 
@@ -14,7 +14,7 @@ description: "当用户要求 review/审计 seed-kit task，或说 use seed-kit 
 
 - **验收兑现**：逐验收条目映射到具体代码/测试，含失败路径；多余改动按漂移记。
 - **偷懒签名**：弱化或删除的断言、吞掉的异常、抄实现的假测试、新增 lint/类型抑制注释、悄悄收窄的 scope。
-- **方向对账**：读 PRD 的 Goal + DESIGN.md → 代码和产物是否支持 PRD 中描述的方向？有什么明明可以做但没做的？
+- **方向对账**：读 PRD 的 Goal + Design 节 + 项目 DESIGN.md → 代码和产物是否支持 PRD 中描述的方向？有什么明明可以做但没做的？
 - **措辞红旗**：should/seems/大概/基本上/应该 这类掩饰不确定的措辞。
 - **过期声明**：PRD 中引用的版本/API 无 `查证于 <日期>` 标注，或标注后该栈已发新版未重新查证。**反之，带 `查证于` 的默认信任——要否定必须重新查证引源，不准凭记忆反驳**（滞后记忆会误报"没有 X 版本"）。
 - **覆盖缺口**：验收条目声称的每个维度是否都有测试触及；别让一条线的通过冒充另一条线的覆盖。

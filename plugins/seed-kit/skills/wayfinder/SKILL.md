@@ -1,6 +1,6 @@
 ---
 name: wayfinder
-description: "大且雾的任务开决策图：.arbor/maps/<slug>/（map.md 索引 + tickets/ 决策票），frontier 由 seed map status 从盘上推导，一会话一票拍到图清，交棒 brainstorm 收敛。仅用户主动触发。"
+description: "大且雾的任务开决策图：.arbor/maps/<slug>/（map.md 索引 + tickets/ 决策票），frontier 由 seed map status 从盘上推导，一会话一票拍到图清，交棒 brainstorm 收敛。"
 ---
 # Wayfinder — 决策图
 
@@ -65,7 +65,9 @@ HITL = 人在环上，AFK = agent 独立完成。**HITL 票 agent 不得代替�
 
 ## 图清与交棒
 
-图清 = frontier 空 + 雾区（Not yet specified）空 + 全票 closed。图清后建议用户触发 `/seed-kit:brainstorm` 收敛——brainstorm 读已关票的 Resolution，已拍的决策不重问；收敛出 PRD 才进 impl。**不自动进 impl**。
+图清 = frontier 空 + 雾区（Not yet specified）空 + 全票 closed。图清后建议交棒 brainstorm 收敛，用户确认后当场进入——brainstorm 读已关票的 Resolution，已拍的决策不重问。impl 是重操作：仍由用户显式点名。
+
+图清对应多个交付 task 时（大项目按域拆）：把"task 序列与依赖"拍成一张票——决策归图（票的 `blocked-by` 表达序列），交付账本仍归各 task 自己的 PRD，两套账本分离不变；brainstorm 逐 task 收敛。
 
 ## 账本分离（票不是 slice）
 

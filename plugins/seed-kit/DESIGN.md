@@ -22,10 +22,10 @@ seed-kit 是上一代工作流的轻量继任者：取其精华（PRD source of 
 
 ## 设计原则
 
-1. **Skill 全部由用户主动触发，互不自动耦合。**
+1. **进入 skill 要么用户发起，要么 agent 提议后用户同意，绝不单方进入；轻流转点头即进；PRD 定稿后 brainstorm 自动派 seed-prd-review（默认收尾工序）；重操作（impl 开工、review-loop 深审）须显式点名。**
 2. **纯 Markdown 状态，没有状态机。** `prd.md` 的 slice checkbox + git log 就是全部进度；断点续作 = 读 prd.md + git log + 任务档案。没有 task.json。`impl-state.json`（任务档案：锚点 + slice handoff + 证据指针）是协作上下文，`gate-attempts/`（失败留痕）是推导输入——都不记录也不驱动阶段；`seed status` 的每个派生输出（next / gate 计数 / 熔断）从 checkbox + 留痕 + 档案现算。
 3. **helper 只做确定性的状态读写。** 脚手架、解析校验、执行测试/质量命令、勾选 checkbox——全是确定性动作，不调用 LLM。`seed done` 是唯一的硬 gate。
-4. **命令面极小：核心 3 个（new / status / done），其余（review-mark / score / wiki 家族 / map 家族 / impl-state 家族）各守窄职责。**
+4. **命令面极小：核心 3 个（new / status / done），其余（review-mark / score / wiki 家族 / map 家族 / impl-state 家族 / handoff）各守窄职责。**
 5. **hook 只守底线：** 拦截破坏性命令；拦截绕过 gate 手工勾选 checkbox。
 6. **用户拥有 commit。**
 7. **两套账本严格分离。** PRD checkbox 是交付账本（gate 唯一翻动）；wayfinder 的决策票是决策账本——票不进 `seed done`、不翻 checkbox、不是 slice，`.arbor/maps/` 状态不构成第二套进度，图清即冻结。
@@ -57,18 +57,7 @@ seed-kit 是上一代工作流的轻量继任者：取其精华（PRD source of 
 
 ## Artifact 结构
 
-```
-.arbor/
-├── tasks/<task>/
-│   ├── prd.md           # 进度 source of truth：slice 内联（### [ ] S-NNN heading + prose）
-│   ├── review.md        # review 追加记录
-│   ├── done-logs/       # seed done 机械验证记录
-│   ├── review-loop.json # 显式 task 级 review-loop 终态（可选）
-│   └── notes/           # impl 过程备注（可选）
-├── research/<topic>/
-├── maps/<slug>/         # wayfinder 决策图：map.md 索引 + tickets/ 决策票（决策账本，非进度）
-└── prototypes/<slug>/   # seed-prototype 一次性原型（弃置产物，不进交付）
-```
+目录树唯一权威在 [`skills/references/conventions.md`](skills/references/conventions.md)「目录」（含 impl-state / gate-attempts 等全部运行时文件）。PRD 骨架：
 
 ### PRD 骨架（slice 内联）
 
@@ -88,17 +77,9 @@ seed-kit 是上一代工作流的轻量继任者：取其精华（PRD source of 
 * [ ] <可测试的行为路径>
 ```
 
-## helper 命令面（核心 3 个 + score + wiki）
+## helper 命令面
 
-| 命令 | 做什么 |
-|---|---|
-| `seed new <task>` | 脚手架 `.arbor/tasks/<task>/` |
-| `seed status [<task>]` | slice 进度、验收条目列表、下一个未完成 slice、结构校验 |
-| `seed done <task> --slice S-NNN --test "<cmd>" [--quality "<cmd>"]...` | 跑 agent 传入的测试+质量命令，全过则翻 checkbox |
-| `seed review-mark <task> --verdict <reason>` | 落 review-loop 终态 marker |
-| `seed score aggregate` | 多裁判评分聚合（review-loop judge 用） |
-| `seed wiki ...` | wiki 家族 |
-| `seed map new / status` | wayfinder 决策图：脚手架 + frontier 推导（只读，无收票写操作） |
+命令面以 `seed --help` 为准；速查表见 [`skills/references/conventions.md`](skills/references/conventions.md)。核心 3 个：`new` / `status` / `done`（原则 4）。
 
 ## 防 AI 偷懒方案（分层）
 

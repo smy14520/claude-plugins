@@ -27,7 +27,7 @@
 - 验证是整体判断，不做逐条 obligation 合规
 - 插件不内置技术栈特定的测试方法清单——测试工具由项目配置声明
 - 体验质量走 review loop，不用 scoring gate 卡 done
-- skill 由用户主动触发，不自动流转
+- skill 进入要么用户发起，要么 agent 提议后用户同意，绝不单方进入——例外：PRD 定稿后 brainstorm 自动派 seed-prd-review（默认收尾工序）；重操作（impl 开工、review-loop）须显式点名
 - agent 不自动 commit——PRD checkbox 记进度，done-log 记机械验证，review-loop marker 记显式终态；提交由用户决定
 
 ## 行为评估（seed-kit-evals-v2）

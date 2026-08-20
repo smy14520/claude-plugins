@@ -1,6 +1,6 @@
 ---
 name: init
-description: "新项目初始化时推荐默认基准。把 Fowler 12 味坏味道作为代码审查默认基准，推荐写入项目的 CLAUDE.md 或 .claude/rules/。仅用户主动触发。"
+description: "新项目初始化时推荐默认基准。把 Fowler 12 味坏味道作为代码审查推荐基准（推荐而非强制），用户采纳后写入项目的 CLAUDE.md 或 .claude/rules/。仅用户主动触发。"
 ---
 # Init — 新项目默认基准推荐
 

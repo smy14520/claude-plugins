@@ -1,6 +1,6 @@
 ---
 name: brainstorm
-description: "把模糊想法收敛成可执行的 PRD。访谈式提问——用 AskUserQuestion 一次问一个高价值问题（推荐项置首、用户可改/另填），终点是 .arbor/tasks/<task>/prd.md：可证伪 AC + 有序 Slices。"
+description: "访谈式把模糊想法收敛成可执行的 PRD（.arbor/tasks/<task>/prd.md：可证伪 AC + 有序 slice）。"
 ---
 # Brainstorm — 需求收敛访谈
 
@@ -12,7 +12,7 @@ description: "把模糊想法收敛成可执行的 PRD。访谈式提问——�
 
 ## 开图还是直接访谈
 
-入场先判断形态：大到一张 PRD 装不下，或决策链还在雾里（决策互相咬、先答哪个决定后面问什么）→ 建议用户先开图（`/seed-kit:wayfinder`），把决策链拆成票跨会话一张张拍，图清后再回来收敛；一两次访谈能收敛的 → 直接进入访谈循环。图清后来收敛的：已拍的决策读票的 `## Resolution`，不重问——访谈只问还没拍的。
+入场先判断形态：大到一张 PRD 装不下，或决策链还在雾里（决策互相咬、先答哪个决定后面问什么）→ 建议开图，用户确认后当场进入 wayfinder（不要求重新点名），把决策链拆成票跨会话一张张拍，图清后再回来收敛；一两次访谈能收敛的 → 直接进入访谈循环。图清后来收敛的：已拍的决策读票的 `## Resolution`，不重问——访谈只问还没拍的。
 
 ## 访谈循环
 
@@ -33,16 +33,27 @@ description: "把模糊想法收敛成可执行的 PRD。访谈式提问——�
 用户确认收敛结果后：
 
 1. `seed new <task>` 创建任务目录。
-2. 按模板填写 `prd.md`（Goal + Acceptance Criteria + Out of Scope）：
+2. 按模板填写 `prd.md`（Goal + Design + Acceptance Criteria + Out of Scope）：
    - **Goal**：一段话概述——这是什么、为什么做；痛点句删掉方案词后必须仍成立（Problem 不依赖解）。有可感面时，期望的体验方向（参考产品、设计语言、"感觉像 X"）自然融入。
+   - **Design**：整体层——状态空间（实体与状态迁移全表，枚举出的状态都有迁移可达）、跨片联动（机制相交处的行为写在这里，slice 条目引用本节）、接口契约（slice 间消费/产出）。轻任务写一行"无——轻任务（用户确认）"跳过。
    - **Acceptance Criteria**：有序 slice（`### [ ] S-NNN 标题`），每个 slice 下用 `* [ ]` 写验收条目。一个 `* [ ]` 一个测试用例——正向一条、反向一条、边界一条。技术决策融入相关条目，不独立成段。
    - **wiki 知识区分**：精确位置（文件/函数/插入点）直接写进验收条目——这是 task 特定的，没有复利价值。模式/原理/陷阱（"为什么这么设计""这个坑怎么避"）用 `[[../.wiki/页面路径]]` 引用——让 impl 自己去读原文，同一个原理不存两份。
    - **Out of Scope**：明确不做什么。每条排除都必须是用户确认过的决定——访谈中问过的直接落盘，没问过的回提问通道补问一次；写入时末尾带（用户确认）标注（`seed status` 拒绝无标注条目）。
    - 所有 slice 内容直接写在 prd.md 的 `### [ ] S-NNN` heading 下，无单独 slice 文件。
-3. PRD 落盘后做一次 inline self-review：清除 TBD/TODO、占位符和模糊语句；核对 Goal、Acceptance Criteria、Out of Scope 是否一致，task 是否过大到应拆成独立 task，以及每条 AC 是否只有一种可执行解释。发现问题直接修当前 PRD，不新增 artifact 或 stage。
+3. PRD 落盘后做一次 inline self-review：清除 TBD/TODO、占位符和模糊语句；核对 Goal、Design、Acceptance Criteria、Out of Scope 是否一致，task 是否过大到应拆成独立 task，以及每条 AC 是否只有一种可执行解释。发现问题直接修当前 PRD，不新增 artifact 或 stage。
 4. 自审并修正后，再运行 `seed status <task>` 校验结构（有结构错误必须修复并重跑）。
 
-slice 拆分由你推荐、用户拍板；不强制最小切片，也不要为了显得完整而拆假边界。
+slice 拆分由你推荐、用户确认。**先呈方案再落盘**：拆片前先列出本任务会触及的全部层（e.g. schema / API / UI / tests——层随项目栈现场点名，如 CLI 的参数解析/核心逻辑/输出、游戏的玩法/渲染/资源）；然后把切片方案呈给用户——每片一句话，说它让哪个**用户视角的端到端行为**可用（不是分层实现清单）；用户确认后再写 PRD。不强制最小切片，也不要为了显得完整而拆假边界。
+
+**每个 slice 落地时必须单独绿**：gate 独立通过，验收只判自己拥有的东西。切法由改动形状决定——
+
+- **切片规则**：*"Each slice cuts a narrow but COMPLETE path through every layer — vertical, NOT a horizontal slice of one layer. A completed slice is demoable or verifiable on its own."* 每片穿过上面点名的所有层；"可验证"指能演示这一片的行为——测试测的正是这条行为才算数。
+- **S-001 是 tracer bullet**：一条最薄的端到端路径，穿过上面点名的全部层，每层只做这条路径需要的部分——不必覆盖 Design 的全部承诺，先让整条路走得通、能演示；后续 slice 各自增厚一个端到端能力。常见偏移：肥大的地基片（一层做全再做下一层）。
+- 机械大改（一刀波及全仓的单一变更，如统一改名）**按 expand–contract 切**：expand（新形态加在旧旁，旧的不动）→ migrate（按模块分批迁移调用点，每批一个 slice）→ contract（全迁完删旧）。每一步仍然单独绿。
+
+**后到的 slice 认领交界**：前序 slice 交付的操作，在本 slice 引入的新机制/新维度下的行为，成为本 slice 拥有的一部分、归它验收——逐个走一遍，写成条目或（用户确认）排除；无主就是漏。
+
+slice 的尺寸判据：一个新鲜 context window 装得下；装不下说明它是 task 不是 slice。大项目按域拆成多个 task（各自一份 PRD、独立 gate）逐个收敛；task 间有真依赖时建议去 wayfinder 拍序列（动作定义见 wayfinder「图清与交棒」），用户确认后当场进入。
 
 ## 修改既有 PRD
 
@@ -55,4 +66,4 @@ PRD 写好并通过 `seed status` 校验后：
 - **新模块或模块边界变化**落 `.arbor/.wiki/module/` 页。
 - 跑 `seed wiki index --write` 刷新索引和日志。
 
-建议用户先跑 `/seed-kit:review-prd`（独立审查 PRD + 读代码对账），再进 impl。由用户决定是否触发 review-prd，不自动进入 impl。
+PRD 通过 `seed status` 校验后，**自动派 `seed-prd-review`**（独立上下文；只传审查任务，不传你的访谈推理与预设结论）——PRD 独立审查是默认收尾工序，不待用户点名。发现 serious gap 时：修复 PRD → 重跑 `seed status` → 重审，直到 clean，结论摘要交给用户。impl 是重操作——由用户显式点名，不自动进入。

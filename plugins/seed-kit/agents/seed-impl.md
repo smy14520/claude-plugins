@@ -13,7 +13,7 @@ description: 实现整个 task 的全部 slice。读 PRD+slice+项目标准→US
 ## 工作流（全量实现时）
 
 **1. 读输入**：
-- `prd.md` 通读——它是合同：`## Goal`（任务概述 + 方向描述）、`## Acceptance Criteria` 段中每个 `### S-NNN` 的 `* [ ]` 条目（要交付什么 + 测试覆盖），`## Out of Scope`（边界）
+- `prd.md` 通读——它是合同：`## Goal`（任务概述 + 方向描述）、`## Design`（整体层：状态空间、跨片联动、接口契约——条目引用它时以它为准）、`## Acceptance Criteria` 段中每个 `### S-NNN` 的 `* [ ]` 条目（要交付什么 + 测试覆盖），`## Out of Scope`（边界）
 - 项目质量标准：`DESIGN.md` / `.claude/rules/` 存在则按需读（`CLAUDE.md` 已由 harness 自动加载）
 
 **2. 声明 USE/BUILD**：基座（脚手架、库、既有代码）用现成的，核心逻辑自己写。别手搓框架能生成的东西，也别拉个成品冒充交付。

@@ -41,6 +41,7 @@ class SeedPromptContractTests(unittest.TestCase):
 
         # 三段式：Goal / Acceptance Criteria / Out of Scope
         self.assertIn("## Goal", template)
+        self.assertIn("## Design", template)
         self.assertIn("## Acceptance Criteria", template)
         self.assertIn("### [ ] S-001", template)
         self.assertIn("## Out of Scope", template)
@@ -89,12 +90,14 @@ class SeedPromptContractTests(unittest.TestCase):
     def test_progress_state_distinguishes_records(self):
         readme = self.read_plugin_file("README.md")
         design = self.read_plugin_file("DESIGN.md")
+        conventions = self.read_plugin_file("skills", "references", "conventions.md")
         helper = self.read_plugin_file("tools", "seed.py")
         combined = "\n".join([readme, design, helper])
 
-        self.assertIn("进度 source of truth", readme)
-        self.assertIn("done-logs/", readme)
-        self.assertIn("review-loop.json", readme)
+        # 目录树/文件职责的唯一权威在 conventions「目录」；README 只留指针
+        self.assertIn("进度 source of truth", conventions)
+        self.assertIn("done-logs/", conventions)
+        self.assertIn("review-loop.json", conventions)
         self.assertNotIn("唯一状态", combined)
         self.assertNotIn("唯一持久状态", combined)
 
@@ -142,7 +145,7 @@ class SeedPromptContractTests(unittest.TestCase):
 
         self.assertIn("review-loop", cmd)
         self.assertIn("客观锚", cmd)
-        self.assertIn("不要同时传 `name`", cmd)
+        self.assertIn("不传 `name`", cmd)
         self.assertIn("const REPO = '.'", workflow)
         self.assertNotIn("A.repo", workflow)
 
@@ -391,9 +394,34 @@ class SeedPromptContractTests(unittest.TestCase):
         self.assertIn("verdict", text)
         # wayfinder 分流线 + 收敛入口
         self.assertIn("开图还是直接访谈", text)
-        self.assertIn("/seed-kit:wayfinder", text)
+        self.assertIn("当场进入 wayfinder", text)  # B 档：建议→用户确认→当场进入，无需 slash 重点名
         self.assertIn("## Resolution", text)
         self.assertIn("不重问", text)
+
+    def test_brainstorm_tracer_s001_and_auto_prd_review(self):
+        """接缝合同（候补，待 eval 认证）：S-001 踩遍 Design 整体层承诺——防"承诺了无人实例化"
+        的双源漂移；PRD 定稿后自动派 seed-prd-review——逐项对账成为默认工序。"""
+        text = self.read_plugin_file("skills", "brainstorm", "SKILL.md")
+        # 垂直切：英文原文可判定措辞 + 层点名下放 + tracer 穿层
+        self.assertIn("vertical, NOT a horizontal slice of one layer", text)
+        self.assertIn("demoable or verifiable on its own", text)
+        self.assertIn("列出本任务会触及的全部层", text)
+        self.assertIn("S-001 是 tracer bullet", text)
+        # 自发明的可证伪理由已删除（API 层可测试时禁令失锚）
+        self.assertNotIn("中段没有任何东西可验证", text)
+        # 切片方案显式呈现仪式
+        self.assertIn("每片一句话", text)
+        # 自动 PRD 独立审查（B 档例外）
+        self.assertIn("自动派 `seed-prd-review`", text)
+        agent = self.read_plugin_file("agents", "seed-prd-review.md")
+        self.assertIn("逐项对账", agent)
+        self.assertIn("逐片判层", agent)
+        self.assertIn("存在只是及格线", agent)
+        self.assertNotIn("模拟横切", agent)
+        self.assertNotIn("逐层横读", agent)
+        # 流转原则四处同步
+        conventions = self.read_plugin_file("skills", "references", "conventions.md")
+        self.assertIn("默认收尾工序，自动派发不待点名", conventions)
 
     def test_wayfinder_map_and_ticket_format(self):
         """wayfinder 合同（形态）：map.md 五节 + 票文件格式
@@ -442,7 +470,7 @@ class SeedPromptContractTests(unittest.TestCase):
         self.assertIn("research 例外", skill)
         # 图清 = 三条件 → 建议转 brainstorm 收敛，不自动进 impl
         self.assertIn("frontier 空 + 雾区（Not yet specified）空 + 全票 closed", skill)
-        self.assertIn("不自动进 impl", skill)
+        self.assertIn("impl 是重操作", skill)
 
     def test_wayfinder_ledger_separation(self):
         """账本分离合同（反向语义）：票是决策账本，不是交付账本——

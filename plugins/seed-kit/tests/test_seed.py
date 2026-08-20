@@ -18,6 +18,10 @@ PRD_INLINE = """# demo
 
 测试用 PRD，slice 内联。
 
+## Design
+
+单一流程：输入 → 校验 → 输出问候；无持久状态。
+
 ## Acceptance Criteria
 
 ### [ ] S-001 输出问候
@@ -149,9 +153,48 @@ def test_status_accepts_confirmed_oos_entries(project: Path, capsys):
 def test_status_oos_before_slices_does_not_swallow_headings(project: Path, capsys):
     """OoS 区段以下一个 heading（## 或 ###）为界：OoS 写在 AC 前时 slice 照常解析。"""
     prd = (
-        "# demo\n\n## Goal\n\n测试。\n\n## Out of Scope\n\n"
+        "# demo\n\n## Goal\n\n测试。\n\n## Design\n\n无——轻任务（用户确认）\n\n## Out of Scope\n\n"
         "- 排除项（用户确认）\n\n"
         "### [ ] S-001 第一步\n\n* [ ] 条目\n"
+    )
+    make_task(project, prd=prd)
+    assert run(project, "status", "demo", "--json") == 0
+    data = json.loads(capsys.readouterr().out)
+    assert [s["id"] for s in data["slices"]] == ["S-001"]
+    assert data["errors"] == []
+
+
+def test_status_flags_missing_design_section(project: Path, capsys):
+    """整体层是必填房间：缺 ## Design = 结构错误（轻任务用显式跳过行）。"""
+    prd = "# demo\n\n## Goal\n\n测试。\n\n### [ ] S-001 第一步\n\n* [ ] 条目\n"
+    make_task(project, prd=prd)
+    assert run(project, "status", "demo", "--json") == 1
+    data = json.loads(capsys.readouterr().out)
+    assert any("## Design" in err for err in data["errors"])
+
+
+def test_status_flags_empty_or_unconfirmed_design(project: Path, capsys):
+    """Design 空 = 结构错误；跳过声明必须带（用户确认）——静默跳过整体层与静默排除同罪。"""
+    prd = "# demo\n\n## Design\n\n### [ ] S-001 第一步\n\n* [ ] 条目\n"
+    make_task(project, prd=prd)
+    assert run(project, "status", "demo", "--json") == 1
+    data = json.loads(capsys.readouterr().out)
+    assert any("Design 节为空" in err for err in data["errors"])
+    (project / ".arbor" / "tasks" / "demo" / "prd.md").write_text(
+        "# demo\n\n## Design\n\n无——轻任务\n\n### [ ] S-001 第一步\n\n* [ ] 条目\n",
+        encoding="utf-8",
+    )
+    assert run(project, "status", "demo", "--json") == 1
+    data = json.loads(capsys.readouterr().out)
+    assert any("跳过声明" in err for err in data["errors"])
+
+
+def test_status_design_allows_subheadings_and_skip(project: Path, capsys):
+    """Design 内的 ### 子标题是整体层结构，不按 slice heading 解析；带确认的跳过行合法。"""
+    prd = (
+        "# demo\n\n## Design\n\n### 状态空间\n\ndraft → done 两态。\n\n"
+        "## Acceptance Criteria\n\n### [ ] S-001 第一步\n\n* [ ] 条目\n\n"
+        "## Out of Scope\n"
     )
     make_task(project, prd=prd)
     assert run(project, "status", "demo", "--json") == 0
@@ -419,7 +462,7 @@ def test_command_result_limits_summary_and_hashes_full_output():
 
 
 def test_done_all_slices_complete_message(project: Path, capsys):
-    prd = "# demo\n\n### [x] S-001 唯一\n\n已完成。\n"
+    prd = "# demo\n\n## Design\n\n无——轻任务（用户确认）\n\n### [x] S-001 唯一\n\n已完成。\n"
     make_task(project, prd=prd)
     _setup_pass_test(project)
     # Already done, should report idempotent
@@ -672,3 +715,9 @@ def test_map_status_is_readonly(project: Path, capsys):
     assert run(project, "map", "status", "ro-map", "--json") == 1
     after = {p.name: p.read_bytes() for p in sorted(map_dir.rglob("*")) if p.is_file()}
     assert before == after
+
+
+def test_root_prints_plugin_dir(capsys):
+    assert seed.main(["root"]) == 0
+    out = capsys.readouterr().out.strip()
+    assert (Path(out) / ".claude-plugin" / "plugin.json").is_file()

@@ -1,6 +1,6 @@
 # seed-kit
 
-轻量 PRD-first 工作流。九个 skill 全部由用户主动触发、互不自动耦合；进度状态以 `prd.md` 的 slice checkbox 为准，没有 task.json，也没有阶段状态机（`impl-state.json` 是任务档案：锚点 + handoff + 证据指针；`gate-attempts/` 是失败留痕——都不构成第二套进度）。
+轻量 PRD-first 工作流。九个 skill 之间：进入要么用户发起，要么 agent 提议后用户同意，绝不单方进入（例外：PRD 定稿后 brainstorm 自动派 seed-prd-review 独立审查）；进度状态以 `prd.md` 的 slice checkbox 为准，没有 task.json，也没有阶段状态机（`impl-state.json` 是任务档案：锚点 + handoff + 证据指针；`gate-attempts/` 是失败留痕——都不构成第二套进度）。
 
 设计动机与取舍见 [`DESIGN.md`](DESIGN.md)。
 
@@ -34,43 +34,17 @@
 | init | 新项目初始化时推荐默认基准（Fowler 12 味代码审查基准） | 项目标准文件（CLAUDE.md / .claude/rules/） |
 | handoff | 把当前会话压缩成交接文档，供另一个 AI / 新会话续接 | OS 临时目录的 handoff 文档 |
 
-九个 skill 不自动相互流转：brainstorm 不主动进入 research，但入场判断"大到一张 PRD 装不下或决策链在雾里"时**建议**用户先开图（wayfinder），图清后**建议**交棒 brainstorm 收敛——是建议交棒不是自动推进；impl 会读取 wiki 索引，并在全量模式全部 slice done 后由编排者内联收尾自查（按 check 清单做题面对照 + 兑现对账），落 `review-mark --depth inline`；触及高风险面或拿不准时升级派 seed-review（`--depth single`）；review-loop（5 agent 对抗深审）与 judge（产物评审）是**增强项**，用户显式点名才跑；review skill 本身仍由用户主动触发。`.arbor/maps/` 是决策账本：票不进 `seed done`、不翻 PRD checkbox、不是 slice，与交付账本严格分离。
+skill 间流转经用户确认后当场进入（agent 建议 → 用户点头，不要求重新点名）；brainstorm 收尾自动派 seed-prd-review 做 PRD 独立审查（对账 Design 承诺的落地点），有 serious gap 修完再停；impl 开工与 review-loop 是重入口，仍由用户显式点名。impl 会读取 wiki 索引，并在全量模式全部 slice done 后由编排者内联收尾自查（按 check 清单做题面对照 + 兑现对账），落 `review-mark --depth inline`；触及高风险面或拿不准时升级派 seed-review（`--depth single`）；review-loop（5 agent 对抗深审）与 judge（产物评审）是**增强项，默认不跑**，用户显式点名才跑；review skill 本身仍由用户主动触发。`.arbor/maps/` 是决策账本：票不进 `seed done`、不翻 checkbox、不是 slice，不构成第二套进度，图清即冻结。
 
 ## 状态模型
 
-```
-.arbor/tasks/<task>/
-├── prd.md           # 进度 source of truth：slice 内联（### [ ] S-NNN heading + prose）
-├── review.md        # review 追加记录
-├── done-logs/       # seed done 机械验证记录
-├── review-loop.json # 显式 task 级 review-loop 终态（可选）
-├── impl-state.json  # 任务档案：锚点（起点 SHA）+ slice handoff + 证据指针（可选；非进度）
-├── gate-attempts/   # seed done 失败留痕（熔断计数依据）
-└── notes/           # impl 过程备注（可选）
-
-.arbor/maps/<slug>/       # wayfinder 决策图：map.md 索引 + tickets/ 决策票（决策账本，非进度；图清即冻结）
-.arbor/prototypes/<slug>/ # seed-prototype 一次性原型（弃置产物，不进交付）
-```
+目录结构与各文件职责的唯一权威在 [`skills/references/conventions.md`](skills/references/conventions.md)「目录」。
 
 单一进度归属：PRD checkbox 表示 slice 进度；`done-logs/`（只有成功）、`gate-attempts/`（失败留痕）与 `review-loop.json` 分别记录机械验证、失败尝试和显式循环终态，不构成第二套阶段状态。断点续作 = `seed status <task>` + git log。
 
-## seed CLI（核心 3 个命令 + wiki / map 家族）
+## seed CLI
 
-```bash
-seed new <task>                                       # 脚手架任务目录 + prd.md 模板
-seed status [<task>] [--json]                         # 进度 / 结构校验 / next slice
-seed done <task> --slice S-NNN --test "<cmd>" \
-  [--quality "<cmd>"]...                              # 跑 agent 传入的测试+质量命令，全过则翻 checkbox
-seed review-mark <task> --verdict <reason> [--round N] [--depth inline|single|full] # 落终态 marker（inline=编排者内联自查 / single=派过 1 个 review agent / full=5 agent review-loop）
-seed impl-state init|reset-attempts <task>    # 任务档案：锚点（起点 SHA 写一次锁死）/ 单 slice 目标 / 熔断清零
-seed handoff add <task> --slice S-NNN --note "…"  # 追加 slice handoff（隐性事实）到档案
-seed score aggregate --rubric <rubric.json> \
-  --score-files <file1.json> <file2.json> ... \
-  --out <aggregate.json>                              # 聚合多个 score-file（多裁判模式）
-seed wiki index|search|collect|lint                   # .arbor/.wiki/ 工具
-seed map new <slug>                                   # 脚手架 .arbor/maps/<slug>/（map.md + tickets/）
-seed map status <slug> [--json]                       # 决策图状态：open/closed 计数 + frontier 推导（只读）
-```
+命令面以 `seed --help` 为准（活文档，代码保证不漂移）；速查表见 [`skills/references/conventions.md`](skills/references/conventions.md)。
 
 ## 验证设计
 

@@ -30,6 +30,8 @@ BAD_SLICE_HEADING_RE = re.compile(r"^###\s")
 TASK_NAME_RE = re.compile(r"^[a-z0-9][a-z0-9._-]*$")
 OOS_HEADING_RE = re.compile(r"^##\s+Out of Scope\s*$")
 OOS_CONFIRMED_RE = re.compile(r"[（(]用户确认[）)]")
+DESIGN_HEADING_RE = re.compile(r"^##\s+Design\s*$")
+DESIGN_SKIP_RE = re.compile(r"^[*-]?\s*无")
 
 
 class SeedError(Exception):
@@ -89,11 +91,24 @@ def parse_prd(path: Path) -> tuple[list[Slice], list[str]]:
     errors: list[str] = []
     seen: set[str] = set()
     in_oos = False
+    in_design = False
+    design_seen = False
+    design_content: list[str] = []
     for idx, line in _skip_html_comments(lines):
         stripped = line.strip()
         if stripped.startswith("## "):
             in_oos = bool(OOS_HEADING_RE.match(stripped))
+            in_design = bool(DESIGN_HEADING_RE.match(stripped))
+            design_seen = design_seen or in_design
             continue
+        if in_design:
+            if SLICE_HEADING_RE.match(line):
+                in_design = False  # slice heading 开始新区段，落回正常解析
+            else:
+                # Design 是整体层散文（可含 ### 子标题），不参与 slice 解析
+                if stripped:
+                    design_content.append(stripped)
+                continue
         if in_oos:
             if stripped.startswith("### "):
                 in_oos = False  # slice heading 开始新区段，落回正常解析
@@ -125,6 +140,17 @@ def parse_prd(path: Path) -> tuple[list[Slice], list[str]]:
             continue
     if not slices:
         errors.append("PRD 缺少 slice heading（`### [ ] S-NNN 标题`）")
+    if not design_seen:
+        errors.append(
+            "PRD 缺少 ## Design 节（整体层：状态空间/跨片联动/接口契约）"
+            "——轻任务在节内写一行：无——轻任务（用户确认）"
+        )
+    elif not design_content:
+        errors.append("## Design 节为空——写整体层内容，或轻任务写一行：无——轻任务（用户确认）")
+    elif all(DESIGN_SKIP_RE.match(text) for text in design_content) and not any(
+        OOS_CONFIRMED_RE.search(text) for text in design_content
+    ):
+        errors.append("## Design 跳过声明缺少（用户确认）标注——跳过整体层是用户的决策")
     return slices, errors
 
 
@@ -206,6 +232,12 @@ def cmd_new(root: Path, task: str) -> int:
     prd_path(root, task).write_text(template.replace("{{TITLE}}", task), encoding="utf-8")
     print(f"已创建 {task_dir.relative_to(root)}/")
     print(f"下一步：填写 prd.md，然后 `seed status {task}` 校验结构")
+    return 0
+
+
+def cmd_root() -> int:
+    """打印插件根目录绝对路径——prompt 定位 templates/ 等资源用它，不手写 shell 兜底。"""
+    print(Path(__file__).resolve().parent.parent)
     return 0
 
 
@@ -928,6 +960,8 @@ def build_parser() -> argparse.ArgumentParser:
     new_parser = sub.add_parser("new", help="脚手架 .arbor/tasks/<task>/prd.md")
     new_parser.add_argument("task")
 
+    sub.add_parser("root", help="打印插件根目录（定位 templates/ 等资源）")
+
     status_parser = sub.add_parser("status", help="解析 PRD 的 slice heading：进度、下一个 slice")
     status_parser.add_argument("task", nargs="?")
     status_parser.add_argument("--json", dest="json_output", action="store_true")
@@ -997,6 +1031,8 @@ def main(argv: list[str] | None = None) -> int:
     try:
         if args.command == "new":
             return cmd_new(root, args.task)
+        if args.command == "root":
+            return cmd_root()
         if args.command == "status":
             return cmd_status(root, args.task, args.json_output)
         if args.command == "done":

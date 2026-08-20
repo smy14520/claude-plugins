@@ -28,6 +28,10 @@ PRD = """# demo
 
 impl-state 测试用 PRD。
 
+## Design
+
+无——轻任务（用户确认）
+
 ## Acceptance Criteria
 
 ### [ ] S-001 第一步

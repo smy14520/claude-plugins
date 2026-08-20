@@ -28,4 +28,4 @@ description: "给一个需求收集外部资料并整理成 AI 可读的工作�
 
 ## 停止
 
-调研问题的每个子问题都有带出处的回答、`index.md` 能让人一次读懂时停止。告知用户：brainstorm 时可以指定读这个 topic。不自动进入 brainstorm。
+调研问题的每个子问题都有带出处的回答、`index.md` 能让人一次读懂时停止。建议交棒 brainstorm（可指定读这个 topic），用户确认后当场进入。

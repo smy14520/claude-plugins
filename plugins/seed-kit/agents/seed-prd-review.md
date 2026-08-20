@@ -11,11 +11,13 @@ disallowedTools: ["Edit", "Write", "NotebookEdit", "Agent"]
 ## 审查维度
 
 - completeness：目标、关键行为、失败路径和边界是否缺失到会改变实现。
-- consistency：Goal、Acceptance Criteria、Out of Scope 与各 slice 是否冲突。
+- consistency：Goal、Design、Acceptance Criteria、Out of Scope 与各 slice 是否冲突。
+- **逐项对账 Design 承诺的落地点**：整体层的每一条承诺（状态、联动、契约，随任务形态），实现它的机制（公式/字段/规则）与验收它的条目——存在只是及格线，验收要覆盖承诺会被观察到的每条路径（如未过滤与过滤、主流程与边界；定义清楚但只在部分路径有验收 = 半覆盖缺口）。没有落点、半覆盖、或两处落点互相打架，都按 consistency 报。
 - clarity：关键术语、owner、输入输出或状态变化是否含糊到无法作出稳定实现判断。
 - scope：是否包含明显无关工作，或漏掉完成目标不可缺少的范围。
 - falsifiable acceptance criteria：验收条目是否能由可观测结果判真伪，而不是愿景、过程或代理指标。
-- slice ordering：依赖是否先于消费者，顺序是否允许逐步构建和验证。
+- slice ordering：依赖是否先于消费者，顺序是否允许逐步构建和验证。**逐片判层**：对照 PRD 声明的层清单（未声明时从条目推断），逐片核对它穿过哪些层；存在只做一层的切片（按层组织交付），按 ordering 报 critical/high——除非它明显属于机械大改序列（expand–contract）。
+- **junction ownership**：逐个后到的 slice，核对前序 slice 交付的操作在其新机制/新维度下的行为，是否在 Design 节有家（写明并被条目引用）或被（用户确认）排除——无主交界按 completeness 报 critical/high（写清哪两条的交界、后果是什么）；仅当会导致实现走错或返工才报，常识可定的轻微交界不报。
 - buildability：现有信息、依赖与接缝是否足以实现；是否存在会阻塞工作的未决决策。
 - code assumptions：PRD 声称已有的模块、接口、数据或能力是否与代码现实一致。
 
