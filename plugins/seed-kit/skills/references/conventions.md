@@ -5,7 +5,7 @@
 ## 原则
 
 - **不确定时查证，别假设**：动手前查权威依据（文档、既有约定、代码现状、官方源），下结论前验证（跑命令、看输出）。别用记忆、习惯或单次结果代替证据。
-- 九个 skill（research、brainstorm、wayfinder、impl、check、review、wiki、init、handoff）之间：进入要么用户发起，要么 agent 提议后用户同意，**绝不单方进入**；轻流转（brainstorm↔wayfinder↔research）点头即进；PRD 定稿后的独立审查（`seed-prd-review`）是 brainstorm 的默认收尾工序，自动派发不待点名；重操作（`impl` 开工、`review-loop` 深审）须用户显式点名。skill 内部动作自动推进。impl 收尾的内联自查是 impl 自己的收尾语义——编排者按 seed-kit:check 的清单执行，不 dispatch check；check 作为独立 skill 仍可单独触发。
+- 十个 skill（research、brainstorm、wayfinder、impl、check、review、wiki、init、handoff、architect）之间：进入要么用户发起，要么 agent 提议后用户同意，**绝不单方进入**；轻流转（brainstorm↔wayfinder↔research）点头即进；PRD 定稿后的独立审查（`seed-prd-review`）是 brainstorm 的默认收尾工序，自动派发不待点名；重操作（`impl` 开工、`review-loop` 深审、`architect` 架构审计）须用户显式点名。skill 内部动作自动推进。impl 收尾的内联自查是 impl 自己的收尾语义——编排者按 seed-kit:check 的清单执行，不 dispatch check；check 作为独立 skill 仍可单独触发。
 - `.arbor/.wiki/` 是项目记忆层：`seed wiki index --json` 看地图（有哪些页），`seed wiki collect --query "<概念>"` 按需精准拉取相关页——给地图，按需放大，不全量倾倒。收尾时按阶段职责写回（brainstorm 写 decision/module，review 写 gotcha/cross_cut），写回后 `seed wiki index --write` 刷新索引。
 - `prd.md` 是需求 source of truth：`## Design` 承载整体层（状态空间/跨片联动/接口契约，slice 条目引用它，轻任务显式跳过），slice 内联在 PRD 中（`### [ ] S-NNN 标题` heading，checkbox + prose 在一起）。进度状态 = checkbox；git log 是代码进度。`impl-state.json` 是任务档案（dossier）：锚点（起点 SHA，写一次锁死）+ 每 slice handoff + 证据指针——交接与续接用；`gate-attempts/` 是 gate 失败留痕（熔断计数依据）。以上都不构成第二套进度。
 - 分支与提交属于用户；agent 在合适的节点提示 commit。
@@ -22,7 +22,7 @@
 
 命名不对称是历史遗留，**直接照抄下列全名**，不要加/减前缀：
 
-- **Skill**（用户主动触发，**无** `seed-` 前缀）：`seed-kit:brainstorm` / `seed-kit:impl` / `seed-kit:check` / `seed-kit:review` / `seed-kit:research` / `seed-kit:wayfinder` / `seed-kit:wiki` / `seed-kit:init` / `seed-kit:handoff`
+- **Skill**（用户主动触发，**无** `seed-` 前缀）：`seed-kit:brainstorm` / `seed-kit:impl` / `seed-kit:check` / `seed-kit:review` / `seed-kit:research` / `seed-kit:wayfinder` / `seed-kit:wiki` / `seed-kit:init` / `seed-kit:handoff` / `seed-kit:architect`
 - **编排命令**（slash command）：`seed-kit:review-loop` / `seed-kit:review-prd`
 - **Agent**（由 skill/command 编排派发，**带** `seed-` 前缀，用户不直接调用）：`seed-kit:seed-impl` / `seed-kit:seed-review` / `seed-kit:seed-judge` / `seed-kit:seed-validator` / `seed-kit:seed-assert` / `seed-kit:seed-prd-review` / `seed-kit:seed-prototype`
 
@@ -34,6 +34,7 @@
 .arbor/tasks/<task>/
 ├── prd.md           # 进度 source of truth：Design 整体层 + slice 内联（### [ ] S-NNN heading + prose）
 ├── review.md        # review 追加记录
+├── architect.md     # architect 审计留痕（可选，仅用户要求时）
 ├── done-logs/       # seed done 机械验证记录
 ├── review-loop.json # 显式 task 级 review-loop 终态（可选）
 ├── impl-state.json  # 任务档案：锚点（起点 SHA）+ slice handoff + 证据指针（可选；非进度）

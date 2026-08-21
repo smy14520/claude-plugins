@@ -1,6 +1,6 @@
 # seed-kit
 
-轻量 PRD-first 工作流。九个 skill 之间：进入要么用户发起，要么 agent 提议后用户同意，绝不单方进入（例外：PRD 定稿后 brainstorm 自动派 seed-prd-review 独立审查）；进度状态以 `prd.md` 的 slice checkbox 为准，没有 task.json，也没有阶段状态机（`impl-state.json` 是任务档案：锚点 + handoff + 证据指针；`gate-attempts/` 是失败留痕——都不构成第二套进度）。
+轻量 PRD-first 工作流。十个 skill 之间：进入要么用户发起，要么 agent 提议后用户同意，绝不单方进入（例外：PRD 定稿后 brainstorm 自动派 seed-prd-review 独立审查）；进度状态以 `prd.md` 的 slice checkbox 为准，没有 task.json，也没有阶段状态机（`impl-state.json` 是任务档案：锚点 + handoff + 证据指针；`gate-attempts/` 是失败留痕——都不构成第二套进度）。
 
 设计动机与取舍见 [`DESIGN.md`](DESIGN.md)。
 
@@ -20,7 +20,7 @@
 ```
 
 
-## 九个 skill
+## 十个 skill
 
 | skill | 职责 | 产出 |
 |---|---|---|
@@ -33,8 +33,9 @@
 | wiki | 项目知识层：长期资料 + 多文件链路知识 | `.arbor/.wiki/` 页面 |
 | init | 新项目初始化时推荐默认基准（Fowler 12 味代码审查基准） | 项目标准文件（CLAUDE.md / .claude/rules/） |
 | handoff | 把当前会话压缩成交接文档，供另一个 AI / 新会话续接 | OS 临时目录的 handoff 文档 |
+| architect | 以架构师立场审 PRD 或代码：放置裁决 / 不可逆预警 / 形态退化，只建议不改码，结论交用户拍板 | 审计报告（对话交付；留痕可选：architect.md / wiki） |
 
-skill 间流转经用户确认后当场进入（agent 建议 → 用户点头，不要求重新点名）；brainstorm 收尾自动派 seed-prd-review 做 PRD 独立审查（对账 Design 承诺的落地点），有 serious gap 修完再停；impl 开工与 review-loop 是重入口，仍由用户显式点名。impl 会读取 wiki 索引，并在全量模式全部 slice done 后由编排者内联收尾自查（按 check 清单做题面对照 + 兑现对账），落 `review-mark --depth inline`；触及高风险面或拿不准时升级派 seed-review（`--depth single`）；review-loop（5 agent 对抗深审）与 judge（产物评审）是**增强项，默认不跑**，用户显式点名才跑；review skill 本身仍由用户主动触发。`.arbor/maps/` 是决策账本：票不进 `seed done`、不翻 checkbox、不是 slice，不构成第二套进度，图清即冻结。
+skill 间流转经用户确认后当场进入（agent 建议 → 用户点头，不要求重新点名）；brainstorm 收尾自动派 seed-prd-review 做 PRD 独立审查（对账 Design 承诺的落地点），有 serious gap 修完再停；impl 开工、review-loop 深审与 architect 架构审计是重入口，仍由用户显式点名。impl 会读取 wiki 索引，并在全量模式全部 slice done 后由编排者内联收尾自查（按 check 清单做题面对照 + 兑现对账），落 `review-mark --depth inline`；触及高风险面或拿不准时升级派 seed-review（`--depth single`）；review-loop（5 agent 对抗深审）与 judge（产物评审）是**增强项，默认不跑**，用户显式点名才跑；review skill 本身仍由用户主动触发。`.arbor/maps/` 是决策账本：票不进 `seed done`、不翻 checkbox、不是 slice，不构成第二套进度，图清即冻结。
 
 ## 状态模型
 

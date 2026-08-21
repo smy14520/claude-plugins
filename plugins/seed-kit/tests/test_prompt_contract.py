@@ -547,7 +547,7 @@ class SeedPromptContractTests(unittest.TestCase):
         # plugin.json 指向 skills/ 目录（清单由目录承载，不复制名单）
         self.assertEqual(json.loads(plugin_json)["skills"], ["./skills/"])
         # 过时数量词全部清除（六处）
-        stale = ("五个 skill", "六个 skill", "十个 skill", "five skill", "six skill", "ten skill")
+        stale = ("五个 skill", "六个 skill", "九个 skill", "five skill", "six skill", "nine skill")
         for text in (conventions, plugin_readme, design, root_readme, marketplace, plugin_json):
             for word in stale:
                 self.assertNotIn(word, text, f"{word} 是过时数量词，应修整为与磁盘一致")
