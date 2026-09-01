@@ -225,27 +225,34 @@ def _write_index_md(directory: Path, pages: list[dict[str, Any]], root: Path | N
             desc = p.get("description", "")
             lines.append(f"- [{p['title']}]({rel}) — {desc}")
         lines.append("")
+
+    # 维护 log.md：记录本次索引的页面快照（基线 = 写入前的 index.md）
+    old_stems = _stems_from_index_md(directory)
     (directory / "index.md").write_text("\n".join(lines) + "\n", encoding="utf-8")
-
-    # 维护 log.md：记录本次索引的页面快照
-    _append_log_md(directory, pages)
+    _append_log_md(directory, pages, old_stems)
 
 
-def _append_log_md(directory: Path, pages: list[dict[str, Any]]) -> None:
-    """追加 .wiki/log.md 条目，记录当前页面快照和变更。"""
+def _stems_from_index_md(directory: Path) -> set[str]:
+    """从现有 index.md 提取页面文件名集合，作为 log 变更对比的基线。"""
+    index_path = directory / "index.md"
+    if not index_path.exists():
+        return set()
+    stems: set[str] = set()
+    for line in index_path.read_text(encoding="utf-8").splitlines():
+        if line.startswith("- [") and "](" in line:
+            target = line.split("](")[1].split(")")[0]
+            if target:
+                stems.add(Path(target).name)
+    return stems
+
+
+def _append_log_md(directory: Path, pages: list[dict[str, Any]], old_stems: set[str]) -> None:
+    """追加 .wiki/log.md 条目，记录当前页面快照和变更（old_stems = 上次索引的页面集）。"""
     from datetime import datetime, timezone
     log_path = directory / "log.md"
-    old_stems: set[str] = set()
     old_lines: list[str] = []
     if log_path.exists():
-        old_text = log_path.read_text(encoding="utf-8")
-        old_lines = old_text.splitlines()
-        # 从上一次快照中提取页面列表
-        for line in old_lines:
-            if line.startswith("- [") and "](" in line:
-                stem = line.split("](")[1].split(")")[0] if "](" in line else ""
-                if stem:
-                    old_stems.add(stem)
+        old_lines = log_path.read_text(encoding="utf-8").splitlines()
 
     new_stems = {Path(p["path"]).name for p in pages}
     added = new_stems - old_stems

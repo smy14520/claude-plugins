@@ -113,6 +113,27 @@ def test_generated_root_files_are_not_linted(tmp_path: Path):
     assert generated.isdisjoint(issue_paths)
 
 
+def test_log_records_added_only_on_first_index(tmp_path: Path):
+    """log 变更行回归：基线从写入前的 index.md 提取——页面集不变的重跑记 no changes，
+    不再全量误记 added（bug：old_stems 曾从 log.md 提取 `- [` 行，恒为空）。"""
+    wiki = _load_wiki()
+    wiki_root = _wiki_root(tmp_path)
+    _write_page(
+        wiki_root / "concept" / "stable.md",
+        "title: Stable\ndescription: Read when checking log diffing.\ntype: concept\nsummary: s\ntags: [t]",
+    )
+
+    assert wiki.main(["--root", str(tmp_path), "index", "--write"]) == 0
+    first = (wiki_root / "log.md").read_text(encoding="utf-8")
+    assert "1 added: stable.md" in first
+
+    assert wiki.main(["--root", str(tmp_path), "index", "--write"]) == 0
+    second = (wiki_root / "log.md").read_text(encoding="utf-8")
+    # 新快照在顶部；页面集未变 → 第二行是 no changes，且不新增 added 行
+    assert second.splitlines()[1] == "no changes"
+    assert second.count("added") == 1  # 仅首次快照的 added 留存
+
+
 @pytest.mark.parametrize("filename", ["index.md", "log.md"])
 def test_nested_generated_name_is_a_content_page(tmp_path: Path, filename: str):
     wiki = _load_wiki()
