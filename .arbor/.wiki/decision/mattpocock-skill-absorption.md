@@ -14,12 +14,13 @@ type: decision
 - **glossary 纪律**（2026-08）：concept/entity 页零实现细节——吸收进 wiki skill。
 - **writing-for-agents**（2026-08）：指针措辞/先导词/否定式反模式/no-op 测试——进本仓库 .claude/rules/prompt-design.md（不进插件）。
 - **prototype + wayfinder**（2026-08，task `prototype-wayfinder`）：prototype 做成 seed-prototype agent（无独立 skill 壳，语义触发经 agent description）；wayfinder 做成 .arbor/maps 文件形态（不绑 issue tracker——状态承载从 tracker 换成文件系统是必做替换，不是可选项）。
+- **teach**（2026-09，commit 3216582）：跨会话教学工作区（MISSION / GLOSSARY / RESOURCES / lessons / reference / learning-records / assets / NOTES），完整中文化吸收进 `skills/teach/`（四份格式文档进 `skills/teach/references/`）。2026-08 曾以"个人生产力向"拒绝；2026-09-01 用户明确要求吸收——定位为独立于 .arbor 的用户主动触发 skill（一个主题一个工作区目录，状态不进 .arbor，不与开发流转抢入口）。上游 `agents/openai.yaml` 的 `allow_implicit_invocation: false` 移植为 SKILL frontmatter `disable-model-invocation: true`。
 
 ## 拒绝及理由
 
 - **implement / tdd / to-spec / to-tickets / triage / ask-matt / setup**：与 brainstorm/impl 直接竞争入口，整装会在同会话形成两套工作流词汇抢触发。
 - **domain-modeling / CONTEXT.md / ADR 体系**：与 wiki（decision/entity/concept 页）同领域，不双轨。
-- **teach / wait-what / grill-me / to-questionnaire**：个人生产力向，与开发工作流定位不同；想要时用 `npx skills add` 单装，不进本插件。
+- **wait-what / grill-me / to-questionnaire**：个人生产力向，与开发工作流定位不同；想要时用 `npx skills add` 单装，不进本插件。（teach 原在此列，2026-09 用户明确要求吸收，见上。）
 
 ## 下一候选
 

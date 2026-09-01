@@ -488,6 +488,31 @@ class SeedPromptContractTests(unittest.TestCase):
         # 设计原则层：两套账本分离成文
         self.assertIn("两套账本严格分离", design)
 
+    # --- teach 吸收合同 ------------------------------------------------------------
+
+    def test_teach_skill_contract(self):
+        """teach 合同（吸收自 mattpocock/skills commit 3216582，2026-09）：四份格式文档
+        齐备且被 SKILL 引用；仅用户主动触发（disable-model-invocation，对应上游
+        openai.yaml 的 allow_implicit_invocation: false）；核心教学机制在场；
+        工作区状态独立于 .arbor，不与开发流转共享账本。"""
+        skill = self.read_plugin_file("skills", "teach", "SKILL.md")
+
+        for ref in ("mission-format", "resources-format",
+                    "learning-record-format", "glossary-format"):
+            path = PLUGIN_ROOT / "skills" / "teach" / "references" / f"{ref}.md"
+            self.assertTrue(path.exists(), f"缺少 references/{ref}.md")
+            self.assertIn(ref, skill)
+        # 入口：仅用户主动触发
+        self.assertIn("disable-model-invocation: true", skill)
+        # 吸收 pin
+        self.assertIn("3216582", skill)
+        # 核心机制在场：最近发展区 / 流利度 vs 存储强度 / 不信参数化记忆
+        self.assertIn("最近发展区", skill)
+        self.assertIn("存储强度", skill)
+        self.assertIn("参数化记忆", skill)
+        # 状态边界：教学工作区独立于 .arbor 开发工作流
+        self.assertIn("互不相干", skill)
+
     def test_directory_ledger_reconciles_with_disk(self):
         """目录对账：conventions 登记表 ↔ 磁盘 skills/（含 SKILL.md 的目录）、agents/、commands/ 逐项一致（双向）。
         登记表人为删去任一条目时本测试红——红灯演示记录见
