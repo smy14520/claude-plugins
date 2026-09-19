@@ -105,13 +105,61 @@ description: "Project knowledge and memory steward across CLAUDE.md, .claude/rul
 ## 地图索引与按需检索（Map-Reduce）
 
 - **轻量地图（`.forge/wiki/index.md`）**：
-  - 仅维护页面路径、一句话触发场景（`description`）与标签（`tags`）；
-  - 全局索引控制在极小 Token 预算内。
+  - 维护页面路径、一句话触发场景（`description`）、标签（`tags`）与代码符号锚（`anchors`）；
+  - 全局索引控制在极小 Token 预算内，供开工前秒级全景扫描。
 - **按需索骥**：
   - 开工或访谈时，先扫描轻量地图，仅根据本次任务涉及的标签与文件**单篇提取**相关页面，严禁将整个百科全量灌入上下文。
 
 ---
 
-## 知识晋升机制（Knowledge Promotion）
+## 双轨标签体系与受控词表（Controlled Vocabulary）
 
-当 `.forge/wiki/gotcha/` 中的某条暗坑在多个任务中被重复触碰、证实是模型频繁犯错的高频盲区时，主动提议将其晋升为 `.claude/rules/<domain>.md` 中的前置硬准则。
+标签的质量直接决定了模型语义检索的命中率。Wiki 元数据必须严格遵循双轨打标与受控词表准则。
+
+### 1. 单篇元数据格式（YAML Frontmatter）
+每个 `.forge/wiki/` 页面头部必须包含结构化元数据：
+```markdown
+---
+type: cross_cut  # 可选: gotcha | cross_cut | decision | concept
+title: 三方客服平台对接与超时暗坑
+tags: [ai-customer-service, 客服, webhook, retry]
+anchors:
+  - src/forwarder.ts#CustomerServiceForwarder
+description: 对接三方客服平台拓扑，包含 HMAC 签名与 2s 超时重试幂等去重
+---
+```
+
+### 2. 双轨打标法则（Double-Track Tags）
+每个条目打 3~5 个标签，必须同时覆盖以下双轨：
+- **轨 1：业务领域（Domain）── 人类与业务的自然语言（中英双语）**：
+  - 例如：`[ai-customer-service, 客服]`、`[payment, 支付]`、`[order, 订单]`、`[auth, 鉴权]`；
+  - 确保人类无论用中文还是英文 Prompt，模型都能精准命中。
+- **轨 2：技术机制（Mechanism）── 代码底层涉及的工程模式**：
+  - 例如：`[buffer, 缓冲]`、`[webhook]`、`[idempotency, 幂等]`、`[rate-limit, 限流]`、`[distributed-lock]`。
+
+### 3. 三大打标禁令（Anti-Patterns）
+- ❌ **严禁晦涩缩写（No Cryptic Abbreviations）**：
+  - 绝对严禁打 `cs`（必须打 `ai-customer-service` 或 `客服`），严禁打 `db`（写 `database` 或具体 `sqlite` / `postgres`）。缩写会稀释模型语义置信度，导致检索漏判。
+- ❌ **严禁无分类价值的水词（No Generic Fluff）**：
+  - 严禁打 `[code, utils, helper, logic, backend, file]` 等泛词。
+- ❌ **受控词表与先查后打（Controlled Vocabulary）**：
+  - 新建条目打标前，**必须先阅读 `index.md` 已有标签库**，优先复用既有标签；
+  - 库里已有 `ai-customer-service`，就严禁自创 `ai-service`、`智能客服` 等近义词，防止标签碎片化。
+
+---
+
+## 需求完工淬火与知识晋升（Quenching & Promotion）
+
+彻底终结“PRD 坟场”与“旧文档误导”的关键，在于分清**增量（Delta）**与**存量（State）**：
+
+1. **`spec.md` 是任务增量（Delta）── 完工即冻结**：
+   - 任务在 `/develop` 中完成交付后，`.forge/tasks/<slug>/spec.md` 立即冻结归档，成为不可变的审计记录；
+   - **未来任何新任务，绝不将旧 `spec.md` 当作现时标准来读**，彻底掐死多版本需求文档冲突的隐患。
+2. **Wiki 是系统存量（State）── 只收录不变量与拓扑**：
+   - 任务完工时，绝不把流水账式的需求过程搬进 Wiki；
+   - **四类淬火晋升资产**：
+     - **不可逆架构决策** ➔ 沉淀为轻量 ADR：`.forge/wiki/decision/`；
+     - **跨系统/跨模块联动拓扑** ➔ 沉淀为拓扑名片：`.forge/wiki/cross_cut/`；
+     - **业务核心实体与边界** ➔ 沉淀为名词消歧页：`.forge/wiki/concept/`；
+     - **高频踩坑反思** ➔ 沉淀为踩坑暗坑卡：`.forge/wiki/gotcha/`；
+     - **全项目绝对硬铁律** ➔ 提议晋升为法规：`.claude/rules/<domain>.md`。
