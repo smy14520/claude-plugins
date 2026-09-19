@@ -26,17 +26,24 @@ description: "Interview the user relentlessly about a plan, decision, or spec us
 - **做选择是人类的特权**：
   - 只有在面临真正的业务、架构或成本取舍时，才将选项呈递给人类。
 
+## 隐性假设显影（Common Ground）
+
+在提出推荐选项或敲定核心深接缝（Seams）前，模型必须主动向人类**显式坦白暗中做出的技术与业务假设**（杜绝因 AI 脑补导致的认知鸿沟）：
+- **主动交代**：“*为了推进这个设计，我暗中假设了以下事实（如数据规模、存储位置、幂等性要求、错误容忍度），若有不符请纠偏*”；
+- 经过人类确认或纠偏后的关键技术假设，落盘至 `spec.md` 的 `## Latent Assumptions Exposed`。
+
 ## 遇阻外援通道（Detours）
 
 - **经验性分叉（跑起来才知道）**：
   - 遇到关于 UI 视觉、交互手感、复杂并发状态模型的争议，**立即发起 `prototype` 技能**；
   - 在 `.forge/prototypes/<slug>/` 生成单文件探针，人类体验获取实证结论（Verdict）后折回主线。
 - **术语模糊与概念多义**：
-  - 调用 `domain-modeling` 技能，与人类统一名词并在项目根目录 `CONTEXT.md` 固化。
+  - 调用 `domain-modeling` 技能，与人类统一名词，并沉淀入 `.forge/wiki/` 或 `.claude/rules/`。
 
 ## 最终退出准则（Final Completion Criterion）
 
 - Frontier 为空：整棵设计树的分支已全部到达叶子节点，无沉默假设；
+- **隐性假设已澄清**：`## Latent Assumptions Exposed` 经过人类确认；
 - **锁定成果呈现**：在屏幕上显式呈现提炼出的 2~3 个核心 **Agreed Seams（深接缝）** 与 **Out of Scope** 清单；
 - 人类确认达成共识后，将契约落盘至 `spec.md`。
 

@@ -163,6 +163,8 @@ def cmd_new(repo_root: Path, slug: str, title: str | None) -> int:
         spec_content = tmpl_content.format(
             title=task_title,
             goal="[描述核心问题与预期交付效果]",
+            assumption_1="[显式列出默认假设的技术事实，如依赖/存储/幂等要求]",
+            assumption_2="[无额外假设则填写无]",
             seam_1_signature="[定义深接口函数/模块]",
             seam_1_behavior="[定义端到端行为预期]",
             seam_1_test="[定义行为测试命令]",

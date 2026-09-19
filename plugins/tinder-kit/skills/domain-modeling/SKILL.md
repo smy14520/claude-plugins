@@ -7,6 +7,13 @@ description: "Domain modeling and concept boundary sharpening. Use when clarifyi
 
 消除人机协作与跨模块通信中的“词汇污染与概念歧义”，将隐性的业务领域术语、实体边界与核心架构决策显性化，纳入三级记忆体系。
 
+## 触发时机（When to Invoke）
+
+模型在以下具体节点自主激活本素养：
+- **时机 A：访谈或代码中出现概念冲突或一词多义时**：例如发现团队与代码里混用 User / Account / Member，或草稿与未生效状态边界模糊，立即调用本技能消歧并录入 `.forge/wiki/concept/` 或 `entity/`；
+- **时机 B：拍定不可逆架构决策（One-way Doors）时**：技术选型发生重大分叉（如改用内嵌 DB、引入消息队列），调用本技能沉淀轻量 ADR，详述理由与被否决备选路径的代价；
+- **时机 C：提炼出不可逾越的领域铁律时**：提炼出高频、防犯错的硬性业务纪律（如“退款金额绝不可大于支付原额”），调用本技能起草提议写入 `.claude/rules/<domain>.md`。
+
 ## 维护资产与归宿
 
 1. **核心实体与概念定义（存入 `.forge/wiki/concept/` 或 `entity/`）**：

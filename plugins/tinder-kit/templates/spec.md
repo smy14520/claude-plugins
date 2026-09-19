@@ -4,6 +4,12 @@
 
 {goal}
 
+## Latent Assumptions Exposed
+
+<!-- 隐性假设显影（Common Ground）：动手前显式坦白模型暗中预设的技术事实，防认知偏差 -->
+- 假设 1: {assumption_1}
+- 假设 2: {assumption_2}
+
 ## Agreed Seams
 
 <!-- 核心深接口契约：定义 2~3 个端到端行为验证接缝，TDD 围绕这些接缝构建测试 -->
