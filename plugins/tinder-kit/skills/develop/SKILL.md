@@ -12,8 +12,8 @@ disable-model-invocation: true
 
 1. **瘦协调器（Thin Coordinator）**：主会话只负责推移阶段和与人类高价值对齐，编码实现与测试分析由独立子 Agent 承担，主会话上下文 < 15k tokens；
 2. **任务级隔离（Task-Scoped in `.forge`）**：不绑定 Git 分支，每个任务在 `.forge/tasks/<slug>/` 持有独立的 `state.json` 与文档链；
-3. **物理上下文防爆（Handoff Chaining）**：每个阶段结束必须调用 `handoff` 蒸馏出百字信标，下一阶段子 Agent 只读信标，垃圾上下文就地释放；
-4. **机制在插件，标准在项目**：编排层仅提供流程骨架与工具箱；具体是否写单测、如何验证、遵循何种架构风格，完全由项目本地 `.claude/rules/` 与 `CONTEXT.md` 决定。
+3. **物理上下文防爆（Handoff Chaining）**：每个阶段结束必须调用 `handoff` 蒸馏高信噪比交接文档，下一阶段子 Agent 只读交接文档，中间高噪音上下文就地释放；
+4. **机制在插件，标准在项目**：编排层仅提供流程骨架与工具箱；具体是否写单测、如何验证、遵循何种架构风格，完全由项目本地 `CLAUDE.md` 与 `.claude/rules/` 决定。
 
 ---
 
@@ -32,7 +32,7 @@ disable-model-invocation: true
 ### Phase 1: 意图对齐与接缝锁定 (Phase: ALIGN)
 1. 调起 `grilling` 技能驱动决策树访谈：
    - 凡能查代码库的事实自行查证；
-   - 挖掘核心诉求与边界，遇新业务概念调 `domain-modeling` 同步更新根目录 `CONTEXT.md`；
+   - 挖掘核心诉求与边界，遇架构/术语变化调 `wiki` 技能维护项目规则与百科；
 2. **拍定深接缝与验证依据（Agreed Seams & Verification Criteria）**：
    - 定义核心接口/模块契约签名与可观测行为预期；
    - 确定明确的 `Out of Scope`（必须经用户确认）；
@@ -60,9 +60,9 @@ disable-model-invocation: true
 ### Phase 3: 核心实现与工程纪律 (Phase: IMPLEMENT)
 1. **派发【独立全新上下文】的 `forge-impl` 子 Agent**：
    - 使用 `Agent` 工具（`subagent_type="tinder-kit:forge-impl"`, `run_in_background: false`）；
-   - **严格控制输入**：只传入 task_slug、`spec.md` 路径、最新 `handoff.md` 路径及 `CONTEXT.md` 路径，绝不传入阶段 1 的冗长问答历史；
+   - **严格控制输入**：只传入 task_slug、`spec.md` 路径及最新 `handoff.md` 路径（项目 `CLAUDE.md` 与 rules 已由环境原生加载），绝不传入阶段 1 的冗长问答历史；
 2. 子 Agent 自主协同与裁决：
-   - **查阅项目标准**：读取项目 `.claude/rules/` 与 `CONTEXT.md`，明确项目规定的技术规范、架构准则与测试纪律；
+   - **查阅项目标准**：读取项目 `CLAUDE.md` 与 `.claude/rules/`，明确项目规定的技术规范、架构准则与测试纪律；
    - **按需调用工具箱**：
      - 若项目要求自动化测试或涉及核心算法/契约：自发调用 `tdd` 在 Seams 上编写行为测试，先红后绿；
      - 若涉及模块结构设计：自发调用 `codebase-design` 设计深模块（薄接口，厚实现，信息隐藏）；

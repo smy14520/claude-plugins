@@ -10,14 +10,14 @@ description: "在全新干净上下文里实现任务核心深接缝（Seams）�
 你只会收到精炼后的高浓度信标：
 1. 任务名与工作区根路径；
 2. `.forge/tasks/<slug>/spec.md`（定义了 Goal 与本次必须兑现的 2~3 个核心 Seams 契约）；
-3. `.forge/tasks/<slug>/handoffs/01-align.md`（已锁定的决策、已知暗坑）；
-4. 项目根目录 `CONTEXT.md`（统一的领域术语表）。
+3. `.forge/tasks/<slug>/handoffs/01-align.md`（已锁定的决策、已知暗坑）。
+（注：项目 `CLAUDE.md` 与 `.claude/rules/` 已由环境原生加载）
 
 ## 执行职责
 
 1. **研读契约与全景**：
    - 通读 `spec.md` 的 `## Agreed Seams`：明确理解输入输出、调用方期望与不可破的契约；
-   - 检查 `CONTEXT.md`：确保变量命名、实体概念与项目全局保持一致。
+   - 对照项目 `CLAUDE.md` 与 `.claude/rules/`：确保变量命名、架构风格与测试标准与项目全局保持一致。
 2. **应用 `codebase-design`（深模块设计）**：
    - 接口尽量薄，实现尽量厚；
    - 将业务复杂度、缓存细节、算法细节封装在模块内部，信息绝不外泄。

@@ -1,31 +1,33 @@
 ---
 name: domain-modeling
-description: "Domain modeling and project glossary maintenance. Use when clarifying domain terms, resolving overloaded words, recording ADRs, or updating CONTEXT.md."
+description: "Domain modeling and concept boundary sharpening. Use when clarifying domain terms, resolving overloaded words, defining business entities, or recording ADR decisions."
 ---
 
-# Domain Modeling — 领域语言建模与架构沉淀
+# Domain Modeling — 领域语言建模与概念消歧
 
-消除团队与 AI 协作中的“词汇污染与概念歧义”，将隐性的业务术语与核心实体显性化，维护活在项目主干的全局全景文档。
+消除人机协作与跨模块通信中的“词汇污染与概念歧义”，将隐性的业务领域术语、实体边界与核心架构决策显性化，纳入三级记忆体系。
 
-## 维护资产
+## 维护资产与归宿
 
-1. **项目根目录 `CONTEXT.md`（活字典）**：
-   - **核心实体与词汇表**：定义每个业务实体的准确英文名与中文含义，消除一词多义；
-   - **系统级核心接缝（Architectural Seams）**：记录系统中已稳定的最顶层深接口；
-   - **设计禁忌与原则**：不可逾越的业务约束。
-   - *排斥项*：严禁在 `CONTEXT.md` 堆砌函数实现细节、配置清单或临时变更日志，保持极高信噪比。
-2. **架构决策记录（`docs/adr/NNNN-<slug>.md`）**：
-   - 记录每一个“为什么采用方案 A 而非方案 B”的不可逆架构抉择；
+1. **核心实体与概念定义（存入 `.forge/wiki/concept/` 或 `entity/`）**：
+   - 每一个业务概念一个单独页面；
+   - 显式给出定义的英文名、中文含义、所属边界与反例；
+   - 彻底消除一词多义（如明确区分“登录凭据”、“用户账户”与“资金账户”）。
+2. **架构决策记录（存入 `.forge/wiki/decision/` 或 `docs/adr/`）**：
+   - 记录不可逆架构决策（One-way doors）的技术推导与被否决备选路径的实证代价；
    - 格式：Status / Context / Decision / Consequences。
+3. **不可逾越的领域硬规则（通过 `wiki` 提议写入 `.claude/rules/<domain>.md`）**：
+   - 提炼出的高频防犯错硬性业务纪律，经人类确认后写入 rules。
 
 ## 执行准则（Discipline）
 
-1. **先查后增**：在代码编写和需求访谈中，凡遇到新名词，先对照 `CONTEXT.md`，避免同一概念发明两个变量名；
-2. **主动磨刀**：当访谈或重构拍定了一个核心名词的精准含义，立即就地更新 `CONTEXT.md`；
-3. **双向流动**：`CONTEXT.md` 作为全景输入注入给每一个编码和审查子 Agent，确保整个系统的所有参与者使用同一种方言说话；
-4. **Completion criterion**：`CONTEXT.md` 或 `docs/adr/` 已写入并呈现更新 Diff。
+1. **先查后增**：在代码编写和访谈中，凡遇到新业务名词，先扫描 Wiki 索引，避免同一概念发明两个变量名或造成语义漂移；
+2. **主动磨刀**：当访谈或重构拍定了一个核心业务实体的精准含义，立即形成结构化页面存入 `.forge/wiki/`；
+3. **零实现细节**：概念与实体页只放定义、边界与反例，绝不堆砌单文件代码实现，代码实现细节让代码自己回答；
+4. **Completion criterion**：在对话中展示已定义的概念或 ADR 决策摘要。
 
 ## 反模式（Anti-Patterns）
 
-- **Dictionary Bloat**：把每个临时变量或辅助函数都塞进 `CONTEXT.md`，使其沦为代码注释堆砌场。
-- **Silent Semantic Drift**：同一个业务词汇在不同模块被赋予完全不同的语义（如 Account 同时代表登录凭据与银行账户），却未在词汇表中拆分。
+- **Dictionary Bloat**：把每个临时变量或单文件局部 helper 都当成领域实体来定义。
+- **Silent Semantic Drift**：同一个业务词汇在不同模块被赋予完全不同的语义，未及时拆分概念。
+- **Implementation Bleed**：在概念定义文档中粘贴大量易变的代码逻辑，导致文档迅速失效腐烂。
