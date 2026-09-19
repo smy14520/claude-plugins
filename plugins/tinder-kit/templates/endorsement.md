@@ -11,9 +11,9 @@
 
 ## 2. Regression Safety (系统防回归)
 
-<!-- 代码库全量既有测试的运行结果 -->
-- 全量测试命令: `{regression_command}`
-- 执行结果: 全部通过 (exit 0)
+<!-- 代码库全量既有测试的运行结果，无测试框架时记录可执行自验证据 -->
+- 验证命令: `{regression_command_or_smoke_check}`
+- 执行结果: 全部通过 (exit 0) 或 自验符合预期
 
 ## 3. Code Review Verdict (双轴审查结论)
 

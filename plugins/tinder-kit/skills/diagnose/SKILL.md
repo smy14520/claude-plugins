@@ -1,33 +1,48 @@
 ---
 name: diagnose
-description: "系统化排障回路（先造红命令，再谈修复）。在排查偶现 Bug、性能衰退、异常报错或测试挂掉时由模型自主调用，或由 /fix 编排流驱动。"
+description: "Disciplined diagnosis loop for bugs, test failures, and regressions. Use when something is broken, throwing, failing, slow, flaky, or when asked to 'diagnose' or 'debug'."
 ---
 
-# Diagnose — 系统化排障回路
+# Diagnosing Bugs
 
-杜绝“看代码猜 Bug、打补丁碰运气”的低级调试行为。严格恪守：**没有构建出能稳定变红的最小复现命令之前，绝不提出任何修复假设！**
+排障是严密的科学证伪过程。核心铁律：没有构建出能稳定变红的最小反馈命令之前，绝不提出任何修复假设或修改生产代码。
 
-## 排障六步法
+## 阶段操典（Six Phases）
 
-```
-  1. 紧凑变红命令 ──► 2. 最小化复现 ──► 3. 排序可证伪假设 ──► 4. 插桩验证 ──► 5. 根治与防回归 ──► 6. 清理
-```
+### Phase 1: 构建紧凑变红回路（Build a Feedback Loop）
+- 构造一条单一、确定性、尽量快速（<2s）的命令，能够直接复现用户报告的故障并返回非零退出码；
+- 手段：特定单元测试用例、curl 脚本、CLI 传参、无头脚本；
+- **脱敏原则**：若涉及 Auth Header 或 Secret，统一替换为 `<REDACTED>`；
+- **Completion criterion**：在终端显式打印命令调用与红色报错输出。无红命令，排障停止。
 
-1. **Phase 1: 构建紧凑的变红反馈回路（Tight Red Loop）——核心重心**：
-   - 必须先构造出一条**单一、快速（最好 <2s）、确定性的自动化命令**，能够精确触发该 Bug 并导致非零退出码；
-   - 手段：针对性失败测试用例、curl 脚本、CLI 传参差异、环境复现脚本；
-   - **禁止在没有这条红命令前读代码脑补理论**。
-2. **Phase 2: 最小化复现（Minimise）**：
-   - 剥离无关入参、中间件与干扰依赖，将触发路径缩至最短。
-3. **Phase 3: 排序并列出可证伪假设（Hypothesise）**：
-   - 基于现象列出 2~3 个根因假设，按概率降序排列；
-   - 每个假设必须是可被命令证伪的。
-4. **Phase 4: 打标插桩（Instrument）**：
-   - 在关键路径加入带统一前缀 `[DEBUG-DIAGNOSE]` 的临时日志或断言，快速检验假设；
-   - 严禁盲目大改代码。
-5. **Phase 5: 修复与留存防回归测试（Fix & Regression Test）**：
-   - 确认根因后实施最小且根治的修复；
-   - 将 Phase 1 的变红命令**沉淀为永久性的自动化回归测试**，确保该 Bug 永不回潮。
-6. **Phase 6: 拔桩与复测（Clean & Green）**：
-   - 全局搜索并清理所有 `[DEBUG-DIAGNOSE]` 探针；
-   - 重跑全量测试，确认原问题解决且零回归。
+### Phase 2: 最小化复现（Minimise）
+- 剥离干扰项：去除不相关的请求头、中间件、多余参数与外围依赖；
+- 缩短调用链，直到只留下复现故障所必需的最短路径；
+- **Completion criterion**：最小化的变红命令依然稳定报错。
+
+### Phase 3: 排序并列出假设（Hypothesise）
+- 基于代码库事实，列出 2~3 个具有可证伪性的根因假设；
+- 按可能性降序排列，并在屏幕上**向用户完整展示假设清单**；
+- **Completion criterion**：假设清单已呈现在对话中。
+
+### Phase 4: 打标插桩（Instrument）
+- 针对最高排名的假设进行验证；
+- 在关键路径加入带统一前缀 `[DEBUG-DIAGNOSE]` 的临时断言或日志；
+- **Completion criterion**：运行复现命令，通过输出的探针日志命中或证伪该假设。
+
+### Phase 5: 修复与沉淀防回归测试（Fix & Regression Test）
+- 实施最小且根治的代码修复；
+- 将 Phase 1 的变红命令固化为项目代码库中永久生效的自动化测试；
+- **Completion criterion**：回归测试由红变绿（exit code 为 0）。
+
+### Phase 6: 拔桩与复测（Clean & Green）
+- 全局搜索并清理所有 `[DEBUG-DIAGNOSE]` 探针；
+- 重跑项目全量测试套件，确认既有功能零回归；
+- **Completion criterion**：全量测试套件 PASS，且无残留调试代码。
+
+## 反模式（Anti-Patterns）
+
+- **Theorising Without a Repro**：在没有变红命令前读代码脑补理论、凭感觉猜 Bug。
+- **Fix-by-Permutation**：乱改代码碰运气，寄希望于“这样改改说不定就好了”。
+- **Leaving Artifacts**：修复完成后忘记清理调试日志或临时脚本。
+- **Fixing Without Regression Test**：仅手动验证通过，未沉淀自动化用例，导致未来重复踩坑。

@@ -1,38 +1,48 @@
 ---
 name: grilling
-description: "通过设计树与决策前沿（Frontier）对方案或想法进行强力访谈，直到达成共同理解。在需求对齐、方案分叉或用户说'grill me'时由模型或上层编排调用。"
+description: "Interview the user relentlessly about a plan, decision, or spec using a design tree. Use when stress-testing ideas, refining scope, resolving technical branches, or when mentioning 'grill', 'interview', 'clarify requirements'."
 ---
 
 # Grilling — 决策树与前沿推进访谈
 
-以严谨的决策树模型对需求和技术方案进行高强度、结构化访谈，直到消除所有未被讨论的假设，达成坚实的工程共识。
+访谈的目标是建立严谨的决策树模型，逐轮遍历决策前沿（Frontier），直到消除一切隐藏假设，达成坚实的工程共识。
 
-## 核心法则
+## 决策树与轮次（Design Tree & Frontier）
 
-1. **设计树模型（Design Tree）**：
-   - 每一个关键决策都会分叉出依赖于它的子决策；
-   - 访谈的目标是完整遍历这棵决策树，直到每个分叉都有明确裁决。
-2. **前沿轮次推进（Rounds on the Frontier）**：
-   - **Frontier（前沿）**：指所有前置决策已经解决、当前可以诚实提问的决策集合；
-   - 严格分轮：一轮只问当前 Frontier 上的问题，编号并给出你的**推荐答案与理由**；
-   - 依赖未决的问题留到后续轮次，绝不越级提问。
-3. **事实归 Agent，决策归人类（Facts vs. Decisions）**：
-   - 查事实是 Agent 的绝对义务：凡能从代码库、文档、Git 历史查到的事实，先自行查证，严禁当“提问巨婴”；
-   - 人类只负责在清晰的取舍之间做最终决策。
+1. **设计树模型**：
+   - 每个决策都会分叉出依赖于它的下级子决策；
+   - **Frontier（前沿）**：所有前置依赖已经解决、当前可以诚实提问的决策集合。
+2. **轮次推进规则（Rounds）**：
+   - 每一轮只提问当前 Frontier 上的问题；
+   - 每一个问题必须编号，并**附带推荐选项与推荐理由**（人类只需确认或纠偏，无需从零打字）；
+   - 前置决策未定时，其下级子决策严禁提前抛出；
+   - **Completion criterion per round**：收到人类本轮回答后，重新计算 Frontier，再推进下一轮。
 
-## 外援感知通道（遇到阻碍主动调技能，不靠嘴空谈）
+## 事实与决策分工（Facts vs. Decisions）
 
-在推进 Frontier 时，遇到以下情况必须主动调用对应技能，禁止凭空猜测：
+- **查事实是 Agent 的绝对职责**：
+  - 严禁向用户询问“某个文件叫什么”、“当前某个函数怎么实现的”、“数据库用的什么版本”；
+  - 遇到事实空白，派发 Subagent 检索代码库或通过 WebSearch 查阅官方文档。
+- **做选择是人类的特权**：
+  - 只有在面临真正的业务、架构或成本取舍时，才将选项呈递给人类。
 
-- **代码库现状未知**：派发只读 Subagent 静默检索代码与 Git 提交，查明事实后再问；
-- **外部依赖/最新 API 不确定**：调用 WebSearch 查阅官方最新 Release/Changelog，带证据提问；
-- **交互手感 / 架构分叉吵不出结果（跑起来才知道）**：
-  - **主动触发 `prototype` 技能**，在 `.forge/prototypes/<slug>/` 快速生成自包含一次性原型；
-  - 交付给用户试用体验，将人类体验的 verdict（实证结论）折回设计树，解开阻塞的分支；
-- **核心业务概念模糊、命名产生歧义**：
-  - 调用 `domain-modeling` 技能，与用户明确术语定义，并写入/更新根目录 `CONTEXT.md`。
+## 遇阻外援通道（Detours）
 
-## 结束标准
+- **经验性分叉（跑起来才知道）**：
+  - 遇到关于 UI 视觉、交互手感、复杂并发状态模型的争议，**立即发起 `prototype` 技能**；
+  - 在 `.forge/prototypes/<slug>/` 生成单文件探针，人类体验获取实证结论（Verdict）后折回主线。
+- **术语模糊与概念多义**：
+  - 调用 `domain-modeling` 技能，与人类统一名词并在项目根目录 `CONTEXT.md` 固化。
 
-当 Frontier 为空——设计树的每一个分支都被走到叶子节点，没有重要假设被默认带过，且用户确认达成共识时，访谈结束。
-若在任务流程中，收敛产出 `spec.md`（明确 2~3 个核心 Seams 接缝与 Out of Scope），并调用 `handoff` 固化为 `01-align.md`。
+## 最终退出准则（Final Completion Criterion）
+
+- Frontier 为空：整棵设计树的分支已全部到达叶子节点，无沉默假设；
+- **锁定成果呈现**：在屏幕上显式呈现提炼出的 2~3 个核心 **Agreed Seams（深接缝）** 与 **Out of Scope** 清单；
+- 人类确认达成共识后，将契约落盘至 `spec.md`。
+
+## 反模式（Anti-Patterns）
+
+- **Fact-Interrogation**：把用户当数据库，盘问可以通过阅读代码获知的客观事实。
+- **Out-of-Order Questioning**：前置技术路线还没定，就开始问底层的参数细节。
+- **Unrecommended Blank Questions**：只扔出抽象大问题而不给推荐选项与取舍依据。
+- **Accepting Ambiguity**：对“大概”、“尽量”等模糊修饰语含糊带过，未追问明确边界。

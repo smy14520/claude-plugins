@@ -1,26 +1,26 @@
 ---
 name: prototype
-description: "构建用完即弃的抛弃型原型（Spike），解答交互手感、UI 视觉、状态模型或第三方库特性的未知问题。由模型在访谈、设计分叉或探索未知时自主调用。"
+description: "Build a throwaway prototype or spike to answer design, UI, or library questions. Use when evaluating UX feel, spike testing third-party APIs, or when debating options that need a runnable demo."
 ---
 
 # Prototype — 抛弃型探索探针
 
-当技术方案面临分歧，或者遇到“靠嘴吵不出结果、跑起来才知道”的经验主义盲区时，迅速构建一个极简的、用完即弃的粗糙原型，获取真实实证结论（Verdict）。
+当面对“跑起来才知道”的设计分叉、第三方库能力摸底或 UI 手感直觉争议时，构建一个自包含、用完即弃的最小粗糙原型，获取第一手实证结论（Verdict）。
 
-## 适用场景
+## 核心纪律（Discipline）
 
-1. **交互与手感分叉**：两种 UI/CLI 交互方案哪种更顺手？
-2. **状态模型直觉**：复杂并发/异步状态流转在真实运行时是否别扭？
-3. **技术方案探针（Spike）**：陌生第三方库是否真正支持所需特性？API 表现是否如文档所述？
+1. **绝对零测试税（Zero Testing Tax）**：
+   - 探针的目标是验证可行性与感知，**严禁写单元测试、类型体操或追求代码整洁**；
+   - 允许以最粗暴、直接的方式跑通核心链路（如单文件 HTML/JS、临时脚本）。
+2. **严格物理隔离（Isolated Workspace）**：
+   - 原型必须落入 `.forge/prototypes/<slug>/`；
+   - 严禁将脏代码直接写进生产源码目录。
+3. **交付实证结论（Empirical Verdict）**：
+   - 原型运行并获得结论后，**在对话中显式输出 Verdict 摘要**（例如：“验证证实方案 B 在处理超长列表时帧率稳定在 60fps，方案 A 存在明显卡顿”）；
+   - **Completion criterion**：Verdict 达成并折入 `spec.md` 或交接文档。原型代码弃置，不合入生产 Git 交付历史。
 
-## 核心纪律（零包袱原则）
+## 反模式（Anti-Patterns）
 
-1. **绝对零测试税**：
-   - 原型是用来探索未知的探针，**严禁在原型代码上写单元测试、类型体操或合规检查**；
-   - 用最脏、最直接、最快的方式把它跑起来（如单个独立的 HTML 文件、单文件 Python/Node 脚本）。
-2. **落盘隔离于 `.forge/prototypes/<slug>/`**：
-   - 原型代码严禁混入生产目录，全部落入 `.forge/prototypes/<slug>/`；
-   - 原型产物属于暂态资产，绝不合入生产 Git 交付历史。
-3. **目标是实证结论（Empirical Verdict），而非代码本身**：
-   - 原型跑通后，人类试用或 Agent 自测，产出明确的 **Verdict**（例如：“验证证实方案 B 在处理 10000 节点时无卡顿，采用方案 B”）；
-   - 将 Verdict 折入任务的 `spec.md` 或交接文档 `handoff.md`，随后原型使命结束，丢弃代码。
+- **Gold-plating Prototypes**：为抛弃型探针编写单元测试、配置 CI、过度重构。
+- **Direct-to-Production Bleed**：直接将未经验证和重构的原型脏代码打包合入生产环境。
+- **Talking Over Running**：遇到可以通过 30 秒原型验证的事实，依然在对话中进行旷日持久的口头推测与争论。

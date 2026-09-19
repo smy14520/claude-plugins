@@ -1,42 +1,30 @@
 ---
 name: codebase-design
-description: "深模块（Deep Module）设计哲学与架构词汇。在设计模块接口、寻找架构深化机会、决定测试接缝（Seams）位置、重构代码或被 tdd 技能引用时由模型自主调用。"
+description: "Shared vocabulary and principles for deep modules, thin interfaces, and clean seams. Use when designing module interfaces, placing test seams, refactoring architecture, or making code AI-navigable."
 ---
 
 # Codebase Design — 深模块设计哲学
 
-提供源自 John Ousterhout《软件设计哲学》的核心设计标尺与统一词汇：**深模块、薄接口、干净接缝、高内聚**。为系统架构演进与 TDD 测试编写提供设计标准。
+提供源自 John Ousterhout《软件设计哲学》的核心设计标尺与统一词汇：**深模块、薄接口、干净接缝、信息隐藏**。它是架构演进与 TDD 确定测试接缝的统一准绳。
 
-## 核心设计标尺
-
-```
-    ┌───────────────────────────┐
-    │  薄接口 (Thin Interface)   │   <--- 极小认知负担，极少暴露细节
-    ├───────────────────────────┤
-    │                           │
-    │                           │
-    │  厚实现 (Deep Module)      │   <--- 隐藏极其丰富且复杂的行为与逻辑
-    │                           │
-    │                           │
-    └───────────────────────────┘
-```
+## 核心词汇与标尺（Vocabulary & Metrics）
 
 1. **深模块（Deep Module） vs. 浅模块（Shallow Module）**：
-   - **深模块**：极小的接口表面积，内部封装极其厚重的行为。调用方只需理解一两个简单概念，就能获得庞大的系统能力；
-   - **浅模块（反模式）**：接口的复杂度几乎等于内部实现的复杂度（如为了包装一个单行方法而建的无意义类/函数），增加了调用方的认知成本却未提供实质抽象。
+   - **深模块**：极小的接口表面积，内部封装极其厚重的行为（如 Unix 文件 I/O 仅凭 `open/read/write/close` 四个方法隐藏了磁盘调度、缓存与文件系统的庞大复杂度）；
+   - **浅模块**：接口的复杂度和它提供的行为几乎一样多（如仅包含 getter/setter 的贫血类、单行转发的空洞包装器），增加认知负荷却无实质抽象。
 2. **测试接缝（Seam）**：
    - 模块对外最稳定、最核心的公共契约边界；
-   - **所有的 TDD 和自动化行为测试，必须只针对 Seam 编写**；
-   - 只要 Seam 契约没有破坏，模块内部实现怎么推翻重写，测试都无需改动一行。
+   - 外部调用者通过 Seam 观测行为，不可穿透接缝触碰内部细节；
+   - **TDD 必须且只能在 Seams 上构建行为测试**。
 3. **信息隐藏（Information Hiding）**：
-   - 内部数据结构、缓存机制、并发锁、重试机制、第三方库细节一律不得漏到接口外；
-   - 避免泄漏实现细节导致的调用方代码脆弱。
-4. **局部性与零联动（Locality & Low Ripple Effect）**：
-   - 改动一个深模块内部，不应当波及其它模块（Ripple Effect 趋近于零）；
-   - 状态只在模块内自愈与闭环。
+   - 内部数据结构、锁、算法、缓存、第三方依赖库细节严禁泄露至公共接口；
+   - 每个模块应当隐藏 1~2 个关键设计决策。
+4. **零联动效应（Low Ripple Effect）**：
+   - 修改一个深模块内部的算法或数据结构，调用方代码应当完全零改动。
 
-## 在流程中的具体应用
+## 反模式（Anti-Patterns）
 
-- **对齐与编排期（Align）**：指导如何把用户需求收敛为 2~3 个深接缝（Seams），拒绝产生一堆琐碎的 CRUD 函数；
-- **实现期（Implement & TDD）**：指导测试应该落在哪个接缝上，以及如何放手在厚实现内部进行重构优化；
-- **审查期（Review）**：作为代码坏味道与浅模块泛滥的评判标尺。
+- **Pass-through Methods / Middle Man**：没有任何实质逻辑、仅仅把参数转发给下一个函数的浅包装层。
+- **Leaky Abstractions**：接口强迫调用方管理事务边界、底层重试次数或初始化顺序。
+- **Barrel Files**：在目录根建立盲目 re-export 整个子树的大桶 index 文件，模糊了真正的模块边界，导致模块依赖分析失效。
+- **Premature Generalization**：在出现两个真实独立的调用方之前，为了想象中的未来过早建立抽象层。
