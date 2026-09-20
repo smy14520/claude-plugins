@@ -5,7 +5,5 @@
   "author": {
     "name": "camellia",
     "email": "camellia@gmail.com"
-  },
-  "skills": ["./skills/"],
-  "agents": ["./agents/"]
+  }
 }

@@ -1,11 +1,11 @@
 ---
 name: diagnose
-description: "Disciplined diagnosis loop for bugs, test failures, and regressions. Use when something is broken, throwing, failing, slow, flaky, or when asked to 'diagnose' or 'debug'."
+description: "针对复杂隐蔽缺陷、竞态条件、偶现异常与性能衰退的严密六步科学排障回路。在遇到疑难 Bug、根因不明的测试硬失败、多模块联动故障、或需要严格变红与插桩证伪时调用（简单语法报错与拼写错误直接就地修复，勿调此技能）。"
 ---
 
 # Diagnosing Bugs
 
-排障是严密的科学证伪过程。核心铁律：没有构建出能稳定变红的最小反馈命令之前，绝不提出任何修复假设或修改生产代码。
+排障是严密的科学证伪过程。核心铁律：必须先构建出一条能稳定变红的确定性复现命令，再基于执行现场提出可证伪假设并实施根治。
 
 ## 阶段操典（Six Phases）
 
@@ -40,9 +40,7 @@ description: "Disciplined diagnosis loop for bugs, test failures, and regression
 - 重跑项目全量测试套件，确认既有功能零回归；
 - **Completion criterion**：全量测试套件 PASS，且无残留调试代码。
 
-## 反模式（Anti-Patterns）
+## 排障陷阱（Diagnosis Pitfalls）
 
-- **Theorising Without a Repro**：在没有变红命令前读代码脑补理论、凭感觉猜 Bug。
-- **Fix-by-Permutation**：乱改代码碰运气，寄希望于“这样改改说不定就好了”。
-- **Leaving Artifacts**：修复完成后忘记清理调试日志或临时脚本。
-- **Fixing Without Regression Test**：仅手动验证通过，未沉淀自动化用例，导致未来重复踩坑。
+- **Root-Cause Blindness（表象修复）**：仅在报错位置加判空或捕获异常做防御性涂抹，未消除引发异常的源头状态。
+- **Fix-by-Permutation（排列组合盲试）**：缺乏插桩证据时凭直觉连续修改多处逻辑，导致引入新的隐性回归。

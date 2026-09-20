@@ -1,6 +1,6 @@
 ---
 name: tdd
-description: "Test-driven development at public seams. Use when implementing features, fixing bugs test-first, writing integration or unit tests, or when mentioning 'tdd', 'test-first', 'red-green'."
+description: "在公共接缝（Seams）上执行测试驱动开发（TDD）红绿循环。在先写测试防退化、重构核心算法或编写端到端行为测试时调用。"
 ---
 
 # Test-Driven Development (TDD)

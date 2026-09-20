@@ -1,6 +1,6 @@
 ---
 name: codebase-design
-description: "Shared vocabulary and principles for deep modules, thin interfaces, and clean seams. Use when designing module interfaces, placing test seams, refactoring architecture, or making code AI-navigable."
+description: "设计深模块、划分模块边界与选定测试接缝（Seams）的核心标尺与词汇表。在构建全新子系统/新功能模块、提炼跨文件公共契约、或重构臃肿/泄露接口时自主调用。"
 ---
 
 # Codebase Design — 深模块设计哲学

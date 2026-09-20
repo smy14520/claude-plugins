@@ -1,11 +1,11 @@
 ---
 name: perceive
-description: "Perceptual QA and interaction verification for UI, CLI, or projects lacking automated tests. Use when verifying visual rendering, simulating clicks, checking console errors, or capturing screenshots as physical evidence."
+description: "感官闭环质量自验与物理证据留存。在无测试框架的项目、纯前端页面渲染、CLI 交互终端或需要截图/日志证明行为成立时调用。"
 ---
 
 # Perceive — 感官闭环验证与实证证据收集
 
-在无法跑纯单元测试的场景下（如前端界面、动效、CLI 工具、无测试框架的遗留项目），建立安全、可证伪的**真实执行感官闭环**，彻底杜绝“假装验证/嘴炮通过”。
+在缺乏自动化测试套件的场景下（如纯前端界面、CLI 工具、脚本），建立真实执行的感知验证闭环与可证伪证据。
 
 ## 触发时机（When to Invoke）
 
@@ -18,11 +18,10 @@ description: "Perceptual QA and interaction verification for UI, CLI, or project
 ### 1. 进程生命周期安全（Process & Port Lifecycle Hygiene）
 - 启动临时服务（如 `npm run dev`, `python -m http.server`）时，优先探测或指定非冲突的闲置端口；
 - **严格追踪 PID**：将后台子进程 PID 妥善保存；
-- **强制退出善后**：脚本或操作退出时（无论成功还是异常），必须通过 trap 或显式 kill 彻底销毁子进程，**绝对严禁留下僵尸端口与挂死进程**。
+- **退出善后**：启动临时后台服务时妥善记录 PID，退出时通过 `trap ... EXIT` 或 `finally` 显式销毁子进程，释放占用的端口资源。
 
-### 2. 真实交互与死穴捕获（Error Trapping & Interaction）
-- **绝不满足于 HTTP 200**：`curl -I` 拿到 200 根本不代表页面能看；
-- **必须捕获前端死穴**：通过自动化工具（Playwright / Puppeteer / Python 脚本）监听并收集浏览器的 `console.error`、`unhandledrejection` 以及静态资源 4xx/5xx 缺失；
+### 2. 真实渲染与错误捕获（Error Trapping & Interaction）
+- **真机/无头感官探测**：启动无头浏览器检查实际 DOM 渲染完整性，并监听收集 `console.error`、`unhandledrejection` 与静态资源 4xx/5xx；
 - **模拟关键交互**：针对商定的 Seam 行为，触发真实的用户动作（点击关键按钮、表单输入、路由跳转），断言交互后的 DOM 状态变化。
 
 ### 3. 实证铁证闸门（Evidence Gate）

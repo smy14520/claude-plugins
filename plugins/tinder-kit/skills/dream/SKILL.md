@@ -1,6 +1,6 @@
 ---
 name: dream
-description: "Audit and consolidate project memory across CLAUDE.md, .claude/rules/, and .forge/wiki/. Produces a read-only RFC proposal report for human review to eliminate stale entries, resolve rule conflicts, and prune bloat."
+description: "跨级记忆（CLAUDE.md、.claude/rules/、.forge/wiki/）只读体检与重组。识别僵尸失效条目、规则冲突与冗余碎片，生成只读 RFC 整理提议报告供人类裁决。"
 disable-model-invocation: true
 ---
 
@@ -69,4 +69,4 @@ disable-model-invocation: true
 2. **人类指令接续**：
    - 若人类回复：“批准全部”，调用相关工具执行全部 RFC 调整；
    - 若人类回复：“采纳 RFC-1 和 RFC-3，忽略 RFC-2”，仅执行指定条目；
-3. 执行完成后调用 `wiki` 技能重建 Wiki 索引，并向人类汇报变动摘要。
+3. 执行完成后重新索引 `.forge/wiki/index.md`，并向人类汇报变动摘要。

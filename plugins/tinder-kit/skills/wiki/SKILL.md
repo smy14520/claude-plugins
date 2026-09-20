@@ -1,6 +1,6 @@
 ---
 name: wiki
-description: "Project knowledge and memory steward across CLAUDE.md, .claude/rules/, and .forge/wiki/. Use when recording lessons, updating rules, searching project gotchas, documenting cross-cut links, or checking for code drift."
+description: "查询历史架构决策、检索避坑经验（Gotcha）、排查多文件联动拓扑（Cross-cut）或维护项目三级记忆（CLAUDE.md、.claude/rules/、.forge/wiki/）时调用。"
 ---
 
 # Wiki — 全局分层记忆与知识管家
@@ -137,14 +137,10 @@ description: 对接三方客服平台拓扑，包含 HMAC 签名与 2s 超时重
 - **轨 2：技术机制（Mechanism）── 代码底层涉及的工程模式**：
   - 例如：`[buffer, 缓冲]`、`[webhook]`、`[idempotency, 幂等]`、`[rate-limit, 限流]`、`[distributed-lock]`。
 
-### 3. 三大打标禁令（Anti-Patterns）
-- ❌ **严禁晦涩缩写（No Cryptic Abbreviations）**：
-  - 绝对严禁打 `cs`（必须打 `ai-customer-service` 或 `客服`），严禁打 `db`（写 `database` 或具体 `sqlite` / `postgres`）。缩写会稀释模型语义置信度，导致检索漏判。
-- ❌ **严禁无分类价值的水词（No Generic Fluff）**：
-  - 严禁打 `[code, utils, helper, logic, backend, file]` 等泛词。
-- ❌ **受控词表与先查后打（Controlled Vocabulary）**：
-  - 新建条目打标前，**必须先阅读 `index.md` 已有标签库**，优先复用既有标签；
-  - 库里已有 `ai-customer-service`，就严禁自创 `ai-service`、`智能客服` 等近义词，防止标签碎片化。
+### 3. 受控标签准则（Controlled Vocabulary）
+- **完整语义**：使用自解释的完整单词与双轨标签（如 `[ai-customer-service, 客服]`、`[database, 数据库]`），避免使用含义模糊的短缩写；
+- **有效区分度**：标签应指代具体领域或工程机制（如 `[webhook]`, `[idempotency]`），避免使用泛词（如 `code`, `utils`）；
+- **先查后增**：新建条目打标前先检索 `index.md` 既有标签库，优先复用已有标签，防止同义碎片化。
 
 ---
 

@@ -1,6 +1,6 @@
 ---
 name: architect
-description: "Architectural audit on system placement, one-way door decisions, and structural decay. Use when reviewing architecture, designing major boundaries, evaluating tech debt, or when asked to 'audit architecture'."
+description: "站在长期维护者视角的宏观架构审计（实体放置裁决、单向门不可逆预警、形态退化治理）。在评估重大架构边界、审计技术债务或进行系统性重构前调用。"
 ---
 
 # Architect — 架构师审计

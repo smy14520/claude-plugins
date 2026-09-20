@@ -64,8 +64,9 @@ def test_plugin_manifest_valid():
     data = json.loads(manifest_path.read_text(encoding="utf-8"))
     assert data["name"] == "tinder-kit"
     assert "version" in data
-    assert "skills" in data
-    assert "agents" in data
+    # skills 和 agents 目录遵循 Claude Code 原生自动发现规范
+    assert (PLUGIN_ROOT / "skills").is_dir()
+    assert (PLUGIN_ROOT / "agents").is_dir()
 
 
 def test_marketplace_registration():

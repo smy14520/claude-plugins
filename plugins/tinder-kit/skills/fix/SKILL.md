@@ -1,6 +1,6 @@
 ---
 name: fix
-description: "Disciplined bug-fix flow: build tight red loop, isolate root cause, fix with permanent regression test. Use when fixing bugs, solving test failures, or resolving regressions."
+description: "系统化缺陷修复主流程：构建确定性变红回路、定位根因、编写永久性防回归测试。在用户报告明确 Bug 或需要排查修复故障时使用。"
 disable-model-invocation: true
 ---
 
@@ -17,7 +17,7 @@ disable-model-invocation: true
 - **Completion criterion**：`.forge/tasks/<slug>/` 目录就绪。
 
 ### Phase 1: 驱动 `diagnose` 核心回路
-- 调起 `diagnose` 技能：
+- 执行：**Call the Skill tool for "diagnose"**：
   1. **构建紧凑变红命令**：构造一条能在 2 秒内稳定报错复现的自动化用例/脚本，并在屏幕上展示红色报错；
   2. **最小化复现**：剥离无关变量与请求头；
   3. **假设验证**：向用户展示排序后的 2~3 个根因假设，使用 `[DEBUG-DIAGNOSE]` 插桩验证；
@@ -30,8 +30,8 @@ disable-model-invocation: true
 - **Completion criterion**：既有测试套件全部 PASS，或关键链路自验证实无回归。
 
 ### Phase 3: 沉淀与交接
-- 若发现隐蔽的第三方库暗坑或设计缺陷，调用 `domain-modeling` 沉淀一条 Gotcha 进项目根目录 `CONTEXT.md`；
-- 调用 `handoff` 生成 `handoffs/01-fix.md`；
+- 若发现隐蔽的第三方库暗坑或环境陷阱，使用 `Write` 工具在 `.forge/wiki/gotcha/` 沉淀一条 Gotcha 或提议写入项目规则库；
+- 将修复总结与防回归验证交接文档写入 `.forge/tasks/<slug>/handoffs/`；
 - 更新 `state.json` 的 `phase` 为 `COMPLETED`；
 - **Completion criterion**：交接文档就绪，状态为 COMPLETED。
 

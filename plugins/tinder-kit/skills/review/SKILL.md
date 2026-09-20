@@ -1,40 +1,49 @@
 ---
 name: review
-description: "Two-axis code review across Standards and Spec. Use when reviewing diffs, auditing changes before commit, verifying seam compliance, or when asked to 'review', 'code review', 'check diff'."
+description: "客观独立上下文的双轴代码审查（Standards 代码规范与 Spec 契约兑现度）。在提交前核查 git diff、审计代码异味、验证接缝契约与防回归测试时调用。"
 ---
 
-# Code Review — 双轴审查与防回归验证
+# Code Review — 双轴代码审查
 
-以只读客观第三方视角审查工作树中的改动，隔离为互不污染的两个轴向：**代码规范与坏味道（Standards）** 与 **深接缝契约兑现度（Spec）**。
+以只读客观第三方视角审查工作树中的改动，严格划分为两个互不干扰的独立轴向：
+- **Standards 轴**：代码是否遵循本项目既定的工程规范与质量基线？（“是否造得合规？”）
+- **Spec 轴**：改动是否忠实兑现了初始需求与商定契约？（“造的是不是对的东西？”）
 
-## 双轴审查程序
+双轴各自独立输出结论，严禁跨轴合并或用 Standards 的优秀掩盖 Spec 的残缺。
 
-### 1. 确定审查范围与基准线
-- 提取审查范围：`git diff`；
-- 载入基准：`.forge/tasks/<slug>/spec.md`（重点看 `## Agreed Seams`）及项目根目录 `CONTEXT.md`。
+## 审查程序
 
-### 2. 轴 1 审查：Standards 轴（代码与架构规范）
-- 检查 Fowler 12 味代码坏味道（重复逻辑、发散变化、霰弹式修改、基本类型偏执等）；
-- 检查深模块原则：公共接口是否足够薄？是否泄漏了底层存储或锁机制？
-- 检查代码卫生：异常捕获是否精准、是否存在未释放的资源或潜在死锁；
-- **小格式异味**：琐碎的格式或微小命名瑕疵直接给出修正示例，不长篇辩论。
+### 1. 确定审查范围与输入基准
+- 审查范围：`git diff` 及改动 commit 列表；
+- 规格基准：`.forge/tasks/<slug>/spec.md`（重点关注 `## Agreed Seams` 与 `## Out of Scope`）；
+- 规范基准：项目根目录 `CLAUDE.md` 及 `.claude/rules/`。
 
-### 3. 轴 2 审查：Spec 契约轴（深接缝吻合度）
-- 逐一核验 `spec.md` 中的每个 Seam 是否在源码中有明确对应的入口；
-- 检查测试真实性：**行为测试必须真实断言了 Seam 的输出与副作用**，严禁仅检查中间代理变量或注释断言。
+### 2. 轴 1 审查：Standards 轴（代码与工程规范）
+1. **项目标准优先**：核对 diff 是否符合项目本地 `CLAUDE.md` 与 `.claude/rules/` 中声明的规则；
+2. **Fowler 坏味道基线（启发式参考，项目标准高于基线）**：
+   - **Duplicated Code**：相同或高度相似的逻辑形态在改动中重复出现；
+   - **Feature Envy**：某个函数过度访问另一个模块/对象的数据，胜过访问自身；
+   - **Primitive Obsession**：用基础字符串/字典代替了理应抽离的独立实体；
+   - **Shotgun Surgery**：单项逻辑变更导致改动散落在过多不相关的文件中；
+   - **Divergent Change**：同一个模块因多种不相干的原因被同时修改；
+   - **Speculative Generality**：增加了当前契约并未要求的抽象层、多余参数或钩子；
+   - **Middle Man**：存在仅仅将调用转发给下一层的空洞包装层；
+3. **判定原则**：分清硬性违规（违反项目 rules）与权衡建议（坏味道启发）。
 
-### 4. 防回归与功能验证（Verification & Regression）
-- 执行 Seam 验证命令（测试用例或自验命令），确保行为符合契约预期；
-- 若项目配置了自动化测试套件，执行全量既有测试确保零回归；若无测试套件，根据项目规则记录可执行自验证据。
+### 3. 轴 2 审查：Spec 轴（需求与深接缝兑现度）
+对照 `spec.md` 逐条核查改动代码与测试，必须精准指出 `spec.md` 对应行：
+1. **功能遗漏或残缺**：spec 要求了但源码中缺失或未完整实现的条目；
+2. **私自扩充（Scope Creep）**：spec 未要求或明确列在 `Out of Scope` 中，却被私自写进代码的行为；
+3. **契约实现错误**：声称已实现，但输入输出、边界容错或副作用不符合商定 Seam 的条目；
+4. **测试有效性**：验证测试是否真实断言了 Seam 的公开行为与副作用，而非恒真的同义反复（Tautological）假测试。
+
+### 4. 验证与防回归（Verification）
+- 运行针对商定 Seams 的验证命令，确认全部真实通过；
+- 若项目配置了自动化测试套件，执行全量既有测试确保零回归；若无自动化套件，按项目规则记录自验证据。
 
 ### 5. 审查结论呈递（Completion Criterion）
-- **Completion criterion**：在对话中显式输出结构化背书报告：
-  - **Standards 轴评级**：`CLEAN` 或列出带 `file:line` 的具体异味；
-  - **Spec 轴评级**：`VERIFIED`（每个 Seam 均有坚实验证证据支撑）；
-  - **防回归证明**：测试套件通过记录或自验执行输出。
-
-## 反模式（Anti-Patterns）
-
-- **Vague Approvals**：不给代码引用就下“整体看起来不错”等空洞结论。
-- **Spec-Blind Reviewing**：不读 `spec.md` 直接根据代码盲猜意图，容易把原本的需求设计当 Bug 报。
-- **Bikeshedding Over Critical Bugs**：在无伤大雅的命名和括号风格上耗费大量篇幅，忽略了核心契约的边界盲区。
+在对话中显式输出结构化背书报告，严禁合并结论：
+- `## Standards 结论`：发现的规范违规与坏味道清单（注明 `file:line` 与修改建议）；
+- `## Spec 结论`：Seams 契约兑现核验结果（注明 `spec.md` 对应行号，标注通过/残缺/越界）；
+- `## 防回归验证`：测试命令与 exit code 记录；
+- `## 综合判定`：`CLEAN`（可直接交付）或 `ISSUES`（存在阻断性问题需打回修改）。

@@ -1,6 +1,6 @@
 ---
 name: prototype
-description: "Build a throwaway prototype or spike to answer design, UI, or library questions. Use when evaluating UX feel, spike testing third-party APIs, or when debating options that need a runnable demo."
+description: "在 .forge/prototypes/ 构建用完即弃的粗糙原型探针（Spike）。在摸底第三方库能力、验证交互手感、或解决跑起来才知道的架构分歧时调用。"
 ---
 
 # Prototype — 抛弃型探索探针

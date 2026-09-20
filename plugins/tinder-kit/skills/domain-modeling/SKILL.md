@@ -1,6 +1,6 @@
 ---
 name: domain-modeling
-description: "Domain modeling and concept boundary sharpening. Use when clarifying domain terms, resolving overloaded words, defining business entities, or recording ADR decisions."
+description: "领域语言建模、概念消歧与架构决策记录（ADR）。在统一多义业务名词、界定核心实体边界、或记录不可逆架构决策权衡时调用。"
 ---
 
 # Domain Modeling — 领域语言建模与概念消歧
@@ -30,11 +30,10 @@ description: "Domain modeling and concept boundary sharpening. Use when clarifyi
 
 1. **先查后增**：在代码编写和访谈中，凡遇到新业务名词，先扫描 Wiki 索引，避免同一概念发明两个变量名或造成语义漂移；
 2. **主动磨刀**：当访谈或重构拍定了一个核心业务实体的精准含义，立即形成结构化页面存入 `.forge/wiki/`；
-3. **零实现细节**：概念与实体页只放定义、边界与反例，绝不堆砌单文件代码实现，代码实现细节让代码自己回答；
-4. **Completion criterion**：在对话中展示已定义的概念或 ADR 决策摘要。
+3. **职责分离**：概念与实体文档只记录权威名称、定义、边界与正反例；具体的实现细节交由工作树代码自身呈现；
+4. **Completion criterion**：概念页面落盘至 `.forge/wiki/` 或在对话中展示已确立的 ADR 决策摘要。
 
-## 反模式（Anti-Patterns）
+## 建模陷阱（Modeling Pitfalls）
 
-- **Dictionary Bloat**：把每个临时变量或单文件局部 helper 都当成领域实体来定义。
-- **Silent Semantic Drift**：同一个业务词汇在不同模块被赋予完全不同的语义，未及时拆分概念。
-- **Implementation Bleed**：在概念定义文档中粘贴大量易变的代码逻辑，导致文档迅速失效腐烂。
+- **Dictionary Bloat（词典膨胀）**：把局部临时变量或单函数内部 helper 当作领域实体过度建模。
+- **Silent Semantic Drift（语义静默漂移）**：同一业务词汇在不同子域中被赋予不同职责且未作命名拆分。
