@@ -34,7 +34,7 @@ description: "构建并打磨项目的领域模型与统一语言。在统一多
 
 ### 6. 克制地提出 ADR 提案（Offer ADRs sparingly）
 坚决反对低价值 ADR 泛滥。只有以下**三项条件全部满足时**，才提出记录 ADR：
-1. **Hard to reverse（难以逆转）**：日后推翻决定的技术或业务代价极其高昂（单向门）；
+1. **Hard to reverse（难以逆转）**：日后推翻决定的技术或业务代价极其高昂（One-way door 决策）；
 2. **Surprising without context（无上下文时反直觉）**：未来读者看到代码会极其困惑：“为什么当时要这么怪异地实现？”；
 3. **The result of a real trade-off（真实取舍的产物）**：确实存在另一个切实可行的备选方案，而我们基于具体理由放弃了它。
 

@@ -20,7 +20,7 @@ description: "客观独立上下文的双轴代码审查（Standards 代码规�
 
 ### 2. 轴 1 审查：Standards 轴（代码与工程规范）
 1. **项目标准优先**：核对 diff 是否符合项目本地 `CLAUDE.md` 与 `.claude/rules/` 中声明的规则；
-2. **Fowler 坏味道基线（启发式参考，项目标准高于基线）**：
+2. **Fowler Code smells 基线（启发式参考，项目标准高于基线）**：
    - **Duplicated Code**：相同或高度相似的逻辑形态在改动中重复出现；
    - **Feature Envy**：某个函数过度访问另一个模块/对象的数据，胜过访问自身；
    - **Primitive Obsession**：用基础字符串/字典代替了理应抽离的独立实体；
@@ -28,14 +28,14 @@ description: "客观独立上下文的双轴代码审查（Standards 代码规�
    - **Divergent Change**：同一个模块因多种不相干的原因被同时修改；
    - **Speculative Generality**：增加了当前契约并未要求的抽象层、多余参数或钩子；
    - **Middle Man**：存在仅仅将调用转发给下一层的空洞包装层；
-3. **判定原则**：分清硬性违规（违反项目 rules）与权衡建议（坏味道启发）。
+3. **判定原则**：分清硬性违规（违反项目 rules）与权衡建议（Code smells 启发）。
 
-### 3. 轴 2 审查：Spec 轴（需求与深接缝兑现度）
+### 3. 轴 2 审查：Spec 轴（需求与 Seams 契约兑现度）
 对照 `spec.md` 逐条核查改动代码与测试，必须精准指出 `spec.md` 对应行：
 1. **功能遗漏或残缺**：spec 要求了但源码中缺失或未完整实现的条目；
 2. **私自扩充（Scope Creep）**：spec 未要求或明确列在 `Out of Scope` 中，却被私自写进代码的行为；
 3. **契约实现错误**：声称已实现，但输入输出、边界容错或副作用不符合商定 Seam 的条目；
-4. **测试有效性**：验证测试是否真实断言了 Seam 的公开行为与副作用，而非恒真的同义反复（Tautological）假测试。
+4. **测试有效性**：验证测试是否真实断言了 Seam 的公开行为与副作用，而非恒真的 Tautological test（自我印证假测试）。
 
 ### 4. 验证与防回归（Verification）
 - 运行针对商定 Seams 的验证命令，确认全部真实通过；
@@ -43,7 +43,7 @@ description: "客观独立上下文的双轴代码审查（Standards 代码规�
 
 ### 5. 审查结论呈递（Completion Criterion）
 在对话中显式输出结构化背书报告，严禁合并结论：
-- `## Standards 结论`：发现的规范违规与坏味道清单（注明 `file:line` 与修改建议）；
+- `## Standards 结论`：发现的规范违规与 Code smells 清单（注明 `file:line` 与修改建议）；
 - `## Spec 结论`：Seams 契约兑现核验结果（注明 `spec.md` 对应行号，标注通过/残缺/越界）；
 - `## 防回归验证`：测试命令与 exit code 记录；
 - `## 综合判定`：`CLEAN`（可直接交付）或 `ISSUES`（存在阻断性问题需打回修改）。

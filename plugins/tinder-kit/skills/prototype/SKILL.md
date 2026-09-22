@@ -1,11 +1,11 @@
 ---
 name: prototype
-description: "构建一次性抛弃型原型（Spike）来回答一个关键设计问题。适用于验证状态模型手感是否顺畅、或探索界面应该长什么样时调用。"
+description: "构建一次性 Spike / Throwaway 原型来回答关键设计问题。适用于验证状态模型手感是否顺畅、或探索界面应该长什么样时调用。"
 ---
 
-# Prototype — 抛弃型设计原型
+# Prototype — Spike 原型探索
 
-原型（Prototype）是**专门用来回答一个具体疑问的一次性抛弃代码（Throwaway Code）**。问题的形态决定原型的结构。
+原型（Prototype）是**专门用来回答一个具体疑问的一次性 Spike 代码（Throwaway Code）**。问题的形态决定原型的结构。
 
 ---
 
@@ -25,7 +25,7 @@ description: "构建一次性抛弃型原型（Spike）来回答一个关键设�
 ## 适用于两个分支的六大通用铁律（The 6 Rules）
 
 1. **从第一天就是抛弃型（Throwaway from Day One）**：
-   原型严格落盘在 `.forge/prototypes/<slug>/`（受项目 `.gitignore` 保护），或明确带有 `prototype` 命名前缀。严禁将未经验证的原型脏代码直接混入生产业务目录。
+   原型严格落盘在 `.forge/prototypes/<slug>/`（受项目 `.gitignore` 保护），或明确带有 `prototype` 命名前缀。严禁将未经验证的 Spike 原型脏代码直接混入生产业务目录。
 2. **运行零心智负担（Frictionless to Run）**：
    启动必须极其无脑。Logic 原型必须是双击即开的单文件 HTML，UI 原型通过项目现成的一条命令启动。
 3. **默认不持久化（No Persistence by Default）**：

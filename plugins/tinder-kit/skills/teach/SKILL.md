@@ -37,7 +37,7 @@ argument-hint: "你想学习什么主题？"
 - **Fluency strength（流畅度）**：当下刚听完能复述出来的能力（往往造成“我已经掌握了”的虚假自信）；
 - **Storage strength（储存强度）**：长期保持并能自由调用的能力（这才是真正目标）。
 
-通过**必要难度（Desirable Difficulty）**构建长期记忆：
+通过 **Desirable Difficulty（必要认知难度）** 构建长期记忆：
 1. **主动回忆（Retrieval practice）**：强制从脑中提取而非反复阅读；
 2. **间隔重复（Spacing）**：将复习分布在不同的时间窗口；
 3. **交错练习（Interleaving）**：混合不同但相关的技能练习。

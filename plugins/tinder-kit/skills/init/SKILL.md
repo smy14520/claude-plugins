@@ -19,27 +19,27 @@ disable-model-invocation: true
 
 ### 2. 初始化工作区（`.forge` Setup）
 - 确保 `.forge/` 基础目录存在；
-- 在 `.forge/.gitignore` 中忽略临时抛弃型原型目录：
+- 在 `.forge/.gitignore` 中忽略临时 Spike 原型目录：
   ```text
   prototypes/
   ```
-  确保原型脏代码绝不意外污染项目 Git 提交历史。
+  确保 Throwaway 原型脏代码绝不意外污染项目 Git 提交历史。
 
 ### 3. 初始化全局活字典（根目录 `CONTEXT.md`）
 - 若项目根目录已存在 `CONTEXT.md`，保持原样不覆盖；
 - 若不存在，根据嗅探到的顶级目录与关键模块，生成高信噪比骨架：
   - **Core Entities**：基于代码库提取出的核心业务概念占位；
-  - **Architectural Seams**：系统中已稳定的最顶层深接口约定；
+  - **Architectural Seams**：系统中已稳定的最顶层 Seams 约定；
   - **Project Constraints**：不可逾越的业务约束与禁忌。
 
 ### 4. 初始化项目专属标准（`.claude/rules/`）
 在 `.claude/rules/` 下创建可维护的标准文档（已存在则跳过）：
 
 1. **`code-quality.md`**：
-   - Fowler 12 味代码坏味道基线（重复逻辑、长函数、基本类型偏执、霰弹式修改等）；
+   - Fowler 经典 Code smells 基线（重复逻辑、长函数、基本类型偏执、霰弹式修改等）；
    - `codebase-design` 深模块原则（薄接口、厚实现、信息隐藏）。
 2. **`testing-standards.md`**：
-   - 若检测到测试框架：明确测试命令（如 `pnpm test`）、要求自动化测试只针对公共接缝（Seams）编写；
+   - 若检测到测试框架：明确测试命令（如 `pnpm test`）、要求自动化测试只针对公共 Seams 契约编写；
    - 若未检测到测试框架：明确该项目的替代验证方法（如“修改后运行 `pnpm dev` 查看本地预览”或“执行 CLI 命令验证输出”）。
 
 ### 5. 完成呈递（Completion Criterion）

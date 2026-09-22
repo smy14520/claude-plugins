@@ -27,7 +27,7 @@
 
 以下三项必须**全部成立**，缺一不可：
 
-1. **Hard to reverse（难以逆转）**：日后推翻决定的技术或业务代价极其高昂（单向门 One-way doors）；
+1. **Hard to reverse（难以逆转）**：日后推翻决定的技术或业务代价极其高昂（One-way door decisions）；
 2. **Surprising without context（无上下文时反直觉）**：未来的读者看到代码会极其困惑：“为什么当时要这么怪异地实现？”；
 3. **The result of a real trade-off（真实取舍的产物）**：确实存在另一个切实可行的备选方案，而我们基于具体理由放弃了它。
 

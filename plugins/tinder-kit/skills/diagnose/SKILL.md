@@ -1,6 +1,6 @@
 ---
 name: diagnose
-description: "面向棘手缺陷、偶现异常与性能回退的严密六阶段科学排障回路。在遇到疑难 Bug、根因不明的测试硬失败、多模块联动故障、或需要严格变红与插桩证伪时调用。"
+description: "面向棘手缺陷、Heisenbug / Flaky 故障与性能回退的严密六阶段科学排障回路。在遇到疑难 Bug、根因不明的测试硬失败、多模块联动故障、或需要严格变红与插桩证伪时调用。"
 ---
 
 # Diagnosing Bugs
@@ -39,7 +39,7 @@ description: "面向棘手缺陷、偶现异常与性能回退的严密六阶段
 - **更尖锐**：断言具体 symptom，而不是宽泛的 "didn't crash"；
 - **更确定**：Pin time、seed RNG、isolate filesystem、freeze network。
 
-### Non-deterministic bugs（非确定性 / 偶现 Bug 放大）
+### Non-deterministic bugs（Heisenbug / Flaky bug 放大）
 
 目标不是 clean repro，而是 **higher reproduction rate（更高复现率）**。循环触发 100x、parallelise、加压、缩小 timing windows、注入 sleeps。50% 复现率的 bug 可以调试；1% 不行。持续提高复现率，直到它可稳定调试。
 
@@ -49,7 +49,7 @@ description: "面向棘手缺陷、偶现异常与性能回退的严密六阶段
 
 ### Completion criterion
 - [ ] **Red-capable**：能在该 bug 上变红、修复后变绿；
-- [ ] **Deterministic**：每次运行结论稳定（偶现 bug 已放大至高复现率）；
+- [ ] **Deterministic**：每次运行结论稳定（Heisenbug / Flaky bug 已放大至高复现率）；
 - [ ] **Fast**：秒级反馈；
 - [ ] 在终端显式展示该 command 及已脱敏的红色报错输出。无红命令，排障停止。
 

@@ -1,12 +1,12 @@
 ---
 name: develop
-description: "端到端工程交付主航道：需求意图对齐、深接缝确立、独立子 Agent 隔离编码、客观双轴审查与防回归背书。在构建新功能、从零开发任务或进行重大功能迭代时使用。"
+description: "端到端工程交付主航道：需求意图对齐、Seams 契约锁定、独立子 Agent 隔离编码、客观双轴审查与防回归背书。在构建新功能、从零开发任务或进行重大功能迭代时使用。"
 disable-model-invocation: true
 ---
 
 # Develop — 端到端工程交付主航道
 
-从需求对齐、深接缝确定，到全新上下文子 Agent 编码实现，再到客观双轴审查与防回归背书，一键贯通的现代化工程主流程。
+从需求对齐、Seams（可观测行为边界）锁定，到全新上下文子 Agent 编码实现，再到客观双轴审查与防回归背书，一键贯通的现代化工程主流程。
 
 ## 核心运行哲学
 
@@ -29,14 +29,16 @@ disable-model-invocation: true
 
 ---
 
-### Phase 1: 意图对齐与接缝锁定 (Phase: ALIGN)
+### Phase 1: 意图对齐与 Seams 锁定 (Phase: ALIGN)
 1. **存量记忆检索（Grounding）**：
    - 使用 `Read` 工具查阅 `.forge/wiki/index.md`（若存在），检索涉及模块的历史决策（`decision/`）、跨文件拓扑（`cross_cut/`）与已知暗坑（`gotcha/`），作为已知底座；
 2. **启动前沿访谈**：
    - 明确执行：**Call the Skill tool for "grilling"** 驱动决策树访谈；
    - 仅针对真正分歧与业务取舍提问（带编号、推荐项与理由），直至消除所有隐藏假设；
-3. **拍定深接缝与验证依据（Agreed Seams & Verification Criteria）**：
-   - 确立本次改动对外公开的可观测行为边界与验收依据（Agreed Seams）；
+3. **拍定 Seams 与验收标准（Agreed Seams & Verification Criteria）**：
+   - 确立本次改动对外公开的 **Seams（可观测行为边界 / Public Contract）**：
+     - *什么是 Seam*：系统在不侵入内部细节的前提下，对外展现行为与可供验证的公共接触面（CLI 的入参与退出码、API 的请求与响应、前端用户的交互与视觉反馈）；
+     - 拒绝内部函数耦合，只锁定外部契约与验证依据；
    - 明确 `Out of Scope`（经用户确认）；
 4. 使用 `Edit` 工具将成果更新至 `.forge/tasks/<slug>/spec.md`；
 5. 生成阶段交接文档至 `.forge/tasks/<slug>/handoffs/01-align.md`；
@@ -47,9 +49,9 @@ disable-model-invocation: true
 
 ---
 
-### Phase 2: 抛弃型原型探索 (Phase: EXPLORE - 条件触发)
+### Phase 2: Spike 原型探索 (Phase: EXPLORE - 条件触发)
 1. 派发 `forge-prototype` 子 Agent：
-   - 在 `.forge/prototypes/<slug>/` 快速构建极简粗糙原型，零测试税；
+   - 在 `.forge/prototypes/<slug>/` 快速构建极简粗糙的 Throwaway Prototype，零测试税；
 2. 获取经验结论（Verdict），由用户感知或自测得出；
 3. 将结论写入 `spec.md` 的 `## Empirical Findings`；
 4. 生成阶段交接文档至 `.forge/tasks/<slug>/handoffs/02-explore.md`；

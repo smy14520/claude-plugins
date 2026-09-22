@@ -19,7 +19,7 @@ description: "用于设计深模块（Deep Modules）的共享词汇与核心标
 - **Interface（接口）**：调用方为了正确使用该 module 必须知道的**一切事实**：不仅是类型签名（type signature），还包括不变量（invariants）、时序约束（ordering constraints）、错误模式（error modes）、必要配置与性能特征。（避免使用：API, signature，这些词太窄，仅指表面类型）
 - **Implementation（实现）**：module 内部的代码体。它不同于 **Adapter**：一个东西可以是小 adapter 但有大 implementation（如真实的 Postgres repo），也可以是大 adapter 但 implementation 很小（如内存 fake）。讨论 seam 时说 adapter；其他时候说 implementation。
 - **Depth（深度）**：interface 上的杠杆（leverage）：调用方（或测试）每理解一单位 interface，就能撬动多少实质行为。大量复杂行为藏在小接口之后时，module 是 **deep**；接口复杂度几乎和内部实现一样多时，module 是 **shallow**。
-- **Seam（深接缝，Michael Feathers）**：可以在不直接修改当前文件源码的情况下改变行为的地方；也就是 module 的 interface 所在的*物理位置*。接缝放在哪里是独立的设计决策，不同于接缝后面藏着什么。（避免使用：boundary，它与 DDD 的 bounded context 混淆）
+- **Seam（Michael Feathers）**：可以在不直接修改当前文件源码的情况下改变行为的地方；也就是 module 的 interface 所在的*物理位置*（可观测行为边界）。Seam 放在哪里是独立的设计决策，不同于 Seam 后面藏着什么。（避免使用：boundary，它与 DDD 的 bounded context 混淆）
 - **Adapter（适配器）**：在 seam 上满足某个 interface 的具体实例。描述的是 *role（填哪个槽位）*，而不是 substance（内部是什么）。
 - **Leverage（调用杠杆）**：调用方从 Depth 获得的收益：每学习掌握一单位 interface，就能获得极大能力。一次实现可在 N 个调用处和 M 个测试中持续收回认知成本。
 - **Locality（维护内聚）**：维护者从 Depth 获得的收益：改动、Bug 排查、业务知识与测试验证集中在一处，而不是散落到各个调用方中。修一次，到处生效。
@@ -50,7 +50,7 @@ Shallow module（浅模块，坚决避免）:
 设计 interface 时时刻自问：
 1. 我能减少对外暴露的方法数量吗？
 2. 我能简化参数列表吗？
-3. 我能把更多复杂的内部细节隐藏在接缝之后吗？
+3. 我能把更多复杂的内部细节隐藏在 Seam 之后吗？
 
 ---
 
@@ -58,14 +58,14 @@ Shallow module（浅模块，坚决避免）:
 
 1. **Depth 是 interface 上的杠杆属性，不是代码行数。**
    深模块内部可以由许多小的、可替换的子部件组成，只要它们不泄露到 interface 上即可。模块可以拥有内部测试专用的 **internal seams**，以及对外暴露的 **external seam**。
-2. **Deletion test（删除检验法）**：
+2. **Deletion test（模块删除检验）**：
    想象把这个 module 彻底删掉：
    - 如果系统的复杂度瞬间消失了，说明它只是个多余的浅包装层（Pass-through）；
    - 如果它的复杂度被迫重新散落到全系统 N 个调用方里，说明它正在发挥巨大的深模块价值。
 3. **Interface is the test surface（接口即测试表面）**：
    业务调用方和测试必须穿过同一个 seam。如果你发现必须侵入接口去测试内部私有细节，说明该模块的抽象形状设计错了。
 4. **One adapter = hypothetical seam; Two adapters = real seam**：
-   除非明确存在至少两个 adapters（通常是生产真实实现 + 测试内存替身），否则不要凭空引入接缝。单 adapter 的接缝往往只是无意义的过早抽象。
+   除非明确存在至少两个 adapters（通常是生产真实实现 + 测试内存替身），否则不要凭空引入 seam。单 adapter 的 seam 往往只是无意义的过早抽象。
 
 ---
 

@@ -120,9 +120,24 @@ skill 不要 copy 文件；skill 不要 patch；skill 不要自己 diff；skill 
 
 不要写成多段条件树，除非这些条件确实由 helper 或测试验证。
 
-## 中英混合的默认处理
+## 中英混合与专业术语（Canonical Terms）
 
-项目协作和 workflow 输出使用中文。代码、命令、路径、JSON key、schema 字段、API 名称和已有专有名词保持原样。通常只需要写“使用语言：中文”，不需要逐项列出这些例外。
+项目协作和 workflow 输出使用中文。代码、命令、路径、JSON key、schema 字段、API 名称和已有专有名词保持原样。
+
+**核心工程与方法学术语一律保留原生英文 Canonical Terms**，严禁生硬直译生造黑话或过度中文化：
+- 优先写 `Seam`（可观测行为边界 / Public Contract），不写“深接缝 / 接缝”；
+- 优先写 `Code smells`，不写“坏味道”；
+- 优先写 `Tracer bullet`，不写“示踪弹”；
+- 优先写 `Tautological test`，不写“自我印证假测试 / 同义反复测试”；
+- 优先写 `One-way door decision`，不写“单向门”；
+- 优先写 `Deletion test`，不写“删除检验法”；
+- 优先写 `Fog of war`，不写“战争迷雾”；
+- 优先写 `Spike / Throwaway Prototype`，不写“抛弃型原型”；
+- 优先写 `Desirable Difficulty`，不写“必要难度”；
+- 优先写 `Heisenbug / Flaky bug`，不写“偶现异常 / 幽灵Bug”；
+- 优先写 `Ratchet`，不写“防倒退棘轮”。
+
+表述模式：以自然流畅的中文为主干，专业概念直接使用标准英文（或辅以紧凑说明），既符合国际工程对话习惯，又保证概念精确无歧义。
 
 ## 给 agent 读的文档：指针措辞、先导词、no-op 测试
 
