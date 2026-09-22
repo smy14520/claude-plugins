@@ -1,37 +1,14 @@
 ---
 name: grilling
-description: "基于决策树与前沿（Frontier）的高强度需求与方案访谈引擎。在启动新任务、暴露隐性假设、收敛边界或对技术方案进行压力测试时调用。"
+description: Grill the user relentlessly about a plan, decision, or idea. Use when the user wants to stress-test their thinking, or uses any 'grill' trigger phrases.
 ---
 
-# Grilling — 决策树与前沿推进访谈
+Interview the user relentlessly until you reach a shared understanding. Map this as a **design tree**: every decision branches into the decisions that hang off it.
 
-纯净、无状态的交互式访谈原语。以严谨的决策树模型逐轮推进，消除一切隐藏假设，收敛高杠杆接缝契约与明确边界，达成坚实的工程共识。
+Work the tree in **rounds**. The **frontier** is every decision whose prerequisites are already settled: the questions you can ask _now_ without guessing at answers you haven't heard yet. Ask the whole frontier in one round: number each question and give your recommended answer. Then wait for the user's answers before the next round.
 
-## 核心机制
+Each round the user answers reshapes the tree: settled decisions push the frontier outward and unblock questions that depended on them. Recompute the frontier and ask the next round. A question whose answer depends on another question still open in this round belongs to a _later_ round, not this one.
 
-### 1. 决策树与前沿（Design Tree & Frontier）
-- 将待讨论议题分解为分叉决策树；
-- **Frontier（前沿）**：所有前置依赖已经确定、当前亟待裁决的核心决策集合；
-- 前置依赖未决时，下级子决策严禁提前抛出。
+Finding _facts_ is your job, never the user's. When a frontier question needs a fact from the environment (filesystem, tools, etc.), dispatch a sub-agent to find it; don't ask the user for anything you could look up yourself. Don't block on it: a running exploration is an unsettled prerequisite, so only the questions downstream of it wait for the sub-agent to report; ask the rest of the frontier now. The _decisions_ are the user's: put each to them and wait.
 
-### 2. 轮次推进纪律（Rounds）
-- **按轮推进**：每一轮只提问当前 Frontier 上的决策分叉；
-- **附带推荐项**：每个问题必须编号，并**附带推荐选项与取舍理由**（人类只需确认或纠偏，无需从零构造答案）；
-- **动态更新**：收到人类回答后，更新决策树状态，重新计算 Frontier 并推进下一轮，直至整棵树到达叶子节点。
-
-### 3. 事实与决策分工（Facts vs. Decisions）
-- **查证事实是 Agent 的绝对职责**：
-  - 凡能从现有代码库、已知文档或客观事实查证的信息，自行查证作为已知前提；
-  - 绝不把人类当数据库，提问仅限于业务取舍、技术路线权衡与优先级裁决。
-
-### 4. 隐性假设显影（Latent Assumptions）
-- 在收敛方案前，主动列出本次设计所依赖的技术与环境假设（并发规模、网络依赖、存储假设、容错边界等），由人类显式确认或否决。
-
-## 产出与退出准则（Completion Criterion）
-
-- **退出条件**：Frontier 为空（整棵设计树所有分支均到达叶子节点，无沉默假设）；
-- **成果呈现**：在对话中显式输出结构化共识清单，供调用方或人类查验：
-  - `## 商定接缝契约（Agreed Seams）`：核心输入输出、公开行为预期与验证依据；
-  - `## 明确排除边界（Out of Scope）`：明确不做或推迟的事项；
-  - `## 显影的隐性假设（Latent Assumptions）`：经确认的技术前置假设；
-  - `## 关键决策归因（Decisions & Rationale）`：确立的选型及其取舍理由。
+The session is done when the frontier is empty: every branch of the design tree visited, nothing left silently assumed. Do not act on it until the user confirms you have reached a shared understanding.

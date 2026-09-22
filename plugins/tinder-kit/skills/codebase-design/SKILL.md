@@ -1,40 +1,83 @@
 ---
 name: codebase-design
-description: "设计深模块、划分模块边界与选定测试接缝（Seams）的核心标尺与词汇表。在构建全新子系统/新功能模块、提炼跨文件公共契约、或重构臃肿/泄露接口时自主调用。"
+description: "用于设计深模块（Deep Modules）的共享词汇与核心标尺。适用于设计或改进模块接口、寻找深化机会、决定 seam 放在哪里、提升系统可测性时调用。"
 ---
 
-# Codebase Design — 深模块设计哲学
+# Codebase Design
 
-提供源自 John Ousterhout《软件设计哲学》的核心设计标尺与统一词汇：**深模块、薄接口、干净接缝、信息隐藏**。它是架构演进与 TDD 确定测试接缝的统一准绳。
+设计 **deep modules（深模块）**：把大量行为放在小 interface 之后，把 interface 放在清晰 seam 上，并通过该 interface 进行端到端行为测试。凡是在设计新功能或重构既有代码时，统一使用这套语言和原则。
 
-## 触发时机（When to Invoke）
+目标是：**给 callers 带来 leverage（杠杆），给 maintainers 带来 locality（内聚与防扩散），并让每个人都更容易进行自动化测试。**
 
-模型应在以下具体工程节点自主激活本素养，而非无脑机械套用：
-- **时机 A：新模块或关键骨架搭建前**：在需求已对齐、动手编码前，自检“新增逻辑应归属哪个模块？对外暴露出哪道最小的门（深接缝）能将内部复杂的算法和状态彻底隐藏？”
-- **时机 B：架构坏味道与高涟漪效应爆发时**：当单文件超过 400 行、改动内部字段导致多个调用方联动修改、或发现单测去测私有方法导致测试脆化时，调用本技能重新切分深接缝。
+---
 
-## 核心词汇与标尺（Vocabulary & Metrics）
+## 统一词汇表（Glossary）
 
-1. **深模块（Deep Module） vs. 浅模块（Shallow Module）**：
-   - **深模块**：极小的接口表面积，内部封装极其厚重的行为（如 Unix 文件 I/O 仅凭 `open/read/write/close` 隐藏了磁盘调度、页缓存与文件系统的庞大复杂度）；
-   - **浅模块**：接口的复杂度和它提供的行为几乎一样多（如仅包含 getter/setter 的贫血类、单行转发的空洞包装器），增加认知负荷却无实质抽象。
-2. **测试接缝（Seam）**：
-   - 模块对外最稳定、最核心的公共契约边界（类比墙上的 220V 两孔插座标准）；
-   - 接缝以外只测公开承诺与端到端行为；接缝以内，AI 拥有大胆重构、优化内部零件的绝对自由；
-   - **TDD 必须且只能在 Seams 上构建行为测试**，坚决禁止给私有实现细节装测试夹具。
-3. **信息隐藏（Information Hiding）**：
-   - 内部数据结构、锁、算法、缓存、第三方依赖库细节严禁泄露至公共接口；
-   - 每个模块应当隐藏 1~2 个关键设计决策。
-4. **备选方案发散（WRAP: Widen Your Options）**：
-   - 杜绝“第一解偏执”：在敲定核心接缝前，至少对比 2 种不同权衡的架构路线（如：流式处理 vs 批量暂存、事件发布 vs 显式调用）；
-   - 比较各路线的接口厚度与涟漪效应后，选定胜出者。
-5. **零联动效应（Low Ripple Effect）**：
-   - 修改一个深模块内部的算法或数据结构，调用方代码应当完全零改动。
+准确使用这些术语，不要替换成 "component"、"service"、"API" 或 "boundary"。一致的语言就是力量。
 
-## 反模式（Anti-Patterns）
+- **Module（模块）**：任何拥有 interface 和 implementation 的实体。故意不限定尺度：函数、类、包或跨层切片皆可。（避免使用：unit, component, service）
+- **Interface（接口）**：调用方为了正确使用该 module 必须知道的**一切事实**：不仅是类型签名（type signature），还包括不变量（invariants）、时序约束（ordering constraints）、错误模式（error modes）、必要配置与性能特征。（避免使用：API, signature，这些词太窄，仅指表面类型）
+- **Implementation（实现）**：module 内部的代码体。它不同于 **Adapter**：一个东西可以是小 adapter 但有大 implementation（如真实的 Postgres repo），也可以是大 adapter 但 implementation 很小（如内存 fake）。讨论 seam 时说 adapter；其他时候说 implementation。
+- **Depth（深度）**：interface 上的杠杆（leverage）：调用方（或测试）每理解一单位 interface，就能撬动多少实质行为。大量复杂行为藏在小接口之后时，module 是 **deep**；接口复杂度几乎和内部实现一样多时，module 是 **shallow**。
+- **Seam（深接缝，Michael Feathers）**：可以在不直接修改当前文件源码的情况下改变行为的地方；也就是 module 的 interface 所在的*物理位置*。接缝放在哪里是独立的设计决策，不同于接缝后面藏着什么。（避免使用：boundary，它与 DDD 的 bounded context 混淆）
+- **Adapter（适配器）**：在 seam 上满足某个 interface 的具体实例。描述的是 *role（填哪个槽位）*，而不是 substance（内部是什么）。
+- **Leverage（调用杠杆）**：调用方从 Depth 获得的收益：每学习掌握一单位 interface，就能获得极大能力。一次实现可在 N 个调用处和 M 个测试中持续收回认知成本。
+- **Locality（维护内聚）**：维护者从 Depth 获得的收益：改动、Bug 排查、业务知识与测试验证集中在一处，而不是散落到各个调用方中。修一次，到处生效。
 
-- **Pass-through Methods / Middle Man**：没有任何实质逻辑、仅仅把参数转发给下一个函数的浅包装层。
-- **Leaky Abstractions**：接口强迫调用方管理事务边界、底层重试次数或初始化顺序。
-- **Barrel Files**：在目录根建立盲目 re-export 整个子树的大桶 index 文件，模糊了真正的模块边界，导致模块依赖分析失效。
-- **Testing Internals**：给私有辅助函数编写单元测试，导致内部稍有重构测试就大面积脆裂报废。
-- **Premature Generalization**：在出现两个真实独立的调用方之前，为了想象中的未来过早建立抽象层。
+---
+
+## Deep vs. Shallow（深模块 vs. 浅模块）
+
+```text
+Deep module（深模块，极力推崇）:
++------------------+
+| Small Interface  | -> 方法极少、参数精炼、易懂
++------------------+
+|                  |
+| Deep             | -> 内部隐藏复杂的算法、状态机与排障防御
+| Implementation   |
+|                  |
++------------------+
+
+Shallow module（浅模块，坚决避免）:
++-------------------------------+
+| Large Interface               | -> 方法繁多、暴露过多参数与配置
++-------------------------------+
+| Thin Implementation           | -> 内部大半只是空洞的参数转发（Pass-through）
++-------------------------------+
+```
+
+设计 interface 时时刻自问：
+1. 我能减少对外暴露的方法数量吗？
+2. 我能简化参数列表吗？
+3. 我能把更多复杂的内部细节隐藏在接缝之后吗？
+
+---
+
+## 核心设计法则（Principles）
+
+1. **Depth 是 interface 上的杠杆属性，不是代码行数。**
+   深模块内部可以由许多小的、可替换的子部件组成，只要它们不泄露到 interface 上即可。模块可以拥有内部测试专用的 **internal seams**，以及对外暴露的 **external seam**。
+2. **Deletion test（删除检验法）**：
+   想象把这个 module 彻底删掉：
+   - 如果系统的复杂度瞬间消失了，说明它只是个多余的浅包装层（Pass-through）；
+   - 如果它的复杂度被迫重新散落到全系统 N 个调用方里，说明它正在发挥巨大的深模块价值。
+3. **Interface is the test surface（接口即测试表面）**：
+   业务调用方和测试必须穿过同一个 seam。如果你发现必须侵入接口去测试内部私有细节，说明该模块的抽象形状设计错了。
+4. **One adapter = hypothetical seam; Two adapters = real seam**：
+   除非明确存在至少两个 adapters（通常是生产真实实现 + 测试内存替身），否则不要凭空引入接缝。单 adapter 的接缝往往只是无意义的过早抽象。
+
+---
+
+## 被否决的传统构陷（Rejected Framings）
+
+- ❌ **把 Depth 理解为“代码行数多”**（Ousterhout 原始论文陷阱）：这会反向鼓励把代码写得冗长臃肿。这里严格奉行 **Depth-as-leverage（以小接口撬动大行为）**。
+- ❌ **把 Interface 狭义理解为语言的 `interface` 关键字**：接口包括调用方为了不踩坑必须知道的所有不变量、顺序与错误模式。
+- ❌ **泛滥的通用浅包装层（Pass-through & Middle Man）**：没有任何业务逻辑、只是把入参转给下一层调用的空壳包装器。
+
+---
+
+## 扩展指引
+
+- **深化依赖集群**：见 [DEEPENING.md](DEEPENING.md)（依赖分类、接缝纪律与测试替换战略）；
+- **方案二次设计**：见 [DESIGN-IT-TWICE.md](DESIGN-IT-TWICE.md)（并行子 Agent 探索截然不同的接口方案）。
