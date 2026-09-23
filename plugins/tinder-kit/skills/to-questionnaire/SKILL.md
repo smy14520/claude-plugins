@@ -12,14 +12,14 @@ disable-model-invocation: true
 
 普通的 `grilling` 技能审问的是方案本身；但如果你自己根本不知道答案，继续逼问你只会导致幻觉和内耗。
 
-**`to-questionnaire` 彻底反转视角：只审问“发送（The Send）”**：
+**`to-questionnaire` 反转视角：只审问“发送（The Send）”**：
 - 对方是谁？他们的专长是什么？
 - 你需要从他们那里拿回什么具体结论？
 - 问卷瞄准的正是**“对方知道的”与“你需要的”之间的信息鸿沟**。
 
 ---
 
-## 三步执行操典（Three Steps）
+## 三步执行步骤（Three Steps）
 
 ### 1. 审问接收人（Who is it going to?）
 在一次简洁交互中，向开发者澄清：
@@ -33,7 +33,7 @@ disable-model-invocation: true
 
 ### 3. 起草并落盘问卷（Draft & Save）
 针对上述缺口生成结构严谨的问卷，直接写入 `.forge/questionnaires/<slug>.md`（若未显式指定 slug，从议题推导极简短名）：
-- 每个问题必须是**单一概念**，严禁复合多问；
+- 每个问题只问一个概念；
 - 重要或易被草率回答的问题下方附带一行 `_Why this matters: ..._`；
 - 每个问题下方附带标准引用格式的留白回答框（`> `），便于对方直接在 Markdown 中打字回复；
 - **在终端显式输出文件路径与摘要预览**，提示用户可直接复制发送至 IM、邮件或协作文档。
@@ -42,7 +42,7 @@ disable-model-invocation: true
 
 ## 标准问卷结构模板（Document Structure）
 
-落盘在 `.forge/questionnaires/<slug>.md` 的文档必须严格遵循以下结构：
+落盘在 `.forge/questionnaires/<slug>.md` 的文档必须遵循以下结构：
 
 ```markdown
 # 决策问卷: {议题标题}
@@ -53,7 +53,7 @@ disable-model-invocation: true
 
 ## 1. 背景摘要 (Context)
 
-用 1~2 段精炼文字向接收人同步背景。足够对方做出准确判断即可，严禁长篇大论。
+用 1~2 段精炼文字向接收人同步背景。背景写到对方足以判断为止。
 
 ## 2. 填答指引 (How to answer)
 
@@ -82,11 +82,3 @@ _Why this matters: ..._
 
 > 
 ```
-
----
-
-## 反模式（Anti-Patterns）
-
-- **Grilling the User on Facts They Don't Know**：对着没有业务决定权的开发者不断追问“到底要支持哪种退款模式”，导致死循环；
-- **Compound Questions**：“你希望支持导出 Excel 吗？如果支持的话需要支持多大文件且是否发邮件？”（拆成独立小题）；
-- **Missing "Why This Matters"**：只抛出一个抽象问题，不解释背后技术代价，导致对方随手给出一个极难实现或不切实际的答案。

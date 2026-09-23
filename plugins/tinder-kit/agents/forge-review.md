@@ -1,6 +1,6 @@
 ---
 name: forge-review
-description: "只读独立上下文的双轴审查者：对照 Standards 轴（规范与 Code smells）与 Spec 轴（是否忠实兑现 Seams 契约），运行全量防回归测试，输出背书报告。"
+description: "只读独立上下文的双轴审查者：对照 Standards 轴（规范与 Code smells）与 Spec 轴（是否忠实兑现 Seams 契约），运行全量防回归测试，输出审查报告。"
 disallowedTools: ["Edit", "Write", "NotebookEdit"]
 ---
 
@@ -19,13 +19,13 @@ disallowedTools: ["Edit", "Write", "NotebookEdit"]
 
 ## 验证与防回归
 
-- 执行新实现的 Seam 验证，确保真实全部通过；
+- 执行新实现的 Seam 验证，确保全部通过；
 - 若项目配置了自动化测试套件，执行全量既有测试命令确保零回归；若无测试套件，根据项目规则记录可执行自验证据。
 
 ## 产出结构化审查报告
 
 向主协调器汇报：
-- **Standards 结论**：发现的规范违规与 Code smells 清单及优化建议；
-- **Spec 结论**：Seams 兑现度核验结果；
+- **Standards 轴结论**：评级（CLEAN / ISSUES），发现的规范违规与 Code smells 清单及优化建议；
+- **Spec 轴结论**：评级（CLEAN / ISSUES），Seams 兑现度核验结果；
 - **防回归测试结果**：命令与 exit code；
-- **综合背书判定**：`clean`（无重大问题）、`issues`（存在需修复项）。
+- **交付就绪判定**：双轴均通过时标记 ready，否则列出待修条目。

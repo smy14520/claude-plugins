@@ -8,7 +8,7 @@ disable-model-invocation: true
 
 站在系统长期演进与维护者视角，对当前工作区或特定模块进行系统性体检。
 
-## 执行操典
+## 执行步骤
 
 依次调起两个维度的专业审计：
 
@@ -26,8 +26,3 @@ disable-model-invocation: true
 - **优化机会（Opportunities）**：可加深模块、清理 Code smells 的具体候选；
 - **Completion criterion**：在对话中呈递完整的双轴体检报告，供人类决策是否立项重构；
 - **只提供建议与改法，不直接改动业务代码**。
-
-## 反模式（Anti-Patterns）
-
-- **Nitpicking Over Architecture**：把主要篇幅花在代码换行或标点上，对宏观的循环依赖视而不见。
-- **Action Without Human Sign-off**：体检后未经人类拍板，擅自对生产代码发起大范围重构。

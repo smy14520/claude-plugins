@@ -9,15 +9,13 @@ description: "面向棘手缺陷、Heisenbug / Flaky 故障与性能回退的严
 
 ## Redact（脱敏先行）
 
-在展示 commands、outputs 和捕获的 artifacts 前，**必须先 redact 掉每个 secret**——统一用 `<REDACTED>` 替换。Build loops 要针对环境变量进行，让 credential 留在环境中而不是日志里。捕获的 artifacts 带有 auth headers 时：只引用携带 signal 的必要行。
+在展示 commands、outputs 和捕获的 artifacts 前，先 redact 掉每个 secret——统一用 `<REDACTED>` 替换。Build loops 要针对环境变量进行，让 credential 留在环境中而不是日志里。捕获的 artifacts 带有 auth headers 时：只引用携带 signal 的必要行。
 
 ---
 
 ## Phase 1 - Build a feedback loop（构建紧凑变红回路）
 
-**这是排障的核心。** 其他内容都是机械步骤。如果你拥有一个针对该 bug 的 **tight** pass/fail signal，即它会在 _这个_ bug 上稳定变红，你就能找到根因；bisection、hypothesis-testing 和 instrumentation 都只是消费这个 signal。没有变红回路，盯着代码看多久都救不了你。
-
-在这里投入不成比例的精力。**要强硬、要有创造力、拒绝放弃。**
+**这是排障的核心。** 其他内容都是机械步骤。如果你拥有一个针对该 bug 的 **tight** pass/fail signal，即它会在 _这个_ bug 上稳定变红，你就能找到根因；bisection、hypothesis-testing 和 instrumentation 都只是消费这个 signal。
 
 ### 构造变红回路的 10 种手段（按序尝试）
 
@@ -45,7 +43,7 @@ description: "面向棘手缺陷、Heisenbug / Flaky 故障与性能回退的严
 
 ### When you genuinely cannot build a loop（无法构造回路时的出口）
 
-停下来并明确说明。列出尝试过什么。向用户请求：(a) 能复现的环境访问权限，(b) 经脱敏的 captured artifact（HAR、log dump、core dump、录屏），或 (c) 添加临时生产 instrumentation 的许可。**严禁** 在没有变红回路时直接空想假设。
+停下来并明确说明。列出尝试过什么。向用户请求：(a) 能复现的环境访问权限，(b) 经脱敏的 captured artifact（HAR、log dump、core dump、录屏），或 (c) 添加临时生产 instrumentation 的许可。在构造出变红回路前，不直接假设根因；无法构造时先按上述 (a)/(b)/(c) 寻求支持。
 
 ### Completion criterion
 - [ ] **Red-capable**：能在该 bug 上变红、修复后变绿；
@@ -88,7 +86,7 @@ description: "面向棘手缺陷、Heisenbug / Flaky 故障与性能回退的严
 ### 工具优先级（Tool Preference）
 1. **Debugger / REPL inspection**：一个断点胜过十条 logs；
 2. **Targeted logs**：放在能区分不同 hypotheses 的 boundaries 上；
-3. **严禁 "log everything and grep"**。
+3. **Targeted probing**：每个探针对应一个具体假设，不使用无目标的漫灌式打标（No log-everything-and-grep）。
 
 给每条调试日志加统一前缀，例如 `[DEBUG-DIAGNOSE]`，以便最后一次性清理。
 
@@ -107,9 +105,9 @@ description: "面向棘手缺陷、Heisenbug / Flaky 故障与性能回退的严
 实施步骤：
 1. 将 minimised repro 转化为该 seam 上的 failing test；
 2. 亲眼看它 fail；
-3. 实施针对性根治代码；
+3. 实施消除源头状态的针对性根治代码（不只在报错处做局部判空）；
 4. 亲眼看它 pass；
-5. 重新针对原始（未最小化）场景运行 Phase 1 feedback loop，确认彻底修复。
+5. 重新针对原始（未最小化）场景运行 Phase 1 feedback loop，确认修复。
 
 ---
 
@@ -118,14 +116,6 @@ description: "面向棘手缺陷、Heisenbug / Flaky 故障与性能回退的严
 完成退出清单：
 - [ ] 原始场景不再复现（重跑 Phase 1 loop 确认变绿）；
 - [ ] 防回归测试稳定通过；
-- [ ] 全局 grep `[DEBUG-DIAGNOSE]`，彻底清理所有临时插桩；
-- [ ] 临时丢弃型 harness/探针已清理；
+- [ ] 全局 grep `[DEBUG-DIAGNOSE]`，清理所有 [DEBUG-DIAGNOSE] 插桩；
+- [ ] 临时 harness 已清理；
 - [ ] **把证实的假设写入 commit message**，让下一个排障者能够溯源学习。
-
----
-
-## 经典排障陷阱（Anti-Patterns）
-
-- **Root-Cause Blindness（表象涂抹）**：仅在报错位置加判空或空 try-catch 掩耳盗铃，未消除引发异常的源头状态。
-- **Fix-by-Permutation（排列组合盲试）**：缺乏插桩证据时凭直觉连续修改多处逻辑，导致引入新的隐性回归。
-- **No-Loop Hypothesising（空中楼阁）**：在没有可运行的变红命令前，直接阅读代码长篇大论假设根因。

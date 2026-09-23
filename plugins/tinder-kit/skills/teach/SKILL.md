@@ -15,9 +15,9 @@ argument-hint: "你想学习什么主题？"
 
 将当前主题目录视为教学工作区，学习状态持久化在以下文件与目录中：
 
-- `MISSION.md`：记录用户为什么对这个主题感兴趣、现实目标是什么。所有教学必须以此为基准（见 [MISSION-FORMAT.md](references/mission-format.md)）；
+- `MISSION.md`：记录用户为什么对这个主题感兴趣、现实目标是什么。所有教学以此为基准（见 [MISSION-FORMAT.md](references/mission-format.md)）；
 - `./reference/*.html`：权威参考材料目录。从课程中沉淀出的速查浓缩单页（语法、算法速查、术语表、流程图），适合打印或日常速查；
-- `RESOURCES.md`：可信权威资源清单，教学必须以此为依据，**绝不轻信模型的参数化记忆**（见 [RESOURCES-FORMAT.md](references/references-format.md)）；
+- `RESOURCES.md`：可信权威资源清单，以 RESOURCES.md 为教学依据（见 [RESOURCES-FORMAT.md](references/references-format.md)）；
 - `./learning-records/*.md`：学习记录目录。类比软件开发中的 ADR，记录非显而易见的洞见、纠偏记录与关键心智模型（命名如 `0001-<name>.md`，见 [LEARNING-RECORD-FORMAT.md](references/learning-record-format.md)），用于动态计算最近发展区（ZPD）；
 - `./lessons/*.html`：正式课件目录。一个 **Lesson** 是一个自包含的 HTML 文件，教授一个紧凑的知识切片；
 - `./assets/*`：跨课程共享的可复用样式表、测试小部件与图形组件；
@@ -53,8 +53,8 @@ argument-hint: "你想学习什么主题？"
 1. **单课小而美（Tangible Win）**：
    每个 Lesson 都是一个独立的 HTML，排版干净优雅（Tufte 风格）。课件必须短小精炼，给用户一个明确、可感知的阶段性成就感。
 2. **复用先行（Assets Default）**：
-   统一引用 `./assets/` 下的共享 CSS 与组件库，课件必须呈现为一套成体系的系列课程，而不是随意拼凑的页面。
-3. **测验反作弊铁律（Quiz Anti-Cheating）**：
-   在编写互动小测验时，**每个选项的字数/字符数必须保持高度一致**！严禁通过排版、格式或字数长短泄露正确答案线索。
+   统一引用 `./assets/` 下的共享 CSS 与组件库，课件呈现为一套成体系的系列课程，而不是随意拼凑的页面。
+3. **测验选项等长（Quiz Anti-Cheating）**：
+   在编写互动小测验时，各选项长度和格式保持一致，不通过排版或字数长短泄露答案线索。
 4. **走向社群（Wisdom Delegation）**：
-   当用户遇到需要真实工程经验（Wisdom）的深水问题时，给出解答的同时，**主动推荐高质量的开源社区、论坛或线下技术小组**，引导用户到真实世界中验证。
+   当用户遇到需要真实工程经验（Wisdom）的实际工程问题时，给出解答的同时，推荐高质量的开源社区、论坛或线下技术小组，引导用户到真实世界中验证。

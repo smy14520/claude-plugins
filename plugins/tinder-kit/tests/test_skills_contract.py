@@ -18,7 +18,18 @@ import pytest
 PLUGIN_ROOT = Path(__file__).resolve().parents[1]
 REPO_ROOT = PLUGIN_ROOT.parents[1]
 
-USER_INVOKED_FLOWS = {"init", "develop", "fix", "audit", "wayfinder", "teach", "dream", "research", "to-questionnaire"}
+USER_INVOKED_FLOWS = {
+    "init",
+    "develop",
+    "fix",
+    "audit",
+    "wayfinder",
+    "teach",
+    "dream",
+    "research",
+    "to-questionnaire",
+    "sparring",
+}
 MODEL_INVOKED_DISCIPLINES = {
     "grilling",
     "codebase-design",

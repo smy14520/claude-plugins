@@ -4,15 +4,15 @@
 
 ## 1. Settled Decisions (已锁定的决策)
 
-<!-- 已经拍定的技术选型、架构方向，后续阶段禁止无故反悔重新讨论 -->
+<!-- 已经拍定的技术选型、架构方向，已拍定的决策（要推翻时写明理由） -->
 - {decision_1}
 
-## 2. Agreed Seams & Contracts (深接缝与行为契约)
+## 2. Agreed Seams & Contracts (Seams 契约)
 
-<!-- 本阶段确定或更新的深接口，TDD与审查以此为准绳 -->
+<!-- 本阶段确定或更新的 Seam 契约，TDD与审查以此为准绳 -->
 - {seam_1}
 
-## 3. Discovered Gotchas (隐性事实与暗坑)
+## 3. Discovered Gotchas (隐性事实与 Gotcha)
 
 <!-- 代码和文档中未体现的发现：依赖怪癖、环境陷阱、被否决的弯路 -->
 - {gotcha_1}

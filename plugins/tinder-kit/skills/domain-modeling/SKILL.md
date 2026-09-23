@@ -9,7 +9,7 @@ description: "构建并打磨项目的领域模型与统一语言。在统一多
 
 ---
 
-## 核心执行操典（Active In-Session Discipline）
+## 核心执行步骤（Active In-Session Discipline）
 
 ### 1. 对照词典主动挑战（Challenge against the glossary）
 当对话或新需求中使用的术语与既有概念（`CONTEXT.md` 或 `.forge/wiki/concept/`）发生冲突或语义漂移时，立即指出并纠偏：
@@ -28,14 +28,14 @@ description: "构建并打磨项目的领域模型与统一语言。在统一多
 > *"你的描述中提到订单支持部分退款，但我检索了当前 `OrderService.ts` 中的实现，发现里面直接全量作废整笔订单并抛出不可拆分异常——代码与你的设想矛盾，哪一个才是存量真相？"*
 
 ### 5. 即时就地更新（Update inline）
-一旦某个概念的定义达成共识，立即更新至 `CONTEXT.md` 或 `.forge/wiki/concept/<slug>.md`。**严禁批量攒到最后**，随着概念出现随时捕获。
+概念一达成共识就立即更新至 `CONTEXT.md` 或 `.forge/wiki/concept/<slug>.md`。
 - 格式规范见 [CONTEXT-FORMAT.md](./CONTEXT-FORMAT.md)；
-- `CONTEXT.md` 是纯粹的业务概念字典，严禁写入具体技术实现细节或代码片段。
+- `CONTEXT.md` 是业务概念字典，只收录本领域独有的业务概念。
 
 ### 6. 克制地提出 ADR 提案（Offer ADRs sparingly）
-坚决反对低价值 ADR 泛滥。只有以下**三项条件全部满足时**，才提出记录 ADR：
+三项条件全部满足时才提 ADR：
 1. **Hard to reverse（难以逆转）**：日后推翻决定的技术或业务代价极其高昂（One-way door 决策）；
 2. **Surprising without context（无上下文时反直觉）**：未来读者看到代码会极其困惑：“为什么当时要这么怪异地实现？”；
 3. **The result of a real trade-off（真实取舍的产物）**：确实存在另一个切实可行的备选方案，而我们基于具体理由放弃了它。
 
-缺少任一项，坚决跳过 ADR。模板与规范见 [ADR-FORMAT.md](./ADR-FORMAT.md)。
+三项缺一则跳过。模板与规范见 [ADR-FORMAT.md](./ADR-FORMAT.md)。

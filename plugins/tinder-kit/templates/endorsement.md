@@ -1,6 +1,6 @@
 # Endorsement: {title}
 
-> 任务: `{task_slug}` | 背书时间: {timestamp}
+> 任务: `{task_slug}` | 审查时间: {timestamp}
 
 ## 1. Seams Verification (Seams 契约验证)
 
@@ -23,4 +23,4 @@
 
 ## 4. Human Commit Ready (交付就绪)
 
-系统改动已通过全部 Seams 契约与防回归背书，代码质量经双轴审查收敛。请人类开发者审查 `git diff` 并执行 Commit。
+系统改动已通过全部 Seams 契约与防回归验证，代码质量经双轴审查收敛。请人类开发者审查 `git diff` 并执行 Commit。

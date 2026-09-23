@@ -22,17 +22,17 @@
 
 ---
 
-## Seam discipline（接缝纪律）
+## Seam 规则（Seam rules）
 
 - **One adapter means a hypothetical seam. Two adapters means a real one.**
   除非至少有两个 adapters 合理并存（通常是 production + test），否则不要过早引入 seam。只有一个 adapter 的 seam 纯粹是无谓的间接层（Indirection）。
 - **Internal seams vs external seams**
-  深模块内部可以拥有私有 internal seams（供自身集成测试使用），对外拥有 interface 处的 external seam。坚决不要只因为单元测试需要就将内部 seams 泄露到公共 interface。
+  深模块内部可以拥有私有 internal seams（供自身集成测试使用），对外拥有 interface 处的 external seam。内部 seam 留在模块内部，对外只暴露 interface。
 
 ---
 
 ## Testing strategy: replace, don't layer（测试演进：替换而非叠加）
 
 - 一旦 deepened module 的 interface 上建立起了行为测试，旧有的 shallow modules 琐碎单测就变成了维护负担，果断删除它们；
-- **Interface is the test surface**：测试通过公共 interface 断言可观测结果，绝不窥探内部状态；
+- **Interface is the test surface**：测试通过公共 interface 断言可观测结果；
 - 测试应能承受内部重构；若实现细节改动迫使测试联动改动，说明测试已经越过 interface 发生了耦合。

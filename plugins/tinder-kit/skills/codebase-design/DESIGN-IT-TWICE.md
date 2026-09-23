@@ -10,7 +10,7 @@
 在启动 sub-agents 前，先写一段面向用户的问题空间说明：
 - 新 interface 需要满足的硬性 constraints；
 - 它所依赖的 dependencies 属于哪一类（参见 [DEEPENING.md](DEEPENING.md)）；
-- 一个粗略的示意性代码草稿（illustrative code sketch），用于让约束具象化；这绝不是最终提案，只用于帮助理解边界。
+- 一个粗略的示意代码草稿（illustrative code sketch），只用来让约束具象化。
 
 ### 2. 派发并行子 Agent（Spawn sub-agents）
 并行派生 3 个以上的独立 sub-agents。每个 agent 必须为 deepened module 产出一套**截然不同（Radically Different）**的 interface 设计方案。

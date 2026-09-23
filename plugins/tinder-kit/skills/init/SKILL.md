@@ -13,7 +13,7 @@ disable-model-invocation: true
 ### 1. 技术栈与环境嗅探（Detection）
 - **语言与框架**：检查根目录与包配置文件（`package.json`, `pyproject.toml`, `Cargo.toml`, `go.mod` 等）；
 - **测试框架**：检查是否存在测试运行器（`vitest`, `jest`, `pytest`, `cargo test`, `go test` 等）及默认执行命令；
-  - 若**存在测试框架**：记录测试命令为项目的自动化背书基线；
+  - 若**存在测试框架**：记录测试命令为项目的自动化 evidence 基线；
   - 若**无测试框架**：记录该项目为“自验/运行型项目”（如纯前端演示、CLI 工具、脚本工具），避免后续编排强制要求测试；
 - **代码规范**：检查是否有配置好的 linter / formatter（`eslint`, `biome`, `ruff` 等）。
 
@@ -23,9 +23,9 @@ disable-model-invocation: true
   ```text
   prototypes/
   ```
-  确保 Throwaway 原型脏代码绝不意外污染项目 Git 提交历史。
+  确保 Throwaway 原型代码不进入项目 Git 提交历史。
 
-### 3. 初始化全局活字典（根目录 `CONTEXT.md`）
+### 3. 初始化全局业务概念表（根目录 `CONTEXT.md`）
 - 若项目根目录已存在 `CONTEXT.md`，保持原样不覆盖；
 - 若不存在，根据嗅探到的顶级目录与关键模块，生成高信噪比骨架：
   - **Core Entities**：基于代码库提取出的核心业务概念占位；
@@ -44,8 +44,3 @@ disable-model-invocation: true
 
 ### 5. 完成呈递（Completion Criterion）
 - **Completion criterion**：在对话中展示检测到的技术栈摘要、已生成的 `CONTEXT.md` 与 `.claude/rules/` 路径，提示用户可直接通过 `/develop` 开启第一个需求。
-
-## 反模式（Anti-Patterns）
-
-- **Overwriting Existing Context**：未经用户同意盲目覆盖项目已有的 `CONTEXT.md` 或 rules 配置。
-- **Forcing Test Runners on Empty Projects**：对明确没有测试框架的小工具硬加不存在的测试命令。

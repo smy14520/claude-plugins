@@ -8,7 +8,7 @@ disable-model-invocation: true
 
 模拟人脑睡眠中的“记忆重组（Memory Consolidation）”机制：对长期累积的 `CLAUDE.md`、`.claude/rules/` 与 `.forge/wiki/` 进行只读体检与深度交叉比对，输出格式严谨的 **RFC 整理提议报告** 呈递给人类。
 
-**核心红线：本技能执行只读审计，生成报告后强制停止，绝不擅自篡改已生效的规则与文档。**
+本技能执行只读审计，输出 RFC 报告后停下，等用户裁决。
 
 ---
 
@@ -18,7 +18,7 @@ disable-model-invocation: true
 
 1. **👻 僵尸条目（Zombie / Stale Entries）**：
    - 检查 Wiki 条目中的 `file#symbol` 符号锚或文件路径引用；
-   - 找出那些在代码库中已被删除、重命名或重构彻底废弃的陈旧条目。
+   - 找出那些在代码库中已被删除、重命名或已废弃的陈旧条目。
 2. **⚡ 规则冲突（Rule Contradictions）**：
    - 交叉比对 `CLAUDE.md` 与 `.claude/rules/` 下的所有规则；
    - 标出由于不同时期编写导致的冲突建议（如一条写“所有改动必须通过单测”，另一条写“脚本改动直接手动自验”）。
@@ -26,9 +26,9 @@ disable-model-invocation: true
    - 识别语义高度相似、分散在多个页面的踩坑记录（Gotchas）或领域概念；
    - 设计合并重组方案。
 4. **🧭 放置越位（Placement Drift）**：
-   - 对照“三问放置罗盘”检查：
+   - 对照三问放置判据检查：
      - 是否有长尾琐碎的单文件细节错误地塞进了 `CLAUDE.md`（污染全景工作记忆）；
-     - 是否有全项目必须遵守的绝对底线被藏在深层 Wiki 中。
+     - 是否有全项目必须遵守的底线被藏在深层 Wiki 中。
 
 ---
 
@@ -46,7 +46,7 @@ disable-model-invocation: true
 
 ### [RFC-1] 👻 建议归档僵尸条目
 - **目标**: `.forge/wiki/gotcha/old-api-bug.md`
-- **原因**: 引用符号 `src/legacy.ts#OldParser` 已在提交 a1b2c3d 中被彻底删除。
+- **原因**: 引用符号 `src/legacy.ts#OldParser` 已在提交 a1b2c3d 中被删除。
 - **动作**: 移入 `.forge/wiki/archive/`。
 
 ### [RFC-2] ⚡ 规则冲突请人类裁决
@@ -65,7 +65,7 @@ disable-model-invocation: true
 
 ## 阶段三：等待人类指示与精准执行 (Human-on-the-Loop)
 
-1. **绝对停顿**：报告输出完毕后，立刻停止任何写操作，明确等待人类回复；
+1. 输出 RFC 报告后停下，等用户裁决；
 2. **人类指令接续**：
    - 若人类回复：“批准全部”，调用相关工具执行全部 RFC 调整；
    - 若人类回复：“采纳 RFC-1 和 RFC-3，忽略 RFC-2”，仅执行指定条目；

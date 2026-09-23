@@ -29,11 +29,6 @@ description: "站在长期维护者视角的宏观架构审计（实体放置裁
 ## 产出与退出准则（Completion Criterion）
 
 - 审计报告直接交付对话或汇总至对应交接文档；
-- **Completion criterion**：每个 finding 必须**可证伪**，明确指出 `file:line` 与“怎样重构才算消除问题”；
-- **只提供架构裁决建议，不擅自改动代码**：交由人类拍板决策。
-
-## 反模式（Anti-Patterns）
-
-- **Vague Hand-waving**：使用“建议解耦”、“代码不够优雅”等不可证伪的话术。
-- **Bikeshedding on Reversible Choices**：把时间浪费在变量重命名等完全可逆的小决定上，遗漏了不可逆契约（One-way doors）的风险。
-- **Unilateral Re-architecture**：在未向人类展示替代方案代价前，擅自推翻现有经过验证的业务模型。
+- **Completion criterion**：每个 finding 必须**可证伪**，明确指出 `file:line` 与“怎样重构才算消除问题”；避免使用不可证伪的抽象评价；
+- **只提供架构裁决建议，不擅自改动代码**：交由人类拍板决策；
+- 只关注会造成长期代价的架构放置与依赖方向，跳过变量重命名等完全可逆的小决定。
