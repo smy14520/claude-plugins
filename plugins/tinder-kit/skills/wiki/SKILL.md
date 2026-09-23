@@ -1,6 +1,6 @@
 ---
 name: wiki
-description: "查询历史架构决策、检索避坑经验（Gotcha）、排查多文件联动拓扑（Cross-cut）或维护项目三级记忆（CLAUDE.md、.claude/rules/、.forge/wiki/）时调用。"
+description: "改动不熟悉的模块前查它的历史决策、踩过的坑（Gotcha）与联动修改链路（Cross-cut）；追问“当初为什么这么写”；或把新发现沉淀进项目三级记忆（CLAUDE.md、.claude/rules/、.forge/wiki/）时调用。"
 ---
 
 # Wiki — 全局分层记忆与知识管家
@@ -56,7 +56,7 @@ description: "查询历史架构决策、检索避坑经验（Gotcha）、排查
 
 ### 2. 问诱惑与语态（Temptation & Imperative）── 是否进 L2 `.claude/rules/`？
 - **判据**：模型是否有默认倾向去犯错？且能否抽象为一句简短有力的正向硬准则？
-- **正例**：“所有数据库查询走参数化 SQL”、“批量合并网络请求，避免在循环内逐条发起”；
+- **正例**：“数据库查询走原生 SQL，不引入 ORM”、“批量合并网络请求，避免在循环内逐条发起”；
 - **反例**：“为什么当年选手写 SQL 的详细 Benchmark 报告”（报告进 L3 Wiki，结论进 L2 Rules）。
 
 ### 3. 问长尾与信噪比（Signal-to-Noise）── 是否进 L3 `.forge/wiki/`？
@@ -80,7 +80,6 @@ description: "查询历史架构决策、检索避坑经验（Gotcha）、排查
 ## 权限与分级审批（Guardrails）
 
 - **L1 (`CLAUDE.md`) & L2 (`.claude/rules/`) 变更**：
-  - 变更需经确认；
   - 在终端向人类展示精准的 Git-style Diff 提议，获得明确同意后方可使用 `Edit` 工具写入。
 - **L3 (`.forge/wiki/`) 变更**：
   - 采用**顺风车提案（Rider Proposal）**：在 `/fix` 或 `/develop` 收尾时，顺带附带一条极简入库建议，人类回车即收录。
@@ -93,20 +92,20 @@ description: "查询历史架构决策、检索避坑经验（Gotcha）、排查
 ## 符号锚与代码防漂移（Drift-Proof Anchors）
 
 - 引用代码使用符号锚（`file#symbol`），不用行号：
-  - 正确：`[[src/auth/jwt.ts#refreshToken]]`
+  - 正确：`` `src/auth/jwt.ts#refreshToken` ``
   - 错误：`src/auth/jwt.ts:45`（代码增删一行即全部失效）
-- **体检（Linting）**：
-  - 检查符号锚所指向的文件与导出符号是否存在，符号失效或重命名时立即报警。
+- **体检**：`forge wiki lint` 检查符号锚指向的文件与符号是否还在，并报断链、缺 frontmatter、孤儿页。
 
 ---
 
-## 地图索引与按需检索（Map-Reduce）
+## 分级检索（Tiered Retrieval）
 
-- **轻量地图（`.forge/wiki/index.md`）**：
-  - 维护页面路径、一句话触发场景（`description`）、标签（`tags`）与代码符号锚（`anchors`）；
-  - 全局索引控制在极小 Token 预算内，供开工前秒级全景扫描。
-- **按需索骥**：
-  - 开工或访谈时，先扫描轻量地图，根据本次任务涉及的标签与文件单篇提取相关页面。
+页面 frontmatter 是唯一真相源；`index.md` / `log.md` 由命令派生，只给人浏览。检索分两级：
+
+1. **取卡片**：`forge wiki collect --files <要改的文件或目录> --query "<需求关键词>" --json`，返回至多 5 张摘要卡片（标题、description、type、tags、符号锚）。`--files` 按页面符号锚命中，最适合“改这里之前要知道什么”；`--query` 按标题、标签、描述打分，中文可直接写。
+2. **读正文**：从卡片里挑真正相关的 1–2 篇，用 Read 读全文。
+
+写入或更新页面后运行 `forge wiki index --write` 刷新 `index.md` 与 `log.md`。
 
 ---
 
@@ -138,7 +137,7 @@ description: 对接三方客服平台拓扑，包含 HMAC 签名与 2s 超时重
 ### 3. 受控标签准则（Controlled Vocabulary）
 - **完整语义**：使用自解释的完整单词与双轨标签（如 `[ai-customer-service, 客服]`、`[database, 数据库]`），避免使用含义模糊的短缩写；
 - **有效区分度**：标签应指代具体领域或工程机制（如 `[webhook]`, `[idempotency]`），避免使用泛词（如 `code`, `utils`）；
-- **先查后增**：新建条目打标前先检索 `index.md` 既有标签库，优先复用已有标签，防止同义碎片化。
+- **先查后增**：新建条目打标前用 `forge wiki index --json` 查看既有标签，优先复用，防止同义碎片化。
 
 ---
 

@@ -17,6 +17,8 @@ description: "面向棘手缺陷、Heisenbug / Flaky 故障与性能回退的严
 
 **这是排障的核心。** 其他内容都是机械步骤。如果你拥有一个针对该 bug 的 **tight** pass/fail signal，即它会在 _这个_ bug 上稳定变红，你就能找到根因；bisection、hypothesis-testing 和 instrumentation 都只是消费这个 signal。
 
+在这里投入不成比例的精力。要强硬、要有创造力、拒绝放弃。
+
 ### 构造变红回路的 10 种手段（按序尝试）
 
 1. **Failing test**，放在能触达 bug 的 seam 上：unit、integration、e2e 都可以。
@@ -97,10 +99,10 @@ description: "面向棘手缺陷、Heisenbug / Flaky 故障与性能回退的严
 
 ## Phase 5 - Fix + regression test（根治与防回归测试）
 
-在 fix 前写 regression test，但前提是存在 **correct seam（正确接缝）**。
+在 fix 前写 regression test，但前提是存在 **correct seam**。
 
 - **Correct seam** 是测试能以真实调用链路触发 real bug pattern 的地方。如果可用 seam 太 shallow（bug 需要多个 callers，但测试只有 single-caller），那里的测试只会给出虚假信心；
-- **如果不存在 correct seam**：这本身就是架构发现！记录下来，说明系统设计缺乏防守接缝。
+- **如果不存在 correct seam**：这本身就是架构发现！记录下来，说明系统设计缺乏防守 Seam。
 
 实施步骤：
 1. 将 minimised repro 转化为该 seam 上的 failing test；

@@ -19,7 +19,7 @@
 - **Agent 1（极简杠杆）**: "Minimize the interface - aim for 1-3 entry points max. Maximise leverage per entry point."
 - **Agent 2（高扩展性）**: "Maximise flexibility - support many use cases and extension."
 - **Agent 3（主流优先）**: "Optimise for the most common caller - make the default case trivial."
-- **Agent 4（跨接缝）**: "Design around ports & adapters for cross-seam dependencies."
+- **Agent 4（跨 Seam）**: "Design around ports & adapters for cross-seam dependencies."
 
 每个 sub-agent 必须输出：
 1. **Interface 契约**（方法名、入参出参、不变量 invariants、顺序约束、错误模式）；

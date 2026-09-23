@@ -25,7 +25,7 @@ description: "构建一次性 Spike / Throwaway 原型来回答关键设计问�
 ## 两个分支共用的规则（The Rules）
 
 1. **Throwaway from Day One**：
-   原型落在 `.forge/prototypes/<slug>/`（已被 gitignore 忽略），不混入生产业务目录。
+   Logic 原型落在 `.forge/prototypes/<slug>/`；UI 原型放在目标页面旁边，名字带 `prototype`。
 2. **Frictionless to Run**：
    启动必须极其无脑。Logic 原型是双击即开的单文件 HTML，UI 原型通过项目现成的一条命令启动。
 3. **No Persistence by Default**：

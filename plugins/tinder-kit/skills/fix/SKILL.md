@@ -21,7 +21,7 @@ disable-model-invocation: true
   1. **构建紧凑变红命令**：构造一条能在 2 秒内稳定报错复现的自动化用例/脚本，并在屏幕上展示红色报错；
   2. **最小化复现**：剥离无关变量与请求头；
   3. **假设验证**：向用户展示排序后的 2~3 个根因假设，使用 `[DEBUG-DIAGNOSE]` 插桩验证；
-  4. **根治修复**：实施针对性根治，并在接缝处将变红命令固化为**永久性防回归自动化测试**；
+  4. **根治修复**：实施针对性根治，并在对应 Seam 处将变红命令固化为**永久性防回归自动化测试**；
   5. **拔桩复原**：清理所有 [DEBUG-DIAGNOSE] 插桩；
 - **Completion criterion**：针对该 Bug 的自动化回归测试由红变绿（exit 0），且无调试插桩残留。
 
@@ -30,7 +30,7 @@ disable-model-invocation: true
 - **Completion criterion**：既有测试套件全部 PASS，或关键链路自验证实无回归。
 
 ### Phase 3: 沉淀与交接
-- 若发现隐蔽的第三方库陷阱，使用 `Write` 工具在 `.forge/wiki/gotcha/` 沉淀一条 Gotcha 或提议写入项目规则库；
+- 若发现隐蔽的第三方库陷阱，在 `.forge/wiki/gotcha/` 沉淀一条 Gotcha（写完运行 `forge wiki index --write`），或提议写入项目规则库；
 - 将修复总结与防回归验证交接文档写入 `.forge/tasks/<slug>/handoffs/`；
 - 更新 `state.json` 的 `phase` 为 `COMPLETED`；
 - **Completion criterion**：交接文档就绪，状态为 COMPLETED。

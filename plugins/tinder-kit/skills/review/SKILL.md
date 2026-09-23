@@ -1,6 +1,6 @@
 ---
 name: review
-description: "客观独立上下文的双轴代码审查（Standards 代码规范与 Spec 契约兑现度）。在提交前核查 git diff、审计代码异味、验证接缝契约与防回归测试时调用。"
+description: "客观独立上下文的双轴代码审查（Standards 代码规范与 Spec 契约兑现度）。在提交前核查 git diff、审计 Code smells、验证 Seams 契约与防回归测试时调用。"
 ---
 
 # Code Review — 双轴代码审查

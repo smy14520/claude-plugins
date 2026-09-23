@@ -123,6 +123,6 @@ Wayfinder 用于 **规划（Planning）**：
 1. 读取 `map.md`，加载全局低分辨率视图；
 2. 挑选一张当前 **未被阻塞（Unblocked）的前沿票**；
 3. 每个会话解决一张票后停下（Research 调研除外）；
-4. 攻克完成后，在该票中记录拍定的答案与依据，将票关闭，并在 `map.md` 的 `## Decisions so far` 追加一行结论索引；
+4. 攻克完成后，在该票中记录拍定的答案与依据，将票关闭，并在 `map.md` 的 `## Decisions so far` 追加一行结论索引；若结论满足 ADR 三门槛（见 `domain-modeling` 的 ADR-FORMAT.md），写成 ADR，索引行链接到 ADR；
 5. 将迷雾区中已经能够说清的问题，晋升（Graduate）为新的 tickets。
 6. **迷雾散尽即交棒**：当地图所有前沿票均已关闭，迷雾清空时，正式移交至 `/develop` 开启业务施工。

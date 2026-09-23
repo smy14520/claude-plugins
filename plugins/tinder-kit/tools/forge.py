@@ -2,11 +2,11 @@
 """forge — tinder-kit 的轻量任务脚手架与看板工具。
 
 设计原则：
-1. 单一定义点：绝不做双重记账。
+1. 单一定义点：不做双重记账。
    - 任务元数据（title, phase）：在 state.json
-   - 深接缝（Seams）与契约：在 spec.md
+   - Seams 契约：在 spec.md
    - 交接链：在 handoffs/*.md
-   - 交付背书：在 endorsement.md
+   - 交付审查与 evidence：在 endorsement.md
 2. 状态即文件：Agent 使用原生 Edit/Write 工具直接修改文件，享受终端 Diff 与 Undo。
    forge CLI 仅提供人类/初始化高频动作（new, status, root），不充当 CRUD 中间商。
 """
@@ -110,7 +110,7 @@ def write_state(repo_root: Path, state: TaskState) -> None:
 
 
 def get_task_seams(repo_root: Path, slug: str) -> list[str]:
-    """从 spec.md 动态解析深接缝，绝不双重记账。"""
+    """从 spec.md 动态解析 Seam 契约，不做双重记账。"""
     spec_file = spec_path(repo_root, slug)
     if not spec_file.is_file():
         return []
@@ -244,7 +244,7 @@ def cmd_status(repo_root: Path, slug: str | None, json_output: bool) -> int:
         for idx, s in enumerate(seams, 1):
             print(f"    {idx}. {s}")
     else:
-        print("    (尚未在 spec.md 中锁定 Seams 接缝)")
+        print("    (尚未在 spec.md 中锁定 Seam 契约)")
 
     print(f"  交接文档链 ({len(handoffs)} 份, 动态自 handoffs/):")
     if handoffs:
@@ -253,18 +253,26 @@ def cmd_status(repo_root: Path, slug: str | None, json_output: bool) -> int:
     else:
         print("    (暂无交接记录)")
 
-    print(f"  交付背书: {'已完成 (endorsement.md 就绪) ✓' if endorsed else '未完成'}")
+    print(f"  交付 evidence: {'已完成 (endorsement.md 就绪) ✓' if endorsed else '未完成'}")
     return 0
 
 
 # --- Entrypoint ---------------------------------------------------------------
 
 def main(argv: list[str] | None = None) -> int:
+    argv = list(sys.argv[1:] if argv is None else argv)
+    if argv[:1] == ["wiki"]:
+        sys.path.insert(0, str(Path(__file__).resolve().parent))
+        from wiki import main as wiki_main
+        return wiki_main(argv[1:])
     parser = argparse.ArgumentParser(prog="forge", description="tinder-kit 极简任务与看板工具")
     sub = parser.add_subparsers(dest="cmd", required=True)
 
     # root
     sub.add_parser("root", help="输出 tinder-kit 插件根目录")
+
+    # wiki（由 main 开头转发给 tools/wiki.py，这里只为 --help 可见）
+    sub.add_parser("wiki", help="wiki 分级检索：index / search / collect / lint（详见 forge wiki -h）")
 
     # new
     p_new = sub.add_parser("new", help="创建新任务")

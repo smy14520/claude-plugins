@@ -22,6 +22,11 @@
 <!-- 原型探索（prototype）实证结论，无则写“无” -->
 - 无
 
+## Amendments
+
+<!-- 施工期间 spec 的修订：见同目录 amendments.md，影响 Seam 的修订经人类确认后同步到上方 -->
+- 无
+
 ## Out of Scope
 
 <!-- 明确不做的范围，必须经用户确认 -->

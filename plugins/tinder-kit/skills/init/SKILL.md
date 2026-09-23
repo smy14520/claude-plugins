@@ -42,5 +42,14 @@ disable-model-invocation: true
    - 若检测到测试框架：明确测试命令（如 `pnpm test`）、要求自动化测试只针对公共 Seams 契约编写；
    - 若未检测到测试框架：明确该项目的替代验证方法（如“修改后运行 `pnpm dev` 查看本地预览”或“执行 CLI 命令验证输出”）。
 
-### 5. 完成呈递（Completion Criterion）
-- **Completion criterion**：在对话中展示检测到的技术栈摘要、已生成的 `CONTEXT.md` 与 `.claude/rules/` 路径，提示用户可直接通过 `/develop` 开启第一个需求。
+### 5. 写入导航指针（项目 `CLAUDE.md`）
+在项目根 `CLAUDE.md` 末尾追加一行（已有同义指针则跳过；无 `CLAUDE.md` 则创建）：
+
+```text
+改动代码前先运行 `forge wiki collect --files <要改的文件> --json`，查看该处的历史决策与 Gotcha。
+```
+
+这是项目里每个会话都能看到的唯一入口：小改动不走 `/develop` 时，也会先查 wiki。
+
+### 6. 完成呈递（Completion Criterion）
+- **Completion criterion**：在对话中展示检测到的技术栈摘要、已生成的 `CONTEXT.md`、`.claude/rules/` 路径与写入的导航指针，提示用户可直接通过 `/develop` 开启第一个需求。

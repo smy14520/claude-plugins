@@ -1,7 +1,7 @@
 {
   "name": "tinder-kit",
   "version": "0.1.0",
-  "description": "基于任务级隔离（.forge）与深接缝背书的次世代工程 Agent 框架：原子技能解耦（User/Model 两层分治）、Handoff 上下文防爆交接、/develop 端到端无缝编排。",
+  "description": "基于任务级隔离（.forge）与 Seams 契约验证的工程 Agent 框架：原子技能解耦（User/Model 两层分治）、Handoff 上下文隔离交接、/develop 端到端无缝编排。",
   "author": {
     "name": "camellia",
     "email": "camellia@gmail.com"

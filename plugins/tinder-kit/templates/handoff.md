@@ -4,7 +4,7 @@
 
 ## 1. Settled Decisions (已锁定的决策)
 
-<!-- 已经拍定的技术选型、架构方向，已拍定的决策（要推翻时写明理由） -->
+<!-- 已拍定的技术选型与架构方向；要推翻时写明理由 -->
 - {decision_1}
 
 ## 2. Agreed Seams & Contracts (Seams 契约)

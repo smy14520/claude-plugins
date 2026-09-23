@@ -17,7 +17,7 @@ argument-hint: "你想学习什么主题？"
 
 - `MISSION.md`：记录用户为什么对这个主题感兴趣、现实目标是什么。所有教学以此为基准（见 [MISSION-FORMAT.md](references/mission-format.md)）；
 - `./reference/*.html`：权威参考材料目录。从课程中沉淀出的速查浓缩单页（语法、算法速查、术语表、流程图），适合打印或日常速查；
-- `RESOURCES.md`：可信权威资源清单，以 RESOURCES.md 为教学依据（见 [RESOURCES-FORMAT.md](references/references-format.md)）；
+- `RESOURCES.md`：可信权威资源清单，教学以它为依据（见 [RESOURCES-FORMAT.md](references/resources-format.md)）；
 - `./learning-records/*.md`：学习记录目录。类比软件开发中的 ADR，记录非显而易见的洞见、纠偏记录与关键心智模型（命名如 `0001-<name>.md`，见 [LEARNING-RECORD-FORMAT.md](references/learning-record-format.md)），用于动态计算最近发展区（ZPD）；
 - `./lessons/*.html`：正式课件目录。一个 **Lesson** 是一个自包含的 HTML 文件，教授一个紧凑的知识切片；
 - `./assets/*`：跨课程共享的可复用样式表、测试小部件与图形组件；

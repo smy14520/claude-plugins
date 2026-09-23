@@ -17,8 +17,8 @@ disable-model-invocation: true
 全面读取三级记忆资产，并对照当前工作树代码库进行静态分析：
 
 1. **👻 僵尸条目（Zombie / Stale Entries）**：
-   - 检查 Wiki 条目中的 `file#symbol` 符号锚或文件路径引用；
-   - 找出那些在代码库中已被删除、重命名或已废弃的陈旧条目。
+   - 运行 `forge wiki lint --json`：失效的符号锚、断链、孤儿页由命令直接列出；
+   - 在此基础上判断哪些条目描述的行为已被代码废弃（符号还在但语义已变，命令查不出）。
 2. **⚡ 规则冲突（Rule Contradictions）**：
    - 交叉比对 `CLAUDE.md` 与 `.claude/rules/` 下的所有规则；
    - 标出由于不同时期编写导致的冲突建议（如一条写“所有改动必须通过单测”，另一条写“脚本改动直接手动自验”）。
@@ -69,4 +69,4 @@ disable-model-invocation: true
 2. **人类指令接续**：
    - 若人类回复：“批准全部”，调用相关工具执行全部 RFC 调整；
    - 若人类回复：“采纳 RFC-1 和 RFC-3，忽略 RFC-2”，仅执行指定条目；
-3. 执行完成后重新索引 `.forge/wiki/index.md`，并向人类汇报变动摘要。
+3. 执行完成后运行 `forge wiki index --write` 重建索引，并向人类汇报变动摘要。
