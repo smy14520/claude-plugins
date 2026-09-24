@@ -52,7 +52,8 @@ class Supervisor:
    - 它的表现如何？是否主动澄清了隐性假设？提问是否切中要害？有无卡顿或死循环苗头？（用 1~2 句话写下考评观察）
 2. 【产品答复 (reply)】：以真实人类需求方口吻，对开发者的问题给予明确答复。
    - 必须严格忠实于你的《需求底牌卡》（如本地 JSON 存储、标签过滤等），拍定边界，给出清晰决策。（用 1~2 句话简明作答）
-3. 【完成判定 (is_completed)】：开发者是否已经彻底完成了全部交付（如呈现了交付总结、背书钢印或提示 commit）？若是则设为 true，否则为 false。
+   - 【开工指令】：若双方已消除所有疑问、对边界达成一致，且开发者在等待下一步指令或询问是否开工时，请你的 reply 明确输出指令："/implement"（可直接输出 /implement 或明确指示运行 /implement 开工），驱动终端进入编码实现。
+3. 【完成判定 (is_completed)】：开发者是否已经彻底完成了全部交付（如呈现了交付总结、背书钢印或提示/已完成 commit）？若是则设为 true，否则为 false。
 
 你必须只输出一段合法的 JSON，严禁输出任何多余的开场白或 markdown 标记外的文字，格式如下：
 ```json
@@ -73,7 +74,7 @@ class Supervisor:
                 capture_output=True,
                 text=True,
                 env=env,
-                timeout=90,
+                timeout=120,
             )
             raw = res.stdout.strip()
             # 提取 JSON 代码块或直接解析
@@ -101,14 +102,23 @@ class Supervisor:
         files = [p.relative_to(workdir).as_posix() for p in workdir.rglob("*") if p.is_file() and not p.name.startswith(".git")]
 
         spec_text = ""
-        spec_file = workdir / ".forge" / "tasks" / "todo" / "spec.md"
-        if spec_file.is_file():
-            spec_text = spec_file.read_text(encoding="utf-8")
+        for sf in [
+            workdir / ".forge" / "tasks" / "todo" / "spec.md",
+            workdir / "docs" / "spec.md",
+            workdir / ".scratch" / "todo" / "spec.md",
+        ]:
+            if sf.is_file():
+                spec_text = sf.read_text(encoding="utf-8")
+                break
 
         endorsement_text = ""
-        endorse_file = workdir / ".forge" / "tasks" / "todo" / "endorsement.md"
-        if endorse_file.is_file():
-            endorsement_text = endorse_file.read_text(encoding="utf-8")
+        for ef in [
+            workdir / ".forge" / "tasks" / "todo" / "endorsement.md",
+            workdir / "docs" / "endorsement.md",
+        ]:
+            if ef.is_file():
+                endorsement_text = ef.read_text(encoding="utf-8")
+                break
 
         # 扫描核心代码与测试文件内容
         code_snippets = []
@@ -130,6 +140,8 @@ class Supervisor:
 <ground_truth>
 {self.ground_truth}
 </ground_truth>
+
+注意：若为单会话快车道或 Matt Pocock 纯单会话直通 /implement 模式，无独立 spec.md/endorsement.md 磁盘文件属于标准规范行为（Spec 契约与双轴审查报告直接呈现于终端对话记录中），不属于档案缺失或缺陷，请主要基于终端交互事实与实际生成的代码/测试做客观评审。
 
 全程人机交互与监控笔记：
 <observations>

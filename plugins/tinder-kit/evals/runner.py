@@ -17,6 +17,7 @@ import pty
 import re
 import select
 import shutil
+import subprocess
 import sys
 import time
 import uuid
@@ -354,6 +355,36 @@ def run_single_arm(
     workdir, home_dir = prepare_sandbox(run_dir, arm_name)
     ground_truth_path = scenario_dir / "ground_truth.md"
 
+    if arm_name == "mattpocock_skills":
+        # 1. 初始化 git 仓库以满足 Matt Pocock 技能对 git 历史的强依赖 (HEAD, git log, git diff, commit)
+        subprocess.run(["git", "init"], cwd=workdir, capture_output=True, check=True)
+        subprocess.run(["git", "config", "user.name", "Matt Pocock Tester"], cwd=workdir, capture_output=True, check=True)
+        subprocess.run(["git", "config", "user.email", "tester@example.com"], cwd=workdir, capture_output=True, check=True)
+        subprocess.run(["git", "commit", "--allow-empty", "-m", "Initial commit"], cwd=workdir, capture_output=True, check=True)
+
+        # 2. 拷贝 Matt Pocock 的原生 skills 至沙盒项目 .claude/skills/
+        mp_skills_src = Path("/Users/camellia/Personal/Code/claude/mattpocock-skills/skills")
+        target_skills = workdir / ".claude" / "skills"
+        target_skills.mkdir(parents=True, exist_ok=True)
+        for category in ["engineering", "productivity"]:
+            cat_dir = mp_skills_src / category
+            if cat_dir.is_dir():
+                for skill_dir in cat_dir.iterdir():
+                    if skill_dir.is_dir() and (skill_dir / "SKILL.md").is_file():
+                        shutil.copytree(skill_dir, target_skills / skill_dir.name, dirs_exist_ok=True)
+
+        # 3. 预埋 Matt Pocock 技能依赖的 issue-tracker 与 domain 规则文档
+        docs_agents = workdir / "docs" / "agents"
+        docs_agents.mkdir(parents=True, exist_ok=True)
+        (docs_agents / "issue-tracker.md").write_text("# Issue tracker: Local Markdown\nIssues and specs live in .scratch/\n", encoding="utf-8")
+        (docs_agents / "domain.md").write_text("# Domain Docs\nRead CONTEXT.md and docs/adr/ if present.\n", encoding="utf-8")
+
+        initial_cmd = '/grill-with-docs "用 Python 开发一个本地 CLI Todo 工具，支持标签过滤与本地持久化"'
+    elif plugin_dir:
+        initial_cmd = '/tinder-kit:develop todo "用 Python 开发一个本地 CLI Todo 工具，支持标签过滤与本地持久化"'
+    else:
+        initial_cmd = '请用 Python 开发一个本地 CLI Todo 工具，支持标签过滤与本地单个 JSON 文件持久化，不要使用数据库'
+
     supervisor = Supervisor(ground_truth_path, settings_file, home_dir, env_vars)
     driver = PTYDriver(workdir, home_dir, env_vars, plugin_dir)
 
@@ -363,11 +394,6 @@ def run_single_arm(
 
     # 1. 等待就绪并下发第一道初始指令
     driver.wait_startup(timeout_sec=25.0)
-
-    if plugin_dir:
-        initial_cmd = '/tinder-kit:develop todo "用 Python 开发一个本地 CLI Todo 工具，支持标签过滤与本地持久化"'
-    else:
-        initial_cmd = '请用 Python 开发一个本地 CLI Todo 工具，支持标签过滤与本地单个 JSON 文件持久化，不要使用数据库'
 
     print(f"[{arm_name}] 发送初始需求: {initial_cmd}")
     driver.send_input(initial_cmd)
@@ -417,7 +443,7 @@ def main() -> int:
     parser = argparse.ArgumentParser(description="Tinder-kit 双角色 A/B 评估驱动器")
     parser.add_argument("--provider", default="zhipu-glm", help="渠道别名 (ccz, ccm, ccd 等)")
     parser.add_argument("--scenario", default="todo-cli", help="场景名称 (默认 todo-cli)")
-    parser.add_argument("--mode", choices=["treatment", "control", "ab"], default="treatment", help="评估模式")
+    parser.add_argument("--mode", choices=["treatment", "control", "ab", "mattpocock"], default="treatment", help="评估模式")
     parser.add_argument("--max-turns", type=int, default=30, help="最大交互轮次 (默认 30)")
     parser.add_argument("--keep-sandbox", action="store_true", help="保留沙盒目录不自动删除")
     args = parser.parse_args()
@@ -467,6 +493,18 @@ def main() -> int:
             )
             final_report_content += f"## 对照组 (Raw Claude) 评测报告\n\n{c_report}\n\n"
 
+        if args.mode in ["mattpocock"]:
+            mp_report, _ = run_single_arm(
+                arm_name="mattpocock_skills",
+                run_dir=run_dir,
+                scenario_dir=scenario_dir,
+                settings_file=settings_file,
+                env_vars=env_vars,
+                plugin_dir=None,
+                max_turns=args.max_turns,
+            )
+            final_report_content += f"## Matt Pocock 原生套件 (mattpocock-skills) 评测报告\n\n{mp_report}\n\n"
+
         report_file = reports_dir / f"{timestamp}_{args.scenario}_{args.mode}.md"
         report_file.write_text(final_report_content, encoding="utf-8")
 
@@ -477,7 +515,7 @@ def main() -> int:
         # 自动归档最终产物到 evals/artifacts/ 目录，方便开发者直接检视与运行
         artifacts_dir = EVALS_DIR / "artifacts" / args.scenario
         artifacts_dir.mkdir(parents=True, exist_ok=True)
-        for arm in ["treatment_tinder_kit", "control_raw_claude"]:
+        for arm in ["treatment_tinder_kit", "control_raw_claude", "mattpocock_skills"]:
             src_arm = run_dir / arm
             if src_arm.is_dir():
                 dest = artifacts_dir / arm

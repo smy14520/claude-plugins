@@ -1,39 +1,59 @@
 ---
 name: domain-modeling
-description: "领域语言建模、概念消歧与架构决策记录（ADR）。在统一多义业务名词、界定核心实体边界、或记录不可逆架构决策权衡时调用。"
+description: 构建并打磨项目的领域模型。适用于讨论 codebase 术语、编写或编辑 .forge/CONTEXT.md，或在 .forge/wiki/decision/ 记录或编辑 ADR。
 ---
 
-# Domain Modeling — 领域语言建模与概念消歧
+# Domain Modeling
 
-消除人机协作与跨模块通信中的“词汇污染与概念歧义”，将隐性的业务领域术语、实体边界与核心架构决策显性化，纳入三级记忆体系。
+在设计过程中主动构建并打磨项目的 domain model。这是 *active* discipline：挑战术语、发明 edge-case scenarios，并在概念成形的当下写入 glossary 和 decisions。
 
-## 触发时机（When to Invoke）
+## File structure
 
-模型在以下具体节点自主激活本素养：
-- **时机 A：访谈或代码中出现概念冲突或一词多义时**：例如发现团队与代码里混用 User / Account / Member，或草稿与未生效状态边界模糊，立即调用本技能消歧并录入 `.forge/wiki/concept/` 或 `entity/`；
-- **时机 B：拍定不可逆架构决策（One-way Doors）时**：技术选型发生重大分叉（如改用内嵌 DB、引入消息队列），调用本技能沉淀轻量 ADR，详述理由与被否决备选路径的代价；
-- **时机 C：提炼出不可逾越的领域铁律时**：提炼出高频、防犯错的硬性业务纪律（如“退款金额绝不可大于支付原额”），调用本技能起草提议写入 `.claude/rules/<domain>.md`。
+所有领域模型与架构决策资产均存放在 `.forge/` 目录下：
 
-## 维护资产与归宿
+```text
+.forge/
+├── CONTEXT.md                         ← 统一语言词汇表（带 _Avoid_ 负面清单）
+├── domain.md                          ← 领域文档协议
+├── issue-tracker.md                   ← 本地工单驱动协议
+└── wiki/
+    └── decision/                      ← 【ADR 存放区】（架构决策记录）
+        ├── 0001-single-json-file-storage.md
+        └── 0002-postgres-for-write-model.md
+```
 
-1. **核心实体与概念定义（存入 `.forge/wiki/concept/` 或 `entity/`）**：
-   - 每一个业务概念一个单独页面；
-   - 显式给出定义的英文名、中文含义、所属边界与反例；
-   - 彻底消除一词多义（如明确区分“登录凭据”、“用户账户”与“资金账户”）。
-2. **架构决策记录（存入 `.forge/wiki/decision/` 或 `docs/adr/`）**：
-   - 记录不可逆架构决策（One-way doors）的技术推导与被否决备选路径的实证代价；
-   - 格式：Status / Context / Decision / Consequences。
-3. **不可逾越的领域硬规则（通过 `wiki` 提议写入 `.claude/rules/<domain>.md`）**：
-   - 提炼出的高频防犯错硬性业务纪律，经人类确认后写入 rules。
+按需懒创建文件：只有在有内容要写时才创建。如果没有 `.forge/CONTEXT.md`，当第一个 term 被解决时创建它。如果没有 `.forge/wiki/decision/`，当第一个 ADR 需要出现时创建它。
 
-## 执行准则（Discipline）
+## During the session
 
-1. **先查后增**：在代码编写和访谈中，凡遇到新业务名词，先扫描 Wiki 索引，避免同一概念发明两个变量名或造成语义漂移；
-2. **主动磨刀**：当访谈或重构拍定了一个核心业务实体的精准含义，立即形成结构化页面存入 `.forge/wiki/`；
-3. **职责分离**：概念与实体文档只记录权威名称、定义、边界与正反例；具体的实现细节交由工作树代码自身呈现；
-4. **Completion criterion**：概念页面落盘至 `.forge/wiki/` 或在对话中展示已确立的 ADR 决策摘要。
+### Challenge against the glossary
 
-## 建模陷阱（Modeling Pitfalls）
+当用户使用的术语与 `.forge/CONTEXT.md` 中既有语言冲突时，立即指出。"Your glossary defines 'cancellation' as X, but you seem to mean Y - which is it?"
 
-- **Dictionary Bloat（词典膨胀）**：把局部临时变量或单函数内部 helper 当作领域实体过度建模。
-- **Silent Semantic Drift（语义静默漂移）**：同一业务词汇在不同子域中被赋予不同职责且未作命名拆分。
+### Sharpen fuzzy language
+
+当用户使用模糊或过载术语时，提出一个精确的 canonical term。"You're saying 'account' - do you mean the Customer or the User? Those are different things."
+
+### Discuss concrete scenarios
+
+讨论 domain relationships 时，用具体场景做压力测试。发明能探测 edge cases 的场景，迫使用户精确定义概念之间的 boundaries。
+
+### Cross-reference with code
+
+当用户描述某事如何工作时，检查代码是否同意。如果发现矛盾，要指出："Your code cancels整个 Orders, but you just said partial cancellation is possible - which is right?"
+
+### Update CONTEXT.md inline
+
+当一个 term 被解决时，立刻更新 `.forge/CONTEXT.md`。不要批量攒到最后；随着概念出现就捕获。使用 [CONTEXT-FORMAT.md](./CONTEXT-FORMAT.md) 中的格式。
+
+`.forge/CONTEXT.md` 必须完全不包含 implementation details。不要把 `CONTEXT.md` 当 spec、scratch pad 或 implementation decisions 的仓库。它只是一份 glossary。
+
+### Offer ADRs sparingly
+
+只有以下三项都成立时，才提出在 `.forge/wiki/decision/` 创建 ADR：
+
+1. **Hard to reverse** - 之后改变主意的成本有意义
+2. **Surprising without context** - 未来读者会疑惑 "why did they do it this way?"
+3. **The result of a real trade-off** - 确实存在替代方案，而你基于具体理由选择了其中一个
+
+缺少任一项就跳过 ADR。使用 [ADR-FORMAT.md](./ADR-FORMAT.md) 中的格式。
