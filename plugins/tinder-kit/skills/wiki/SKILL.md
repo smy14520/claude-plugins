@@ -69,20 +69,9 @@ description: "改动核心业务或非平庸模块前，检索它的历史架构
 
 ---
 
-## 标签受控与复用铁律（Strict Tag Reuse & Anti-Explosion）
+## 标签真实源（Single Source of Truth）
 
-标签的泛滥与同义碎片化是知识库腐败的头号元凶。Wiki 打标严格遵循**“存量优先、严禁造词”**的铁律：
-
-1. **先查后用（Always Check First）**：
-   - 在打任何标签之前，**必须首先使用 `Read` 工具阅读 `.forge/wiki/index.md` 中的既有标签表**；
-   - 只要既有标签语义能涵盖 70% 以上，**必须直接复用既有标签**，绝对不许天天发明新词！
-2. **同义词归一**：
-   - 严禁出现同义变体。例如：既有标签库已有 `storage`，就绝不再造 `store`、`persistence`、`存储` 等碎词；已有 `auth` 就绝不另造 `authentication`、`login`；
-3. **新增标签门槛极其严苛**：
-   - 只有当引入了全项目此前**从未涉及过的独立技术栈或业务子域**（如全新接入了 `webrtc` 或 `billing`），且既有标签无一匹配时，才允许新增单一标准小写英文标签；
-4. **单篇标签上限**：
-   - 每篇文档标签严格控制在 **2 ~ 4 个**（通常为：1 个业务领域标签 + 1~2 个工程机制标签）；
-   - 严禁堆砌泛词（如 `code`, `dev`, `utils`, `python` 等无区分度废词一律禁止）。
+`.forge/wiki/tags.md` 是全项目唯一的受控标签真实源。查阅与打标铁律（检索先对齐、打标先查后用、70% 语义强行复用、`_Avoid_` 负面清单、新词即时登记）完整维护在该文件头部，使用时直接阅读，不在此重复声明。
 
 ---
 
@@ -90,12 +79,14 @@ description: "改动核心业务或非平庸模块前，检索它的历史架构
 
 完全借助 Claude Code 原生文件与搜索工具（Read、Grep、Glob），零自定义脚本依赖：
 
-1. **第一步：查阅大盘（Faceted Navigation）**：
-   - 使用 `Read` 工具读取 `.forge/wiki/index.md`；
-   - 查看**标签全览（Tags Overview）**与文档单行索引；通过已分类的标签云，快速定位当前任务所涉及的知识板块；
-2. **第二步：按需深读（Direct Read）**：
-   - 顺着 `index.md` 中的链接，直接使用 `Read` 工具阅读相关文档全文；
-3. **补充检索（Grep on Demand）**：
+1. **第一步：查阅受控标签（Faceted Navigation）**：
+   - 检索知识前首先使用 `Read` 工具读取 `.forge/wiki/tags.md`；
+   - 对照已有标签与 `_Avoid_` 负面清单，将当前检索意图归一化为 1~2 个标准受控标签（彻底防范因同义词盲搜导致的漏检或海量代码噪音）；
+2. **第二步：定位条目（Index Locate）**：
+   - 使用 `Read` 工具查阅 `.forge/wiki/index.md`，顺着对应标签找到相关文档链接；或使用 `Grep` 工具以标签精准匹配（如 `path=".forge/wiki" pattern="tags:.*auth"`）；
+3. **第三步：按需深读（Direct Read）**：
+   - 顺着条目链接，直接使用 `Read` 工具阅读目标文档全文；
+4. **第四步：精确符号补充检索（Specific Symbol Grep）**：
    - 若遇到非常具体的函数名、错误码或符号，使用 `Grep` 工具在 `.forge/wiki/` 目录下搜索（`path=".forge/wiki"`）。
 
 ---
@@ -104,11 +95,13 @@ description: "改动核心业务或非平庸模块前，检索它的历史架构
 
 在日常修复、实现或架构决策敲定时沉淀知识：
 
-1. **撰写内容**：
+1. **查验与选用标签**：
+   - 使用 `Read` 工具阅读 `.forge/wiki/tags.md`；
+   - 从既有受控列表中选取 2~4 个标签；若含合规新词，顺手在 `tags.md` 追加登记；
+2. **撰写内容**：
    - 使用 `Write` 工具写入 `.forge/wiki/<type>/<slug>.md`；
    - 头部必须包含标准 Frontmatter（`title`, `type`, `tags`, `description`，以及可选的 `anchors` 符号锚）；
    - 若为 `gotcha`，**必须在正文中附带可在终端实际执行的复现命令与真实输出**；复现不出来的严禁入库！
-2. **同步更新索引**：
+3. **同步更新索引**：
    - 使用 `Edit` 工具在 `.forge/wiki/index.md` 对应的分类板块追加单行索引条目，格式为：
-     `- [{title}]({type}/{slug}.md) — {description} [{tag1}, {tag2}]`；
-   - 若该条目使用了合规新增的标签，在 `index.md` 顶部的“标签全览”列表中一并补充。
+     `- [{title}]({type}/{slug}.md) — {description} [{tag1}, {tag2}]`。

@@ -202,6 +202,11 @@ class PTYDriver:
         if self.master is None:
             return
         clean_text = text.strip()
+
+        # 容错兜底：若答复中包含开工指令 /implement 但被 LLM 督导官前置了客套话，自动提取纯净指令以保证触发 Slash Command
+        if "/implement" in clean_text and not clean_text.startswith("/"):
+            clean_text = "/implement"
+
         if clean_text.startswith("/"):
             parts = clean_text.split(" ", 1)
             cmd_name = parts[0]
@@ -381,7 +386,13 @@ def run_single_arm(
 
         initial_cmd = '/grill-with-docs "用 Python 开发一个本地 CLI Todo 工具，支持标签过滤与本地持久化"'
     elif plugin_dir:
-        initial_cmd = '/tinder-kit:develop todo "用 Python 开发一个本地 CLI Todo 工具，支持标签过滤与本地持久化"'
+        # 1. 初始化 git 仓库以满足工程技能对 git 历史的强依赖 (HEAD, git log, git diff, commit)
+        subprocess.run(["git", "init"], cwd=workdir, capture_output=True, check=True)
+        subprocess.run(["git", "config", "user.name", "Tinder-Kit Tester"], cwd=workdir, capture_output=True, check=True)
+        subprocess.run(["git", "config", "user.email", "tester@example.com"], cwd=workdir, capture_output=True, check=True)
+        subprocess.run(["git", "commit", "--allow-empty", "-m", "Initial commit"], cwd=workdir, capture_output=True, check=True)
+
+        initial_cmd = '/grill-with-docs "用 Python 开发一个本地 CLI Todo 工具，支持标签过滤与本地持久化"'
     else:
         initial_cmd = '请用 Python 开发一个本地 CLI Todo 工具，支持标签过滤与本地单个 JSON 文件持久化，不要使用数据库'
 
@@ -393,9 +404,19 @@ def run_single_arm(
     print(f"[{arm_name}] 隔离 HOME: {home_dir} (用户个人配置绝对安全)")
 
     # 1. 等待就绪并下发第一道初始指令
-    driver.wait_startup(timeout_sec=25.0)
+    driver.wait_startup(timeout_sec=30.0)
 
-    print(f"[{arm_name}] 发送初始需求: {initial_cmd}")
+    # 若为 tinder-kit，先执行 /setup 脚手架化项目驱动、CLAUDE.md 与受控标签词典
+    if plugin_dir:
+        print(f"\n[{arm_name}] Step 0: 先通过 /setup 初始化本地 Markdown 驱动、CLAUDE.md 指针与 Wiki tags")
+        driver.send_input("/setup")
+        out_setup, _ = driver.read_until_idle(timeout_sec=120.0)
+        print(f"[{arm_name}] 收到 setup 汇报草案，发送确认写入")
+        driver.send_input("确认草案，请直接写入配置。")
+        out_confirm, _ = driver.read_until_idle(timeout_sec=120.0)
+        print(f"[{arm_name}] ✓ /setup 完成，.forge/ 核心驱动与 Wiki tags 真实落盘")
+
+    print(f"\n[{arm_name}] 发送初始需求: {initial_cmd}")
     driver.send_input(initial_cmd)
 
     # 2. 对话与监控循环

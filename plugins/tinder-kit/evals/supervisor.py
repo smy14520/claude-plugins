@@ -52,7 +52,7 @@ class Supervisor:
    - 它的表现如何？是否主动澄清了隐性假设？提问是否切中要害？有无卡顿或死循环苗头？（用 1~2 句话写下考评观察）
 2. 【产品答复 (reply)】：以真实人类需求方口吻，对开发者的问题给予明确答复。
    - 必须严格忠实于你的《需求底牌卡》（如本地 JSON 存储、标签过滤等），拍定边界，给出清晰决策。（用 1~2 句话简明作答）
-   - 【开工指令】：若双方已消除所有疑问、对边界达成一致，且开发者在等待下一步指令或询问是否开工时，请你的 reply 明确输出指令："/implement"（可直接输出 /implement 或明确指示运行 /implement 开工），驱动终端进入编码实现。
+   - 【开工指令】：若双方已消除所有疑问、对边界达成一致，且开发者在等待下一步指令或询问是否开工时，请你的 reply 必须直接且仅输出开工指令："/implement"（严格独占单行，绝不要添加任何前缀、解释或客套话），以确保终端精准拦截并触发 Slash Command 进入编码实现。
 3. 【完成判定 (is_completed)】：开发者是否已经彻底完成了全部交付（如呈现了交付总结、背书钢印或提示/已完成 commit）？若是则设为 true，否则为 false。
 
 你必须只输出一段合法的 JSON，严禁输出任何多余的开场白或 markdown 标记外的文字，格式如下：
@@ -120,6 +120,20 @@ class Supervisor:
                 endorsement_text = ef.read_text(encoding="utf-8")
                 break
 
+        # 扫描统一语言词汇表 (CONTEXT.md) 与 ADR 架构决策记录
+        context_text = ""
+        for cf in [workdir / ".forge" / "CONTEXT.md", workdir / "CONTEXT.md"]:
+            if cf.is_file():
+                context_text = cf.read_text(encoding="utf-8")
+                break
+
+        adr_texts = []
+        for adr_dir in [workdir / ".forge" / "wiki" / "decision", workdir / "docs" / "adr"]:
+            if adr_dir.is_dir():
+                for af in sorted(adr_dir.glob("*.md")):
+                    adr_texts.append(f"#### ADR: {af.name}\n{af.read_text(encoding='utf-8')[:2000]}")
+        adr_summary = "\n\n".join(adr_texts) if adr_texts else "（未生成任何 ADR 架构决策记录）"
+
         # 扫描核心代码与测试文件内容
         code_snippets = []
         for py_path in sorted(workdir.rglob("*.py")):
@@ -154,6 +168,12 @@ class Supervisor:
 交付的核心代码与测试文件内容：
 {code_summary}
 
+交付的统一语言词汇表 (CONTEXT.md) 内容：
+{context_text[:2000] if context_text else "（未生成 CONTEXT.md 词汇表）"}
+
+交付的 ADR 架构决策记录：
+{adr_summary}
+
 交付的 spec.md 内容：
 {spec_text[:2000]}
 
@@ -161,7 +181,7 @@ class Supervisor:
 {endorsement_text[:2000]}
 
 请撰写一份结构化 Markdown 评测报告，必须包含以下维度：
-1. 需求兑现度与对齐质量（是否忠实兑现了底牌，有无隐性偷懒或功能残缺）；
+1. 需求兑现度与对齐质量（是否忠实兑现了底牌，有无隐性偷懒或功能残缺；是否有 CONTEXT.md 统一词汇表与 ADR 决策留痕）；
 2. 架构质量与模块设计（是否体现了深模块与薄接缝，代码是否高内聚低耦合）；
 3. 测试与背书完整度（面向接缝的测试是否真实且通过，是否有防回归背书）；
 4. 交互流畅度与摩擦点（全程一共经历了多少轮，有无死循环或卡顿）；

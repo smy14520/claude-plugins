@@ -5,6 +5,7 @@
 ## Before exploring, read these
 
 - **`.forge/CONTEXT.md`**（若存在）— 核心统一语言词汇表；
+- **`.forge/wiki/tags.md` 与 `.forge/wiki/index.md`**（若存在）— 检索项目沉淀经验（Gotcha、ADR）前，先读 `tags.md` 对齐受控标签，再顺着 `index.md` 定位相关文档；
 - **`.forge/wiki/decision/`** — 阅读与你即将改动区域相关的架构决策记录（ADR）。
 
 若上述文件不存在，**静默继续执行（proceed silently）**。不要大惊小怪或向人类提出预先创建它们；`/domain-modeling` 技能（通过 `/grill-with-docs` 触发）会在术语或架构决策真正确定时延迟创建它们。
@@ -19,6 +20,8 @@
 ├── domain.md                          ← 本协议文件
 ├── issue-tracker.md                   ← 本地工单驱动协议
 └── wiki/
+    ├── tags.md                        ← 受控标签词典与打标铁律（真实源）
+    ├── index.md                       ← 知识大盘索引
     └── decision/                      ← 【ADR 存放区】（架构决策记录）
         ├── 0001-single-json-file-storage.md
         └── 0002-postgres-for-write-model.md

@@ -19,7 +19,7 @@ PLUGIN_ROOT = Path(__file__).resolve().parents[1]
 REPO_ROOT = PLUGIN_ROOT.parents[1]
 
 USER_INVOKED_FLOWS = {
-    "init",
+    "setup",
     "fix",
     "audit",
     "wayfinder",

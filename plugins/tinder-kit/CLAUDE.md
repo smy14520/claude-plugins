@@ -14,7 +14,7 @@
    - 项目定义自己的架构、设计品味与测试规则（`CLAUDE.md` / `DESIGN.md` / `.claude/rules/`）。
 
 3. **单点驱动协议（Driver Pattern，收拢至 `.forge/`）**：
-   - 由项目初始化（`/init`）沉淀 `.forge/issue-tracker.md`，统一使用本地 Markdown 驱动协议（`.forge/`），零外部网络与 token 依赖；
+   - 由项目初始化（`/setup`）沉淀 `.forge/issue-tracker.md`，统一使用本地 Markdown 驱动协议（`.forge/`），零外部网络与 token 依赖；
    - 技能层仅面向抽象业务语义（“读取工单”、“发布工单”、“认领”、“结案”），由驱动协议卡片单点定义实际执行动作。
 
 4. **领域建模先行与反侵入约束（Domain Grounding）**：
@@ -27,7 +27,7 @@
    - 严禁纯意念口头开工，也严禁建立冗长无用的 PRD 坟场。
 
 6. **双层技能分治（User-invoked vs. Model-invoked）**：
-   - **User-invoked**（`disable-model-invocation: true`）：面向开发者场景的端到端编排主航道（`/develop`, `/grill-with-docs`, `/implement`, `/to-spec`, `/to-tickets`, `/wayfinder`, `/fix`, `/init`），模型不得擅自调用；
+   - **User-invoked**（`disable-model-invocation: true`）：面向开发者场景的端到端编排主航道（`/develop`, `/grill-with-docs`, `/implement`, `/to-spec`, `/to-tickets`, `/wayfinder`, `/fix`, `/setup`），模型不得擅自调用；
    - **Model-invoked**：模型在执行过程中，根据具体工程情境自主判断、按需取用的工程素养工具箱（如 `research` 自动后台调研、`tdd`, `codebase-design`, `prototype`, `diagnose`, `review`, `grilling`, `domain-modeling`）。
 
 6. **围绕验收项组织测试（AC-Mapped Tests）**：
