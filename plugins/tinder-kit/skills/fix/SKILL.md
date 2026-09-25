@@ -12,9 +12,8 @@ disable-model-invocation: true
 
 ### Phase 0: 任务初始化
 - 输入：`/fix [slug] "缺陷现象或报错信息"`；
-- 自动执行 `forge new <slug> --title "缺陷修复: {slug}"`；
-- 更新 `state.json` 的 `phase` 为 `DIAGNOSE`；
-- **Completion criterion**：`.forge/tasks/<slug>/` 目录就绪。
+- 检查并在 `.forge/<slug>/` 下准备排障记录与草稿；
+- 明确复现目标。
 
 ### Phase 1: 驱动 `diagnose` 核心回路
 - 执行：**Call the Skill tool for "diagnose"**：
@@ -29,11 +28,9 @@ disable-model-invocation: true
 - 跑通项目全量既有测试套件（若项目有配置），确认既有功能 100% 零回归；若无自动化测试套件，执行关键链路冒烟或自验命令；
 - **Completion criterion**：既有测试套件全部 PASS，或关键链路自验证实无回归。
 
-### Phase 3: 沉淀与交接
-- 若发现隐蔽的第三方库陷阱，在 `.forge/wiki/gotcha/` 沉淀一条 Gotcha（写完运行 `forge wiki index --write`），或提议写入项目规则库；
-- 将修复总结与防回归验证交接文档写入 `.forge/tasks/<slug>/handoffs/`；
-- 更新 `state.json` 的 `phase` 为 `COMPLETED`；
-- **Completion criterion**：交接文档就绪，状态为 COMPLETED。
+### Phase 3: 沉淀与交付
+- 若确系发现了反直觉的第三方库/平台未公开 Bug，在 `.forge/wiki/gotcha/` 沉淀一条 Gotcha（正文附可在当前环境跑通的单行复现命令与输出），并用 `Edit` 工具在 `.forge/wiki/index.md` 登记；复现不出来的严禁入库；
+- **Completion criterion**：代码就绪、测试通过、知识合规入库。
 
 ### Phase 4: 成果呈递
 - 向开发者汇报根因分析、修复策略、新增的防回归测试位置；

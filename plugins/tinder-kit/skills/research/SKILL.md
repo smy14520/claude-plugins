@@ -1,7 +1,6 @@
 ---
 name: research
-description: "外部世界资料收集与系统认知建模：竞品调研、外部 API 摸底、数据源与字段盘点。维护 .forge/research/<topic>/ 工作区，提取出处锚点、核心端点与关键载荷，向 Wiki 晋升高质量认知。"
-disable-model-invocation: true
+description: "当决策依赖代码库外的事实（第三方 API、外部文档、竞品机制、数据源规范）时使用。在 .forge/research/<topic>/ 抓取事实证据、提取核心端点与载荷样本，为决策和切片提供客观依据。"
 ---
 
 # Research — 外部资料收集与系统认知建模

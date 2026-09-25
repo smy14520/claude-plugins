@@ -1,41 +1,59 @@
 ---
 name: domain-modeling
-description: "构建并打磨项目的领域模型与统一语言。在统一多义业务名词、界定实体边界、人机对账老代码、或按严格三门槛记录 ADR 架构决策时调用。"
+description: 构建并打磨项目的领域模型。适用于讨论 codebase 术语、编写或编辑 .forge/CONTEXT.md，或在 .forge/wiki/decision/ 记录或编辑 ADR。
 ---
 
-# Domain Modeling — 领域建模与统一语言
+# Domain Modeling
 
-在系统设计与重构中，主动构建并严密打磨项目的领域模型（Domain Model）。这是一项**主动的、带有攻击性的工程素养（Active Discipline）**：随时挑战模糊术语、发明边缘场景压测概念边界、与老代码进行真实性对账，并在概念成形的当下即时沉淀。
+在设计过程中主动构建并打磨项目的 domain model。这是 *active* discipline：挑战术语、发明 edge-case scenarios，并在概念成形的当下写入 glossary 和 decisions。
 
----
+## File structure
 
-## 核心执行步骤（Active In-Session Discipline）
+所有领域模型与架构决策资产均存放在 `.forge/` 目录下：
 
-### 1. 对照词典主动挑战（Challenge against the glossary）
-当对话或新需求中使用的术语与既有概念（`CONTEXT.md` 或 `.forge/wiki/concept/`）发生冲突或语义漂移时，立即指出并纠偏：
-> *"在项目词典中 'Cancellation' 仅指未发货前的取消，但你刚才的表述似乎包含了已发货退款——到底以哪个为准？"*
+```text
+.forge/
+├── CONTEXT.md                         ← 统一语言词汇表（带 _Avoid_ 负面清单）
+├── domain.md                          ← 领域文档协议
+├── issue-tracker.md                   ← 本地工单驱动协议
+└── wiki/
+    └── decision/                      ← 【ADR 存放区】（架构决策记录）
+        ├── 0001-single-json-file-storage.md
+        └── 0002-postgres-for-write-model.md
+```
 
-### 2. 锐化模糊与过载词汇（Sharpen fuzzy language）
-当出现一词多义或模糊不清的词汇时，强制提出精准的规范名词进行消歧：
-> *"你刚才说了 'Account'——你是指计费维度的 Customer（结算账户），还是鉴权维度的 User（登录账号）？这是两个完全不同的实体。"*
+按需懒创建文件：只有在有内容要写时才创建。如果没有 `.forge/CONTEXT.md`，当第一个 term 被解决时创建它。如果没有 `.forge/wiki/decision/`，当第一个 ADR 需要出现时创建它。
 
-### 3. 用具体场景压力测试概念边界（Discuss concrete scenarios）
-讨论实体关系时，**主动发明能够探测边缘 Case 的真实场景**，迫使精确定义概念的边界：
-> *"如果一个拼团订单中有 1 件缺货，此时该订单属于 PARTIAL_PAID 还是 FAILED？未成团的定金退不退？"*
+## During the session
 
-### 4. 严密的人机代码对账（Cross-reference with code）
-**这是最关键的防幻觉动作！** 当人类描述某项业务流程时，Agent 必须主动翻阅现有代码库求证是否一致。一旦发现矛盾，当场指出：
-> *"你的描述中提到订单支持部分退款，但我检索了当前 `OrderService.ts` 中的实现，发现里面直接全量作废整笔订单并抛出不可拆分异常——代码与你的设想矛盾，哪一个才是存量真相？"*
+### Challenge against the glossary
 
-### 5. 即时就地更新（Update inline）
-概念一达成共识就立即更新至 `CONTEXT.md` 或 `.forge/wiki/concept/<slug>.md`。
-- 格式规范见 [CONTEXT-FORMAT.md](./CONTEXT-FORMAT.md)；
-- `CONTEXT.md` 是业务概念字典，只收录本领域独有的业务概念。
+当用户使用的术语与 `.forge/CONTEXT.md` 中既有语言冲突时，立即指出。"Your glossary defines 'cancellation' as X, but you seem to mean Y - which is it?"
 
-### 6. 克制地提出 ADR 提案（Offer ADRs sparingly）
-三项条件全部满足时才提 ADR：
-1. **Hard to reverse（难以逆转）**：日后推翻决定的技术或业务代价极其高昂（One-way door 决策）；
-2. **Surprising without context（无上下文时反直觉）**：未来读者看到代码会极其困惑：“为什么当时要这么怪异地实现？”；
-3. **The result of a real trade-off（真实取舍的产物）**：确实存在另一个切实可行的备选方案，而我们基于具体理由放弃了它。
+### Sharpen fuzzy language
 
-三项缺一则跳过。模板与规范见 [ADR-FORMAT.md](./ADR-FORMAT.md)。
+当用户使用模糊或过载术语时，提出一个精确的 canonical term。"You're saying 'account' - do you mean the Customer or the User? Those are different things."
+
+### Discuss concrete scenarios
+
+讨论 domain relationships 时，用具体场景做压力测试。发明能探测 edge cases 的场景，迫使用户精确定义概念之间的 boundaries。
+
+### Cross-reference with code
+
+当用户描述某事如何工作时，检查代码是否同意。如果发现矛盾，要指出："Your code cancels整个 Orders, but you just said partial cancellation is possible - which is right?"
+
+### Update CONTEXT.md inline
+
+当一个 term 被解决时，立刻更新 `.forge/CONTEXT.md`。不要批量攒到最后；随着概念出现就捕获。使用 [CONTEXT-FORMAT.md](./CONTEXT-FORMAT.md) 中的格式。
+
+`.forge/CONTEXT.md` 必须完全不包含 implementation details。不要把 `CONTEXT.md` 当 spec、scratch pad 或 implementation decisions 的仓库。它只是一份 glossary。
+
+### Offer ADRs sparingly
+
+只有以下三项都成立时，才提出在 `.forge/wiki/decision/` 创建 ADR：
+
+1. **Hard to reverse** - 之后改变主意的成本有意义
+2. **Surprising without context** - 未来读者会疑惑 "why did they do it this way?"
+3. **The result of a real trade-off** - 确实存在替代方案，而你基于具体理由选择了其中一个
+
+缺少任一项就跳过 ADR。使用 [ADR-FORMAT.md](./ADR-FORMAT.md) 中的格式。

@@ -19,14 +19,18 @@ PLUGIN_ROOT = Path(__file__).resolve().parents[1]
 REPO_ROOT = PLUGIN_ROOT.parents[1]
 
 USER_INVOKED_FLOWS = {
-    "init",
-    "develop",
+    "setup",
     "fix",
     "audit",
     "wayfinder",
+    "to-spec",
+    "to-tickets",
+    "implement",
     "teach",
     "dream",
-    "research",
+    "improve-codebase-architecture",
+    "grill-with-docs",
+    "develop",
     "to-questionnaire",
     "sparring",
 }
@@ -37,7 +41,8 @@ MODEL_INVOKED_DISCIPLINES = {
     "domain-modeling",
     "tdd",
     "diagnose",
-    "review",
+    "code-review",
+    "research",
     "architect",
     "wiki",
     "perceive",
@@ -133,7 +138,7 @@ def test_all_agents_have_valid_frontmatter():
     agents_dir = PLUGIN_ROOT / "agents"
     assert agents_dir.is_dir()
 
-    expected_agents = {"forge-impl", "forge-review", "forge-prototype"}
+    expected_agents = {"forge-prototype"}
     found_agents = set()
 
     for agent_file in agents_dir.glob("*.md"):

@@ -1,128 +1,128 @@
 ---
 name: wayfinder
-description: "把单个 agent 会话装不下的超大、模糊工作规划为共享决策地图（Decision Map），并逐一攻克决策票，直到通往目标的路线完全清晰。适用于全新大项目或大规模架构重构。"
+description: 把单个 agent session 装不下的一大块工作规划成 .forge/<effort>/ 下的 decision tickets shared map，并逐一解决，直到通往 destination 的路清晰。
 disable-model-invocation: true
 ---
 
-# Wayfinder — 迷雾工程决策探路
+一个松散想法出现了：它太大，单个 agent session 装不下，而且被 fog 包围；从这里到 **destination** 的路还看不见。Wayfinding 的目标是找到这条路，而不是朝 destination 猛冲。这个 skill 会把路径绘制成本地 `.forge/<effort>/` 上的 **shared map**，然后逐个处理 **decision tickets**——它们承载需要决策才能解决的问题，而不是要执行的 build slices——直到路线清晰。
 
-一个松散的想法出现了：它太大，单个 Agent 会话装不下，而且被重重迷雾（Fog）包围；从这里到**目的地（Destination）**的路线还看不见。
-
-Wayfinder 的目标是**找到这条清晰的路，而不是朝目的地盲目猛冲**。这个技能把复杂的路径绘制在项目本地工作区 `.forge/maps/<slug>/` 中，形成一张**共享地图（Shared Map）**，然后通过逐个攻克**决策票（Decision Tickets）**——它们承载需要拍定决策才能推进的未知，而不是机械执行的业务切片——直到整个工程路线完全明朗。
-
-不同工程的 Destination 不同，而**为 Destination 命名是制图的第一个动作**；它直接塑造后续的每一张票。它可以是一份待移交并迭代的完整架构 Spec、一个在正式规划前必须锁定的核心决策、或一次原地完成的数据结构大迁移。
-
----
+不同 effort 的 destination 不同，而为它命名是 charting 的第一个动作；它塑造每个 ticket。它可能是一份要 hand off 并迭代的 spec、一个必须在 planning 前确定的 decision，或 data-structure migration 之类原地完成的 change。Map 与领域无关：engineering work、course content，或任何符合这个形状的事项都可以。
 
 ## Plan, don't do
 
-Wayfinder 用于 **规划（Planning）**：
-- 每张票解决一个关键决策；当团队动手前已经没有任何事情需要纠结、路径清晰时，地图才算完成；
-- 想顺手写业务代码的冲动通常表明你已经到达了地图边缘，该移交了；
-- **本技能只产出 Decisions（拍定的决策），绝不产出 Deliverables（业务交付代码）。想写代码时，说明已到地图边缘，应移交。**
+Wayfinder 默认用于 **planning**：每个 ticket 解决一个 decision；当别人动手前已经没有任何事情需要决定、路径完全清晰时，map 才算完成。想直接做工作的冲动通常表示你已经到达 map 边缘，该 hand off 了。Effort 可以在 **Notes** 中覆盖这个默认值，把 execution 纳入 map；否则只产出 decisions，不产出 deliverables。
 
----
+## Refer by name
 
-## 始终用全名称呼（Refer by name）
+每张 map 和每个 ticket 都是 issue，因此都有一个 **name**：它的 title。在所有给人看的内容里，包括叙述和 map 的 Decisions-so-far，都用 name 引用它，不要只写裸 id、number 或 slug。一堵 `#42, #43, #44` 很难读；name 一眼就能看懂。Id 和 URL 不会消失，它们被包在 name 的 link 里面，但不单独替代 name。
 
-每张地图和每张票都是有身份的实体，拥有一个**清晰的名字（Title）**。在所有给人看的叙述、以及地图的 Decisions-so-far 中，用全名引用票和地图。纯数字难以辨认，名字一眼就能看懂。
+## The Map
 
----
+Map 保存在本地 `.forge/<effort>/map.md`，是 canonical artifact。它的 tickets 是同目录下的子文件 `.forge/<effort>/issues/NN-<slug>.md`。
 
-## 纯 Markdown 地图规范（The Map in `.forge/maps/<slug>/`）
+Map 是 **index**，不是 store。它列出已经做出的 decisions，并指向保存细节的 tickets；一个 decision 只存在一个地方，也就是它的 ticket。因此 map 不复述细节，只给 gist 和 link。
 
-地图落盘在 `.forge/maps/<slug>/map.md`，是唯一的规范档案（Canonical Artifact）。它的具体决策票存放于同级目录的 `tickets/`。
+### The map body
 
-地图是**索引（Index）**，不是原始数据仓库。它列出已经做出的决策，并链接指向保存讨论细节的 tickets。**一个决策只存在于一个地方，也就是它的票里**。
-
-### 地图正文结构模板（`map.md`）
+Map 是低分辨率的全局视图，每个 session 加载一次。Open tickets 不列在里面；它们是 open child issues，通过扫描找到。
 
 ```markdown
-# 迷雾决策地图: {Map Title}
+## Destination
 
-## Destination (目的地)
+<what reaching the end of this map looks like — the spec, decision, or change this effort is finding its way to. One or two lines; every session orients to it before choosing a ticket.>
 
-<!-- 简述达到本工程终点时的具体形态：是一份落盘的 Spec、一个拍定的核心架构决策、还是系统大迁移方案？1~2 句话锚定全部 Scope -->
+## Notes
 
-## Notes (工程备忘与偏好)
+<domain; skills every session should consult; standing preferences for this effort>
 
-<!-- 业务领域、每个会话必须参考的规范文档、本工程长期不变的架构偏好 -->
+## Decisions so far
 
-## Decisions so far (已拍定的决策索引)
+<!-- the index — one line per closed ticket: enough to judge relevance, then zoom the link for the detail the ticket holds -->
 
-<!-- 索引清单：每张 Closed 决策票占一行，附带单行结论摘要与票链接。后续会话一眼看懂走过的路线 -->
-- [T-001-xxxx](tickets/T-001-xxxx.md) — 单行结论摘要
+- [<closed ticket title>](link) — <one-line gist of the answer>
 
-## Not yet specified (Fog of war 模糊区)
+## Not yet specified
 
-<!-- 参见“Fog of war”节：在 Scope 范围内但当前还说不清楚、无法立票的朦胧区域；随着前沿推进逐步升级为票 -->
-- 迷雾区域描述 1
+<!-- see "Fog of war": in-scope fog you can't ticket yet; graduates as the frontier advances -->
 
-## Out of scope (明确排除边界)
+## Out of scope
 
-<!-- 参见“排除边界”节：明确裁定在目的地之外的工作；一经关闭，永不升级为票 -->
-- [T-003-xxxx](tickets/T-003-xxxx.md) — 排除的原因摘要
+<!-- see "Out of scope": work ruled beyond the destination; closed, never graduates -->
 ```
 
----
+### Tickets
 
-## 决策票规范（Tickets in `tickets/T-NNN-<slug>.md`）
-
-每张票的大小控制在**单个会话能够攻克**的粒度内：
+每个 ticket 都是 map 的 **child issue**，保存在 `.forge/<effort>/issues/NN-<slug>.md`（从 `01` 开始编号）。Body 是一个问题，大小控制在一个 100K token agent session 内：
 
 ```markdown
-# T-001: {清晰的决策议题标题}
+# <NN> — <Ticket title>
 
-**类型 (Type):** `grilling` | `prototype` | `research` | `task`
-**执行模式 (Mode):** `HITL` (需人类在线裁决) | `AFK` (Agent 可独立完成)
-**依赖阻塞 (Blocked by):** `none` 或其他前置票名 (如 `T-000-destination`)
+Type: <research|prototype|grilling|task>
+Status: <needs-triage|claimed|resolved>
+Blocked by: <NN, NN 或 None — can start immediately>
 
-## Question (核心待决议题)
+## Question
 
-详细阐述本张票必须解决的单个核心决策或调查目标。
+<the decision or investigation this ticket resolves>
 ```
 
-### 票的四种类型学（Ticket Types）
+Session **claim** ticket 的方式，是在任何工作开始前**先**用 Edit 工具把 ticket 改为 `Status: claimed`，这样并发的 sessions 就会跳过它。
 
-每张票必须标明是 **HITL**（Human in the loop，必须与能代表业务发言的人类一起处理）还是 **AFK**（Agent 可独立运行）：
-- **Research（AFK）**：查阅外部官方文档、第三方 API 或既有知识库，找出决策正在等待的事实。派发子 Agent 异步解决。
-- **Prototype（HITL）**：通过粗糙、自包含的 Spike 原型提高讨论置信度（调用 `prototype` 技能在 `.forge/prototypes/` 探索），核心问题是“跑起来手感如何”或“外观长什么样”时使用。
-- **Grilling（HITL）**：决策树深度访谈。**默认类型**。调用 `grilling` 与 `domain-modeling` 技能，通过前沿推进把方案聊透。
-- **Task（HITL 或 AFK）**：做出决策前必须完成的手工准备工作（如：申请外部沙盒账号、准备脱敏测试数据集）。这是唯一动手的类型，凭借解锁后续决策而存在，不用于交付业务代码。
+一个 ticket 的所有 blockers 状态都是 `resolved` 后，它就是 **unblocked**；**frontier** 是 open、unblocked、unclaimed 的 children，也就是已知世界的边缘。
 
----
+答案不写进 body，而是在 resolution 时记录在文件底部的 `## Answer` 章节。解决 ticket 时产生的 assets 从 issue 链接出去，不粘贴进 body。
 
-## 迷雾探索法则（Fog of War）
+## Ticket Types
 
-地图是**有意不完整**的：不要描绘你还看不见的东西。Tickets 之外是 Fog of war：那些你能隐约感觉到以后会来的决策，但它们悬在尚未解决的前置问题之上，暂时还无法钉住。
+每个 ticket 都是 **HITL**（human in the loop，与能代表自己发言的人类一起处理）或 **AFK**（agent 独立驱动）。HITL ticket 只能通过 live exchange 解决；agent 绝不能替人类回答。一旦 grilling agent 自问自答，它就已经坏了。
 
-**Fog or Ticket？（是 Fog 还是立票？）**：
-- **可以立票（Ticket）**：如果你**现在就能把问题精确表述清楚**（哪怕它被前置票 Blocked 暂时不能做），立刻建票！
-- **留在迷雾（Not yet specified）**：说不清的部分留作 Fog，走到那片区域时再切。Fog of war 比票粗大得多，当工期推移到该区域时，一片 Fog 可能分化出 3 张票，也可能一张都没有。
+- **Research**（AFK）：阅读 documentation、third-party APIs，或 knowledge bases 等 local resources，找出某项 decision 正在等待的事实。交给调用 Skill 工具并指定 `research` 的 **subagent** 解决。当需要当前 working directory 外的知识时使用。
+- **Prototype**（HITL）：通过 cheap、rough、concrete artifact 提高讨论 fidelity，例如 outline、rough take、stub，或通过调用 Skill 工具并指定 `prototype` 写 UI/logic code。Prototype 作为 asset 链接。当核心问题是 "how should it look" 或 "how should it behave" 时使用。
+- **Grilling**（HITL）：Conversation。默认类型。始终调用两次 Skill 工具，分别指定 `grilling` 和 `domain-modeling`。
+- **Task**（HITL 或 AFK）：做出 _decision_ 前必须完成、但本身没有要 decide、prototype 或 research 的 manual work。例如注册服务以评估其 API、配置访问权限、移动数据以看清 shape。这是唯一会 _do_ 而不是 decide 的类型；它凭借解锁 decision 而存在，而不是交付 destination。Agent 能独立完成时采用 AFK，否则给人类精确 checklist（HITL）。工作完成后 resolved；答案记录做了什么，以及后续 tickets 依赖的事实。
 
----
+## Fog of war
 
-## 明确排除边界（Out of Scope）
+Map 是 _有意_ 不完整的：不要描绘你还看不见的东西。Tickets 之外是 fog：那些你能感觉到以后会来的 decisions 和 investigations，但它们悬在仍未解决的问题之上，暂时还无法钉住。解决一个 ticket 会清掉它前方的一片 fog，把现在已经能说明的问题升级成新的 tickets；一次一个，直到通向目标的路清楚且没有 tickets 剩下。
 
-迷雾只会聚集在通往 Destination 的路线上。超出 Destination 的工作是 **Out of scope**，不是迷雾。
-- 如果某张票在讨论中被发现超出了目的地范围，立即将该票 **Close**，并在地图的 `## Out of scope` 节记录一行原因和该票的链接；
-- **Out of scope 永远不会升级**，代表了不做的边界。
+Map 的 **Not yet specified** section 用来记录这种朦胧视野：怀疑中的问题、之后要回访的区域。这里是通往 destination、尚未探索的 frontier；所有内容都在 scope 内，只是还不够清晰，无法成为 ticket。可以按视野允许的粗细来写；它也是协作者阅读这个 effort 走向时的路标。
 
----
+**Fog or ticket?** 测试标准是你现在能不能把问题说清楚，而不是现在能不能回答它。
 
-## 执行步骤（Invocation）
+- **Ticket when** 问题已经清晰，即使它被 blocked、现在不能处理。
+- **Not yet specified when** 你还不能把它说得那么清楚。不要把 fog 预先切成 ticket-sized pieces：fog 比 ticket 粗，frontier 到达后，一片 fog 可能升级成多个 tickets，也可能一个都没有。
 
-### 模式 1：制图探路（Chart the map — 首个会话）
-1. **命名 Destination**：调用 `grilling` 确定地图要找到的终点形态；
-2. **绘制前沿 Frontier**：进行广度优先的快速扫视，浮现当前能看清的决策。**如果没有迷雾，说明路线极短，根本不需要建地图，直接停机去干活**；
-3. **初始化地图**：在 `.forge/maps/<slug>/map.md` 写入结构，把看不清的列入 `Not yet specified`；
-4. **创建第一批票**：创建当前能说清的 tickets，并标明 `Blocked by` 依赖关系；
-5. **停止会话**：制图会话到地图落盘即停。
+**Not yet specified** 排除已经决定的内容（Decisions so far）、已经是 live ticket 的内容，以及 out of scope 的内容（下一节）。
 
-### 模式 2：攻克决策票（Work through the map — 后续会话）
-1. 读取 `map.md`，加载全局低分辨率视图；
-2. 挑选一张当前 **未被阻塞（Unblocked）的前沿票**；
-3. 每个会话解决一张票后停下（Research 调研除外）；
-4. 攻克完成后，在该票中记录拍定的答案与依据，将票关闭，并在 `map.md` 的 `## Decisions so far` 追加一行结论索引；若结论满足 ADR 三门槛（见 `domain-modeling` 的 ADR-FORMAT.md），写成 ADR，索引行链接到 ADR；
-5. 将迷雾区中已经能够说清的问题，晋升（Graduate）为新的 tickets。
-6. **迷雾散尽即交棒**：当地图所有前沿票均已关闭，迷雾清空时，正式移交至 `/develop` 开启业务施工。
+## Out of scope
+
+Fog 只会聚集在通往 destination 的方向。Destination 固定 scope，因此超出它的工作是 **out of scope**，不是 fog，也不属于 **Not yet specified**。它写进 map 单独的 **Out of scope** section：你有意识地排除在这个 effort 之外的工作。决定它属于这里的是 scope，而不是 sharpness。
+
+Out-of-scope work 永远不会 graduate；frontier 会停在 destination。只有重画 destination 时它才会回来，而且应成为新的 effort，不是 resumption。
+
+把某事排除出 scope 是 scoping act，不是 route 上的一步。如果已有 ticket 被发现位于 destination 之外——charting 时被错误地划入 scope，或被某次 resolution 暴露——应 **close it**（把状态改为 `resolved` 或 `ruled_out`），并在 **Out of scope** section 中留一行：gist 加上它为何 out of scope，并链接到 closed ticket。不要把它放进 **Decisions so far**；后者只记录真正走过的路线——scope 边界不是路线上的一步。
+
+## Invocation
+
+两种模式。无论哪种，**每个 session 绝不要 resolve 超过一个 ticket**——research tickets 除外。
+
+### Chart the map
+
+用户带着松散想法调用。
+
+1. **Name the destination.** 调用两次 Skill 工具，分别指定 `grilling` 和 `domain-modeling`，确定 map 要找到的 spec、decision 或 change。Destination 固定 scope，所以先解决它。
+2. **Map the frontier.** 再 grill 一次，这次采用 **breadth-first**：覆盖整个空间，而不是深入一条 thread，浮现 open decisions 和现在可开始的 first steps。**如果没有 fog**，说明路径已经清晰，整个 journey 一个 session 就能完成，你不需要 map。停止并询问用户如何继续。
+3. **Create the map**：在 `.forge/<effort>/map.md` 填好 Destination 和 Notes，Decisions-so-far 为空，把 fog 勾勒进 **Not yet specified**。
+4. **Create the tickets you can specify now** 在 `.forge/<effort>/issues/` 目录下创建文件，然后第二遍再标注 Blocked by 依赖（tickets 需要编号后才能互相引用）。Wiring 会把它们分成 frontier 和 blocked；现在还说不清的都留在 **Not yet specified**。
+5. **启动 research subagents。** 对刚创建的每个 `research` ticket，并行启动一个调用 Skill 工具并指定 `research` 的 subagent 解决它；findings 保存在一次性的 `research/<name>` branch，并从 ticket 留下 context pointer。
+6. 停止。Charting 是一个 session 的工作；不要在这个 session 中手动 resolve tickets。
+
+### Work through the map
+
+用户用 map 路径或名称调用。Ticket 是 **optional**；没有 ticket 时，你选择下一个 decision，而不是用户选择。
+
+1. 加载 **map**：低分辨率视图，而不是每个 ticket body。
+2. 选择 ticket。用户点名就用它；否则按顺序拿第一个 frontier ticket。**Claim it**：任何工作开始前先将文件顶部标记为 `Status: claimed`。
+3. Resolve it：按需 **zoom**，只在需要时获取相关或已关闭 ticket 的完整 body；调用 `## Notes` block 提到的 skills。不确定时调用两次 Skill 工具，分别指定 `grilling` 和 `domain-modeling`。
+4. 记录 resolution：在 ticket 底部追加 `## Answer`，设置 `Status: resolved`，并向 map 的 Decisions-so-far 追加 context pointer。
+5. 添加新浮现的 tickets；把答案已经说清的 fog graduate 成 ticket，并从 **Not yet specified** 清掉每个已升级 patch，让它只作为新 ticket 存在。如果答案表明这个或其他 ticket 位于 destination 之外，将其 **rule out of scope**，而不是当作路线的一部分解决。如果这个 decision 使 map 其他部分失效，更新或删除那些 tickets。

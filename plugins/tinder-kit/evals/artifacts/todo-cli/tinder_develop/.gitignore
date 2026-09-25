@@ -1,0 +1,12 @@
+# Python
+__pycache__/
+*.py[cod]
+*.egg-info/
+dist/
+build/
+
+# 测试
+.pytest_cache/
+
+# 运行时数据（不应随仓库走）
+.todos.json

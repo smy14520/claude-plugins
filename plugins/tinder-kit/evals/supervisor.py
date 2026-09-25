@@ -52,7 +52,8 @@ class Supervisor:
    - 它的表现如何？是否主动澄清了隐性假设？提问是否切中要害？有无卡顿或死循环苗头？（用 1~2 句话写下考评观察）
 2. 【产品答复 (reply)】：以真实人类需求方口吻，对开发者的问题给予明确答复。
    - 必须严格忠实于你的《需求底牌卡》（如本地 JSON 存储、标签过滤等），拍定边界，给出清晰决策。（用 1~2 句话简明作答）
-3. 【完成判定 (is_completed)】：开发者是否已经彻底完成了全部交付（如呈现了交付总结、背书钢印或提示 commit）？若是则设为 true，否则为 false。
+   - 【开工指令】：若双方已消除所有疑问、对边界达成一致，且开发者在等待下一步指令或询问是否开工时，请你的 reply 明确发出开工指令：如回复“确认方案，请开工实现。”（若对方要求运行 /implement 则单行输出 "/implement"），确保开发者顺利推进至实现阶段。
+3. 【完成判定 (is_completed)】：开发者是否已经彻底完成了全部交付（如呈现了交付总结、背书钢印或提示/已完成 commit）？若是则设为 true，否则为 false。
 
 你必须只输出一段合法的 JSON，严禁输出任何多余的开场白或 markdown 标记外的文字，格式如下：
 ```json
@@ -69,11 +70,12 @@ class Supervisor:
 
         try:
             res = subprocess.run(
-                ["claude", "--bare", "--settings", self.settings_file, "-p", prompt],
+                ["claude", "-p", "--bare", "--settings", self.settings_file],
+                input=prompt,
                 capture_output=True,
                 text=True,
                 env=env,
-                timeout=90,
+                timeout=120,
             )
             raw = res.stdout.strip()
             # 提取 JSON 代码块或直接解析
@@ -97,22 +99,50 @@ class Supervisor:
 
     def evaluate_delivery(self, workdir: Path, title: str = "Todo CLI") -> str:
         """任务收尾时，对整个工作区进行深度架构与代码质检，生成评测总结报告。"""
+        EXCLUDE_PARTS = {".git", ".venv", "venv", "__pycache__", ".pytest_cache", "site-packages", ".mypy_cache", ".ruff_cache"}
+        def is_ignored(p: Path) -> bool:
+            return any(part in EXCLUDE_PARTS for part in p.parts)
+
         # 扫描工作区产物
-        files = [p.relative_to(workdir).as_posix() for p in workdir.rglob("*") if p.is_file() and not p.name.startswith(".git")]
+        files = [p.relative_to(workdir).as_posix() for p in workdir.rglob("*") if p.is_file() and not is_ignored(p)]
 
         spec_text = ""
-        spec_file = workdir / ".forge" / "tasks" / "todo" / "spec.md"
-        if spec_file.is_file():
-            spec_text = spec_file.read_text(encoding="utf-8")
+        for sf in list(workdir.rglob("spec.md")):
+            if sf.is_file() and not is_ignored(sf):
+                spec_text = sf.read_text(encoding="utf-8")
+                break
+
+        state_text = ""
+        for st in list(workdir.rglob("state.json")):
+            if st.is_file() and not is_ignored(st):
+                state_text = st.read_text(encoding="utf-8")
+                break
 
         endorsement_text = ""
-        endorse_file = workdir / ".forge" / "tasks" / "todo" / "endorsement.md"
-        if endorse_file.is_file():
-            endorsement_text = endorse_file.read_text(encoding="utf-8")
+        for ef in list(workdir.rglob("endorsement.md")):
+            if ef.is_file() and not is_ignored(ef):
+                endorsement_text = ef.read_text(encoding="utf-8")
+                break
+
+        # 扫描统一语言词汇表 (CONTEXT.md) 与 ADR 架构决策记录
+        context_text = ""
+        for cf in [workdir / ".forge" / "CONTEXT.md", workdir / "CONTEXT.md"]:
+            if cf.is_file():
+                context_text = cf.read_text(encoding="utf-8")
+                break
+
+        adr_texts = []
+        for adr_dir in [workdir / ".forge" / "wiki" / "decision", workdir / "docs" / "adr"]:
+            if adr_dir.is_dir():
+                for af in sorted(adr_dir.glob("*.md")):
+                    adr_texts.append(f"#### ADR: {af.name}\n{af.read_text(encoding='utf-8')[:2000]}")
+        adr_summary = "\n\n".join(adr_texts) if adr_texts else "（未生成任何 ADR 架构决策记录）"
 
         # 扫描核心代码与测试文件内容
         code_snippets = []
         for py_path in sorted(workdir.rglob("*.py")):
+            if is_ignored(py_path):
+                continue
             rel = py_path.relative_to(workdir).as_posix()
             try:
                 content = py_path.read_text(encoding="utf-8")
@@ -131,6 +161,8 @@ class Supervisor:
 {self.ground_truth}
 </ground_truth>
 
+注意：若为单会话快车道或 Matt Pocock 纯单会话直通 /implement 模式，无独立 spec.md/endorsement.md 磁盘文件属于标准规范行为（Spec 契约与双轴审查报告直接呈现于终端对话记录中），不属于档案缺失或缺陷，请主要基于终端交互事实与实际生成的代码/测试做客观评审。
+
 全程人机交互与监控笔记：
 <observations>
 {obs_summary}
@@ -142,14 +174,23 @@ class Supervisor:
 交付的核心代码与测试文件内容：
 {code_summary}
 
+交付的统一语言词汇表 (CONTEXT.md) 内容：
+{context_text[:2000] if context_text else "（未生成 CONTEXT.md 词汇表）"}
+
+交付的 ADR 架构决策记录：
+{adr_summary}
+
 交付的 spec.md 内容：
-{spec_text[:2000]}
+{spec_text[:2000] if spec_text else "（单切片快车道直通实现，未生成独立 spec.md）"}
+
+交付的 state.json 状态机内容：
+{state_text[:1000] if state_text else "（未生成 state.json 状态机）"}
 
 交付的 endorsement.md 背书内容：
 {endorsement_text[:2000]}
 
 请撰写一份结构化 Markdown 评测报告，必须包含以下维度：
-1. 需求兑现度与对齐质量（是否忠实兑现了底牌，有无隐性偷懒或功能残缺）；
+1. 需求兑现度与对齐质量（是否忠实兑现了底牌，有无隐性偷懒或功能残缺；是否有 CONTEXT.md 统一词汇表与 ADR 决策留痕）；
 2. 架构质量与模块设计（是否体现了深模块与薄接缝，代码是否高内聚低耦合）；
 3. 测试与背书完整度（面向接缝的测试是否真实且通过，是否有防回归背书）；
 4. 交互流畅度与摩擦点（全程一共经历了多少轮，有无死循环或卡顿）；
@@ -161,7 +202,8 @@ class Supervisor:
 
         try:
             res = subprocess.run(
-                ["claude", "--bare", "--settings", self.settings_file, "-p", prompt],
+                ["claude", "-p", "--bare", "--settings", self.settings_file],
+                input=prompt,
                 capture_output=True,
                 text=True,
                 env=env,

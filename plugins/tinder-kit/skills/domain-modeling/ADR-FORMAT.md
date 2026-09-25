@@ -1,6 +1,6 @@
 # ADR Format
 
-架构决策记录（ADR）存放在 `.forge/wiki/decision/`，使用连续编号命名：`0001-slug.md`、`0002-slug.md` 等。它同时是 wiki 页面，`forge wiki collect` 能检索到，写完运行 `forge wiki index --write`。
+架构决策记录（ADR）存放在 `.forge/wiki/decision/`，使用连续编号命名：`0001-slug.md`、`0002-slug.md` 等。它同时是 wiki 页面，写完后在 `.forge/wiki/index.md` 追加索引即可。
 
 按需懒创建目录：仅在第一个真实 ADR 需要生成时才创建。
 

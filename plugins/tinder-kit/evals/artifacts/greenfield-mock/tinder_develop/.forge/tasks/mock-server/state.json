@@ -1,0 +1,17 @@
+{
+  "task": "mock-server",
+  "slug": "mock-server",
+  "title": "轻量本地 HTTP API Mock 服务命令行工具",
+  "created": "2026-09-25",
+  "phase": "COMPLETED",
+  "source": "从零新建 Python 项目：mock-server CLI，读取本地 mocks.json 契约，提供静态路由与响应模拟，支持自定义端口与访问日志，不引入重型 Web 框架",
+  "spec": ".forge/mock-server/spec.md",
+  "review": {
+    "standards": "2 硬性违规（_Avoid_ 词汇 payload/entry）+ 7 smells；硬性与 5 条 smell 已修复（含 query 剥离共享 strip_query、__getattr__ 消解方法双枚举并堵 501 漏洞、死属性、测试夹具收敛）",
+    "spec": "(a) 无缺失；(b) 3 项待人类裁决的超纲严格性（未知字段报错、status 200..599、Ctrl-C 附言行）；(c) 1 真问题（白名单外 method 回 501）已修复并加测试"
+  },
+  "gates": {
+    "human_gate_1_align_confirm": "2026-09-25 用户确认「全按推荐」并指示直接开工（单会话推进，不拆工单）",
+    "human_gate_2_review_commit": "2026-09-25 双轴审查通过、pytest 41 绿、运行时冒烟通过；待人类 review git diff 并 commit"
+  }
+}

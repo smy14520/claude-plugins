@@ -1,0 +1,54 @@
+{
+  "task": "wiki-cli",
+  "slug": "wiki-cli",
+  "phase": "COMPLETED",
+  "request": "请用 Python 开发一个本地 Markdown 个人 Wiki 知识库管理内核（wiki-cli），支持双向链接 [[page]] 解析与反向引用查询、#tag 标签分类聚合、全文检索以及死链/孤岛页面体检，使用纯本地文件与极简 JSON 索引，拒绝引入重型数据库。",
+  "decisions": {
+    "shape": "内核库 wikicore（无 IO）+ CLI 薄壳",
+    "deps": "运行时纯标准库；pytest 仅 dev",
+    "vault": "--root 定位，缺省当前目录",
+    "index": "vault 根单文件 .wiki_index.json，原子写入，严禁 SQLite/外部服务",
+    "rebuild": "显式 build + mtime 增量；查询只读索引，失步 stderr 警告",
+    "pagename": "扁平命名空间，casefold 大小写不敏感，重名 build 报错",
+    "wikilink": "[[Target|alias]]，别名仅显示；code block/行内代码内不算",
+    "tag": "#词法支持中文与 . / 层级；排除 ATX 记号、代码、URL anchor",
+    "search": "CJK bigram + Latin 分词倒排，TF 计分排序，--json",
+    "doctor": "死链+孤岛（无入链，--entry 豁免）；退出码 0 干净 / 1 有问题",
+    "cli": "build/links/backlinks/tags/search/doctor + --root/--json"
+  },
+  "out_of_scope": [
+    "Web UI / 任何网络服务",
+    "SQLite 或第三方检索库（jieba/whoosh）",
+    "Markdown 渲染 HTML",
+    "页面创建/编辑",
+    "文件监听自动重建",
+    "[[page#heading]] 锚点",
+    "Git 集成",
+    "stats 命令"
+  ],
+  "docs": [
+    ".forge/CONTEXT.md",
+    ".forge/wiki/decision/0001-flat-case-insensitive-pagename.md",
+    ".forge/wiki/decision/0002-single-json-index-no-db.md",
+    ".forge/wiki/decision/0003-cjk-bigram-latin-word-inverted-index.md",
+    ".forge/wiki/decision/0004-explicit-build-mtime-incremental.md"
+  ],
+  "history": [
+    {
+      "at": "2026-09-25",
+      "event": "task created, phase=ALIGNING"
+    },
+    {
+      "at": "2026-09-25",
+      "event": "访谈收敛（Q1-Q8 + 委托项落定），把关点1通过：直接开工，phase=IMPLEMENTING"
+    },
+    {
+      "at": "2026-09-25",
+      "event": "TDD 完成（31 tests 全绿）+ 冒烟通过，双轴 code-review 进行中"
+    },
+    {
+      "at": "2026-09-25",
+      "event": "双轴审查完成：Spec 3 项修复（--root 前置失效 bug、内核零 vault IO、摘要偏移）+ Standards 重构（_emit/set_defaults/conftest/tokenize.py 改名）；ADR-0004 修订；37 tests 全绿"
+    }
+  ]
+}

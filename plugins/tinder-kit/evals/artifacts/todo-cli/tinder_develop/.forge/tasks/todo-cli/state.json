@@ -1,0 +1,36 @@
+{
+  "slug": "todo-cli",
+  "request": "用 Python 开发一个本地 CLI Todo 工具，支持标签过滤与本地持久化",
+  "phase": "COMPLETED",
+  "created": "2026-09-25",
+  "updated": "2026-09-25",
+  "agreed_seams": [
+    "Store 接缝: 单一 JSON 文件（默认 ~/.todo/todos.json），TODO_FILE 环境变量覆盖 = 测试注入点（ADR-0001）；原子写入；损坏报错不重置（含结构层校验）",
+    "数据模型: Task{id, text, tags, done}；标签顺序保留、自动去重",
+    "过滤语义: 多标签 AND（任务须同时含全部指定标签）",
+    "ID 策略: 正整数自增，由持久化 next_id 保证删除后永不复用",
+    "命令面: add / list / done / rm / tags，无别名；list 默认仅 Open，--all 含 Done；tags 全量口径（含已完成），计数降序+码点升序",
+    "技术栈: 纯标准库 + pytest(仅 dev 依赖)，Python >= 3.10，pyproject.toml，console script `todo`"
+  ],
+  "hard_constraints": [
+    "存储必须为本地单一 JSON 文件，禁用任何数据库（2026-09-25 人类拍板；TODO_FILE 注入接缝获确认）"
+  ],
+  "out_of_scope": [
+    "行内 #标签 解析（v2 再议）",
+    "edit / undo / toggle 命令",
+    "优先级、截止日期、提醒",
+    "多设备同步、多进程并发写入",
+    "颜色 / 表格等富文本输出"
+  ],
+  "verification": {
+    "test_suite": "24 passed, exit 0 (pytest 9.0.3, Python 3.12.8)",
+    "real_run": "python -m todo_cli 全命令真实链路验证通过，含损坏文件报错 exit=1 且不重置"
+  },
+  "history": [
+    { "date": "2026-09-25", "event": "task created, entering ALIGNING (grill-with-docs)" },
+    { "date": "2026-09-25", "event": "grilling 收敛: 6/6 决策按推荐敲定; 沉淀 CONTEXT.md + ADR-0001 + tags 登记; 把关点1通过(单会话直开), 进入 IMPLEMENTING" },
+    { "date": "2026-09-25", "event": "TDD 4 slices 全部红绿循环完成 (store/service/list-filter/cli); 真实终端全命令验证通过" },
+    { "date": "2026-09-25", "event": "双轴 code-review: 修复 Standards 硬违规(item 命名) + Spec A1(结构损坏归一 StorageError, TDD 4 用例) + service 重复形状收敛 + tags 口径登记 CONTEXT.md; 终态 24 passed" },
+    { "date": "2026-09-25", "event": "phase -> COMPLETED, 把关点2交还人类 (审查 diff + commit)" }
+  ]
+}

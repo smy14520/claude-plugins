@@ -1,0 +1,24 @@
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[project]
+name = "mock-server"
+version = "0.1.0"
+description = "轻量本地 HTTP API Mock 服务命令行工具：读取 mocks.json 契约，提供静态路由与预置响应"
+readme = "README.md"
+license = "MIT"
+requires-python = ">=3.11"
+dependencies = []
+
+[project.scripts]
+mock-server = "mock_server.cli:main"
+
+[dependency-groups]
+dev = ["pytest>=8.0"]
+
+[tool.hatch.build.targets.wheel]
+packages = ["src/mock_server"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]

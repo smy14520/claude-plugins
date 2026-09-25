@@ -5,6 +5,9 @@ Claude Code plugin 仓库。本仓库开发插件，提供栈无关的开发机�
 ## 总原则
 
 - **少即是多**：少做不必要的枚举、禁令和解释；给出清晰方向，并给模型留下合理判断空间。
+- **技能是提示词不是代码**：
+  > “Skills are instructions, not code. If an agent can do something with its native tools (Read, Grep, Glob), do NOT wrap it in a custom script.”
+  > （技能是提示词不是代码。如果 Agent 能用原生工具搞定，绝对不要包装成自定义脚本！）
 - **规则分层**：CLAUDE.md 只放项目级最高原则；`.claude/rules/` 沉淀可复用设计原则（由 harness 原生自动加载，无需在文件中显式指示）；具体阶段步骤放进对应 `SKILL.md`。
 - **skill 负责流程，arbor helper 负责机械动作，hook 只守底线**。
 - 不要把可由代码、测试或 git 当前状态确认的信息写成长期记忆或重复文档；需要时直接读当前文件。
