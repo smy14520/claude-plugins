@@ -9,3 +9,7 @@ plugins/sdd-kit/tests/fixtures/_workdir/
 plugins/sdd-kit/tests/scenario_eval/runs/
 .pytest_cache/
 .tmp-review/
+.audit_scratch/
+.eval_scratch/
+plugins/tinder-kit/evals/artifacts/**/.claude/
+plugins/tinder-kit/evals/artifacts/.eval_scratch/

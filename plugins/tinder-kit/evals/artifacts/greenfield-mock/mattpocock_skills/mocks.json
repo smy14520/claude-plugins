@@ -1,0 +1,21 @@
+{
+  "routes": [
+    {
+      "method": "GET",
+      "path": "/api/user",
+      "status": 200,
+      "body": { "id": 1, "name": "晶", "email": "jing@example.com" }
+    },
+    {
+      "method": "POST",
+      "path": "/api/user",
+      "status": 201,
+      "body": { "created": true }
+    },
+    {
+      "method": "DELETE",
+      "path": "/api/session",
+      "status": 204
+    }
+  ]
+}

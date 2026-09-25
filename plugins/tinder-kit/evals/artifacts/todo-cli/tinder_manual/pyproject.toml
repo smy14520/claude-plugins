@@ -1,0 +1,23 @@
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[project]
+name = "tdo"
+version = "0.1.0"
+description = "Local CLI todo: tag filtering, single-JSON persistence, stdlib only."
+readme = "README.md"
+requires-python = ">=3.10"
+
+[project.scripts]
+tdo = "tdo.cli:entry"
+
+[project.optional-dependencies]
+dev = ["pytest>=8"]
+
+[tool.hatch.build.targets.wheel]
+packages = ["src/tdo"]
+
+[tool.pytest.ini_options]
+pythonpath = ["src"]
+testpaths = ["tests"]

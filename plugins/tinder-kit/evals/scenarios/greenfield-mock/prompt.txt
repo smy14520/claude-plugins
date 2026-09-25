@@ -1,0 +1,1 @@
+从零新建一个 Python 项目：开发一个轻量本地 HTTP API Mock 服务命令行工具（mock-server），支持读取本地 mocks.json 契约并提供静态路由与响应模拟（如 GET /api/user -> 200 JSON），支持自定义端口与访问日志输出，纯单机开发，不引入重型 Web 框架。

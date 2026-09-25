@@ -1,0 +1,22 @@
+# Wiki Tags（受控标签词典）
+
+本文件是全项目唯一的 Wiki 标签真实源（Single Source of Truth）。
+所有在 `.forge/wiki/` 归档的知识页面，Frontmatter 中的 `tags` 必须且只能从本表中选用。
+
+## 查阅与打标铁律
+1. **检索先对齐**：检索知识前必看本表，将检索意图归一化为受控标签（如用 `auth` 而非 `login`），避免同义词漏检；
+2. **打标先查后用**：打标前必看本表；若既有标签能涵盖 70% 语义，必须直接复用；
+3. **同义词归一**：严格遵守每一项的 `_Avoid_` 负面清单，绝不允许自造近义变体；
+4. **单篇上限**：每篇文章打 2~4 个标签（1 个业务领域 + 1~2 个技术机制）；
+5. **新词即时登记**：当遇到本项目此前从未涉及的全新独立技术/业务域且既有标签无法涵盖时，打新标签的同时，顺手将新标签及其 1 句话定义和 `_Avoid_` 列表追加登记到本文件下方，供后续会话复用。
+
+---
+
+## 业务领域标签（Domain Tags）
+
+- `wiki-syntax`: `[[WikiLink]]` 与 `#Tag` 的词法约定与排除规则 (_Avoid_: markdown, markup)
+
+## 技术机制标签（Mechanism Tags）
+
+- `index`: `.wiki_index.json` 索引的构建、mtime 增量与原子写入 (_Avoid_: db, database, cache)
+- `search`: CJK bigram + Latin 分词的倒排检索与 TF 排序 (_Avoid_: grep, fulltext, 检索引擎)

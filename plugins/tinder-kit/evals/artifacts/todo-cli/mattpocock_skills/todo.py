@@ -1,10 +1,11 @@
 #!/usr/bin/env python3
-"""todo — 本地 CLI 待办工具。
+"""todo — 单机单用户的极简 CLI 待办工具。
 
-一次性子命令（add / list / done / delete），标签过滤，
-单一 JSON 文件持久化（默认 ~/.todos.json，可用 TODO_STORE 覆盖）。
-零第三方依赖，Python 3.10+。
+领域语言见 CONTEXT.md，存储决策见 docs/adr/0001-single-json-file-storage.md。
+数据模型：Task = id / text / tags / priority / done（无时间戳）。
+存储：单个本地 JSON 文件，默认 ~/.todos.json，可用环境变量 TODO_FILE 覆盖。
 """
+
 from __future__ import annotations
 
 import argparse
@@ -12,196 +13,253 @@ import json
 import os
 import sys
 import tempfile
-import unicodedata
-from datetime import datetime
+from dataclasses import dataclass, field
 from pathlib import Path
 
 PRIORITIES = ("high", "med", "low")
-PRIORITY_RANK = {"high": 0, "med": 1, "low": 2}
+DEFAULT_PRIORITY = "med"
+DEFAULT_FILE = Path.home() / ".todos.json"
 
 
-def store_path() -> Path:
-    return Path(os.environ.get("TODO_STORE") or Path.home() / ".todos.json")
+class TodoError(Exception):
+    """可预期的用户错误：消息直接展示，进程以退出码 1 结束。"""
 
 
-def now_iso() -> str:
-    return datetime.now().isoformat(timespec="seconds")
+@dataclass
+class Task:
+    id: int
+    text: str
+    tags: list[str] = field(default_factory=list)
+    priority: str = DEFAULT_PRIORITY
+    done: bool = False
+
+    @classmethod
+    def from_dict(cls, raw: dict) -> Task:
+        # 防御式读取：手工编辑过的、字段残缺的旧文件不应让程序崩溃。
+        return cls(
+            id=int(raw["id"]),
+            text=str(raw["text"]),
+            tags=[str(tag) for tag in raw.get("tags", [])],
+            priority=str(raw.get("priority") or DEFAULT_PRIORITY),
+            done=bool(raw.get("done", False)),
+        )
+
+    def to_dict(self) -> dict:
+        return {
+            "id": self.id,
+            "text": self.text,
+            "tags": self.tags,
+            "priority": self.priority,
+            "done": self.done,
+        }
 
 
-def die(msg: str):
-    print(f"todo: 错误：{msg}", file=sys.stderr)
-    raise SystemExit(1)
+class Store:
+    """单个 JSON 文件的读写。写走临时文件 + 原子替换。"""
 
+    def __init__(self, path: Path) -> None:
+        self.path = Path(path)
 
-def load() -> dict:
-    path = store_path()
-    if not path.exists():
-        return {"next_id": 1, "todos": []}
-    try:
-        data = json.loads(path.read_text(encoding="utf-8"))
-    except (json.JSONDecodeError, OSError) as exc:
-        die(f"无法读取存储文件 {path}：{exc}。为防数据丢失，已中止，不做任何写入。")
-    if (
-        not isinstance(data, dict)
-        or not isinstance(data.get("todos"), list)
-        or not isinstance(data.get("next_id"), int)
-    ):
-        die(f"存储文件 {path} 结构不符合预期（需要 todos 列表 + next_id 整数）。已中止，不做任何写入。")
-    return data
-
-
-def save(data: dict) -> None:
-    path = store_path()
-    path.parent.mkdir(parents=True, exist_ok=True)
-    # 写临时文件再原子改名，中途崩溃不会留下半个文件
-    fd, tmp_name = tempfile.mkstemp(dir=path.parent, prefix=".todos-", suffix=".tmp")
-    try:
-        with os.fdopen(fd, "w", encoding="utf-8") as fh:
-            json.dump(data, fh, ensure_ascii=False, indent=2)
-            fh.write("\n")
-        os.replace(tmp_name, path)
-    except BaseException:
+    def load(self) -> tuple[list[Task], int]:
+        if not self.path.exists():
+            return [], 1
         try:
-            os.unlink(tmp_name)
-        except FileNotFoundError:
-            pass
-        raise
+            raw = json.loads(self.path.read_text(encoding="utf-8"))
+        except json.JSONDecodeError as exc:
+            raise TodoError(f"{self.path} 不是合法 JSON，拒绝读写（{exc}）") from exc
+        tasks = [Task.from_dict(item) for item in raw.get("tasks", [])]
+        next_id = raw.get("next_id")
+        if not isinstance(next_id, int):
+            next_id = max((task.id for task in tasks), default=0) + 1
+        return tasks, next_id
+
+    def save(self, tasks: list[Task], next_id: int) -> None:
+        payload = {"next_id": next_id, "tasks": [task.to_dict() for task in tasks]}
+        self.path.parent.mkdir(parents=True, exist_ok=True)
+        fd, tmp_name = tempfile.mkstemp(dir=self.path.parent, prefix=".todos-", suffix=".tmp")
+        tmp_path = Path(tmp_name)
+        try:
+            with os.fdopen(fd, "w", encoding="utf-8") as handle:
+                json.dump(payload, handle, ensure_ascii=False, indent=2)
+                handle.write("\n")
+            os.replace(tmp_path, self.path)
+        finally:
+            if tmp_path.exists():
+                tmp_path.unlink()
 
 
-def parse_tags(chunks: list[str] | None) -> list[str]:
-    tags: list[str] = []
-    for chunk in chunks or []:
-        for tag in chunk.split(","):
-            tag = tag.strip()
-            if tag and tag not in tags:
-                tags.append(tag)
-    return tags
+def normalize_tags(tags: list[str]) -> list[str]:
+    """清洗标签：strip、拒绝空串、同任务内大小写不敏感去重（保留首个输入的大小写）。"""
+    cleaned: list[str] = []
+    seen: set[str] = set()
+    for tag in tags:
+        stripped = tag.strip()
+        if not stripped:
+            raise TodoError("标签不能为空")
+        key = stripped.lower()
+        if key not in seen:
+            seen.add(key)
+            cleaned.append(stripped)
+    return cleaned
 
 
-def find_todo(data: dict, todo_id: int) -> dict:
-    for todo in data["todos"]:
-        if todo["id"] == todo_id:
-            return todo
-    die(f"找不到 #{todo_id}。可用 id 见 `todo list`。")
+def parse_priority(value: str) -> str:
+    lowered = value.strip().lower()
+    if lowered not in PRIORITIES:
+        raise argparse.ArgumentTypeError(
+            f"优先级必须是 {'/'.join(PRIORITIES)} 之一，收到 {value!r}"
+        )
+    return lowered
 
 
-def dwidth(text: str) -> int:
-    """终端显示宽度：全角/宽字符按 2 计。"""
-    return sum(2 if unicodedata.east_asian_width(ch) in "WF" else 1 for ch in text)
+def find(tasks: list[Task], task_id: int) -> Task:
+    for task in tasks:
+        if task.id == task_id:
+            return task
+    raise TodoError(f"不存在 ID 为 {task_id} 的任务（用 list 查看当前 ID）")
 
 
-def pad(text: str, width: int) -> str:
-    return text + " " * max(0, width - dwidth(text))
+def select(
+    tasks: list[Task], *, show: str, tags: list[str], priority: str | None
+) -> list[Task]:
+    """按可见性、优先级、标签过滤。多标签 AND、大小写不敏感，结果按 ID 升序（创建顺序）。"""
+    selected = []
+    for task in sorted(tasks, key=lambda t: t.id):
+        if show == "open" and task.done:
+            continue
+        if show == "done" and not task.done:
+            continue
+        if priority is not None and task.priority != priority:
+            continue
+        lowered = {tag.lower() for tag in task.tags}
+        if any(tag.lower() not in lowered for tag in tags):
+            continue
+        selected.append(task)
+    return selected
 
 
-def cmd_add(args: argparse.Namespace) -> None:
-    data = load()
-    tags = parse_tags(args.tag)
-    todo = {
-        "id": data["next_id"],
-        "title": " ".join(args.title),
-        "tags": tags,
-        "priority": args.priority,
-        "done": False,
-        "created_at": now_iso(),
-        "completed_at": None,
-    }
-    data["todos"].append(todo)
-    data["next_id"] += 1
-    save(data)
-    suffix = " ".join(f"#{t}" for t in tags)
-    print(f"已添加 #{todo['id']} [{todo['priority']}] {todo['title']}" + (f" {suffix}" if suffix else ""))
+def render(task: Task) -> str:
+    checkbox = "x" if task.done else " "
+    parts = [f"[{checkbox}] {task.id} {task.text}", *(f"#{tag}" for tag in task.tags)]
+    if task.priority != DEFAULT_PRIORITY:
+        parts.append(f"!{task.priority}")
+    return " ".join(parts)
 
 
-def cmd_list(args: argparse.Namespace) -> None:
-    todos = list(load()["todos"])
-    if args.done:
-        todos = [t for t in todos if t["done"]]
-    elif not args.all:
-        todos = [t for t in todos if not t["done"]]
-    want_tags = parse_tags(args.tag)
-    if want_tags:  # AND：每条标签都得具备
-        todos = [t for t in todos if all(w in t["tags"] for w in want_tags)]
-    if args.priority:
-        todos = [t for t in todos if t["priority"] == args.priority]
-    todos.sort(key=lambda t: (PRIORITY_RANK.get(t["priority"], 99), t.get("created_at") or ""))
-
-    if not todos:
-        print("（没有匹配的 todo）")
-        return
-    w_id = max(dwidth("id"), max(dwidth(str(t["id"])) for t in todos))
-    w_pri = max(dwidth("优先级"), max(dwidth(t["priority"]) for t in todos))
-    tag_strs = [" ".join(f"#{tag}" for tag in t["tags"]) or "-" for t in todos]
-    w_tag = max(dwidth("标签"), max(dwidth(s) for s in tag_strs))
-    print(f"{pad('id', w_id)}  {pad('优先级', w_pri)}  {pad('标签', w_tag)}  标题")
-    for todo, tag_str in zip(todos, tag_strs):
-        title = ("✓ " if todo["done"] else "") + todo["title"]
-        print(f"{pad(str(todo['id']), w_id)}  {pad(todo['priority'], w_pri)}  {pad(tag_str, w_tag)}  {title}")
+# ---- 命令实现。返回 (tasks, next_id, 是否写盘) -------------------------------------
 
 
-def cmd_done(args: argparse.Namespace) -> None:
-    data = load()
-    todo = find_todo(data, args.id)
-    if todo["done"]:
-        print(f"#{args.id} 已是完成状态（completed_at={todo['completed_at']}），未改动。")
-        return
-    todo["done"] = True
-    todo["completed_at"] = now_iso()
-    save(data)
-    print(f"完成 #{todo['id']} {todo['title']}")
+def cmd_add(args: argparse.Namespace, tasks: list[Task], next_id: int):
+    text = args.text.strip()
+    if not text:
+        raise TodoError("任务内容不能为空")
+    if args.priority not in PRIORITIES:  # 直接调用时的兜底校验（CLI 路径已由 parse_priority 保证）
+        raise TodoError(f"优先级必须是 {'/'.join(PRIORITIES)} 之一")
+    task = Task(id=next_id, text=text, tags=normalize_tags(args.tag), priority=args.priority)
+    tasks.append(task)
+    print(render(task))
+    return tasks, next_id + 1, True
 
 
-def cmd_delete(args: argparse.Namespace) -> None:
-    data = load()
-    todo = find_todo(data, args.id)
-    data["todos"].remove(todo)
-    save(data)
-    print(f"已删除 #{todo['id']} {todo['title']}")
+def cmd_list(args: argparse.Namespace, tasks: list[Task], next_id: int):
+    show = "all" if args.show_all else "done" if args.done else "open"
+    selected = select(tasks, show=show, tags=args.tag, priority=args.priority)
+    if selected:
+        for task in selected:
+            print(render(task))
+    else:
+        print("没有匹配的任务", file=sys.stderr)
+    return tasks, next_id, False
+
+
+def _set_done(args, tasks, next_id, done_value: bool, label: str):
+    task = find(tasks, args.id)
+    if task.done == done_value:
+        print(f"任务 {task.id} 本就处于{label}状态")
+    else:
+        task.done = done_value
+        print(render(task))
+    return tasks, next_id, True
+
+
+def cmd_done(args: argparse.Namespace, tasks: list[Task], next_id: int):
+    return _set_done(args, tasks, next_id, True, "已完成")
+
+
+def cmd_reopen(args: argparse.Namespace, tasks: list[Task], next_id: int):
+    return _set_done(args, tasks, next_id, False, "未完成")
+
+
+def cmd_delete(args: argparse.Namespace, tasks: list[Task], next_id: int):
+    task = find(tasks, args.id)
+    tasks.remove(task)
+    print(f"已删除 {task.id} {task.text}")
+    return tasks, next_id, True
+
+
+HANDLERS = {
+    "add": cmd_add,
+    "list": cmd_list,
+    "done": cmd_done,
+    "reopen": cmd_reopen,
+    "delete": cmd_delete,
+    "rm": cmd_delete,
+}
 
 
 def build_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(
         prog="todo",
-        description="本地 CLI 待办工具：标签过滤 + 单文件 JSON 持久化（~/.todos.json）",
-        formatter_class=argparse.RawDescriptionHelpFormatter,
-        epilog="示例：\n"
-               "  todo add 买菜 -t 跑腿,生活 -p high\n"
-               "  todo list -t 工作\n"
-               "  todo done 1\n"
-               "  todo delete 1",
+        description="单机单用户的极简 CLI 待办工具（标签过滤 + 本地 JSON 持久化）",
     )
-    sub = parser.add_subparsers(dest="command", required=True, metavar="命令")
+    sub = parser.add_subparsers(dest="command")
 
-    add = sub.add_parser("add", help="新增一条 todo")
-    add.add_argument("title", nargs="+", help="标题（多个词以空格连接，可不加引号）")
-    add.add_argument("-t", "--tag", action="append", metavar="标签",
-                     help="标签；可重复使用，也可逗号分隔（如 -t 工作,紧急）")
-    add.add_argument("-p", "--priority", choices=PRIORITIES, default="med", help="优先级，缺省 med")
-    add.set_defaults(func=cmd_add)
+    p_add = sub.add_parser("add", help="新增任务")
+    p_add.add_argument("text", help="任务内容")
+    p_add.add_argument(
+        "--tag", action="append", default=[], metavar="TAG", help="标签，可重复；同一任务内去重"
+    )
+    p_add.add_argument(
+        "--priority",
+        type=parse_priority,
+        default=DEFAULT_PRIORITY,
+        help=f"优先级 {'/'.join(PRIORITIES)}，默认 {DEFAULT_PRIORITY}",
+    )
 
-    lst = sub.add_parser("list", aliases=["ls"], help="列出 todo（默认隐藏已完成）")
-    lst.add_argument("-t", "--tag", action="append", metavar="标签",
-                     help="按标签过滤；多个标签为“同时满足”（AND）")
-    lst.add_argument("-p", "--priority", choices=PRIORITIES, help="按优先级过滤")
-    status = lst.add_mutually_exclusive_group()
-    status.add_argument("-a", "--all", action="store_true", help="包含已完成")
-    status.add_argument("--done", action="store_true", help="只看已完成")
-    lst.set_defaults(func=cmd_list)
+    p_list = sub.add_parser("list", help="列出任务（默认只显示未完成，按创建顺序）")
+    p_list.add_argument("--tag", action="append", default=[], metavar="TAG", help="过滤标签，可重复，AND 语义")
+    p_list.add_argument("--priority", type=parse_priority, default=None, metavar="P", help="按优先级过滤")
+    visibility = p_list.add_mutually_exclusive_group()
+    visibility.add_argument("--done", action="store_true", help="只看已完成")
+    visibility.add_argument("--all", action="store_true", dest="show_all", help="全部")
 
-    done = sub.add_parser("done", help="标记完成（幂等）")
-    done.add_argument("id", type=int)
-    done.set_defaults(func=cmd_done)
+    p_done = sub.add_parser("done", help="标记为已完成")
+    p_reopen = sub.add_parser("reopen", help="恢复为未完成")
+    p_delete = sub.add_parser("delete", aliases=["rm"], help="物理删除任务（别名 rm）")
+    for p in (p_done, p_reopen, p_delete):
+        p.add_argument("id", type=int, metavar="ID", help="任务 ID，来自 list 输出")
 
-    delete = sub.add_parser("delete", aliases=["rm"], help="删除（立即生效，不可恢复）")
-    delete.add_argument("id", type=int)
-    delete.set_defaults(func=cmd_delete)
     return parser
 
 
-def main(argv: list[str] | None = None) -> None:
+def main(argv: list[str] | None = None) -> int:
+    argv = list(sys.argv[1:] if argv is None else argv)
+    if not argv:
+        argv = ["list"]  # 裸敲 todo 等价于 todo list
+
     args = build_parser().parse_args(argv)
-    args.func(args)
+    path = Path(os.environ.get("TODO_FILE") or DEFAULT_FILE)
+
+    try:
+        tasks, next_id = Store(path).load()
+        tasks, next_id, changed = HANDLERS[args.command](args, tasks, next_id)
+    except TodoError as exc:
+        print(f"错误：{exc}", file=sys.stderr)
+        return 1
+    if changed:
+        Store(path).save(tasks, next_id)
+    return 0
 
 
 if __name__ == "__main__":
-    main()
+    sys.exit(main())

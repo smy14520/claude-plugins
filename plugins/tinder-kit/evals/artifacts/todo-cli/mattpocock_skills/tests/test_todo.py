@@ -1,154 +1,251 @@
-"""todo.py 的单元测试。运行：python3 -m unittest discover -s tests"""
-import contextlib
-import io
+"""todo.py 的测试。领域规则与决策出处见 CONTEXT.md 与 docs/adr/。"""
+
 import json
-import os
-import tempfile
-import unittest
-from pathlib import Path
-from unittest import mock
 
-import todo
+import pytest
+
+from todo import Task, TodoError, main, normalize_tags, parse_priority, render
 
 
-class TodoCliTest(unittest.TestCase):
-    def setUp(self):
-        self.tmp = tempfile.TemporaryDirectory()
-        self.addCleanup(self.tmp.cleanup)
-        self.store = Path(self.tmp.name) / "todos.json"
-        env = mock.patch.dict(os.environ, {"TODO_STORE": str(self.store)})
-        env.start()
-        self.addCleanup(env.stop)
-
-    def run_cli(self, *argv):
-        out, err = io.StringIO(), io.StringIO()
-        with contextlib.redirect_stdout(out), contextlib.redirect_stderr(err):
-            todo.main(list(argv))
-        return out.getvalue()
-
-    def read_store(self):
-        return json.loads(self.store.read_text(encoding="utf-8"))
-
-    # --- add ---
-
-    def test_add_creates_store_with_expected_fields(self):
-        self.run_cli("add", "买牛奶", "-t", "跑腿,生活", "-p", "high")
-        data = self.read_store()
-        self.assertEqual(data["next_id"], 2)
-        (todo,) = data["todos"]
-        self.assertEqual(todo["id"], 1)
-        self.assertEqual(todo["title"], "买牛奶")
-        self.assertEqual(todo["tags"], ["跑腿", "生活"])
-        self.assertEqual(todo["priority"], "high")
-        self.assertFalse(todo["done"])
-        self.assertIsNone(todo["completed_at"])
-        self.assertTrue(todo["created_at"])
-        # 中文不转义，肉眼可读
-        self.assertIn("买牛奶", self.store.read_text(encoding="utf-8"))
-
-    def test_add_title_joins_bare_words(self):
-        self.run_cli("add", "修复", "登录", "bug")
-        self.assertEqual(self.read_store()["todos"][0]["title"], "修复 登录 bug")
-
-    def test_add_default_priority_is_med(self):
-        self.run_cli("add", "随便一件事")
-        self.assertEqual(self.read_store()["todos"][0]["priority"], "med")
-
-    def test_tags_dedupe_across_flags_and_commas(self):
-        self.run_cli("add", "x", "-t", "a", "-t", "a, b ,c")
-        self.assertEqual(self.read_store()["todos"][0]["tags"], ["a", "b", "c"])
-
-    def test_list_does_not_create_store(self):
-        out = self.run_cli("list")
-        self.assertIn("没有匹配", out)
-        self.assertFalse(self.store.exists())
-
-    # --- list / 过滤 / 排序 ---
-
-    def test_list_hides_done_by_default(self):
-        self.run_cli("add", "甲")
-        self.run_cli("add", "乙")
-        self.run_cli("done", "1")
-        out = self.run_cli("list")
-        self.assertNotIn("甲", out)
-        self.assertIn("乙", out)
-        self.assertIn("✓ 甲", self.run_cli("list", "--all"))
-        self.assertIn("✓ 甲", self.run_cli("list", "--done"))
-        self.assertNotIn("乙", self.run_cli("list", "--done"))
-
-    def test_tag_filter_is_and(self):
-        self.run_cli("add", "甲", "-t", "x,y")
-        self.run_cli("add", "乙", "-t", "x")
-        out = self.run_cli("list", "-t", "x", "-t", "y")
-        self.assertIn("甲", out)
-        self.assertNotIn("乙", out)
-
-    def test_priority_filter_exact_match(self):
-        self.run_cli("add", "甲", "-p", "high")
-        self.run_cli("add", "乙", "-p", "low")
-        out = self.run_cli("list", "-p", "low")
-        self.assertIn("乙", out)
-        self.assertNotIn("甲", out)
-
-    def test_sort_by_priority_then_created(self):
-        self.run_cli("add", "低", "-p", "low")
-        self.run_cli("add", "高", "-p", "high")
-        self.run_cli("add", "中")
-        out = self.run_cli("list")
-        self.assertLess(out.index("高"), out.index("中"))
-        self.assertLess(out.index("中"), out.index("低"))
-
-    # --- done / delete ---
-
-    def test_done_sets_completed_at_and_is_idempotent(self):
-        self.run_cli("add", "甲")
-        self.run_cli("done", "1")
-        first = self.read_store()["todos"][0]["completed_at"]
-        self.assertTrue(first)
-        out = self.run_cli("done", "1")
-        self.assertIn("已是完成状态", out)
-        self.assertEqual(self.read_store()["todos"][0]["completed_at"], first)
-
-    def test_delete_removes_only_target_and_ids_not_reused(self):
-        self.run_cli("add", "one")
-        self.run_cli("add", "two")
-        self.run_cli("delete", "2")
-        self.run_cli("add", "three")
-        todos = self.read_store()["todos"]
-        self.assertEqual([t["id"] for t in todos], [1, 3])
-        self.assertEqual([t["title"] for t in todos], ["one", "three"])
-
-    def test_unknown_id_exits_1(self):
-        self.run_cli("add", "甲")
-        with self.assertRaises(SystemExit) as ctx:
-            self.run_cli("done", "99")
-        self.assertEqual(ctx.exception.code, 1)
-        with self.assertRaises(SystemExit) as ctx:
-            self.run_cli("delete", "99")
-        self.assertEqual(ctx.exception.code, 1)
-
-    # --- 持久化健壮性 ---
-
-    def test_corrupt_store_aborts_without_writing(self):
-        self.store.write_text("{ 坏掉的 JSON", encoding="utf-8")
-        with self.assertRaises(SystemExit) as ctx:
-            self.run_cli("add", "甲")
-        self.assertEqual(ctx.exception.code, 1)
-        self.assertEqual(self.store.read_text(encoding="utf-8"), "{ 坏掉的 JSON")
-
-    def test_no_temp_files_left_behind(self):
-        self.run_cli("add", "甲")
-        self.run_cli("add", "乙")
-        leftovers = [p.name for p in self.store.parent.iterdir() if p.name.startswith(".todos-")]
-        self.assertEqual(leftovers, [])
-
-    # --- CJK 对齐 ---
-
-    def test_dwidth(self):
-        self.assertEqual(todo.dwidth("ab"), 2)
-        self.assertEqual(todo.dwidth("买菜"), 4)
-        self.assertEqual(todo.dwidth("买a"), 3)
+@pytest.fixture
+def todo_file(tmp_path, monkeypatch):
+    path = tmp_path / "todos.json"
+    monkeypatch.setenv("TODO_FILE", str(path))
+    return path
 
 
-if __name__ == "__main__":
-    unittest.main()
+def run(*argv):
+    return main(list(argv))
+
+
+def drain(capsys):
+    """排空已捕获输出：setup 阶段的打印不应混进被测命令的断言。"""
+    return capsys.readouterr()
+
+
+def read(todo_file):
+    return json.loads(todo_file.read_text(encoding="utf-8"))
+
+
+# ---- add：ID、标签、优先级 ---------------------------------------------------------
+
+
+def test_add_assigns_ids_and_defaults(todo_file, capsys):
+    assert run("add", "买牛奶") == 0
+    data = read(todo_file)
+    assert data["next_id"] == 2
+    assert data["tasks"] == [
+        {"id": 1, "text": "买牛奶", "tags": [], "priority": "med", "done": False}
+    ]
+    assert "[ ] 1 买牛奶" in capsys.readouterr().out
+
+
+def test_ids_never_reused_after_delete(todo_file):
+    run("add", "a")
+    run("add", "b")
+    run("delete", "1")
+    run("add", "c")
+    assert [t["id"] for t in read(todo_file)["tasks"]] == [2, 3]
+
+
+def test_add_tags_and_priority(todo_file, capsys):
+    assert run("add", "修屋顶", "--tag", "家", "--tag", "diy", "--priority", "HIGH") == 0
+    task = read(todo_file)["tasks"][0]
+    assert task["tags"] == ["家", "diy"]
+    assert task["priority"] == "high"  # 大小写不敏感，归一为小写存储
+    assert "!high" in capsys.readouterr().out
+
+
+def test_add_dedupes_tags_case_insensitively(todo_file):
+    run("add", "x", "--tag", "work", "--tag", "WORK", "--tag", " work ")
+    assert read(todo_file)["tasks"][0]["tags"] == ["work"]
+
+
+def test_add_strips_text(todo_file):
+    run("add", "  带空白的任务  ")
+    assert read(todo_file)["tasks"][0]["text"] == "带空白的任务"
+
+
+def test_add_rejects_blank_text(todo_file, capsys):
+    assert run("add", "   ") == 1
+    assert "任务内容不能为空" in capsys.readouterr().err
+
+
+def test_add_rejects_empty_tag(todo_file, capsys):
+    assert run("add", "x", "--tag", "  ") == 1
+    assert "标签不能为空" in capsys.readouterr().err
+
+
+def test_add_rejects_invalid_priority(todo_file):
+    with pytest.raises(SystemExit) as excinfo:
+        run("add", "x", "--priority", "urgent")
+    assert excinfo.value.code == 2  # argparse 对非法枚举值的退出码
+
+
+def test_normalize_tags_keeps_first_casing():
+    assert normalize_tags(["Work", "WORK", " home "]) == ["Work", "home"]
+    with pytest.raises(TodoError):
+        normalize_tags(["ok", " "])
+
+
+def test_parse_priority_normalizes():
+    assert parse_priority(" Low ") == "low"
+    with pytest.raises(Exception):
+        parse_priority("nope")
+
+
+# ---- list：可见性、标签 AND、优先级过滤、稳定排序 -----------------------------------
+
+
+def test_list_defaults_to_open_and_keeps_creation_order(todo_file, capsys):
+    run("add", "一")
+    run("add", "二")
+    run("done", "1")
+    drain(capsys)
+    assert run("list") == 0
+    out = capsys.readouterr().out
+    assert "[x] 1 一" not in out
+    assert "[ ] 2 二" in out
+
+
+def test_list_done_and_all(todo_file, capsys):
+    run("add", "一")
+    run("add", "二")
+    run("done", "1")
+    drain(capsys)
+    run("list", "--done")
+    done_out = capsys.readouterr().out
+    assert "[x] 1 一" in done_out and "二" not in done_out
+    run("list", "--all")
+    all_out = capsys.readouterr().out
+    assert "[x] 1 一" in all_out and "[ ] 2 二" in all_out
+
+
+def test_list_done_and_all_are_mutually_exclusive(todo_file):
+    with pytest.raises(SystemExit) as excinfo:
+        run("list", "--done", "--all")
+    assert excinfo.value.code == 2
+
+
+def test_list_multiple_tags_is_and(todo_file, capsys):
+    run("add", "A", "--tag", "work")
+    run("add", "B", "--tag", "work", "--tag", "urgent")
+    run("add", "C", "--tag", "urgent")
+    drain(capsys)
+    assert run("list", "--tag", "work", "--tag", "urgent") == 0
+    out = capsys.readouterr().out
+    assert "[ ] 2 B #work #urgent" in out
+    assert "A" not in out and "C" not in out
+
+
+def test_list_tag_match_is_case_insensitive(todo_file, capsys):
+    run("add", "A", "--tag", "Work")
+    drain(capsys)
+    assert run("list", "--tag", "work") == 0
+    assert "[ ] 1 A #Work" in capsys.readouterr().out  # 显示保留输入原样
+
+
+def test_list_priority_filter(todo_file, capsys):
+    run("add", "要紧事", "--priority", "high")
+    run("add", "普通事")
+    drain(capsys)
+    assert run("list", "--priority", "high") == 0
+    out = capsys.readouterr().out
+    assert "要紧事" in out and "普通事" not in out
+
+
+def test_list_combines_priority_tag_and_visibility(todo_file, capsys):
+    run("add", "命中", "--tag", "work", "--priority", "high")
+    run("add", "标签对但优先级低", "--tag", "work")
+    run("add", "优先级对但已完成", "--tag", "work", "--priority", "high")
+    run("done", "3")
+    drain(capsys)
+    assert run("list", "--tag", "work", "--priority", "high") == 0
+    out = capsys.readouterr().out
+    assert "命中" in out and "标签对但优先级低" not in out and "优先级对但已完成" not in out
+
+
+def test_list_empty_result_is_friendly_not_silent(todo_file, capsys):
+    assert run("list") == 0
+    assert "没有匹配的任务" in capsys.readouterr().err
+
+
+def test_bare_todo_behaves_like_list(todo_file, capsys):
+    run("add", "一")
+    drain(capsys)
+    assert main([]) == 0
+    assert "[ ] 1 一" in capsys.readouterr().out
+
+
+# ---- done / reopen / delete -------------------------------------------------------
+
+
+def test_done_and_reopen_roundtrip(todo_file, capsys):
+    run("add", "一")
+    run("done", "1")
+    assert "[x] 1 一" in capsys.readouterr().out
+    run("reopen", "1")
+    assert "[ ] 1 一" in capsys.readouterr().out
+    assert read(todo_file)["tasks"][0]["done"] is False
+
+
+def test_done_is_idempotent(todo_file, capsys):
+    run("add", "一")
+    run("done", "1")
+    run("done", "1")
+    assert "本就处于已完成状态" in capsys.readouterr().out
+
+
+def test_nonexistent_id_fails_cleanly(todo_file, capsys):
+    run("add", "一")
+    assert run("done", "99") == 1
+    assert "不存在 ID 为 99" in capsys.readouterr().err
+
+
+def test_delete_removes_record(todo_file):
+    run("add", "一")
+    assert run("delete", "1") == 0
+    assert read(todo_file)["tasks"] == []
+
+
+def test_rm_is_alias_of_delete(todo_file):
+    run("add", "一")
+    run("add", "二")
+    assert run("rm", "1") == 0
+    assert [t["id"] for t in read(todo_file)["tasks"]] == [2]
+
+
+# ---- 存储安全 ----------------------------------------------------------------------
+
+
+def test_missing_file_starts_empty(todo_file, capsys):
+    assert run("list") == 0
+    assert not todo_file.exists()
+
+
+def test_corrupted_json_is_never_overwritten(todo_file, capsys):
+    garbage = "{ not valid json"
+    todo_file.write_text(garbage, encoding="utf-8")
+    for argv in (("list",), ("add", "新任务")):
+        assert run(*argv) == 1
+        assert "不是合法 JSON" in capsys.readouterr().err
+    assert todo_file.read_text(encoding="utf-8") == garbage  # 拒绝读写，原样保留
+
+
+def test_store_defaults_and_defensive_read(todo_file):
+    # 手工编辑：缺 next_id、缺 tags/priority/done 字段，均不应崩溃
+    todo_file.write_text(
+        json.dumps({"tasks": [{"id": 7, "text": "手工"}]}, ensure_ascii=False),
+        encoding="utf-8",
+    )
+    assert run("list") == 0
+    run("add", "追加")
+    data = read(todo_file)
+    assert data["next_id"] == 9  # 派生自现有最大 ID（7），分配 8 后计数器推进到 9
+    assert data["tasks"][-1]["id"] == 8
+
+
+def test_render_hides_default_priority():
+    assert render(Task(id=1, text="t")) == "[ ] 1 t"
+    assert render(Task(id=1, text="t", done=True)) == "[x] 1 t"
+    assert render(Task(id=1, text="t", tags=["a"], priority="low")) == "[ ] 1 t #a !low"

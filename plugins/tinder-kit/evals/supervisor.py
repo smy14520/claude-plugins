@@ -70,7 +70,8 @@ class Supervisor:
 
         try:
             res = subprocess.run(
-                ["claude", "--bare", "--settings", self.settings_file, "-p", prompt],
+                ["claude", "-p", "--bare", "--settings", self.settings_file],
+                input=prompt,
                 capture_output=True,
                 text=True,
                 env=env,
@@ -98,24 +99,28 @@ class Supervisor:
 
     def evaluate_delivery(self, workdir: Path, title: str = "Todo CLI") -> str:
         """任务收尾时，对整个工作区进行深度架构与代码质检，生成评测总结报告。"""
+        EXCLUDE_PARTS = {".git", ".venv", "venv", "__pycache__", ".pytest_cache", "site-packages", ".mypy_cache", ".ruff_cache"}
+        def is_ignored(p: Path) -> bool:
+            return any(part in EXCLUDE_PARTS for part in p.parts)
+
         # 扫描工作区产物
-        files = [p.relative_to(workdir).as_posix() for p in workdir.rglob("*") if p.is_file() and not p.name.startswith(".git")]
+        files = [p.relative_to(workdir).as_posix() for p in workdir.rglob("*") if p.is_file() and not is_ignored(p)]
 
         spec_text = ""
         for sf in list(workdir.rglob("spec.md")):
-            if sf.is_file():
+            if sf.is_file() and not is_ignored(sf):
                 spec_text = sf.read_text(encoding="utf-8")
                 break
 
         state_text = ""
         for st in list(workdir.rglob("state.json")):
-            if st.is_file():
+            if st.is_file() and not is_ignored(st):
                 state_text = st.read_text(encoding="utf-8")
                 break
 
         endorsement_text = ""
         for ef in list(workdir.rglob("endorsement.md")):
-            if ef.is_file():
+            if ef.is_file() and not is_ignored(ef):
                 endorsement_text = ef.read_text(encoding="utf-8")
                 break
 
@@ -136,6 +141,8 @@ class Supervisor:
         # 扫描核心代码与测试文件内容
         code_snippets = []
         for py_path in sorted(workdir.rglob("*.py")):
+            if is_ignored(py_path):
+                continue
             rel = py_path.relative_to(workdir).as_posix()
             try:
                 content = py_path.read_text(encoding="utf-8")
@@ -195,7 +202,8 @@ class Supervisor:
 
         try:
             res = subprocess.run(
-                ["claude", "--bare", "--settings", self.settings_file, "-p", prompt],
+                ["claude", "-p", "--bare", "--settings", self.settings_file],
+                input=prompt,
                 capture_output=True,
                 text=True,
                 env=env,
