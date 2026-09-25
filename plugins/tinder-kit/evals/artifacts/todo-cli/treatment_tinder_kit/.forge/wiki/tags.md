@@ -14,16 +14,17 @@
 
 ## 业务领域标签（Domain Tags）
 
-- `task-management`: Task 的创建、完成、删除与标签/优先级管理 (_Avoid_: todo-list, 待办管理)
-
 <!-- 随项目实际业务演进按需懒追加。格式示例：
 - `auth`: 用户身份、Token 与权限控制 (_Avoid_: login, 登录)
 -->
 
-## 技术机制标签（Mechanism Tags）
+- `todo`: 待办事项管理——增删改查、完成流转与标签过滤 (_Avoid_: task, 事项, gtd)
 
-- `storage`: JSON 数据落盘与文件读写 (_Avoid_: persistence, db, database)
+## 技术机制标签（Mechanism Tags）
 
 <!-- 随项目底层架构演进按需懒追加。格式示例：
 - `storage`: 文件读写、序列化与原子写入 (_Avoid_: persistence, store, db)
 -->
+
+- `storage`: 本地文件读写、JSON 序列化与原子写入 (_Avoid_: persistence, db, database)
+- `cli`: 命令行接口——参数解析、子命令与终端输出 (_Avoid_: terminal, shell, console)

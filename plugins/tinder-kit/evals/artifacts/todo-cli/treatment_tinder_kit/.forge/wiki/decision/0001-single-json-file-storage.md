@@ -1,20 +1,24 @@
 ---
-title: 单一 .todos.json 本地存储，永不引入数据库
-description: 拍板：数据只存 cwd 下单一 JSON 文件并直接覆写，明确排除 SQLite/PostgreSQL 等一切数据库与并发设计。
+title: 单一 JSON 文件存储
+description: Store 永久采用单一 JSON 文件 + 原子写入，永不引入数据库（人类硬约束）
 type: decision
-tags: [task-management, storage]
+tags: [todo, storage]
 ---
 
-# 单一 .todos.json 本地存储，永不引入数据库
+# 单一 JSON 文件存储
 
-todo CLI 是单机个人工具，数据量级为个人待办（数千条以内）。拍板：持久化只使用当前工作目录下的单一 JSON 文件（`.todos.json`），每次直接整体覆写；**永不引入 SQLite 或任何数据库**；单进程场景不考虑并发与原子写入。
+个人本地 CLI、单用户、数据量小，Store 选定为单一 JSON 文件（`~/.todo-cli.json`），并以"写临时文件 + `os.replace` 原子重命名"落盘防止写坏。**这是人类在需求访谈中拍下的硬约束：永不引入任何数据库。**
 
 ## Considered Options
 
-- SQLite：查询与并发能力强，但个人量级下是高射炮打蚊子，且数据无法直接 `cat`/git/手改救急——否决。
-- todo.txt 纯文本：人读最友好，但 tags/priority/status 等结构化字段解析易脆——否决。
+- SQLite — 否决：肉眼不可读、手改困难，读写能力远超单用户清单所需；
+- 每目录 `.todo.json` — 否决：清单随目录分裂，与"全局一份 Store"的产品定位冲突。
+
+## Consequences
+
+- JSON 肉眼可读可手改，备份即复制文件；
+- 无并发保护：多进程同时写会丢更新。单用户单终端场景可接受，不设锁。
 
 ## Revisit When
 
-- 出现多进程并发写需求（如多终端同时操作同一清单）；
-- 单文件数据量或过滤性能成为实际痛点（> 数万条）。
+出现多机同步或多进程并发写需求时（届时优先追加锁或换存储，仍需重新过人类决策）。

@@ -353,7 +353,7 @@ def run_single_arm(
     settings_file: Path,
     env_vars: dict[str, str],
     plugin_dir: Path | None,
-    max_turns: int = 6,
+    max_turns: int = 8,
 ) -> tuple[str, list[dict[str, str]]]:
     """运行单组（对照组或实验组）的全流程生命周期。"""
     print(f"\n{'='*20} 启动运行组: [{arm_name}] {'='*20}")
@@ -392,7 +392,7 @@ def run_single_arm(
         subprocess.run(["git", "config", "user.email", "tester@example.com"], cwd=workdir, capture_output=True, check=True)
         subprocess.run(["git", "commit", "--allow-empty", "-m", "Initial commit"], cwd=workdir, capture_output=True, check=True)
 
-        initial_cmd = '/grill-with-docs "用 Python 开发一个本地 CLI Todo 工具，支持标签过滤与本地持久化"'
+        initial_cmd = '/develop "用 Python 开发一个本地 CLI Todo 工具，支持标签过滤与本地持久化"'
     else:
         initial_cmd = '请用 Python 开发一个本地 CLI Todo 工具，支持标签过滤与本地单个 JSON 文件持久化，不要使用数据库'
 

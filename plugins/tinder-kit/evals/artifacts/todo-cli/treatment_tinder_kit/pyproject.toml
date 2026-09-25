@@ -1,16 +1,20 @@
+[build-system]
+requires = ["setuptools>=61"]
+build-backend = "setuptools.build_meta"
+
 [project]
 name = "todo-cli"
 version = "0.1.0"
-description = "单机本地 CLI Todo 工具：add / list / done / delete + 标签过滤 + 三档优先级"
-requires-python = ">=3.10"
-dependencies = ["typer>=0.9"]
+description = "Local CLI todo tool with tag filtering and single-file JSON persistence"
+requires-python = ">=3.9"
+dependencies = []
 
 [project.scripts]
-todo = "todo_cli.main:app"
+todo = "todo_cli.cli:main"
 
-[build-system]
-requires = ["hatchling"]
-build-backend = "hatchling.build"
+[tool.setuptools.packages.find]
+where = ["src"]
 
-[tool.hatch.build.targets.wheel]
-packages = ["todo_cli"]
+[tool.pytest.ini_options]
+pythonpath = ["src"]
+testpaths = ["tests"]

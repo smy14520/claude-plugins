@@ -1,0 +1,62 @@
+{
+  "slug": "todo-cli",
+  "title": "本地 CLI Todo 工具（Python，标签过滤 + 本地持久化）",
+  "phase": "COMPLETED",
+  "created": "2026-09-25",
+  "decisions": [
+    "D1 存储：单一 JSON 文件 ~/.todo-cli.json，原子写入（tmp+rename），永不碰数据库（硬约束，ADR-0001）",
+    "D2 任务模型：id/text/tags/status/created_at/done_at；自增 ID 删除后永不复用（ADR-0003）",
+    "D3 标签输入：显式可重复 -t/--tag 旗标（add），不做行内 #tag 解析",
+    "D4 过滤：多 --tag 为 AND 交集；list 默认只显示未完成，--all 显示全部",
+    "D5 命令面：add/list/done/undo/rm/tags；不做 edit/归档/搜索",
+    "D6 工程：零第三方运行时依赖（ADR-0002），pyproject.toml + src 布局 + todo 入口，pytest 测试",
+    "D7 输出：纯文本对齐 [ ]/[x] 标记，无 ANSI 颜色",
+    "D8 变更周期 1（人类确认）：delete 升主命令、rm 为别名；add --priority high/med/low 可选（缺省 null，旧文件缺键兼容）；list 主排序 high>med>low>无、次排序 ID 升序；undo/tags 保留；存储维持家目录单 JSON。按优先级过滤明确不做（仅排序）"
+  ],
+  "review": {
+    "date": "2026-09-25",
+    "axes": { "standards": { "hard_violations": 0, "judgement_calls": 7 }, "spec": { "missing": 1, "scope_creep": 4, "wrongish": 2 } },
+    "fixed": [
+      "只读命令（list/tags）不再写盘/建文件",
+      "补原子写入表征测试",
+      "移除 list 的 -t 短旗标",
+      "getattr 字符串分发改为显式分支",
+      "__main__.py 补 if __name__ 守卫"
+    ],
+    "declined": [
+      "Status 类型化（Speculative Generality）",
+      "id 列宽/CJK 视觉对齐（样例非精确文法）",
+      "中英混排错误文案统一",
+      "done/undo 回显整行、__main__.py 存在（保留）"
+    ]
+  },
+  "commits": [
+    { "sha": "af349b1", "date": "2026-09-25", "note": "初始交付：命令六件套 + 单文件 JSON 持久化，21 tests" },
+    { "sha": "e067ab9", "date": "2026-09-25", "note": "变更周期 1：delete 主命令(rm 别名) + --priority 三档 + 排序，29 tests；人类终验授权" }
+  ],
+  "review_cycle_1": {
+    "date": "2026-09-25",
+    "axes": {
+      "standards": { "hard_violations": 0, "judgement_calls": 4 },
+      "spec": { "missing": 0, "partial": 1, "creep": 0, "regressions": 0 }
+    },
+    "fixed": [
+      "done/undo 回显补优先级列（与 add 回显及 list 同规矩）",
+      "Store.add 对 priority 自验（ValueError），choices 改由 PRIORITY_RANK 派生（消除一处散写）",
+      "魔数 3 → NO_PRIORITY 常量；show_pri → any_priority"
+    ],
+    "declined": [
+      "priority Enum 化（现规模散写可接受；第三个字符串枚举字段落地时再做）",
+      "done/undo 二元循环与 p_delete 展平（纯观感）"
+    ]
+  },
+  "history": [
+    { "date": "2026-09-25", "event": "task created, phase=ALIGNING, align interview started" },
+    { "date": "2026-09-25", "event": "Round 1 grilling: 7 decisions confirmed; gate 1 passed: direct implement" },
+    { "date": "2026-09-25", "event": "CONTEXT.md + 3 ADRs + wiki index/tags 沉淀；spec.md 定稿" },
+    { "date": "2026-09-25", "event": "TDD 三切片红绿循环，18 passed；editable 安装冒烟取证" },
+    { "date": "2026-09-25", "event": "双轴 code-review → 修 5 / declined 4；21 passed" },
+    { "date": "2026-09-25", "event": "gate 2：人类授权 commit（注：其随附边界描述与实际 diff 有出入，已当面澄清并获裁决）→ af349b1" },
+    { "date": "2026-09-25", "event": "变更周期 1（人类确认边界：delete 主命令+rm 别名、--priority 三档、优先级排序、存储不变家目录单 JSON）：spec/CONTEXT 先行更新 → TDD 红(5)绿(27) → 双轴增量审查 → 修 3 / declined 2 → 29 passed；人类终验授权 commit → e067ab9，收官" }
+  ]
+}

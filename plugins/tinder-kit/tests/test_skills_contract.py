@@ -30,6 +30,7 @@ USER_INVOKED_FLOWS = {
     "dream",
     "improve-codebase-architecture",
     "grill-with-docs",
+    "develop",
 }
 MODEL_INVOKED_DISCIPLINES = {
     "grilling",

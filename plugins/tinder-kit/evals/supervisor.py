@@ -52,7 +52,7 @@ class Supervisor:
    - 它的表现如何？是否主动澄清了隐性假设？提问是否切中要害？有无卡顿或死循环苗头？（用 1~2 句话写下考评观察）
 2. 【产品答复 (reply)】：以真实人类需求方口吻，对开发者的问题给予明确答复。
    - 必须严格忠实于你的《需求底牌卡》（如本地 JSON 存储、标签过滤等），拍定边界，给出清晰决策。（用 1~2 句话简明作答）
-   - 【开工指令】：若双方已消除所有疑问、对边界达成一致，且开发者在等待下一步指令或询问是否开工时，请你的 reply 必须直接且仅输出开工指令："/implement"（严格独占单行，绝不要添加任何前缀、解释或客套话），以确保终端精准拦截并触发 Slash Command 进入编码实现。
+   - 【开工指令】：若双方已消除所有疑问、对边界达成一致，且开发者在等待下一步指令或询问是否开工时，请你的 reply 明确发出开工指令：如回复“确认方案，请开工实现。”（若对方要求运行 /implement 则单行输出 "/implement"），确保开发者顺利推进至实现阶段。
 3. 【完成判定 (is_completed)】：开发者是否已经彻底完成了全部交付（如呈现了交付总结、背书钢印或提示/已完成 commit）？若是则设为 true，否则为 false。
 
 你必须只输出一段合法的 JSON，严禁输出任何多余的开场白或 markdown 标记外的文字，格式如下：
@@ -102,20 +102,19 @@ class Supervisor:
         files = [p.relative_to(workdir).as_posix() for p in workdir.rglob("*") if p.is_file() and not p.name.startswith(".git")]
 
         spec_text = ""
-        for sf in [
-            workdir / ".forge" / "tasks" / "todo" / "spec.md",
-            workdir / "docs" / "spec.md",
-            workdir / ".scratch" / "todo" / "spec.md",
-        ]:
+        for sf in list(workdir.rglob("spec.md")):
             if sf.is_file():
                 spec_text = sf.read_text(encoding="utf-8")
                 break
 
+        state_text = ""
+        for st in list(workdir.rglob("state.json")):
+            if st.is_file():
+                state_text = st.read_text(encoding="utf-8")
+                break
+
         endorsement_text = ""
-        for ef in [
-            workdir / ".forge" / "tasks" / "todo" / "endorsement.md",
-            workdir / "docs" / "endorsement.md",
-        ]:
+        for ef in list(workdir.rglob("endorsement.md")):
             if ef.is_file():
                 endorsement_text = ef.read_text(encoding="utf-8")
                 break
@@ -175,7 +174,10 @@ class Supervisor:
 {adr_summary}
 
 交付的 spec.md 内容：
-{spec_text[:2000]}
+{spec_text[:2000] if spec_text else "（单切片快车道直通实现，未生成独立 spec.md）"}
+
+交付的 state.json 状态机内容：
+{state_text[:1000] if state_text else "（未生成 state.json 状态机）"}
 
 交付的 endorsement.md 背书内容：
 {endorsement_text[:2000]}
