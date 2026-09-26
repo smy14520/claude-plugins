@@ -1,0 +1,46 @@
+{
+  "slug": "due-date-support",
+  "created": "2026-09-26",
+  "source": "/tinder-kit:develop",
+  "route": "小而清楚 → 直接 implement（一句话说得清，无真正分叉，单会话可完成）",
+  "requirement_raw": "在现有 Todo 工具基础之上增加截止日期支持：add 命令支持可选参数 --due YYYY-MM-DD，list 命令在展示未完成任务时，若当前日期已超过截止日期，在末尾标注 [OVERDUE]，数据存放在现有的单 JSON 文件中保持向后兼容。",
+  "feature_points": [
+    "add 命令新增可选参数 --due YYYY-MM-DD",
+    "截止日期随任务写入现有单 JSON 文件（.todos.json），保持向后兼容",
+    "list 命令展示未完成任务时，若当前日期已超过截止日期，行末追加 [OVERDUE] 标注"
+  ],
+  "agreed_seams": [
+    "add_todo(title, path=DEFAULT_FILE, *, due=None)：due 为 ISO 日期字符串或 None，强制关键字传参 —— 与初稿 (title, due, path) 顺序不同，属有意和解：保持既有位置参数 path 的调用兼容，关键字强制杜绝 due 被位置串入 path",
+    "OVERDUE 判定抽为可注入『今天』的纯函数 is_overdue(todo, today)，CLI 入口传 date.today() —— 便于测试，不让纯函数层依赖真实时钟",
+    "日期语法单一化：parse_due(value) -> date 为唯一解析入口（非法输入抛 ValueError），add_todo 写盘前校验，is_overdue 捕获后视为未逾期",
+    "存储层 load/save 不变，due 只是任务 dict 里的可选键"
+  ],
+  "out_of_scope": [
+    { "item": "list 展示未逾期任务的截止日期", "why": "需求只要求 OVERDUE 标注，不加戏" },
+    { "item": "编辑或清除已有任务的截止日期", "why": "需求未涉及" },
+    { "item": "逾期任务排序或高亮", "why": "需求未涉及" },
+    { "item": "数据迁移工具", "why": "旧数据无 due 键，靠 t.get('due') 天然兼容，无需迁移" }
+  ],
+  "key_decisions": [
+    { "decision": "due 以 'YYYY-MM-DD' 字符串原样存储", "why": "JSON 无日期类型；存 ISO 字符串文件保持人类可读，且与输入格式一致" },
+    { "decision": "add 时校验日期格式，非法输入报错并以退出码 1 失败", "why": "快速失败，不让脏数据进入存储" },
+    { "decision": "逾期判定用本地日期（date.today()）且严格大于——截止当天不算逾期", "why": "需求表述为『当前日期已超过截止日期』" },
+    { "decision": "已完成任务不参与 OVERDUE 标注", "why": "list 本就只展示未完成任务，且需求限定『展示未完成任务时』" }
+  ],
+  "backward_compat_notes": [
+    "旧 .todos.json 无 due 键：读取用 .get('due')，add/save 全量透传其余字段，不会丢数据",
+    "不带 --due 的新任务不写 due 键（保持与旧记录同构），而非写 null"
+  ],
+  "code_review": {
+    "fixed": [
+      "is_overdue 对非字符串 due（如数字 20261001）崩溃 —— parse_due 将 TypeError 归一为 ValueError，脏数据视为未逾期",
+      "日期校验只存在于 CLI 层 —— 下沉到 add_todo 写盘前抛 ValueError，脏数据永不落盘；main 捕获映射退出码 1",
+      "YYYY-MM-DD 语法双实现宽严不一 —— 收拢为单一 parse_due"
+    ],
+    "deferred": [
+      "load_todos 的 except Exception 吞错 + add 无条件重写：损坏的 JSON 会被静默清空（既有行为，非本次引入，需原子写+故障处理设计）",
+      "无 id 键的畸形旧记录使 add 抛 KeyError（既有行为，非本次引入）"
+    ]
+  },
+  "status": "implemented-reviewed"
+}

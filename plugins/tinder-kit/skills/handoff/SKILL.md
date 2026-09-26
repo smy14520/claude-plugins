@@ -39,9 +39,9 @@ argument-hint: "下一个会话将用于什么？"
 2. **关联资产索引（Touchpoints & References）**：
    - 相关文件的相对路径，关联的 `spec.md`、ADR 或分支指针；
 3. **建议下一步指令（Suggested Skills）**：
-   - 明确写明接棒者启动时应调用的技能（如 `/develop <slug>`、`/implement`、`/code-review` 等）。
+   - 明确写明接棒者启动时应调用的技能（如 `/develop <slug>`、`/implement`、`/tinder-kit:code-review` 等）。
 
 ## 存储位置
 
-- **任务上下文**：若处于 `.forge/tasks/<slug>/` 任务中，落盘至 `.forge/tasks/<slug>/handoff.md`（单文件原子覆盖，杜绝生成编号累积垃圾）；
+- **任务上下文**：若处于 `.forge/<slug>/` 任务中，落盘至 `.forge/<slug>/handoff.md`（单文件原子覆盖，杜绝生成编号累积垃圾）；
 - **通用上下文**：若非特定任务，保存至系统临时目录（如 `/tmp/handoff-<slug>.md`），不污染项目代码库。

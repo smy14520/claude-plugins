@@ -4,12 +4,13 @@
 
 ## 目录与架构
 
-- **专属运行时目录**：`.forge/tasks/<task-slug>/`
-  - `state.json`：任务级极简状态机（不绑 Git 分支，支持多任务并发）
+- **专属运行时目录**：`.forge/<slug>/`（与 setup 的 issue-tracker 契约同一目录）
+  - `state.json`：任务对齐记录（原始需求、agreed seams、out of scope、关键决策），接续与审查的依据；不绑 Git 分支，支持多任务并发
   - `spec.md`：需求规格与商定的 Seams 契约
-  - `handoffs/`：各阶段交接文档链（隔离上下文，防止 context rot）
+  - `issues/`：to-tickets 拆出的票（每票一个文件）
+  - `handoff.md`：跨会话交接文档（单文件覆盖）
   - `endorsement.md`：最终交付的测试与规范审查报告
 - **技能体系**：
-  - **User-invoked**：编排流（`/develop` 等，面向开发者场景）
+  - **User-invoked**：流程入口（`/develop` 等）；`/develop` 沿 ask-matt 路线图直接调用可编排阶段（`grill-with-docs` → `to-spec` / `to-tickets` → `implement` 等）
   - **Model-invoked**：原子工程素养（`tdd`, `codebase-design`, `diagnose`, `prototype` 等，模型自主调用）
   - **Bridge**：`handoff`（既可用户随时调用，又负责编排阶段间的交接）

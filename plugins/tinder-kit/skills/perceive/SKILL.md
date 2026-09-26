@@ -25,9 +25,9 @@ description: "感官闭环质量自验与运行证据留存。在无测试框架
 - **模拟关键交互**：针对商定的 Seam 行为，触发真实的用户动作（点击关键按钮、表单输入、路由跳转），断言交互后的 DOM 状态变化。
 
 ### 3. 实证检查（Evidence Gate）
-- **运行证据留存**（有工单时存到 `.forge/tasks/<slug>/evidence/`，单会话需求存到系统临时目录）：
-  - 前端任务：截取渲染成功的快照并保存至 `.forge/tasks/<slug>/evidence/perceive-ui.png`；
-  - CLI/脚本任务：将真实的执行命令、退出码与 stdout 前后 20 行高密度片段保存至 `.forge/tasks/<slug>/evidence/cli-run.log`；
+- **运行证据留存**（有工单时存到 `.forge/<slug>/evidence/`，单会话需求存到系统临时目录）：
+  - 前端任务：截取渲染成功的快照并保存至 `.forge/<slug>/evidence/perceive-ui.png`；
+  - CLI/脚本任务：将真实的执行命令、退出码与 stdout 前后 20 行高密度片段保存至 `.forge/<slug>/evidence/cli-run.log`；
 - **Evidence 绑定**：在交付呈递中给出证据文件路径，以此证明 Seam 契约真实兑现。
 
 ## 典型操作模式
@@ -49,7 +49,7 @@ const { chromium } = require("playwright");
   page.on("pageerror", err => errors.push(err.message));
   
   await page.goto("http://localhost:3891");
-  await page.screenshot({ path: ".forge/tasks/<slug>/evidence/shot.png" });
+  await page.screenshot({ path: ".forge/<slug>/evidence/shot.png" });
   await browser.close();
   
   if (errors.length > 0) {
@@ -65,7 +65,7 @@ kill -9 $DEV_PID
 ### 模式 2：CLI / 脚本类端到端管道捕获
 ```bash
 # 运行真实命令并捕获运行证据
-python3 ./bin/tool --input "test-case" > .forge/tasks/<slug>/evidence/cli-run.log 2>&1
+python3 ./bin/tool --input "test-case" > .forge/<slug>/evidence/cli-run.log 2>&1
 EXIT_CODE=$?
 if [ $EXIT_CODE -ne 0 ]; then
   echo "Execution failed with code $EXIT_CODE"

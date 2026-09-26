@@ -1,8 +1,0 @@
-{
-  "routes": [
-    { "method": "GET", "path": "/api/user", "body": { "id": 1, "name": "Alice" } },
-    { "method": "POST", "path": "/api/session", "status": 201, "body": { "token": "demo-token" } },
-    { "method": "GET", "path": "/api/note", "body": "plain text response" },
-    { "method": "GET", "path": "/api/health", "headers": { "X-Mock": "true" } }
-  ]
-}

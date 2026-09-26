@@ -1,7 +1,6 @@
 ---
 name: to-tickets
 description: 把 plan、spec 或当前对话拆成一组 tracer-bullet tickets，每个 ticket 声明 blocking edges，并发布到本地 .forge/<feature-slug>/issues/ 下每 ticket 一个文件。
-disable-model-invocation: true
 ---
 
 # To Tickets

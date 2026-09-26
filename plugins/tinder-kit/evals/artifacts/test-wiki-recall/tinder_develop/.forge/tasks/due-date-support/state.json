@@ -1,0 +1,49 @@
+{
+  "task": "due-date-support",
+  "slug": "due-date-support",
+  "created": "2026-09-26",
+  "route": "小而清楚 → 直接 implement（无真正分叉，关键裁决已被既有 ADR/Gotcha 覆盖）",
+  "original_request": "在现有 Todo 工具基础之上增加截止日期支持：add 命令支持可选参数 --due YYYY-MM-DD，若格式错误应友好报错退出，list 命令在展示未完成任务时，若当前日期已超过截止日期，在末尾标注 [OVERDUE]，数据存放在现有的单 JSON 文件中保持向后兼容。",
+  "feature_points": [
+    "add 命令新增可选参数 --due YYYY-MM-DD",
+    "--due 格式非法时：stderr 友好报错并退出，exit code 42（遵循 ADR 0001，禁用通用 1/2）",
+    "list 输出带截止日期的任务使用 (DEADLINE: YYYY-MM-DD) 前缀格式（遵循 gotcha due-date-prefix）",
+    "当前日期严格晚于截止日期时（today > due，当天不算逾期），未完成任务行末追加 [OVERDUE]",
+    "存储仍为单一 .todos.json；due 为可选字段；旧数据无 due 字段时行为与现在完全一致"
+  ],
+  "agreed_seams": [
+    "argparse：add 子命令挂载 --due 可选参数",
+    "日期校验：独立的 --due 解析/校验入口（非法输入走 ADR 0001 的 42 退出路径）",
+    "list 渲染：行格式化集中一处——无 due 保持原样 `[id] title`；有 due 追加 ` (DEADLINE: YYYY-MM-DD)`；已逾期再追加 ` [OVERDUE]`"
+  ],
+  "out_of_scope": [
+    "存储格式迁移（不需要——due 仅是新增可选字段，天然向后兼容）",
+    "修改/补录既有任务的截止日期（现有命令面无 update 语义）",
+    "时分秒级精度（需求只到日期粒度 YYYY-MM-DD）",
+    "引入第三方日期库（stdlib datetime/date 足够）"
+  ],
+  "key_decisions": [
+    {
+      "decision": "非法 --due 退出码用 42 而非 1/2",
+      "basis": "ADR 0001（.forge/wiki/decision/0001-exit-code-policy.md）：一切参数校验失败一律 42"
+    },
+    {
+      "decision": "list 中截止日期用 (DEADLINE: YYYY-MM-DD) 前缀而非 (due: ...)",
+      "basis": "gotcha due-date-prefix（.forge/wiki/gotcha/due-date-prefix.md）：上游日志解析器绑定 DEADLINE 关键词"
+    },
+    {
+      "decision": "逾期判定为严格大于：today > due 才标 [OVERDUE]，截止当天不算逾期",
+      "basis": "需求原文「当前日期已超过截止日期」"
+    }
+  ],
+  "review_follow_ups": [
+    "（已闭环 2026-09-26，裁决①）argparse exit 2 张力 → TodoArgumentParser.error() 覆写，所有 argparse 解析失败一律 42",
+    "（已闭环 2026-09-26，裁决②）非零填充日期 → parse_due 增加 round-trip 严格校验",
+    "（已闭环 2026-09-26，裁决③）损坏 due 崩溃 → load_todos 加载期 _normalize_todo 按 null 兼容"
+  ],
+  "user_rulings_2026_09_26": [
+    "① 所有命令行非法参数校验失败（含 argparse 解析失败与非法日期）一律按 ADR 0001 友好输出到 stderr 并以 exit 42 退出，不保留默认 2",
+    "② 日期严格按 YYYY-MM-DD 校验，其余写法视为非法日期",
+    "③ 加载 .todos.json 时 due 缺失或损坏一律不崩溃，按 null 兼容处理（缺失键保持缺失，渲染端 .get 统一按 null；损坏值归一为 due=null）"
+  ]
+}

@@ -1,20 +1,23 @@
 [build-system]
-requires = ["setuptools>=68"]
+requires = ["setuptools>=61"]
 build-backend = "setuptools.build_meta"
 
 [project]
-name = "wikicore"
+name = "wiki-cli"
 version = "0.1.0"
-description = "本地 Markdown 个人 Wiki 知识库管理内核（wiki-cli）"
-requires-python = ">=3.12"
+description = "个人本地 Markdown Wiki 知识库命令行工具：Link / Backlink / Tag / Keyword Search / Health Check"
+requires-python = ">=3.10"
 dependencies = []
-
-[project.optional-dependencies]
-dev = ["pytest>=8"]
+classifiers = [
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.10",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+    "Topic :: Text Processing :: Markup :: Markdown",
+]
 
 [project.scripts]
-wiki-cli = "wikicore.cli:main"
+wiki = "wiki_cli.cli:main"
 
-[tool.pytest.ini_options]
-testpaths = ["tests"]
-pythonpath = ["."]
+[tool.setuptools.packages.find]
+where = ["src"]

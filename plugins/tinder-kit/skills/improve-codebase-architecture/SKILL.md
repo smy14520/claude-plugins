@@ -59,6 +59,6 @@ disable-model-invocation: true
 2. 用户选定某个候选后，**同时调用 `grilling` 与 `domain-modeling`** 展开决策树访谈（新的领域术语由 domain-modeling 当场记录）：
    - 敲定深化后模块的 interface 签名与公共行为；想并排比较几种截然不同的接口时，按 `codebase-design` 的 [DESIGN-IT-TWICE.md](../codebase-design/DESIGN-IT-TWICE.md) 并行派子 Agent 各设计一版；
    - 确定测试存留策略与防回归 Seam；
-   - 若用户决定放弃某个候选，可记录一条轻量 ADR 防止后续巡检重复提议；
+   - 用户以站得住的理由否决某个候选时，经 `domain-modeling` 提议记一条 ADR，免得后续巡检重复提议；理由只是一时的（"现在不值得"）或不言自明时就不记；
 3. 访谈收敛后，提示用户：
    > “架构深化方案已敲定！接下来请运行 `/develop <slug>`（或 `/to-spec`）作为独立的工程任务稳健实施交付。”

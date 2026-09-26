@@ -14,9 +14,16 @@
 
 ## 业务领域标签（Domain Tags）
 
-- `mocking`: 用静态契约模拟 HTTP API 行为的领域 (_Avoid_: stub, fake, simulate)
+- `api-mock`: 用静态契约模拟后端 HTTP 接口的领域 (_Avoid_: stub, fake, stub-server)
+
+<!-- 随项目实际业务演进按需懒追加。格式示例：
+- `auth`: 用户身份、Token 与权限控制 (_Avoid_: login, 登录)
+-->
 
 ## 技术机制标签（Mechanism Tags）
 
-- `http`: HTTP 协议与服务层（方法、路径、状态码、头、体） (_Avoid_: web, rest, network)
-- `contract`: mocks.json 契约的加载、校验与匹配 (_Avoid_: config, schema, spec)
+- `stdlib-http`: 基于 Python 标准库 http.server 的服务实现 (_Avoid_: wsgi, asgi, framework)
+
+<!-- 随项目底层架构演进按需懒追加。格式示例：
+- `storage`: 文件读写、序列化与原子写入 (_Avoid_: persistence, store, db)
+-->

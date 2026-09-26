@@ -1,0 +1,11 @@
+{
+  "test": {
+    "command": "uv run pytest",
+    "exit_code": 0,
+    "output_summary": "...................                                                      [100%]\n19 passed in 1.19s",
+    "output_sha256": "2e5f9462d3117067c5143d507166662994e44acfc70addc298c3f6d25b1ceaa3",
+    "output_bytes": 99,
+    "output_truncated": false
+  },
+  "quality": []
+}

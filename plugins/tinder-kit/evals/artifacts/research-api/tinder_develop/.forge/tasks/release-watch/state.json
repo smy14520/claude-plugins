@@ -1,0 +1,36 @@
+{
+  "task": "release-watch",
+  "created": "2026-09-26",
+  "status": "delivered",
+  "raw_requirement": "用 Python 写一个命令行小工具 release-watch：输入一个 GitHub 仓库（owner/repo），列出它最近 N 个正式 release 的版本号、发布日期和距今天数。只用标准库，不引入第三方依赖。",
+  "clarified_features": [
+    "输入 owner/repo，列出最近 N 个正式 Release：tag、发布日期（UTC YYYY-MM-DD）、距今天数",
+    "正式 Release ⇔ draft=false 且 prerelease=false",
+    "按 published_at 降序排序（客户端排序，不用 API 默认的 created_at 序）",
+    "距今天数 = floor((now_utc - published_at) / 24h)，未来时间戳钳为 0",
+    "-n/--number 可调，缺省 5",
+    "输出三列带英文列头：TAG / PUBLISHED / DAYS_AGO，纯文本对齐",
+    "错误：单行英文消息写 stderr，exit code 1（仓库不存在 / 无正式 release / 限流）"
+  ],
+  "agreed_seams": [
+    "网络边界 seam：HTTP fetch 以可注入函数暴露，测试整体 mock，绝不真连 GitHub",
+    "CLI 解析（argparse）与核心逻辑（取数、过滤、排序、格式化）分离，核心逻辑可独立测试"
+  ],
+  "out_of_scope": [
+    "release name（营销化标题）列 —— 只要 tag",
+    "JSON/CSV/Markdown 等机器输出格式",
+    "结果缓存与增量刷新",
+    "token 交互式获取流程（仅静默读 GITHUB_TOKEN 环境变量，不打印）",
+    "非 GitHub 平台（GitLab 等）",
+    "按错误类型细分 exit code"
+  ],
+  "decisions": [
+    {"q": "Q1 正式 Release 定义", "a": "排除 draft 与 prerelease", "why": "「正式」的自然语义；两个字段 API 直接给出"},
+    {"q": "Q2 CLI 形态", "a": "release-watch owner/repo [-n N]，N 缺省 5", "why": "位置参数放主宾语，频率可调项进 flag"},
+    {"q": "Q3 排序与天数锚点", "a": "按 published_at 降序；UTC；floor；负值钳 0", "why": "「最近发布」按对外发布时刻才算忠实；草稿晚发布会打乱 created_at 序"},
+    {"q": "Q4 输出", "a": "三列带英文列头 TAG/PUBLISHED/DAYS_AGO", "why": "管道友好；name 常是营销标题，信噪比低"},
+    {"q": "Q5 错误行为", "a": "stderr 单行英文 + exit 1", "why": "小工具不值得细分 exit code"},
+    {"q": "Q6 GITHUB_TOKEN", "a": "非空则附 Authorization 头，静默不打印", "why": "约 5 行换 60→5000 次/时限流额度"},
+    {"q": "Q7 组织与测试", "a": "单文件 release_watch.py + unittest mock 测试，兼容 Python>=3.8，客户端翻页 per_page=100 取够 N 为止", "why": "零依赖；离线测试可重复；3.8 的 fromisoformat 不认 Z 后缀需手工处理"}
+  ]
+}

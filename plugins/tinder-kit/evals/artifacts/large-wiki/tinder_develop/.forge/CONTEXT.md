@@ -1,42 +1,49 @@
-# CONTEXT — 统一语言词汇表
+# wiki-cli
 
-本文件是 wiki-cli 项目的核心统一语言（Ubiquitous Language）真实源。
-所有工单标题、代码命名、测试用例名、CLI 输出必须严格采用下列术语。
+个人本地 Markdown 知识库命令行工具的统一语言。本词汇表是 wiki-cli 全部领域概念的唯一官方命名来源。
 
-## 核心术语
+## Language
 
-### Vault（知识库根）
-一个目录，包含全部 Markdown 页面与单一索引文件 `.wiki_index.json`。一个 Vault = 一个自包含、可整体拷走的知识库。CLI 通过 `--root` 定位，缺省为当前目录。
-_Avoid_: workspace、知识库目录、repo（指 vault 时）
+### 知识库结构
 
-### Page（页面）
-Vault 内任意一个 `.md` 文件（递归发现，跳过 `.` 开头的隐藏目录）。
+**Vault**:
+wiki-cli 所管理的 Markdown 文件根目录；一个 Vault 即一个完整的个人知识库，所有命令都以它为工作对象。
+_Avoid_: 知识库目录, workspace, 仓库, 笔记库
 
-### PageName（页面名）
-文件名去掉 `.md` 后缀。全 Vault 唯一、**大小写不敏感**（匹配用 casefold），子目录层级不进入链接语义（见 ADR-0001）。
-_Avoid_: slug、标题、文件路径
+**Page（页面）**:
+Vault 中的一个 `.md` 文件；其文件名去掉 `.md` 后缀即页面名，页面名在 Vault 内唯一标识一个 Page。
+_Avoid_: 笔记, note, 文档, entry, 条目
 
-### WikiLink（双向链接）
-`[[PageName]]` 或 `[[PageName|alias]]` 形式的链接。别名仅供显示，索引只记 Target。出现在 fenced code block 与行内代码中的 `[[...]]` **不是** WikiLink。
-_Avoid_: markdown 链接（`[text](url)` 不是 WikiLink）、双链
+### 链接体系
 
-### Backlink（反向引用）
-指向某 Page 的全部 WikiLink 所在的来源 Page 集合。由索引派生，非独立存储。
+**Link（链接）**:
+Page 正文中 `[[页面名]]` 语法指向目标 Page 的引用。"双向"是 Link 与 Backlink 合成后的能力，不存在名为"双向链接"的实体。
+_Avoid_: 双向链接, 出链, 正向链接, outgoing link
 
-### Tag（标签）
-正文中 `#` 引导的行内标记，支持中文与 `.`/`/` 层级分隔（`#lang/python`，聚合时父标签包含子标签计数）。排除：ATX 标题记号本身、fenced code block 与行内代码内、URL 片段 `#anchor`（见 `.forge/wiki/decision/0003` 词法定义）。
-_Avoid_: hashtag、分类（指 tag 时）、label
+**Backlink（反向引用）**:
+Vault 中其他 Page 的 Link 指向本 Page 的反向视图；backlinks 查询回答"谁链接到我"。
+_Avoid_: 反链, 入链, inbound link, back-reference
 
-### Index（索引）
-Vault 根下**单一** JSON 文件 `.wiki_index.json`，由 `build` 命令生成/增量更新；查询的**计算路径只读索引**（摘要渲染由 CLI 层读命中页原文，见 ADR-0004 修订）。原子写入（tmp + `os.replace`）。严禁 SQLite 或任何外部检索服务（见 ADR-0002）。
-_Avoid_: db、数据库、cache
+**Dead Link（死链）**:
+指向 Vault 内不存在 Page 的 Link。
+_Avoid_: 断链, broken link, 悬空链接, 失效链接
 
-### Doctor（体检）
-报告 DeadLink 与 Orphan 的诊断命令；发现任一问题时退出码为 1（CI 友好）。
+**Orphan（孤岛页面）**:
+不被任何其他 Page 的 Link 指向的 Page（入度为零）。
+_Avoid_: 孤儿页面, 孤页, isolated page, 独立页
 
-### DeadLink（死链）
-指向不存在 PageName 的 WikiLink。
+### 标注与发现
 
-### Orphan（孤岛页面）
-**无任何入链**的 Page（`--entry` 指定的入口页豁免）。注意：只出不进的悬空叶子页也算 Orphan。
-_Avoid_: 孤立文件、unlinked page
+**Tag（标签）**:
+Page 正文中 `#tag` 语法声明的主题标记，用于跨 Page 聚合；与 Markdown 标题的 `#` 无关。
+_Avoid_: 话题, topic, 分类, category, hashtag
+
+**Keyword Search（关键词检索）**:
+按标题与正文文本做大小写不敏感的子串匹配来查找 Page 的能力；多个关键词同时命中（AND）。
+_Avoid_: 全文搜索, fts, 模糊搜索, fuzzy search
+
+### 体检
+
+**Health Check（健康体检）**:
+doctor 命令对 Vault 的整体扫描报告：Dead Link 清单、Orphan 清单与冲突/汇总统计。
+_Avoid_: lint, audit, 巡检

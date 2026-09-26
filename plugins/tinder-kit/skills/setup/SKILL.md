@@ -80,5 +80,5 @@ disable-model-invocation: true
 
 ### 5. 完工告知与去神秘化（Done）
 告知人类初始化已圆满就绪：
-- 所有工程技能（`/grill-with-docs`、`/implement`、`/wayfinder`、`/to-spec`、`/to-tickets`、`/code-review`）后续将自动遵循这些规范驱动；
+- 所有工程技能（`/grill-with-docs`、`/implement`、`/wayfinder`、`/to-spec`、`/to-tickets`、`/tinder-kit:code-review`）后续将自动遵循这些规范驱动；
 - 这些协议全都是纯 Markdown 文档，人类可以随时在 VS Code 中直接手改调优，无需重新运行此技能。

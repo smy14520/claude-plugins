@@ -1,0 +1,20 @@
+{
+  "test": {
+    "command": "uv run pytest",
+    "exit_code": 0,
+    "output_summary": "..............................................                           [100%]\n46 passed in 1.83s",
+    "output_sha256": "46977b069feb394a70e9bb8109c1f5b47ae8785dfa21987629f53fee5c8a6172",
+    "output_bytes": 99,
+    "output_truncated": false
+  },
+  "quality": [
+    {
+      "command": "uv run ruff check .",
+      "exit_code": 0,
+      "output_summary": "All checks passed!",
+      "output_sha256": "82b3e6a6c090a57601d22943bd23fca9218d1031dbe5a7b754092f9a156b4f18",
+      "output_bytes": 19,
+      "output_truncated": false
+    }
+  ]
+}

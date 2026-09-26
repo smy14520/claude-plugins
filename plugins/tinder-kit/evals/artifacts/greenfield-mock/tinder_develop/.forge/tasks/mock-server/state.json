@@ -1,17 +1,45 @@
 {
   "task": "mock-server",
-  "slug": "mock-server",
-  "title": "轻量本地 HTTP API Mock 服务命令行工具",
-  "created": "2026-09-25",
-  "phase": "COMPLETED",
-  "source": "从零新建 Python 项目：mock-server CLI，读取本地 mocks.json 契约，提供静态路由与响应模拟，支持自定义端口与访问日志，不引入重型 Web 框架",
-  "spec": ".forge/mock-server/spec.md",
+  "created": "2026-09-26",
+  "status": "delivered",
+  "raw_requirement": "从零初始化一个全新的单机 Python 项目：构建一个轻量级本地 HTTP API Mock 命令行工具（mock-server），用于无侵入模拟后端接口。要求支持从本地单个 mocks.json 读取路由契约、支持 serve 启动服务与 check 静态校验配置、在终端记录请求日志。使用 Python 标准库实现，不要引入外部重型 Web 框架。",
+  "agreed_seams": [
+    "mock_server/config.py — 契约加载与数据结构（Route/ConfigError/parse_contract 共享解析头）",
+    "mock_server/checker.py — check 静态校验（五条规则，纯函数，返回结构化错误）",
+    "mock_server/server.py — ThreadingHTTPServer + match_route 纯函数（MatchResult NamedTuple）+ make_handler/serve",
+    "mock_server/cli.py — argparse：serve / check 两个子命令，共享 -f/--file（默认 mocks.json），serve 另有 --host/--port",
+    "mock_server/__main__.py — python -m mock_server 入口",
+    "pyproject.toml — 纯声明，零运行时依赖，[project.scripts] 提供 mock-server 命令"
+  ],
+  "out_of_scope": [
+    "热加载（serve 启动时读一次配置，改配置需重启）",
+    "延迟模拟",
+    "CORS",
+    "body 模板化/参数回填（body 一律原样返回）",
+    "查询参数匹配",
+    "兜底路由（default）",
+    "日志颜色/日志文件",
+    "任何第三方运行时依赖（测试用 stdlib unittest）"
+  ],
+  "key_decisions": [
+    { "id": "D1", "decision": "Q1: routes 键挂数组 + 最小路由 schema", "status": "confirmed" },
+    { "id": "D2", "decision": "Q2: 方案 B，路径参数 {param} 仅用于匹配", "status": "confirmed" },
+    { "id": "D3", "decision": "Q3: 405/404 区分 + JSON 错误体", "status": "confirmed" },
+    { "id": "D4", "decision": "Q4: 单行无色日志格式", "status": "confirmed" },
+    { "id": "D5", "decision": "Q5: check 五条规则（⑥ 随 body 模板化砍除而取消）", "status": "confirmed" },
+    { "id": "D6", "decision": "Q6: 方案 B，小包 + pyproject.toml", "status": "confirmed" },
+    { "id": "D7", "decision": "Q7: 方案 A，stdlib unittest", "status": "confirmed" },
+    { "id": "D8", "decision": "多路由命中 = 文件序 first-match（必要语义，非特性）", "status": "confirmed" },
+    { "id": "D9", "decision": "用户红线：超出裁剪清单即为违约", "status": "confirmed" },
+    { "id": "R1", "decision": "code-review 双轴后：headers 形状不进 check 五规则（有边界测试钉住），但属结构性问题，由 config 的 ConfigError 守卫 + cli 捕获兜底，保证 serve 绝不带栈跟踪崩溃", "status": "implemented" },
+    { "id": "R2", "decision": "body 缺省与显式 null 统一为空响应体（单一语义：no body），不发字面 null", "status": "implemented" },
+    { "id": "R3", "decision": "采纳 smell：MatchResult NamedTuple、抽出 parse_contract 共享解析头；婉拒 ServerConfig 数据泥团类型（单调用点，属投机泛化）", "status": "implemented" },
+    { "id": "R4", "decision": "CONTEXT.md 补录术语 方法不匹配（Method Mismatch），代码全面清除 _Avoid_ 词（hit/placeholder/endpoint/validate/run/spec）", "status": "implemented" },
+    { "id": "D10", "decision": "用户定调：契约核心是静态精确匹配，{name} 路径参数仅作顺手加分，不得喧宾夺主；交付必须以真实回环 E2E 实测证据为准，不停留在纯单元 Mock", "status": "confirmed" }
+  ],
   "review": {
-    "standards": "2 硬性违规（_Avoid_ 词汇 payload/entry）+ 7 smells；硬性与 5 条 smell 已修复（含 query 剥离共享 strip_query、__getattr__ 消解方法双枚举并堵 501 漏洞、死属性、测试夹具收敛）",
-    "spec": "(a) 无缺失；(b) 3 项待人类裁决的超纲严格性（未知字段报错、status 200..599、Ctrl-C 附言行）；(c) 1 真问题（白名单外 method 回 501）已修复并加测试"
+    "standards_axis": "6 处词汇表硬违规 + 4 smell → 全部处置（R3/R4）",
+    "spec_axis": "红线全清、无 scope creep；serve 栈跟踪漏洞（R1）与 body-null 语义（R2）已修"
   },
-  "gates": {
-    "human_gate_1_align_confirm": "2026-09-25 用户确认「全按推荐」并指示直接开工（单会话推进，不拆工单）",
-    "human_gate_2_review_commit": "2026-09-25 双轴审查通过、pytest 41 绿、运行时冒烟通过；待人类 review git diff 并 commit"
-  }
+  "environment": { "python": "3.12.8", "requires_python": ">=3.9" }
 }

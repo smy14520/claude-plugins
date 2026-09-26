@@ -1,7 +1,6 @@
 ---
 name: to-spec
-description: "把当前对话转成 spec 并落盘到本地 .forge/<slug>/spec.md——不做访谈，只综合已经讨论的内容。"
-disable-model-invocation: true
+description: "把当前对话转成 spec 并落盘到本地 .forge/<slug>/spec.md——不做访谈，只综合已经讨论的内容。在对齐后的需求要跨多个会话实现、需要先沉淀成 spec 时使用。"
 ---
 
 这个 skill 使用当前 conversation context 和 codebase understanding 产出 spec。**不要**访谈用户，只综合你已经知道的内容。

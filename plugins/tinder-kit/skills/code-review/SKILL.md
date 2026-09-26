@@ -29,7 +29,8 @@ Issue tracker 应该已经提供给你；如果缺少 `.forge/issue-tracker.md`�
 1. Commit messages 中的 issue references（`#123`、`Closes #45` 等）— 按 `.forge/issue-tracker.md` 中的 workflow 获取。
 2. 用户作为 argument 传入的 path。
 3. `docs/`、`specs/` 或 `.forge/` 下与 branch name 或 feature 匹配的 spec 文件。
-4. 如果什么都找不到，询问用户 spec 在哪里。如果用户说没有 spec，**Spec** sub-agent 跳过并报告 “no spec available”。
+4. 若任务为单会话推进且无独立 spec 文件，读取 `.forge/<slug>/state.json` 或 `.forge/tasks/<slug>/state.json` 中的对齐记录（原始需求、明确功能点、agreed seams、out of scope）作为法定契约输入。
+5. 如果什么都找不到，询问用户 spec 在哪里。如果用户说没有 spec，**Spec** sub-agent 跳过并报告 “no spec available”。
 
 ### 3. Identify the standards sources
 

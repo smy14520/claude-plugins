@@ -16,15 +16,14 @@
 
 ## 3. The Tamed Reality (驯化后的落地实体)
 
-<!-- 穿上合规、可盈利、可交付工程骨架后的具体业务闭环 -->
-- **商业闭环 (Viability & Value)**: {business_model_and_unit_economics}
+<!-- 驯化后能落地的形态。商业闭环按产品类型取舍：C 端算获客与留存，内部工具算省下的时间，不适用就删 -->
+- **价值闭环 (Value & Viability)**: {value_loop}
 - **首个交付切面 (The First Seam)**: {first_observable_seam}
 
-## 4. The Moat (防刺客护城河)
+## 4. The Moat (可选：为什么别人不会或做不到)
 
-<!-- 为什么大厂即便眼红也拉不下脸来抄？为什么传统竞争对手无法在 48 小时内刺杀我们？ -->
-- **组织/品牌包袱限制**: {competitor_blindspot}
-- **飞轮防守**: {flywheel_defense}
+<!-- 有竞争对手的产品才需要这一节；内部工具、个人项目可删 -->
+- **别人的盲区**: {competitor_blindspot}
 
 ---
 *本 Pitch 单页已具备高信噪比的产品灵魂与商业骨架。后续可直接执行 `/develop {slug} "基于 pitch.md 启动工程交付"` 进入开发主航道。*

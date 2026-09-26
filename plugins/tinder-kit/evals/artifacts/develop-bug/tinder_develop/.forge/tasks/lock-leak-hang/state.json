@@ -1,0 +1,30 @@
+{
+  "slug": "lock-leak-hang",
+  "created": "2026-09-26",
+  "route": "fix",
+  "route_reason": "故障：线上偶发卡死 + tests/test_concurrency.py::test_lock_leak_on_exception 回归失败，属于现象/报错类任务",
+  "original_requirement": "用户反馈任务服务偶尔卡死，跑 pytest tests/test_concurrency.py 会报 test_lock_leak_on_exception 失败，帮我处理一下",
+  "red_command": "python -m pytest tests/test_concurrency.py::test_lock_leak_on_exception -x -q",
+  "red_output": "AssertionError: FATAL: Lock was leaked after exception! TaskStore is permanently deadlocked. (1 failed, 1 passed in 0.25s)",
+  "aligned_points": [
+    "故障现象 = 生产偶发卡死；回归证据 = test_lock_leak_on_exception 红",
+    "根因：update_status 的锁获取未用 try/finally（with）绑定作用域，KeyError/ValueError 异常路径带着已持有的锁抛出，TaskStore 实例从此永久死锁"
+  ],
+  "agreed_seams": ["tests/test_concurrency.py::test_lock_leak_on_exception —— 经 update_status 公共 API 触发真实异常路径并断言锁状态"],
+  "out_of_scope": [
+    "get_task/_read/_write 的原子写入加固（本次故障与写入原子性无关，未发现证据）",
+    "wiki gotcha 沉淀：非第三方库/平台反直觉 Bug，系普通代码缺陷，按 fix 协议不入库"
+  ],
+  "key_decisions": [
+    "H1（acquire 无 finally 致锁泄漏）经 [DEBUG-DIAGNOSE] 探针证实：两条异常路径抛出瞬间 lock.locked() 均为 True；H2/H3/H4 被证伪",
+    "根治采用 with self.lock:（作用域绑定锁生命周期），与 get_task 既有风格一致，弃用手动 acquire/release",
+    "回归测试扩展覆盖 ValueError 路径（原测试 docstring 本就承诺两条路径，探针已证其修复前泄漏）"
+  ],
+  "verification": {
+    "red": "python -m pytest tests/test_concurrency.py::test_lock_leak_on_exception -x -q → 1 failed（修复前亲见）",
+    "green": "python -m pytest tests/ -q → 2 passed in 0.02s，连跑 5 次全绿",
+    "instrumentation_cleanup": "探针与临时文件已删，grep [DEBUG-DIAGNOSE] 零残留"
+  },
+  "status": "committed",
+  "commit": "a7e3e4b"
+}

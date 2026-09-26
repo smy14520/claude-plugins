@@ -1,11 +1,7 @@
-# Python
 __pycache__/
+*.py[cod]
 *.egg-info/
-dist/
 build/
-
-# Tooling
+dist/
+.venv/
 .pytest_cache/
-
-# Session-local (Claude 会话记忆，非项目交付物)
-.claude/

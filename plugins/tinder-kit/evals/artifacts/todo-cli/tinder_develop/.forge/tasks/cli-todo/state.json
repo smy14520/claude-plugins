@@ -1,0 +1,55 @@
+{
+  "task": "cli-todo",
+  "created": "2026-09-26",
+  "original_requirement": "用 Python 开发一个本地 CLI Todo 工具，支持标签过滤与本地持久化",
+  "requirement_mapping": {
+    "本地 CLI Todo 工具": "argparse 六命令：add / list / done / undo / rm / tags，纯标准库实现",
+    "标签过滤": "list --tag 可重复、AND 交集语义；todo tags 列出在用标签",
+    "本地持久化": "当前目录单一 .todos.json（ADR-0001），TODO_FILE 仅覆盖路径；原子写入",
+    "用户纠偏-优先级": "add --priority high/med/low 三档忠实支持（默认 med），list 展示"
+  },
+  "functional_points": [
+    "add \"标题\" [--tags a,b] [--priority high|med|low]：id 自增，默认 priority=med",
+    "list [--tag ...] [--all]：默认只列未完成（open）；--tag AND 交集；空结果提示无匹配",
+    "done <id> / undo <id>：两态翻转，done 记录 completed_at，undo 清空",
+    "rm <id>：删除",
+    "tags：列出所有在用 Tag",
+    "字段集：id, title, tags, status(open|done), priority(high|med|low), created_at, completed_at",
+    "存储：单一 JSON 数组文件 .todos.json（CWD），TODO_FILE 环境变量覆盖路径，tmp+os.replace 原子写",
+    "pyproject.toml：零依赖，可选 pip install -e . 提供入口 todo = todo.cli:main"
+  ],
+  "agreed_seams": [
+    "todo/storage.py 持久化层：load/save/路径解析，唯一接触 JSON 文件的模块",
+    "todo/core.py 纯领域操作：AND 过滤、id 分配、状态翻转——纯函数，无 IO",
+    "todo/cli.py 展示层：argparse 解析与输出渲染，不包含领域规则",
+    "测试经 tmp_path + monkeypatch cwd/TODO_FILE 隔离，不打真实 HOME"
+  ],
+  "out_of_scope": [
+    {"item": "截止日期", "reason": "负面清单用户确认"},
+    {"item": "备注", "reason": "负面清单用户确认"},
+    {"item": "edit 命令", "reason": "命令面最小化，rm+add 可替代"},
+    {"item": "标签排除（-tag 语法）", "reason": "负面清单用户确认"},
+    {"item": "关键字搜索", "reason": "负面清单用户确认"},
+    {"item": "多用户/同步", "reason": "本地单用户工具"},
+    {"item": "多态状态（in_progress 等）", "reason": "两态模型确认"},
+    {"item": "按优先级过滤/排序", "reason": "需求只要求标签过滤，优先级仅展示"}
+  ],
+  "key_decisions": [
+    {"decision": "优先级为核心需求：add 忠实支持 --priority high/med/low 三档", "by": "用户硬性纠偏（移出负面清单）", "date": "2026-09-26"},
+    {"decision": "一个 Todo 可挂多个 Tag（--tags 逗号分隔）", "by": "用户确认", "date": "2026-09-26"},
+    {"decision": "存储为单一 .todos.json（用户命名），TODO_FILE 仅覆盖路径", "by": "用户", "date": "2026-09-26"},
+    {"decision": "纯标准库 argparse+json，零第三方依赖；pyproject.toml 可选安装", "by": "用户确认 Q5", "date": "2026-09-26"},
+    {"decision": "Tag 过滤 AND 交集语义；list 默认只列未完成，--all 含已完成", "by": "Round 1 推荐采纳", "date": "2026-09-26"},
+    {"decision": "六命令 add/list/done/undo/rm/tags；edit 不做；undo 保留", "by": "Round 1 推荐采纳", "date": "2026-09-26"},
+    {"decision": "术语统一：Todo（非 task/事项）、Tag（非分类）、Priority 三档", "by": "用户确认，已入 CONTEXT.md", "date": "2026-09-26"},
+    {"decision": "ADR-0001：单一 JSON 文件存储", "by": "存储决策入 wiki/decision/", "date": "2026-09-26"},
+    {"decision": "Todo 以裸 dict 在层间传递（Data Clump 判定被 agreed seams 压制，重构推迟到出现真实第二实现需求）", "by": "code-review Standards 轴，judgement call", "date": "2026-09-26"},
+    {"decision": "done/undo/rm 骨架重复保留不抽（两处 12 行、4 个差异槽位，抽取成参数汤得不偿失）", "by": "code-review Standards 轴，judgement call", "date": "2026-09-26"}
+  ],
+  "review": {
+    "standards_axis": {"findings": 6, "fixed": ["测试命名任务A/B→Todo A/B（术语硬违规）", "标签→Tag 术语统一（README/tests/pyproject/init/cli 描述）", "HANDLERS 注册合并单处", "测试工厂 t()→todo_stub()", ".pyc 剔除暂存区 + 新增 .gitignore"], "suppressed": ["Todo 裸 dict Data Clump（见 key_decisions）", "done/undo/rm 骨架重复保留（见 key_decisions）"]},
+    "spec_axis": {"findings": 0, "note": "功能点 8/8 兑现、out_of_scope 0 违规、无可疑实现；诚实缺口：pip install -e . 入口未实际安装验证（避免改动用户环境），python -m todo 已真机冒烟", "reviewer": "Spec 轴 subagent 两度 429 限流，由主会话补跑"},
+    "evidence": {"pytest": "28 passed", "mypy": "clean, 8 files", "smoke": "六命令 + AND 过滤 + 错误路径 exit 1 真机通过"}
+  },
+  "phase": "delivered"
+}

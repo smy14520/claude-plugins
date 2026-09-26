@@ -1,74 +1,73 @@
-"""CLI seam 的公共行为：退出码、全量错误报告、参数装配、Banner 与 Ctrl-C。"""
+"""cli seam: exit codes and diagnostics for the check and serve commands."""
+import contextlib
+import io
+import json
+import tempfile
+import unittest
+from pathlib import Path
 
-import re
+from mock_server.cli import main
 
-from mock_server import cli
-from mock_server.server import MockServer
-
-
-def _capture_serve(monkeypatch):
-    captured = {}
-
-    def _serve(contract, host, port, source):
-        captured.update(contract=contract, host=host, port=port, source=source)
-        return 0
-
-    monkeypatch.setattr(cli, "serve", _serve)
-    return captured
+VALID = {"routes": [{"method": "GET", "path": "/users/{id}", "body": {"id": 1}}]}
+INVALID = {"routes": [{"method": "FETCH", "path": "users", "status": 700}]}
 
 
-def test_missing_contract_file_exits_2(tmp_path, capsys):
-    missing = str(tmp_path / "nope.json")
-    code = cli.main(["--file", missing])
-    assert code == 2
-    assert missing in capsys.readouterr().err
+class CliTest(unittest.TestCase):
+    def setUp(self):
+        self._tmp = tempfile.TemporaryDirectory()
+        self.addCleanup(self._tmp.cleanup)
+        self.tmp = Path(self._tmp.name)
+
+    def _contract(self, payload) -> str:
+        path = self.tmp / "mocks.json"
+        path.write_text(json.dumps(payload), encoding="utf-8")
+        return str(path)
+
+    def _run(self, argv) -> tuple[int, str, str]:
+        out, err = io.StringIO(), io.StringIO()
+        with contextlib.redirect_stdout(out), contextlib.redirect_stderr(err):
+            code = main(argv)
+        return code, out.getvalue(), err.getvalue()
+
+    def test_check_valid_contract_exits_zero(self):
+        code, out, _ = self._run(["check", "-f", self._contract(VALID)])
+        self.assertEqual(code, 0)
+        self.assertIn("OK", out)
+
+    def test_check_invalid_contract_lists_errors_and_exits_one(self):
+        code, _, err = self._run(["check", "-f", self._contract(INVALID)])
+        self.assertEqual(code, 1)
+        self.assertIn("route[1]", err)
+
+    def test_check_missing_file_exits_one(self):
+        code, _, err = self._run(["check", "-f", str(self.tmp / "gone.json")])
+        self.assertEqual(code, 1)
+        self.assertIn("cannot read", err)
+
+    def test_serve_refuses_invalid_contract_without_starting(self):
+        code, out, err = self._run(["serve", "-f", self._contract(INVALID)])
+        self.assertEqual(code, 1)
+        self.assertIn("route[1]", err)
+        self.assertNotIn("serving at", out)
+
+    def test_serve_refuses_missing_file(self):
+        code, _, err = self._run(["serve", "-f", str(self.tmp / "gone.json")])
+        self.assertEqual(code, 1)
+        self.assertIn("cannot read", err)
+
+    def test_serve_reports_config_error_without_traceback(self):
+        # headers shape is not one of the five check rules, so this passes
+        # check; serve must still fail with a printed error, never a traceback.
+        path = self._contract({"routes": [{"method": "GET", "path": "/x", "headers": "oops"}]})
+        code, _, err = self._run(["serve", "-f", path])
+        self.assertEqual(code, 1)
+        self.assertIn("headers", err)
+        self.assertNotIn("Traceback", err)
+
+    def test_subcommand_is_required(self):
+        with self.assertRaises(SystemExit):
+            self._run([])
 
 
-def test_invalid_contract_lists_every_error_and_exits_2(write_contract, capsys):
-    path = str(
-        write_contract({"routes": [{"method": "FETCH", "path": "bad"}, {"status": 99}]})
-    )
-    code = cli.main(["--file", path])
-    assert code == 2
-    err = capsys.readouterr().err
-    assert "FETCH" in err
-    assert "path" in err
-    assert "status" in err
-
-
-def test_arguments_are_wired_into_serve(write_contract, monkeypatch):
-    path = str(write_contract({"routes": [{"path": "/api/user", "body": {"id": 1}}]}))
-    captured = _capture_serve(monkeypatch)
-    code = cli.main(["--file", path, "--host", "0.0.0.0", "--port", "9001"])
-    assert code == 0
-    assert captured["host"] == "0.0.0.0"
-    assert captured["port"] == 9001
-    assert captured["source"] == path
-    assert [route.path for route in captured["contract"].routes] == ["/api/user"]
-
-
-def test_defaults_are_localhost_8000_and_mocks_json(tmp_path, write_contract, monkeypatch):
-    write_contract({"routes": [{"path": "/x"}]})
-    monkeypatch.chdir(tmp_path)
-    captured = _capture_serve(monkeypatch)
-    code = cli.main([])
-    assert code == 0
-    assert captured["host"] == "127.0.0.1"
-    assert captured["port"] == 8000
-    assert captured["source"] == "mocks.json"
-
-
-def test_banner_shows_route_count_and_resolved_address(write_contract, capsys, monkeypatch):
-    path = str(write_contract({"routes": [{"path": "/api/user", "body": {}}]}))
-
-    def instant_interrupt(self):
-        raise KeyboardInterrupt
-
-    monkeypatch.setattr(MockServer, "serve_forever", instant_interrupt)
-    code = cli.main(["--file", path, "--port", "0"])
-    assert code == 0
-    out = capsys.readouterr().out
-    assert re.search(
-        r"mock-server serving 1 routes from .* at http://127\.0\.0\.1:\d+",
-        out,
-    )
+if __name__ == "__main__":
+    unittest.main()

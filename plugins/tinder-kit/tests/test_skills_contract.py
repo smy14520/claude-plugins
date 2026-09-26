@@ -1,7 +1,8 @@
 """测试 tinder-kit 技能与 Agent 的结构性契约。
 
 验证点：
-1. 技能双层分治：User-invoked 必须携带 disable-model-invocation: true；Model-invoked 必须允许模型调用。
+1. 技能分治：User-invoked 入口必须携带 disable-model-invocation: true；
+   Model-invoked 素养与可编排阶段（develop 按路线图直接调用）必须允许模型调用。
 2. 每个 SKILL.md 必须携带合法 frontmatter（name, description）。
 3. 每个 Agent 必须携带合法 frontmatter（name, description）。
 4. .claude-plugin/plugin.json 与 marketplace.json 声明一致性。
@@ -20,16 +21,9 @@ REPO_ROOT = PLUGIN_ROOT.parents[1]
 
 USER_INVOKED_FLOWS = {
     "setup",
-    "fix",
-    "audit",
-    "wayfinder",
-    "to-spec",
-    "to-tickets",
-    "implement",
     "teach",
     "dream",
     "improve-codebase-architecture",
-    "grill-with-docs",
     "develop",
     "to-questionnaire",
     "sparring",
@@ -46,6 +40,14 @@ MODEL_INVOKED_DISCIPLINES = {
     "architect",
     "wiki",
     "perceive",
+}
+ORCHESTRATED_PHASES = {
+    "grill-with-docs",
+    "to-spec",
+    "to-tickets",
+    "implement",
+    "wayfinder",
+    "fix",
 }
 BRIDGE_SKILLS = {"handoff"}
 
@@ -98,7 +100,7 @@ def test_all_skills_have_required_frontmatter():
     skills_dir = PLUGIN_ROOT / "skills"
     assert skills_dir.is_dir()
 
-    expected_all = USER_INVOKED_FLOWS | MODEL_INVOKED_DISCIPLINES | BRIDGE_SKILLS
+    expected_all = USER_INVOKED_FLOWS | MODEL_INVOKED_DISCIPLINES | ORCHESTRATED_PHASES | BRIDGE_SKILLS
 
     found_skills = set()
     for skill_folder in skills_dir.iterdir():
@@ -126,12 +128,31 @@ def test_user_invoked_flows_have_disable_model_invocation():
 
 def test_model_invoked_disciplines_allow_model_invocation():
     skills_dir = PLUGIN_ROOT / "skills"
-    for name in MODEL_INVOKED_DISCIPLINES:
+    for name in MODEL_INVOKED_DISCIPLINES | ORCHESTRATED_PHASES:
         skill_file = skills_dir / name / "SKILL.md"
         fm = _parse_frontmatter(skill_file.read_text(encoding="utf-8"))
         assert fm.get("disable-model-invocation") is not True, (
-            f"Model-invoked 原子素养 {name} 不得禁用模型调用"
+            f"{name} 需要可被模型调用（原子素养或 develop 编排的阶段）"
         )
+
+
+SKILL_CALL_RE = re.compile(r"Call the Skill tool[^\n]*")
+QUOTED_RE = re.compile(r'"([a-z][a-z0-9-]*)"')
+NAMESPACED_RE = re.compile(r"tinder-kit:([a-z][a-z0-9-]*)")
+SKILL_WORD_RE = re.compile(r"`/?([a-z][a-z0-9-]*)`\s*(?:技能|skill)")
+
+
+def test_skill_references_resolve():
+    """SKILL.md / agents 中引用的 skill 必须真实存在，改名或删除时不留悬空引用。"""
+    existing = {p.parent.name for p in (PLUGIN_ROOT / "skills").glob("*/SKILL.md")}
+    dangling = []
+    for doc in [*(PLUGIN_ROOT / "skills").rglob("*.md"), *(PLUGIN_ROOT / "agents").glob("*.md")]:
+        text = doc.read_text(encoding="utf-8")
+        refs = set(NAMESPACED_RE.findall(text)) | set(SKILL_WORD_RE.findall(text))
+        for line in SKILL_CALL_RE.findall(text):
+            refs |= set(QUOTED_RE.findall(line))
+        dangling += [f"{doc.relative_to(PLUGIN_ROOT)} → {r}" for r in sorted(refs - existing)]
+    assert not dangling, "悬空的 skill 引用：\n" + "\n".join(dangling)
 
 
 def test_all_agents_have_valid_frontmatter():

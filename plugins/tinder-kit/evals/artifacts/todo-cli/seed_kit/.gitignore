@@ -1,0 +1,14 @@
+# Python / uv
+.venv/
+__pycache__/
+*.py[cod]
+*.egg-info/
+
+# Tooling caches
+.pytest_cache/
+.ruff_cache/
+
+# todo-cli never reads or writes this path in the repo itself, but a stray
+# scratch file from a manual run must not land in git.
+.todos.json
+.todos.json.tmp

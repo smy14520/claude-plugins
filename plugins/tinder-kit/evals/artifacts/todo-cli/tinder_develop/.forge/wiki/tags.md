@@ -14,8 +14,16 @@
 
 ## 业务领域标签（Domain Tags）
 
-- `todo`: 本地待办任务的管理、过滤与完成流转 (_Avoid_: task manager, checklist, 备忘)
+- `todo`: 个人待办事项（Todo）的增删查与状态管理 (_Avoid_: task, 事项管理)
+
+<!-- 随项目实际业务演进按需懒追加。格式示例：
+- `auth`: 用户身份、Token 与权限控制 (_Avoid_: login, 登录)
+-->
 
 ## 技术机制标签（Mechanism Tags）
 
-- `storage`: 本地单 JSON 文件持久化、原子写入与路径解析 (_Avoid_: database, db, persistence)
+- `storage`: 数据落盘、文件读写与持久化布局 (_Avoid_: persistence, db, store)
+
+<!-- 随项目底层架构演进按需懒追加。格式示例：
+- `config`: 配置项加载与默认值 (_Avoid_: settings, preference)
+-->

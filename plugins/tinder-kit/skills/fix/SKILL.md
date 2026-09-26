@@ -1,7 +1,6 @@
 ---
 name: fix
 description: "系统化缺陷修复主流程：构建确定性变红回路、定位根因、编写永久性防回归测试。在用户报告明确 Bug 或需要排查修复故障时使用。"
-disable-model-invocation: true
 ---
 
 # Fix — 系统化排障与修复主航道

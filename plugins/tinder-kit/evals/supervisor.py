@@ -21,17 +21,29 @@ class Supervisor:
         settings_file: str | Path,
         sandbox_home: str | Path,
         env_vars: dict[str, str] | None = None,
+        supervisor_taste: str = "",
     ):
-        self.ground_truth = Path(ground_truth_path).read_text(encoding="utf-8")
+        if isinstance(ground_truth_path, (str, Path)) and os.path.exists(str(ground_truth_path)):
+            self.ground_truth = Path(ground_truth_path).read_text(encoding="utf-8")
+        else:
+            self.ground_truth = str(ground_truth_path)
         self.settings_file = str(settings_file)
         self.sandbox_home = str(sandbox_home)
         self.env_vars = env_vars or {}
+        self.supervisor_taste = supervisor_taste or ""
         self.observations: list[dict[str, str]] = []
         self.turn_count = 0
+        self.last_delivery_data: dict = {}
 
     def react(self, current_terminal_text: str) -> dict[str, str | bool]:
         """根据当前终端输出，执行监控并生成对开发者的答复。"""
         self.turn_count += 1
+
+        taste_block = (
+            f"\n你的工程品味与主观评价焦点：\n<supervisor_taste_and_focus>\n{self.supervisor_taste}\n</supervisor_taste_and_focus>\n"
+            if self.supervisor_taste
+            else ""
+        )
 
         prompt = f"""你是一名严格的技术总监兼产品负责人（AI 督导官）。
 你正在通过终端全流程评测一位 AI 开发者（Coding Agent）构建项目的能力。
@@ -40,7 +52,7 @@ class Supervisor:
 <ground_truth>
 {self.ground_truth}
 </ground_truth>
-
+{taste_block}
 以下是终端里开发者刚才输出的内容截片段落：
 <terminal_output>
 {current_terminal_text}
@@ -153,6 +165,12 @@ class Supervisor:
 
         obs_summary = "\n".join([f"- Turn {o['turn']}: [考评] {o['observation']} | [答复] {o['reply']}" for o in self.observations])
 
+        taste_block = (
+            f"\n你的工程品味与主观评价焦点：\n<supervisor_taste_and_focus>\n{self.supervisor_taste}\n</supervisor_taste_and_focus>\n"
+            if self.supervisor_taste
+            else ""
+        )
+
         prompt = f"""你是一名资深技术总监兼系统架构师（AI 督导官）。
 刚才由你全程监控和互动，让 AI 开发者完成了项目开发。现在请你对产物进行客观评审，撰写《AI 交付质量与架构评测报告》。
 
@@ -160,6 +178,9 @@ class Supervisor:
 <ground_truth>
 {self.ground_truth}
 </ground_truth>
+{taste_block}
+本次交付的工作区（唯一的取证对象，当前目录即是）：{workdir}
+evals/artifacts/ 下的归档是历史运行的产物，与本次交付无关。
 
 注意：若为单会话快车道或 Matt Pocock 纯单会话直通 /implement 模式，无独立 spec.md/endorsement.md 磁盘文件属于标准规范行为（Spec 契约与双轴审查报告直接呈现于终端对话记录中），不属于档案缺失或缺陷，请主要基于终端交互事实与实际生成的代码/测试做客观评审。
 
@@ -200,6 +221,7 @@ class Supervisor:
         env["HOME"] = self.sandbox_home
         env.update(self.env_vars)
 
+        report_result = ""
         try:
             res = subprocess.run(
                 ["claude", "-p", "--bare", "--settings", self.settings_file],
@@ -207,10 +229,90 @@ class Supervisor:
                 capture_output=True,
                 text=True,
                 env=env,
+                cwd=str(workdir),  # 取证对象是本次沙盒，而不是 evals/artifacts/ 里的历史归档
                 timeout=1800,  # 30 分钟充足超时，确保大上下文深度审计与报告生成绝不中断
             )
-            return res.stdout.strip()
+            report_result = res.stdout.strip()
         except subprocess.TimeoutExpired:
-            return f"## AI 督导官综合评测摘要 (生成超时兜底)\n\n### 考评轨迹总结\n{obs_summary}\n\n### 交付产物统计\n- 文件总数: {len(files)} 个\n- 核心代码与测试: 包含 storage.py, domain.py, todo.py 及完整测试套件\n- 综合判定: PASS"
+            report_result = f"## AI 督导官综合评测摘要 (生成超时兜底)\n\n### 考评轨迹总结\n{obs_summary}\n\n### 交付产物统计\n- 文件总数: {len(files)} 个\n- 核心代码与测试: 包含 storage.py, domain.py, todo.py 及完整测试套件\n- 综合判定: PASS"
         except Exception as e:
-            return f"# 评测报告生成失败\n错误: {type(e).__name__}: {e}\n\n已记录的考评笔记:\n{obs_summary}"
+            report_result = f"# 评测报告生成失败\n错误: {type(e).__name__}: {e}\n\n已记录的考评笔记:\n{obs_summary}"
+
+        self.last_delivery_data = {
+            "files": files,
+            "code_summary": code_summary,
+            "observations": self.observations,
+            "report": report_result,
+        }
+        return report_result
+
+    @staticmethod
+    def compare_arms(
+        arms_data: dict[str, dict],
+        ground_truth: str,
+        supervisor_taste: str,
+        settings_file: str | Path,
+        sandbox_home: str | Path,
+        env_vars: dict[str, str] | None = None,
+    ) -> str:
+        """对 2 组及以上的评测产物与交互记录进行横向主观盲测对比评审。"""
+        arms_blocks = []
+        for arm_label, data in arms_data.items():
+            obs = "\n".join([f"- Turn {o['turn']}: [考评] {o['observation']} | [答复] {o['reply']}" for o in data.get("observations", [])])
+            block = f"""### 方案组: 【{arm_label}】
+- 交互轮次: {len(data.get("observations", []))} 轮
+- 交付文件清单: {json.dumps(data.get("files", []), ensure_ascii=False)}
+- 核心代码摘要:
+{data.get("code_summary", "")[:5000]}
+
+- 全程人机交互笔记:
+{obs}
+
+- 单独质检结论摘录:
+{data.get("report", "")[:1500]}
+"""
+            arms_blocks.append(block)
+
+        comparison_input = "\n\n" + ("=" * 40) + "\n\n".join(arms_blocks)
+
+        taste_block = (
+            f"\n你的工程品味与主观评价焦点：\n<supervisor_taste_and_focus>\n{supervisor_taste}\n</supervisor_taste_and_focus>\n"
+            if supervisor_taste
+            else ""
+        )
+
+        prompt = f"""你是一名极具工程品味的技术总监与系统架构师。
+刚才你监控了多组 AI 开发者在【完全相同】的需求与初始环境下分别完成的交付物。
+现在请你对它们进行【横向主观盲测对比评审】，撰写《多方案横向主观对比裁决大盘》。
+
+项目目标与需求底牌：
+<ground_truth>
+{ground_truth}
+</ground_truth>
+{taste_block}
+各组交付实绩与交互轨迹：
+{comparison_input}
+
+请抛开死板单选题打分，以挑剔、懂行的资深架构师视角出具客观横向对比裁决，必须包含以下维度：
+1. 【需求理解与交互手感对比】：谁在前期能切中要害？谁更啰嗦或机械？谁敏锐发现了关键隐性假设？
+2. 【架构设计与代码品味对比】：谁的设计更具深模块/薄接缝的极简克制感？谁产生了过度工程、坏味道或头重脚轻？
+3. 【测试真实性与防回归价值对比】：谁的测试击中了真实 Seam？谁只是写了同义反复的假绿？
+4. 【综合裁决与胜出方】：哪一组表现更胜一筹，给出充分的工程理由与改进建议。
+"""
+        env = os.environ.copy()
+        env["HOME"] = str(sandbox_home)
+        if env_vars:
+            env.update(env_vars)
+
+        try:
+            res = subprocess.run(
+                ["claude", "-p", "--bare", "--settings", str(settings_file)],
+                input=prompt,
+                capture_output=True,
+                text=True,
+                env=env,
+                timeout=1800,
+            )
+            return res.stdout.strip()
+        except Exception as e:
+            return f"## 横向主观对比生成失败\n错误: {e}"

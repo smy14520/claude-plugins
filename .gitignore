@@ -8,8 +8,14 @@ __pycache__/
 plugins/sdd-kit/tests/fixtures/_workdir/
 plugins/sdd-kit/tests/scenario_eval/runs/
 .pytest_cache/
+**/.pytest_cache/
+**/.mypy_cache/
+.venv/
+**/.venv/
 .tmp-review/
 .audit_scratch/
 .eval_scratch/
+.audit-due-date/
 plugins/tinder-kit/evals/artifacts/**/.claude/
+plugins/tinder-kit/evals/artifacts/**/.git/
 plugins/tinder-kit/evals/artifacts/.eval_scratch/

@@ -1,6 +1,6 @@
 ---
 name: dream
-description: "跨级记忆（CLAUDE.md、.claude/rules/、.forge/wiki/）只读体检与重组。识别僵尸失效条目、规则冲突与冗余碎片，生成只读 RFC 整理提议报告供人类裁决。"
+description: "跨级记忆（CLAUDE.md、.claude/rules/、.forge/wiki/）只读体检与重组。识别僵尸失效条目、规则冲突、冗余碎片、No-op 废话与可代码化的机械规则，生成只读 RFC 整理提议报告供人类裁决。"
 disable-model-invocation: true
 ---
 
@@ -8,27 +8,32 @@ disable-model-invocation: true
 
 模拟人脑睡眠中的“记忆重组（Memory Consolidation）”机制：对长期累积的 `CLAUDE.md`、`.claude/rules/` 与 `.forge/wiki/` 进行只读体检与深度交叉比对，输出格式严谨的 **RFC 整理提议报告** 呈递给人类。
 
-本技能执行只读审计，输出 RFC 报告后停下，等用户裁决。
+本技能执行只读审计，输出 RFC 报告后停下，等待用户裁决。
 
 ---
 
-## 阶段一：只读三向交叉扫描 (Cross-Audit)
+## 阶段一：只读交叉审计 (Cross-Audit)
 
-使用原生 Glob、Grep 与 Read 工具读取三级记忆资产，并对照当前工作树代码库进行静态分析：
+使用原生 Glob、Grep 与 Read 工具读取三级记忆资产，并对照当前工作树代码库与提交历史进行静态分析：
 
 1. **👻 僵尸条目（Zombie / Stale Entries）**：
    - 扫描 `.forge/wiki/` 中的符号锚与文档链接，检查目标文件与符号是否已在代码库中被删除或语义变更；
-   - 检查已废弃的旧决策或不再成立的假 Gotcha。
+   - 检查已废弃的旧决策或不再复现的假 Gotcha。
 2. **⚡ 规则冲突（Rule Contradictions）**：
-   - 交叉比对 `CLAUDE.md` 与 `.claude/rules/` 下的所有规则；
-   - 标出由于不同时期编写导致的冲突建议（如一条写“所有改动必须通过单测”，另一条写“脚本改动直接手动自验”）。
+   - 交叉比对 `CLAUDE.md` 与 `.claude/rules/` 下的所有规则，标出冲突要求（如“必须全量单测”与“脚本自验即可”并存）。
 3. **📦 碎片化与重复（Bloat & Redundancy）**：
    - 识别语义高度相似、分散在多个页面的踩坑记录（Gotchas）或领域概念；
-   - 检查是否有非受控的新标签泛滥，设计合并与标签收敛方案。
-4. **🧭 放置越位（Placement Drift）**：
-   - 对照三问放置判据检查：
-     - 是否有长尾琐碎的单文件细节错误地塞进了 `CLAUDE.md`（污染全景工作记忆）；
-     - 是否有全项目必须遵守的底线被藏在深层 Wiki 中。
+   - 检查是否有非受控的新标签泛滥，设计合并与标签收敛至 `tags.md` 的方案。
+4. **⚙️ 机械规则下沉（Rules to Guardrails）**：
+   - 检查 `CLAUDE.md` 与 `.claude/rules/`，识别试图用自然语言口头禁止的机械动作（如语法模式、禁用 API、导入路径、文件存放规则）；
+   - **判定式**：机械约束必须下沉为确定性检查（Linter 规则、Pre-commit Hook、CI 脚本或测试断言）；提示词只留真正需要工程品味的主观裁量权（Judgement Calls）；
+   - 提议：补建硬性脚本/配置，并从提示词中彻底删除该条文字（机制优于长篇提醒）。
+5. **✂️ No-op 规则修剪（No-op Pruning）**：
+   - 逐句执行 No-op 测试：对比模型默认行为，这句话改变了什么？
+   - 识别常识性废话（如“尽量写清晰注释”、“遵循最佳实践”、“修改前先阅读代码”）与无效果禁令，提议整句移除，释放常驻 Context Load。
+6. **🧭 放置越位与分流（Placement Drift & Context Split）**：
+   - **实施与审查分流**：实现阶段（Implementation）上下文压力极大，严禁被细枝末节的格式规则塞满；审查阶段（Review）上下文极轻（只看 diff），细致规范应沉淀在 Review 专用标准中（`CODING_STANDARDS.md`），`CLAUDE.md` 仅留轻量指针；
+   - 检查是否有长尾单文件细节错误挤占 `CLAUDE.md`，或全项目硬底线被藏在深层 Wiki 中。
 
 ---
 
@@ -40,7 +45,7 @@ disable-model-invocation: true
 # 🏛️ 项目记忆健康与整理提议报告 (Memory RFC)
 
 ## 1. 记忆体检概览
-- 规则文件: X 个 | Wiki 词条: Y 个 | 发现失效引用: Z 处 | 潜在规则冲突: W 处
+- 规则文件: X 个 | Wiki 词条: Y 个 | 发现失效引用: Z 处 | 潜在规则冲突: W 处 | 建议下沉/修剪规则: N 处
 
 ## 2. 编号整理提议清单
 
@@ -55,7 +60,17 @@ disable-model-invocation: true
   - `.claude/rules/frontend.md:5`: "纯前端 UI 调整以 perceive 截图为准，免单测"
 - **建议解决方案**: 明确分工，修改 `CLAUDE.md` 措辞为“根据技术栈遵循对应测试与感官自验规则”。
 
-### [RFC-3] 📦 合并碎片化踩坑条目与标签归一
+### [RFC-3] ⚙️ 建议将口头规则下沉为自动化 Guardrail
+- **目标条目**: `CLAUDE.md:15`（"严禁从 utils/ 直接跨层 import internal 模块"）
+- **原因**: 属于机械性导入拓扑约束，写在提示词里容易遗漏且白白浪费注意力。
+- **动作**: 在 package.json/pre-commit 增加一行 linter/grep 检查阻断，并在 `CLAUDE.md` 中删除此规则。
+
+### [RFC-4] ✂️ 建议修剪 No-op 规则废话
+- **目标条目**: `.claude/rules/code-style.md:3`（"写代码时尽量使用清晰明了的变量名，保持注释完整"）
+- **原因**: 属于模型默认工程常识，未产生实际行为分支，纯属无用 Context 负载。
+- **动作**: 整句删除。
+
+### [RFC-5] 📦 合并碎片化踩坑条目与标签归一
 - **建议合并**: `gotcha/cors-vite.md` 与 `gotcha/proxy-config.md` -> `gotcha/dev-server-network.md`
 - **标签收敛**: 将零散的 `[network, web-server]` 归一到既有 `[network]`
 - **合并后草案**:
@@ -66,7 +81,7 @@ disable-model-invocation: true
 
 ## 阶段三：等待人类指示与精准执行 (Human-on-the-Loop)
 
-1. 输出 RFC 报告后停下，等用户裁决；
+1. 输出 RFC 报告后停下，等待用户裁决；
 2. **人类指令接续**：
    - 若人类回复：“批准全部”，使用原生 Edit / Write / rm 工具执行全部 RFC 调整；
    - 若人类回复：“采纳 RFC-1 和 RFC-3，忽略 RFC-2”，仅执行指定条目；

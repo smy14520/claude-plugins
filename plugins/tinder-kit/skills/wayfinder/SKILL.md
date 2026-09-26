@@ -1,7 +1,6 @@
 ---
 name: wayfinder
-description: 把单个 agent session 装不下的一大块工作规划成 .forge/<effort>/ 下的 decision tickets shared map，并逐一解决，直到通往 destination 的路清晰。
-disable-model-invocation: true
+description: 把单个 agent session 装不下的一大块工作规划成 .forge/<effort>/ 下的 decision tickets shared map，并逐一解决，直到通往 destination 的路清晰。用于大而模糊、决策链还看不清的工作；只产出决策，不产出代码。
 ---
 
 一个松散想法出现了：它太大，单个 agent session 装不下，而且被 fog 包围；从这里到 **destination** 的路还看不见。Wayfinding 的目标是找到这条路，而不是朝 destination 猛冲。这个 skill 会把路径绘制成本地 `.forge/<effort>/` 上的 **shared map**，然后逐个处理 **decision tickets**——它们承载需要决策才能解决的问题，而不是要执行的 build slices——直到路线清晰。

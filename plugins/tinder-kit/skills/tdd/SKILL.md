@@ -40,4 +40,4 @@ TDD 是 Red -> Green 循环。这个技能是让该循环产出真正值得保�
 
 - **Red before green（先红后绿）**：先写失败测试，亲眼看到它在该行为上失败；然后只写刚好足够让它变绿的代码。
 - **One slice at a time（单一切片）**：每个循环只处理一个 Seam 行为、一个测试、一个最小实现。
-- **Refactoring is not part of the loop（重构不属于本循环）**：重构属于独立审查阶段（见 `review` 技能）。
+- **Refactoring is not part of the loop（重构不属于本循环）**：重构属于独立审查阶段（见 `tinder-kit:code-review` 技能）。

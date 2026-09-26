@@ -1,7 +1,6 @@
 ---
 name: implement
-description: "基于 spec 或 ticket 集合实现一段工作。"
-disable-model-invocation: true
+description: "基于 spec 或 ticket 集合实现一段工作。在需求已对齐（访谈收敛，或已有 spec / ticket）、开始写代码时使用。"
 ---
 
 实现用户在 spec 或 tickets 中描述的工作。
@@ -10,6 +9,6 @@ disable-model-invocation: true
 
 定期运行 typechecking，定期运行单个测试文件，并在最后运行完整测试套件。
 
-完成后，使用 `/code-review` 审查这次工作。
+完成后，使用 `/tinder-kit:code-review` 审查这次工作。
 
 把工作提交到当前 branch。

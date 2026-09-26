@@ -1,9 +1,7 @@
-# Wiki Index — 知识大盘
+# Wiki Index
 
-## 架构决策（ADR）
+项目知识大盘索引。新页面归档后在此追加一行。
 
-- [ADR-0001 单一 JSON 文件存储](decision/0001-single-json-file-storage.md) — `~/.todo/todos.json` + `TODO_FILE` 覆盖（兼测试接缝）+ 原子写入；损坏即报错，绝不静默重置
+## Decision（ADR）
 
-## Gotchas / 避坑
-
-（暂无）
+- [0001 单一 JSON 文件存储（.todos.json）](decision/0001-single-json-file-storage.md) — 不引入数据库，整体读整体写

@@ -1,8 +1,0 @@
-{
-  "slug": "todo-due-date",
-  "phase": "COMPLETED",
-  "spec": ".forge/tasks/todo-due-date/spec.md",
-  "decisions": ["D1-D7 裁决记录见 spec", "ADR: .forge/wiki/decision/0001-optional-due-field-single-json.md"],
-  "requirement": "add 命令支持可选参数 --due YYYY-MM-DD；list 展示未完成任务时，当前日期已超过截止日期则在末尾标注 [OVERDUE]；数据存放在现有单 JSON 文件中，保持向后兼容。",
-  "started": "2026-09-25"
-}

@@ -14,9 +14,11 @@
 
 ## 业务领域标签（Domain Tags）
 
-- `wiki-syntax`: `[[WikiLink]]` 与 `#Tag` 的词法约定与排除规则 (_Avoid_: markdown, markup)
+- `wiki`: 个人 Markdown 知识库的页面、链接、标签与检索体系 (_Avoid_: knowledge-base, notes, 笔记库)
 
 ## 技术机制标签（Mechanism Tags）
 
-- `index`: `.wiki_index.json` 索引的构建、mtime 增量与原子写入 (_Avoid_: db, database, cache)
-- `search`: CJK bigram + Latin 分词的倒排检索与 TF 排序 (_Avoid_: grep, fulltext, 检索引擎)
+- `tooling`: 构建、打包与依赖策略 (_Avoid_: build, packaging, deps)
+- `search`: 关键词检索、匹配与排序 (_Avoid_: query, fts, index)
+- `storage`: 数据与索引的存放形态（内存/单文件） (_Avoid_: persistence, database, cache)
+- `parsing`: Markdown 文本的链接/标签提取与解析 (_Avoid_: extract, regex, tokenize)

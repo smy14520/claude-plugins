@@ -31,6 +31,7 @@ PLUGIN_ROOT = EVALS_DIR.parent
 sys.path.insert(0, str(EVALS_DIR))
 
 from supervisor import Supervisor
+from scenario_loader import Scenario, load_scenario, list_available_scenarios
 
 ANSI_ESCAPE_RE = re.compile(r"\x1b(?:[@-Z\\-_]|\[[0-?]*[ -/]*[@-~])")
 
@@ -168,6 +169,7 @@ class PTYDriver:
         self.plugin_dir = plugin_dir
         self.master: int | None = None
         self.pid: int | None = None
+        self.last_saw_busy = False
 
     def start(self) -> None:
         master, slave = pty.openpty()
@@ -282,6 +284,7 @@ class PTYDriver:
         start_time = time.time()
         last_rec = time.time()
         saw_busy = False
+        self.last_saw_busy = False
         sent_safeguard_enter = False
 
         while time.time() - start_time < timeout_sec:
@@ -311,6 +314,7 @@ class PTYDriver:
                         or any(w in clean_chunk for w in ["thinking", "thought for", "reading", "running"])
                     ):
                         saw_busy = True
+                        self.last_saw_busy = True
 
                     # 兜底：若意外遇到单选/多选交互组件，自动发送回车确认推荐项
                     if "enter to select" in clean_chunk or "entertoselect" in clean_chunk:
@@ -371,26 +375,18 @@ class PTYDriver:
 def run_single_arm(
     arm_name: str,
     run_dir: Path,
-    scenario_dir: Path,
+    scenario: Scenario,
     settings_file: Path,
     env_vars: dict[str, str],
     plugin_dir: Path | None,
-    max_turns: int = 8,
-) -> tuple[str, list[dict[str, str]]]:
+    max_turns: int = 30,
+) -> tuple[str, list[dict[str, str]], dict]:
     """运行单组（对照组或实验组）的全流程生命周期。"""
     print(f"\n{'='*20} 启动运行组: [{arm_name}] {'='*20}")
     workdir, home_dir = prepare_sandbox(run_dir, arm_name, env_vars)
-    ground_truth_path = scenario_dir / "ground_truth.md"
 
-    # 读取场景提示词
-    prompt_file = scenario_dir / "prompt.txt"
-    if prompt_file.is_file():
-        scenario_prompt = prompt_file.read_text(encoding="utf-8").strip()
-    else:
-        scenario_prompt = "用 Python 开发一个本地 CLI Todo 工具，支持标签过滤与本地持久化"
-
-    # 支持 seed_files 初始代码预埋（如小需求/存量项目）
-    seed_dir = scenario_dir / "seed_files"
+    # 支持 seed_files 初始代码预埋（如小需求/存量项目/故障靶场）
+    seed_dir = scenario.scenario_dir / "seed_files"
     if seed_dir.is_dir():
         for item in seed_dir.iterdir():
             if item.is_dir():
@@ -398,12 +394,13 @@ def run_single_arm(
             else:
                 shutil.copy2(item, workdir / item.name)
 
-    # 初始化 git 仓库
-    subprocess.run(["git", "init"], cwd=workdir, capture_output=True, check=True)
-    subprocess.run(["git", "config", "user.name", f"{arm_name} Tester"], cwd=workdir, capture_output=True, check=True)
-    subprocess.run(["git", "config", "user.email", "tester@example.com"], cwd=workdir, capture_output=True, check=True)
-    subprocess.run(["git", "add", "."], cwd=workdir, capture_output=True)
-    subprocess.run(["git", "commit", "--allow-empty", "-m", "Initial commit"], cwd=workdir, capture_output=True, check=True)
+    # 初始化 git 仓库（若未初始化）
+    if not (workdir / ".git").is_dir():
+        subprocess.run(["git", "init"], cwd=workdir, capture_output=True, check=True)
+        subprocess.run(["git", "config", "user.name", f"{arm_name} Tester"], cwd=workdir, capture_output=True, check=True)
+        subprocess.run(["git", "config", "user.email", "tester@example.com"], cwd=workdir, capture_output=True, check=True)
+        subprocess.run(["git", "add", "."], cwd=workdir, capture_output=True)
+        subprocess.run(["git", "commit", "--allow-empty", "-m", "Initial commit"], cwd=workdir, capture_output=True, check=True)
 
     if arm_name == "mattpocock_skills":
         # 拷贝 Matt Pocock 的原生 skills 至沙盒项目 .claude/skills/
@@ -423,17 +420,14 @@ def run_single_arm(
         (docs_agents / "issue-tracker.md").write_text("# Issue tracker: Local Markdown\nIssues and specs live in .scratch/\n", encoding="utf-8")
         (docs_agents / "domain.md").write_text("# Domain Docs\nRead CONTEXT.md and docs/adr/ if present.\n", encoding="utf-8")
 
-        initial_cmd = f'/grill-with-docs "{scenario_prompt}"'
-    elif arm_name == "tinder_manual":
-        # Tinder-kit 手动分步流：从 /grill-with-docs 启动
-        initial_cmd = f'/grill-with-docs "{scenario_prompt}"'
-    elif arm_name in ["tinder_develop", "treatment_tinder_kit"]:
-        # Tinder-kit 自动编排流：直接 /develop 驱动
-        initial_cmd = f'/develop "{scenario_prompt}"'
-    else:
-        initial_cmd = scenario_prompt
-
-    supervisor = Supervisor(ground_truth_path, settings_file, home_dir, env_vars)
+    initial_cmd = scenario.get_initial_cmd(arm_name)
+    supervisor = Supervisor(
+        ground_truth_path=scenario.ground_truth,
+        settings_file=settings_file,
+        sandbox_home=home_dir,
+        env_vars=env_vars,
+        supervisor_taste=scenario.supervisor_taste,
+    )
     driver = PTYDriver(workdir, home_dir, env_vars, plugin_dir)
 
     driver.start()
@@ -443,8 +437,8 @@ def run_single_arm(
     # 1. 等待就绪并下发第一道初始指令
     driver.wait_startup(timeout_sec=30.0)
 
-    # 若为 tinder-kit，先执行 /setup 脚手架化项目驱动、CLAUDE.md 与受控标签词典
-    if plugin_dir:
+    # 若为 tinder-kit 且场景允许 setup，执行 /setup 脚手架化项目驱动、CLAUDE.md 与受控标签词典
+    if plugin_dir and scenario.setup_project:
         print(f"\n[{arm_name}] Step 0: 先通过 /setup 初始化本地 Markdown 驱动、CLAUDE.md 指针与 Wiki tags")
         driver.send_input("/setup")
         out_setup, _ = driver.read_until_idle(timeout_sec=120.0)
@@ -456,14 +450,26 @@ def run_single_arm(
     print(f"\n[{arm_name}] 发送初始需求: {initial_cmd}")
     driver.send_input(initial_cmd)
 
+    effective_max_turns = min(max_turns, scenario.max_turns)
     # 2. 对话与监控循环
-    for turn in range(1, max_turns + 1):
-        print(f"\n--- [{arm_name}] 进入交互轮次 {turn}/{max_turns} ---")
+    for turn in range(1, effective_max_turns + 1):
+        print(f"\n--- [{arm_name}] 进入交互轮次 {turn}/{effective_max_turns} ---")
         output, is_dead = driver.read_until_idle(timeout_sec=180.0)
 
         if not output.strip() and is_dead:
             print(f"[{arm_name}] 终端进程已退出。")
             break
+
+        # 模型根本没开始工作：上一条输入还停在输入框里（回车未提交）。
+        # 此时督导官看到的只是输入框回显，若照常作答，答复会被拼进同一条未提交的消息。
+        # 补发回车等它真正提交，最多重试 3 次，不消耗督导官的作答。
+        retries = 0
+        while not driver.last_saw_busy and not is_dead and retries < 3:
+            retries += 1
+            print(f"[{arm_name}] 未观察到模型开始工作，补发回车提交输入（第 {retries} 次）")
+            os.write(driver.master, b"\r")
+            more, is_dead = driver.read_until_idle(timeout_sec=180.0)
+            output += more
 
         print(f"[{arm_name}] 捕获到终端最新输出 ({len(output)} 字符)")
 
@@ -489,20 +495,31 @@ def run_single_arm(
 
     # 3. 督导官撰写最终质量评测报告
     print(f"\n[{arm_name}] 正在由 AI 督导官审查产物并撰写评测报告...")
-    report = supervisor.evaluate_delivery(workdir, title=f"{scenario_dir.name} ({arm_name})")
-    return report, supervisor.observations
+    report = supervisor.evaluate_delivery(workdir, title=f"{scenario.slug} ({arm_name})")
+    return report, supervisor.observations, supervisor.last_delivery_data
 
 
-SCENARIO_MAP = {
-    "small": "small-due",
-    "small-due": "small-due",
-    "medium": "todo-cli",
-    "todo": "todo-cli",
-    "todo-cli": "todo-cli",
-    "large": "large-wiki",
-    "large-wiki": "large-wiki",
-    "greenfield": "greenfield-mock",
-    "greenfield-mock": "greenfield-mock",
+KNOWN_ARMS = {
+    "develop": ("tinder_develop", PLUGIN_ROOT, "Tinder-kit develop 自动编排流 (tinder_develop)"),
+    "tinder_develop": ("tinder_develop", PLUGIN_ROOT, "Tinder-kit develop 自动编排流 (tinder_develop)"),
+    "treatment": ("tinder_develop", PLUGIN_ROOT, "Tinder-kit develop 自动编排流 (tinder_develop)"),
+    "manual": ("tinder_manual", PLUGIN_ROOT, "Tinder-kit 手动分步流 (tinder_manual)"),
+    "tinder_manual": ("tinder_manual", PLUGIN_ROOT, "Tinder-kit 手动分步流 (tinder_manual)"),
+    "mattpocock": ("mattpocock_skills", None, "Matt Pocock 原生套件 (mattpocock-skills)"),
+    "mattpocock_skills": ("mattpocock_skills", None, "Matt Pocock 原生套件 (mattpocock-skills)"),
+    "control": ("control_raw_claude", None, "对照组 (Raw Claude)"),
+    "raw": ("control_raw_claude", None, "对照组 (Raw Claude)"),
+    "control_raw_claude": ("control_raw_claude", None, "对照组 (Raw Claude)"),
+}
+
+MODE_ARMS = {
+    "triple": ["mattpocock_skills", "tinder_manual", "tinder_develop"],
+    "tinder_both": ["tinder_manual", "tinder_develop"],
+    "ab": ["control_raw_claude", "tinder_develop"],
+    "treatment": ["tinder_develop"],
+    "manual": ["tinder_manual"],
+    "mattpocock": ["mattpocock_skills"],
+    "control": ["control_raw_claude"],
 }
 
 
@@ -511,32 +528,77 @@ def main() -> int:
         sys.stdout.reconfigure(line_buffering=True)
     except Exception:
         pass
-    parser = argparse.ArgumentParser(description="Tinder-kit 多维度 E2E 评估驱动器")
+    parser = argparse.ArgumentParser(description="Tinder-kit 声明式 E2E 与单技能评测驱动器")
+    parser.add_argument("--list-scenarios", action="store_true", help="列出所有可用场景并退出")
     parser.add_argument("--provider", default="zhipu-glm", help="渠道别名 (ccz, ccm, ccd 等)")
     parser.add_argument("--model", default="glm-5.3-flashX", help="指定模型名称 (默认 glm-5.3-flashX)")
-    parser.add_argument("--scenario", default="todo-cli", help="场景名称 (small, medium, large, greenfield 或具体目录名)")
+    parser.add_argument("--scenario", default="todo-cli", help="场景名称、slug 或路径 (例如 small-due, todo-cli, large-wiki 等)")
     parser.add_argument(
         "--mode",
-        choices=["triple", "treatment", "control", "ab", "mattpocock", "manual"],
-        default="triple",
-        help="评估模式：triple (三路并发对比: mattpocock vs manual vs develop), treatment, mattpocock, manual 等",
+        choices=["triple", "treatment", "control", "ab", "mattpocock", "manual", "tinder_both"],
+        default="treatment",
+        help="预设评估模式：triple (三路并发对比), tinder_both (develop + manual), treatment, ab 等",
+    )
+    parser.add_argument(
+        "--arms",
+        help="【自定义运行组】逗号分隔列表，例如: develop,manual 或 develop,mattpocock。显式指定时覆盖 --mode",
     )
     parser.add_argument("--max-turns", type=int, default=30, help="最大交互轮次 (默认 30)")
     parser.add_argument("--keep-sandbox", action="store_true", help="保留沙盒目录不自动删除")
     args = parser.parse_args()
 
-    # 映射场景别名
-    scenario_key = SCENARIO_MAP.get(args.scenario.lower(), args.scenario)
-    scenario_dir = EVALS_DIR / "scenarios" / scenario_key
-    if not scenario_dir.is_dir():
-        print(f"错误: 场景目录不存在: {scenario_dir}")
+    scenarios_root = EVALS_DIR / "scenarios"
+    if args.list_scenarios:
+        scenarios = list_available_scenarios(scenarios_root)
+        print("\n" + "=" * 55)
+        print("📋 可用评测场景清单 (Available Scenarios):")
+        print("=" * 55)
+        for s in scenarios:
+            desc = f" - {s['description']}" if s['description'] else ""
+            print(f"• [{s['slug']}] ({s['type']}){desc}")
+        print("=" * 55 + "\n")
+        return 0
+
+    # 1. 动态加载场景
+    try:
+        scenario = load_scenario(args.scenario, scenarios_root)
+    except FileNotFoundError as e:
+        print(f"错误: {e}")
         return 1
 
-    # 1. 解析渠道与凭证（支持动态注入模型）
+    print(f"\n{'='*25} 加载场景: [{scenario.slug}] {'='*25}")
+    print(f"名称: {scenario.name}")
+    print(f"类型: {scenario.scenario_type}")
+    if scenario.description:
+        print(f"描述: {scenario.description}")
+    print(f"最大轮次: {min(args.max_turns, scenario.max_turns)}")
+
+    # 2. 解析运行组 (arms_to_run)
+    if args.arms:
+        arm_keys = [k.strip().lower() for k in args.arms.split(",") if k.strip()]
+        arms_to_run = []
+        for k in arm_keys:
+            if k in KNOWN_ARMS:
+                val = KNOWN_ARMS[k]
+                if val not in arms_to_run:
+                    arms_to_run.append(val)
+            else:
+                print(f"警告: 未知运行组 '{k}'，已跳过。可选组: {list(KNOWN_ARMS.keys())}")
+        if not arms_to_run:
+            print("错误: 未指定任何合法的运行组！")
+            return 1
+    else:
+        arm_keys = MODE_ARMS.get(args.mode, ["tinder_develop"])
+        arms_to_run = [KNOWN_ARMS[k] for k in arm_keys]
+
+    active_arms = [a[0] for a in arms_to_run]
+    print(f"激活测试组: {active_arms}\n")
+
+    # 3. 解析渠道与凭证
     settings_file, env_vars = resolve_provider_config(args.provider, model_override=args.model)
     print(f"✓ 成功加载模型凭证配置: {settings_file.name} (模型: {args.model})")
 
-    # 2. 准备运行目录（移至 /tmp 隔离区，彻底断开与本仓库 Git 根目录的关联）
+    # 4. 准备沙盒根目录
     timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
     run_id = f"run_{timestamp}_{uuid.uuid4().hex[:6]}"
     run_dir = Path("/tmp/tinder_evals/sandboxes") / run_id
@@ -547,35 +609,26 @@ def main() -> int:
 
     try:
         final_report_content = (
-            f"# 自动化多角色并发评测大盘 — {scenario_key}\n\n"
+            f"# 自动化多角色评测大盘 — {scenario.name} ({scenario.slug})\n\n"
+            f"- 场景类型: {scenario.scenario_type}\n"
             f"- 时间: {datetime.now().isoformat()}\n"
             f"- 渠道配置: {args.provider}\n"
             f"- 评估模型: {args.model}\n"
-            f"- 评估模式: {args.mode}\n\n"
+            f"- 测试组: {', '.join(active_arms)}\n\n"
         )
 
-        active_arms: list[str] = []
+        reports_dict = {}
+        delivery_data_dict = {}
 
-        if args.mode == "triple":
-            arms_to_run = [
-                ("mattpocock_skills", None, "Matt Pocock 原生套件 (mattpocock-skills)"),
-                ("tinder_manual", PLUGIN_ROOT, "Tinder-kit 手动分步流 (tinder_manual)"),
-                ("tinder_develop", PLUGIN_ROOT, "Tinder-kit develop 自动编排流 (tinder_develop)"),
-            ]
-            active_arms = [a[0] for a in arms_to_run]
-            print(f"\n{'='*25} 启动并发三路评测 (Triple Mode) {'='*25}")
-            print(f"场景: {scenario_key}")
-            print(f"模型: {args.model} on {args.provider}")
-            print(f"并发测试组: {active_arms}\n")
-
-            reports_dict = {}
-            with concurrent.futures.ThreadPoolExecutor(max_workers=3) as executor:
+        if len(arms_to_run) > 1:
+            print(f"\n{'='*25} 启动并发多路评测 ({len(arms_to_run)} 组并发) {'='*25}")
+            with concurrent.futures.ThreadPoolExecutor(max_workers=len(arms_to_run)) as executor:
                 future_map = {
                     executor.submit(
                         run_single_arm,
                         arm_name,
                         run_dir,
-                        scenario_dir,
+                        scenario,
                         settings_file,
                         env_vars,
                         p_dir,
@@ -587,78 +640,55 @@ def main() -> int:
                 for future in concurrent.futures.as_completed(future_map):
                     arm_name, label = future_map[future]
                     try:
-                        rep, obs = future.result()
+                        rep, obs, deliv = future.result()
                         reports_dict[arm_name] = rep
+                        delivery_data_dict[label] = deliv
                         print(f"\n[{arm_name}] ✓ 评测已顺利完成！")
                     except Exception as e:
                         print(f"\n[{arm_name}] ✗ 评测运行出错: {e}")
                         reports_dict[arm_name] = f"# 评测异常\n错误: {e}"
-
-            final_report_content += "## 三路并发对比大盘总结\n\n"
-            for arm_name, _, label in arms_to_run:
-                final_report_content += f"## {label} 评测报告\n\n{reports_dict.get(arm_name, '（无报告产出）')}\n\n---\n\n"
-
         else:
-            if args.mode in ["treatment", "ab"]:
-                active_arms.append("tinder_develop")
-                t_report, _ = run_single_arm(
-                    arm_name="tinder_develop",
-                    run_dir=run_dir,
-                    scenario_dir=scenario_dir,
-                    settings_file=settings_file,
-                    env_vars=env_vars,
-                    plugin_dir=PLUGIN_ROOT,
-                    max_turns=args.max_turns,
-                )
-                final_report_content += f"## 实验组 (tinder_develop) 评测报告\n\n{t_report}\n\n"
+            arm_name, p_dir, label = arms_to_run[0]
+            rep, obs, deliv = run_single_arm(
+                arm_name=arm_name,
+                run_dir=run_dir,
+                scenario=scenario,
+                settings_file=settings_file,
+                env_vars=env_vars,
+                plugin_dir=p_dir,
+                max_turns=args.max_turns,
+            )
+            reports_dict[arm_name] = rep
+            delivery_data_dict[label] = deliv
 
-            if args.mode in ["manual"]:
-                active_arms.append("tinder_manual")
-                m_report, _ = run_single_arm(
-                    arm_name="tinder_manual",
-                    run_dir=run_dir,
-                    scenario_dir=scenario_dir,
-                    settings_file=settings_file,
-                    env_vars=env_vars,
-                    plugin_dir=PLUGIN_ROOT,
-                    max_turns=args.max_turns,
-                )
-                final_report_content += f"## 手动组 (tinder_manual) 评测报告\n\n{m_report}\n\n"
+        # 5. 若多方案并发（>= 2 组），调起横向主观盲测对比评审
+        if len(arms_to_run) >= 2 and len(delivery_data_dict) >= 2:
+            print(f"\n{'='*25} 启动多方案横向主观盲测对比评审 {'='*25}")
+            supervisor_home = run_dir / "supervisor_home"
+            supervisor_home.mkdir(parents=True, exist_ok=True)
+            critique = Supervisor.compare_arms(
+                arms_data=delivery_data_dict,
+                ground_truth=scenario.ground_truth,
+                supervisor_taste=scenario.supervisor_taste,
+                settings_file=settings_file,
+                sandbox_home=supervisor_home,
+                env_vars=env_vars,
+            )
+            final_report_content += f"## ⚖️ 多方案横向主观对比裁决大盘 (Side-by-side Critique)\n\n{critique}\n\n---\n\n"
 
-            if args.mode in ["control", "ab"]:
-                active_arms.append("control_raw_claude")
-                c_report, _ = run_single_arm(
-                    arm_name="control_raw_claude",
-                    run_dir=run_dir,
-                    scenario_dir=scenario_dir,
-                    settings_file=settings_file,
-                    env_vars=env_vars,
-                    plugin_dir=None,
-                    max_turns=args.max_turns,
-                )
-                final_report_content += f"## 对照组 (Raw Claude) 评测报告\n\n{c_report}\n\n"
+        # 6. 追加各组独立质检报告
+        final_report_content += "## 各方案独立质检报告\n\n"
+        for arm_name, _, label in arms_to_run:
+            final_report_content += f"### {label}\n\n{reports_dict.get(arm_name, '（无报告产出）')}\n\n---\n\n"
 
-            if args.mode in ["mattpocock"]:
-                active_arms.append("mattpocock_skills")
-                mp_report, _ = run_single_arm(
-                    arm_name="mattpocock_skills",
-                    run_dir=run_dir,
-                    scenario_dir=scenario_dir,
-                    settings_file=settings_file,
-                    env_vars=env_vars,
-                    plugin_dir=None,
-                    max_turns=args.max_turns,
-                )
-                final_report_content += f"## Matt Pocock 原生套件 (mattpocock-skills) 评测报告\n\n{mp_report}\n\n"
-
-        report_file = reports_dir / f"{timestamp}_{scenario_key}_{args.mode}_{args.model}.md"
+        report_file = reports_dir / f"{timestamp}_{scenario.slug}_{args.mode}_{args.model}.md"
         report_file.write_text(final_report_content, encoding="utf-8")
 
         print(f"\n{'='*20} 评测全部完成 {'='*20}")
         print(f"✓ 完整 Markdown 评测大盘已归档至: {report_file}")
 
-        # 自动归档最终产物到 evals/artifacts/ 目录，方便开发者直接检视与运行
-        artifacts_dir = EVALS_DIR / "artifacts" / scenario_key
+        # 自动归档最终产物到 evals/artifacts/ 目录
+        artifacts_dir = EVALS_DIR / "artifacts" / scenario.slug
         artifacts_dir.mkdir(parents=True, exist_ok=True)
         for arm in active_arms:
             src_arm = run_dir / arm
