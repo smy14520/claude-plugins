@@ -31,6 +31,6 @@ description: "系统化缺陷修复主流程：构建确定性变红回路、定
 - 若确系发现了反直觉的第三方库/平台未公开 Bug，在 `.forge/wiki/gotcha/` 沉淀一条 Gotcha（正文附可在当前环境跑通的单行复现命令与输出），并用 `Edit` 工具在 `.forge/wiki/index.md` 登记；复现不出来的严禁入库；
 - **Completion criterion**：代码就绪、测试通过、知识合规入库。
 
-### Phase 4: 成果呈递
-- 向开发者汇报根因分析、修复策略、新增的防回归测试位置；
-- 提示审查 `git diff` 并执行 Commit。
+### Phase 4: 提交与汇报
+- 把修复提交到当前 branch，commit message 写明被证实的根因假设；
+- 向开发者汇报根因分析、修复策略、新增的防回归测试位置与 commit。

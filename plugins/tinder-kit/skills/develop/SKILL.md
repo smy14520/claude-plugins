@@ -24,11 +24,11 @@ disable-model-invocation: true
 ## 主线：想法 → 交付
 
 1. **对齐**：调用 `grill-with-docs`。遇到只有跑起来才答得出的问题（状态模型、业务逻辑、要亲眼看的界面），派 subagent 调用 `prototype` 去回答，把它的 verdict 带回访谈继续。
-2. **🛑 方案确认**：访谈收敛后，呈上 agreed seams、out of scope，以及原始需求逐项对照表（每一项落在哪里）；写入 state.json，等人确认或调整。
+2. **🛑 方案确认**：访谈收敛后，呈上 agreed seams、out of scope、原始需求逐项对照表（每一项落在哪里），以及工作将提交到的 branch；写入 state.json，等人确认或调整。
 3. **实现**：
    - **单会话装得下** → 在当前上下文调用 `implement`。它收尾的 `tinder-kit:code-review` 以 state.json 的对齐结论为 spec。
-   - **多会话** → 调用 `to-spec`，再调用 `to-tickets`。按 blocking edges 的顺序，每张票派一个 subagent 调用 `implement`——每张票都从干净的上下文开始。
-4. **🛑 交付**：汇报做了什么、审查结论与测试证据，交还控制权。
+   - **多会话** → 调用 `to-spec`，再调用 `to-tickets`，然后调用 `implement-spec`，在一个 integration branch 上落地全部 tickets。
+4. **🛑 交付**：汇报做了什么（commits 或 integration branch）、审查结论与测试证据，交还控制权。
 
 ## 阶段边界
 

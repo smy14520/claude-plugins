@@ -21,6 +21,7 @@
 - **Spec 轴 (Seams 契约兑现度)**: {spec_verdict}
 - 关键发现与自动修正: {review_summary}
 
-## 4. Human Commit Ready (交付就绪)
+## 4. Commits (交付)
 
-系统改动已通过全部 Seams 契约与防回归验证，代码质量经双轴审查收敛。请人类开发者审查 `git diff` 并执行 Commit。
+- Branch: `{branch}`
+- `{sha}` {commit_message}

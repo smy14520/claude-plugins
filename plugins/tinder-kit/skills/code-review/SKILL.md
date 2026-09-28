@@ -3,7 +3,7 @@ name: code-review
 description: "从固定点（commit、branch、tag 或 merge-base）开始，按 Standards（代码是否符合本仓库记录的编码标准？）和 Spec（代码是否符合来源 issue/spec 的要求？）两个轴线审查变更。两个审查会在并行子代理中运行，并并排报告。适用于用户想审查 branch、PR、进行中的变更，或要求“review since X”时。"
 ---
 
-对用户提供的 fixed point 与 `HEAD` 之间的 diff 做双轴 review：
+对用户提供的 fixed point 以来的改动（含尚未 commit 的工作区）做双轴 review：
 
 - **Standards** — 代码是否符合这个 repo 记录下来的 coding standards？
 - **Spec** — 代码是否忠实实现来源 issue / spec？
@@ -18,9 +18,9 @@ Issue tracker 应该已经提供给你；如果缺少 `.forge/issue-tracker.md`�
 
 用户说的任何内容都是 fixed point：commit SHA、branch name、tag、`main`、`HEAD~5` 等。如果用户没有指定，就询问。
 
-先捕获一次 diff command：`git diff <fixed-point>...HEAD`（three-dot，因此比较对象是 merge-base）。同时用 `git log <fixed-point>..HEAD --oneline` 记录 commits 列表。
+先捕获一次 diff command：`git diff $(git merge-base <fixed-point> HEAD)`（比较对象是 merge-base，并包含工作区里尚未 commit 的改动）；未跟踪的新文件用 `git ls-files --others --exclude-standard` 补上。同时用 `git log <fixed-point>..HEAD --oneline` 记录 commits 列表。
 
-继续前，确认 fixed point 能解析（`git rev-parse <fixed-point>`），并且 diff 非空。错误 ref 或空 diff 应该在这里失败，而不是进入两个并行 sub-agents 后才失败。
+继续前，确认 fixed point 能解析（`git rev-parse <fixed-point>`），并且改动非空。错误 ref 或空 diff 应该在这里失败，而不是进入两个并行 sub-agents 后才失败。
 
 ### 2. Identify the spec source
 
