@@ -20,7 +20,7 @@ def test_lock_leak_on_exception(tmp_path):
     with pytest.raises(KeyError):
         store.update_status(999, "DONE")
 
-    # 2. 触发非法状态异常
+    # 2. 触发非法状态异常（同一泄漏路径的第二入口）
     with pytest.raises(ValueError):
         store.update_status(1, "BOGUS")
 

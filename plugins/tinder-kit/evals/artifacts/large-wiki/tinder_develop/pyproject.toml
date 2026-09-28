@@ -1,23 +1,21 @@
 [build-system]
-requires = ["setuptools>=61"]
+requires = ["setuptools>=68"]
 build-backend = "setuptools.build_meta"
 
 [project]
 name = "wiki-cli"
 version = "0.1.0"
-description = "个人本地 Markdown Wiki 知识库命令行工具：Link / Backlink / Tag / Keyword Search / Health Check"
-requires-python = ">=3.10"
+description = "Personal local Markdown wiki toolkit: wiki links, backlinks, tags, full-text search, and a vault health check. Read-only, standard library only."
+readme = "README.md"
+requires-python = ">=3.12"
 dependencies = []
-classifiers = [
-    "Programming Language :: Python :: 3",
-    "Programming Language :: Python :: 3.10",
-    "Programming Language :: Python :: 3.11",
-    "Programming Language :: Python :: 3.12",
-    "Topic :: Text Processing :: Markup :: Markdown",
-]
 
 [project.scripts]
-wiki = "wiki_cli.cli:main"
+wiki-cli = "wikicli.cli:main"
 
 [tool.setuptools.packages.find]
 where = ["src"]
+
+[tool.pytest.ini_options]
+pythonpath = ["src"]
+testpaths = ["tests"]

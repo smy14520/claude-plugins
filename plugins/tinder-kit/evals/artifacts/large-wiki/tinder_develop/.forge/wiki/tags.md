@@ -14,11 +14,12 @@
 
 ## 业务领域标签（Domain Tags）
 
-- `wiki`: 个人 Markdown 知识库的页面、链接、标签与检索体系 (_Avoid_: knowledge-base, notes, 笔记库)
+<!-- 随项目实际业务演进按需懒追加。格式示例：
+- `auth`: 用户身份、Token 与权限控制 (_Avoid_: login, 登录)
+-->
 
 ## 技术机制标签（Mechanism Tags）
 
-- `tooling`: 构建、打包与依赖策略 (_Avoid_: build, packaging, deps)
-- `search`: 关键词检索、匹配与排序 (_Avoid_: query, fts, index)
-- `storage`: 数据与索引的存放形态（内存/单文件） (_Avoid_: persistence, database, cache)
-- `parsing`: Markdown 文本的链接/标签提取与解析 (_Avoid_: extract, regex, tokenize)
+<!-- 随项目底层架构演进按需懒追加。格式示例：
+- `storage`: 文件读写、序列化与原子写入 (_Avoid_: persistence, store, db)
+-->

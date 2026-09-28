@@ -6,10 +6,24 @@ from __future__ import annotations
 import argparse
 import json
 import sys
-from datetime import date, datetime
+from datetime import date
 from pathlib import Path
 
 DEFAULT_FILE = Path(".todos.json")
+
+
+def parse_due(value: str) -> str:
+    try:
+        parsed = date.fromisoformat(value)
+    except ValueError:
+        raise argparse.ArgumentTypeError(
+            f"invalid due date {value!r}: expected YYYY-MM-DD"
+        ) from None
+    if parsed.isoformat() != value:
+        raise argparse.ArgumentTypeError(
+            f"invalid due date {value!r}: expected YYYY-MM-DD"
+        )
+    return value
 
 
 def load_todos(path: Path = DEFAULT_FILE) -> list[dict]:
@@ -27,41 +41,29 @@ def save_todos(todos: list[dict], path: Path = DEFAULT_FILE) -> None:
     path.write_text(json.dumps(data, indent=2, ensure_ascii=False), encoding="utf-8")
 
 
-def parse_due(value: str) -> date:
-    """解析 YYYY-MM-DD 截止日期，非法输入（含非字符串）抛 ValueError。"""
-    try:
-        return datetime.strptime(value, "%Y-%m-%d").date()
-    except (TypeError, ValueError) as exc:
-        raise ValueError(f"invalid due date {value!r}, expected YYYY-MM-DD") from exc
-
-
-def add_todo(title: str, path: Path = DEFAULT_FILE, *, due: str | None = None) -> dict:
+def add_todo(title: str, path: Path = DEFAULT_FILE, due: str | None = None) -> dict:
     todos = load_todos(path)
     new_id = max([t["id"] for t in todos], default=0) + 1
     item = {"id": new_id, "title": title, "done": False}
     if due is not None:
-        item["due"] = parse_due(due).isoformat()  # 校验失败在写盘前抛出，脏数据不落盘
+        item["due"] = due
     todos.append(item)
     save_todos(todos, path)
     return item
 
 
-def is_overdue(todo: dict, today: date) -> bool:
-    """未完成任务且当前日期已超过截止日期（截止当天不算逾期）。脏数据视为未逾期。"""
-    if todo.get("done", False):
-        return False
-    due = todo.get("due")
-    if not due:
-        return False
-    try:
-        return today > parse_due(due)
-    except ValueError:
-        return False
-
-
 def list_todos(path: Path = DEFAULT_FILE) -> list[dict]:
     todos = load_todos(path)
     return [t for t in todos if not t.get("done", False)]
+
+
+def is_overdue(todo: dict, today: date | None = None) -> bool:
+    due = todo.get("due")
+    if not due:
+        return False
+    if today is None:
+        today = date.today()
+    return today > date.fromisoformat(due)
 
 
 def done_todo(todo_id: int, path: Path = DEFAULT_FILE) -> bool:
@@ -83,7 +85,7 @@ def main(argv: list[str] | None = None) -> int:
 
     add_parser = sub.add_parser("add", help="Add a todo")
     add_parser.add_argument("title", help="Todo title")
-    add_parser.add_argument("--due", default=None, help="Due date as YYYY-MM-DD (optional)")
+    add_parser.add_argument("--due", default=None, type=parse_due, help="Due date in YYYY-MM-DD")
 
     sub.add_parser("list", help="List open todos")
 
@@ -92,19 +94,14 @@ def main(argv: list[str] | None = None) -> int:
 
     args = parser.parse_args(argv)
     if args.cmd == "add":
-        try:
-            item = add_todo(args.title, due=args.due)
-        except ValueError:
-            print(f"Error: invalid --due {args.due!r}, expected YYYY-MM-DD", file=sys.stderr)
-            return 1
+        item = add_todo(args.title, due=args.due)
         print(f"Added #{item['id']}: {item['title']}")
         return 0
     elif args.cmd == "list":
         items = list_todos()
-        today = date.today()
         for it in items:
             line = f"[{it['id']}] {it['title']}"
-            if is_overdue(it, today):
+            if is_overdue(it):
                 line += " [OVERDUE]"
             print(line)
         return 0

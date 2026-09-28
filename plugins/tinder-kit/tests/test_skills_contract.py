@@ -46,6 +46,7 @@ ORCHESTRATED_PHASES = {
     "to-spec",
     "to-tickets",
     "implement",
+    "implement-spec",
     "wayfinder",
     "fix",
 }
