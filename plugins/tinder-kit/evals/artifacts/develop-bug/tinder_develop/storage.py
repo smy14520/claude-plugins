@@ -31,18 +31,22 @@ class TaskStore:
     def update_status(self, task_id: int, new_status: str) -> dict:
         """更新指定任务状态。"""
         with self.lock:
-            tasks = self._read()
-            target = None
-            for t in tasks:
-                if t["id"] == task_id:
-                    target = t
-                    break
-            if not target:
-                raise KeyError(f"Task #{task_id} not found")
+            return self._update_status_locked(task_id, new_status)
 
-            if new_status not in ["PENDING", "WAITING", "RUNNING", "DONE"]:
-                raise ValueError(f"Invalid status: {new_status}")
+    def _update_status_locked(self, task_id: int, new_status: str) -> dict:
+        """调用方必须已持有 self.lock。"""
+        tasks = self._read()
+        target = None
+        for t in tasks:
+            if t["id"] == task_id:
+                target = t
+                break
+        if not target:
+            raise KeyError(f"Task #{task_id} not found")
 
-            target["status"] = new_status
-            self._write(tasks)
-            return target
+        if new_status not in ["PENDING", "WAITING", "RUNNING", "DONE"]:
+            raise ValueError(f"Invalid status: {new_status}")
+
+        target["status"] = new_status
+        self._write(tasks)
+        return target

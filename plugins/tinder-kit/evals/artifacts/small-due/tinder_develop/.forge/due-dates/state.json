@@ -1,0 +1,47 @@
+{
+  "slug": "due-dates",
+  "created": "2026-09-28",
+  "raw_requirement": "在现有 Todo 工具基础之上增加截止日期支持：add 命令支持可选参数 --due YYYY-MM-DD，list 命令在展示未完成任务时，若当前日期已超过截止日期，在末尾标注 [OVERDUE]，数据存放在现有的单 JSON 文件中保持向后兼容。",
+  "feature_points": [
+    "add 命令新增可选参数 --due，格式 YYYY-MM-DD",
+    "list 展示未完成任务时，当前日期严格晚于截止日期则在行末标注 [OVERDUE]",
+    "存储沿用现有单 JSON 文件（.todos.json），旧数据无 due 字段也必须正常读写（向后兼容）"
+  ],
+  "agreed_seams": [
+    "add_todo(title, path, due=None) — due 作为可选关键字参数，默认 None",
+    "is_overdue(todo, today=None) — 纯函数判定 overdue，today 可注入以便测试",
+    "list_todos 保持只返回数据不做展示装饰；[OVERDUE] 标注是展示逻辑，放在 main() 渲染处"
+  ],
+  "key_decisions": [
+    {
+      "decision": "due 字段为可选，条目无 due 字段（旧数据）视为无截止日期，永不标 OVERDUE",
+      "reason": "向后兼容：旧 JSON 无需迁移"
+    },
+    {
+      "decision": "overdue 边界为严格大于：current_date > due_date 才标注；截止当天不算 overdue",
+      "reason": "需求原文为『已超过』"
+    },
+    {
+      "decision": "--due 格式非法时以 argparse type 校验拒绝，报错退出码非 0，不落盘",
+      "reason": "快速失败，避免脏数据进存储"
+    },
+    {
+      "decision": "日期仅存 ISO 字符串 YYYY-MM-DD，解析在判定时进行",
+      "reason": "存储格式保持人可读、向后兼容成本最低"
+    }
+  ],
+  "out_of_scope": [
+    {
+      "item": "list 按截止日期排序/过滤参数（如 --overdue）",
+      "reason": "需求未提，留待后续"
+    },
+    {
+      "item": "done 命令与已完成任务的 overdue 状态",
+      "reason": "需求仅针对未完成任务展示"
+    },
+    {
+      "item": "存储迁移或格式版本号",
+      "reason": "可选字段天然向后兼容，无需迁移"
+    }
+  ]
+}

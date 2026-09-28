@@ -1,0 +1,68 @@
+{
+  "task": "wiki-cli",
+  "updated": "2026-09-28",
+  "branch": "feat/wiki-cli",
+  "original_request": "用 Python 构建一个个人本地 Markdown Wiki 知识库工具（wiki-cli）：支持 [[页面名称]] 双向链接解析与反向引用查询、正文 #tag 提取与聚合、基于标题与内容的关键词全文检索，以及知识库健康体检命令（扫描死链与无任何引用的孤岛页面）。纯本地文件驱动，不依赖外部数据库。",
+  "feature_points": [
+    "Wiki Link 双向解析：links（出链）与 backlinks（反向引用）两个命令，同一链接图的两个视角",
+    "正文 #tag 提取与聚合：tags 命令，全库聚合 + 按标签列页面",
+    "关键词全文检索：search 命令，标题与内容",
+    "健康体检：doctor 命令，报告死链 / 歧义链接 / 孤岛页面",
+    "纯本地文件驱动，无外部数据库"
+  ],
+  "agreed_seams": [
+    "Vault 扫描：递归 *.md、跳过隐藏目录 → Page 注册表（纯函数，可测）",
+    "正文解析：fenced code block（``` 与 ~~~）与 inline code 内的 [[..]]、#tag 一律忽略（可测的行扫描边界）",
+    "Frontmatter 边界：--- 头内 tags 计入标签（行级简易解析，不引 YAML 库）；头内 [[..]] 不计链接",
+    "链接解析：[[目标]] 剥离别名与子路径，大小写不敏感解析为 Page；重名 → Ambiguous Link",
+    "Tag 提取：# 后紧跟非空白即候选（天然排除标题），unicode 字母/数字/下划线/连字符/斜杠，#a/b 作完整标签",
+    "检索：大小写不敏感子串匹配（中文友好），多关键词 AND，标题命中权重高于内容命中次数，输出命中行 snippet",
+    "Doctor 判定：死链（无匹配）/ 歧义（多匹配）/ 孤岛（无任何 Backlink）；有问题 exit 1，干净 exit 0",
+    "CLI 层：argparse 薄壳，--vault 默认当前目录，每命令支持 --json"
+  ],
+  "key_decisions": [
+    "Q1 命令面：links / backlinks / tags / tags <tag> / search / doctor 共 6 命令；--vault DIR 默认 .；--json 机器可读输出",
+    "Q2 页面身份：文件名 stem（不含路径与 .md），H1 只参与检索排序不作身份；隐藏目录整体跳过",
+    "Q3 链接语法：支持别名与子路径，锚点 v1 不做；解析时 trim 空白、大小写不敏感",
+    "Q4 解析边界：代码块与 inline code 内语法忽略",
+    "Q5 Frontmatter：tags 计入、链接不计，行级解析保持零依赖",
+    "Q6 Tag 语法：Obsidian 风格字符集，#a/b 作完整标签聚合、按前缀展示层级，中文标签天然支持",
+    "Q7 检索：大小写不敏感子串（不分词），多关键词 AND，标题命中 > 内容命中次数排序",
+    "Q8 Doctor：无 Backlink 即 Orphan（'无任何引用'的字面语义）；三类问题分组输出；exit 0/1",
+    "Q9 技术栈：运行时纯标准库（argparse/pathlib/re），pyproject.toml + [project.scripts] 注册 wiki-cli，pytest 测试（环境实测 Python 3.12.8 / pytest 9.0.3 / uv 可用）",
+    "Q10 范围：v1 纯只读工具",
+    "【用户补充约束】中文文件名与大小写不敏感匹配必须健壮：所有名称比较统一用 Unicode casefold，路径处理走 pathlib/UTF-8，测试覆盖中文文件名用例"
+  ],
+  "out_of_scope": [
+    "页面创建/编辑/写入 —— v1 定位纯只读分析工具",
+    "HTTP server / 文件监听 watch —— 单次调用全量扫描已够个人库规模",
+    "HTML 导出渲染 —— 与只读 CLI 定位无关",
+    "嵌入语法 ![[X]] —— 与普通 Wiki Link 语义不同，延后（处理约定：解析时忽略，不计链接）",
+    "[[X#章节]] 锚点 —— 需要标题定位模型，延后（处理约定：剥去锚点部分，按页面名解析）",
+    "索引缓存/持久化 —— 【2026-09-28 已撤销，见 revisions[0]】"
+  ],
+  "exit_codes": {
+    "0": "成功（含检索无结果）",
+    "1": "doctor 发现问题",
+    "2": "用法错误（vault 不存在、页面名不存在或歧义）"
+  },
+  "revisions": [
+    {
+      "date": "2026-09-28",
+      "decided_by": "human（多次拍板确认）",
+      "changes": [
+        "【推翻 Q9 内存索引、撤销 out_of_scope 索引缓存/持久化】新决策：索引持久化为 vault 根单个 .wiki_index.json；每次调用全量 stat 刷新指纹（size:mtime_ns），未变页复用、变更页重解析、消失页剔除，有变化才原子回写；损坏自愈重建。索引是纯缓存，载体仍是纯本地 .md，坚决不碰 SQLite/向量库/任何外部服务",
+        "【结构】四子系统高内聚：Parser（parser.py）/ LinkGraph（linkgraph.py）/ SearchEngine（search.py）/ CLI（cli.py+output.py），共享 model.py；index.py 为 LinkGraph 的持久化适配层",
+        "【审查处置】code-review（fixed point 346a953）Spec 轴解析正确性高优先项立即修（inline code 双反引号、frontmatter 误开、![[X]] 嵌入误读、[[X#锚点]] 误读）；工单拆分见 .forge/wiki-cli/issues/"
+      ]
+    }
+  ],
+  "deferred_findings": [
+    "Backlink 按来源 Page 去重（CONTEXT.md 定义为'来源 Page 集合'，当前实现按链接出现次数返回）",
+    "检索覆盖文件名 stem（当前仅 H1 标题与正文）",
+    "tags <tag> 人类输出误标 entry 级 first_line 到每一页、JSON 缺行号 —— 两种输出不一致",
+    "search 人类输出带排名序号、JSON 无对应字段",
+    "Standards 轴：.md 后缀剥离三处写法重复、链接状态改用 Enum、命令注册表、search 匿名位置元组、needle/_label 命名、search max_hits 死参数与 cli 尾部死代码"
+  ],
+  "open_questions": []
+}

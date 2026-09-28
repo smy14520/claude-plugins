@@ -18,6 +18,10 @@ Create a new file under `.forge/<feature-slug>/` (creating the directory if need
 
 Read the file at the referenced path. The user will normally pass the path or the issue number directly.
 
+## When a skill says "resolve a ticket"
+
+Set its `Status:` line to `resolved`. A ticket is unblocked when every ticket in its `Blocked by` is `resolved`.
+
 ## Wayfinding operations
 
 Used by `/wayfinder`. The **map** is a file with one **child** file per ticket.
