@@ -695,7 +695,19 @@ def main() -> int:
             if src_arm.is_dir():
                 dest = artifacts_dir / arm
                 shutil.rmtree(dest, ignore_errors=True)
-                shutil.copytree(src_arm, dest)
+                shutil.copytree(
+                    src_arm,
+                    dest,
+                    ignore=shutil.ignore_patterns(
+                        ".claude",
+                        ".git",
+                        ".venv",
+                        "__pycache__",
+                        ".pytest_cache",
+                        ".mypy_cache",
+                        "*.pyc",
+                    ),
+                )
                 print(f"✓ 产物已自动持久化归档至: {dest}")
 
         print(f"\n{final_report_content[:2000]}...\n[更多详情请查阅报告: {report_file}]")
