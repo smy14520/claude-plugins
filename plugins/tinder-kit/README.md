@@ -11,6 +11,6 @@
   - `handoff.md`：跨会话交接文档（单文件覆盖）
   - `endorsement.md`：最终交付的测试与规范审查报告
 - **技能体系**：
-  - **User-invoked**：流程入口（`/develop` 等）；`/develop` 沿 ask-matt 路线图直接调用可编排阶段（`grill-with-docs` → `to-spec` / `to-tickets` → `implement` / `implement-spec` 等）
+  - **User-invoked**：流程入口（`/develop`、`/retro` 等）；`/develop` 沿 ask-matt 路线图直接调用可编排阶段（`grill-with-docs` → `to-spec` / `to-tickets` → `implement` / `implement-spec` 等）
   - **Model-invoked**：原子工程素养（`tdd`, `codebase-design`, `diagnose`, `prototype` 等，模型自主调用）
   - **Bridge**：`handoff`（既可用户随时调用，又负责编排阶段间的交接）

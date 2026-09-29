@@ -27,6 +27,7 @@ USER_INVOKED_FLOWS = {
     "develop",
     "to-questionnaire",
     "sparring",
+    "retro",
 }
 MODEL_INVOKED_DISCIPLINES = {
     "grilling",
@@ -170,3 +171,20 @@ def test_all_agents_have_valid_frontmatter():
         found_agents.add(fm["name"])
 
     assert found_agents == expected_agents, f"Agent 清单不一致：{found_agents ^ expected_agents}"
+
+
+def test_wiki_guard_hook_asks_before_every_wiki_write():
+    """插件 hook 必须在 Edit/Write/rm/mv 改动 .forge/wiki 前请用户确认；`if` 只接受单条规则，每条单独一个 handler。"""
+    hj = json.loads((PLUGIN_ROOT / "hooks" / "hooks.json").read_text(encoding="utf-8"))
+    handlers = [h for entry in hj["hooks"]["PreToolUse"] for h in entry["hooks"]]
+    rules = {h["if"] for h in handlers}
+    assert rules == {
+        "Edit(.forge/wiki/**)",
+        "Write(.forge/wiki/**)",
+        "Bash(rm *.forge/wiki*)",
+        "Bash(mv *.forge/wiki*)",
+    }
+    for h in handlers:
+        assert "|" not in h["if"], "if 只接受单条权限规则"
+        out = json.loads(h["command"].split("echo ", 1)[1].strip("'"))
+        assert out["hookSpecificOutput"]["permissionDecision"] == "ask"

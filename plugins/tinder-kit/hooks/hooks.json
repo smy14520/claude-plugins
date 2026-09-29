@@ -1,0 +1,32 @@
+{
+  "description": "修改 .forge/wiki 前请用户确认：知识库只在用户点头后写入",
+  "hooks": {
+    "PreToolUse": [
+      {
+        "matcher": "Edit|Write|Bash",
+        "hooks": [
+          {
+            "type": "command",
+            "if": "Edit(.forge/wiki/**)",
+            "command": "echo '{\"hookSpecificOutput\":{\"hookEventName\":\"PreToolUse\",\"permissionDecision\":\"ask\",\"permissionDecisionReason\":\"tinder-kit：.forge/wiki 的改动需要你确认（平时由 /retro 提议后写入）\"}}'"
+          },
+          {
+            "type": "command",
+            "if": "Write(.forge/wiki/**)",
+            "command": "echo '{\"hookSpecificOutput\":{\"hookEventName\":\"PreToolUse\",\"permissionDecision\":\"ask\",\"permissionDecisionReason\":\"tinder-kit：.forge/wiki 的改动需要你确认（平时由 /retro 提议后写入）\"}}'"
+          },
+          {
+            "type": "command",
+            "if": "Bash(rm *.forge/wiki*)",
+            "command": "echo '{\"hookSpecificOutput\":{\"hookEventName\":\"PreToolUse\",\"permissionDecision\":\"ask\",\"permissionDecisionReason\":\"tinder-kit：.forge/wiki 的改动需要你确认（平时由 /retro 提议后写入）\"}}'"
+          },
+          {
+            "type": "command",
+            "if": "Bash(mv *.forge/wiki*)",
+            "command": "echo '{\"hookSpecificOutput\":{\"hookEventName\":\"PreToolUse\",\"permissionDecision\":\"ask\",\"permissionDecisionReason\":\"tinder-kit：.forge/wiki 的改动需要你确认（平时由 /retro 提议后写入）\"}}'"
+          }
+        ]
+      }
+    ]
+  }
+}
