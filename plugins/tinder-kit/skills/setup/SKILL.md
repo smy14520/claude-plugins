@@ -32,10 +32,13 @@ disable-model-invocation: true
 - **分流标签（Triage labels）**：采用 5 种标准分流角色（`needs-triage`、`needs-info`、`ready-for-agent`、`ready-for-human`、`wontfix`）；
 - **领域文档（Domain docs）**：单上下文结构（`.forge/CONTEXT.md` 词汇表 + `.forge/wiki/decision/` ADR 库，按需延迟创建）；
 - **Wiki 知识库与标签词典（Wiki & Tags）**：`.forge/wiki/` 存放避坑指南、架构决策与跨文件链路；生成初始 `.forge/wiki/tags.md`，内容随项目开发动态自生长。
+- **访谈偏好（Grilling）**：这是用户个人偏好，由用户选，不替用户定。问两件事：
+  - 节奏：**按轮**（每轮问完所有前提已定的问题，默认）还是**一次一个**；
+  - 形式：用 `AskUserQuestion` **点选**（推荐）还是**纯文本**。
 
 ### 3. 生成草案并供人类审阅（Confirm and edit）
 向人类展示即将写入的配置清单草稿，等待人类确认或一句话微调：
-- 待写入宿主文件（`CLAUDE.md` 或 `AGENTS.md`）的 `## Agent skills` 指针段落预览；
+- 待写入宿主文件（`CLAUDE.md` 或 `AGENTS.md`）的 `## Agent skills` 指针段落预览（含按用户选择生成的 `### Grilling`）；
 - `.forge/issue-tracker.md` 内容预览（以 [issue-tracker.md](./issue-tracker.md) 模板为起点）；
 - `.forge/domain.md` 内容预览（以 [domain.md](./domain.md) 模板为起点）；
 - `.forge/triage-labels.md` 内容预览（以 [triage-labels.md](./triage-labels.md) 模板为起点）；
@@ -66,8 +69,24 @@ disable-model-invocation: true
      Single-context layout: CONTEXT.md in .forge/, ADRs in .forge/wiki/decision/. See `.forge/domain.md`.
 
      ### Wiki
-     Project knowledge base, gotchas, and architectural decisions. See `.forge/wiki/tags.md` and `.forge/wiki/index.md`. Use `/wiki` skill to search or contribute.
+     Before assessing a change's impact, modifying non-trivial code, or answering "why is it like this", check `.forge/wiki/` via the `wiki` skill: it records cross-module couplings, decisions and gotchas the code doesn't show.
      ```
+
+     `### Grilling` 按用户在第 2 步的选择追加在末尾，只写与默认（按轮 + 纯文本）不同的部分；两项都选默认就不写这一小节：
+     - 选了**一次一个**：
+       ```markdown
+       When grilling, ask one question at a time.
+       ```
+     - 选了**点选**：
+       ```markdown
+       When running a grilling session (`grilling`, `grill-with-docs`, or any skill built on them), ask each round's questions using the `AskUserQuestion` tool instead of a plain-text block:
+
+       - Give each question a short header and the question itself.
+       - Offer 2-4 concrete options. Put the recommended answer first and mark it `(Recommended)`.
+       - Keep option descriptions to a sentence.
+       - Don't add a manual "other" option, the tool already provides a freeform slot.
+       - Batch each round's questions into as few `AskUserQuestion` calls as the tool's per-call question limit allows.
+       ```
 
 3. **落盘协议文档与标签注册表**：
    以本技能目录下的初始模板文件为真实基准，使用 `Write` 工具写入 `.forge/`：

@@ -1,6 +1,6 @@
 ---
 name: wiki
-description: "改动核心业务或非平庸模块前，检索它的历史架构决策（ADR）、领域概念约定（Concept）、避坑指南（Gotcha）与跨模块修改链路（Cross-cut）；追问“当初为什么这么写”；或把新认知沉淀进项目三级记忆（CLAUDE.md、.claude/rules/、.forge/wiki/）时调用。"
+description: "评估改动影响、修改非平庸代码、或追问“当初为什么这么写”之前调用：检索 .forge/wiki 中代码本身看不出来的项目记忆——跨模块联动链路、架构决策（ADR）、避坑记录（Gotcha）。也用于把新认知沉淀进 CLAUDE.md、.claude/rules/ 或 .forge/wiki/。"
 ---
 
 # Wiki — 全局分层记忆与知识管家
