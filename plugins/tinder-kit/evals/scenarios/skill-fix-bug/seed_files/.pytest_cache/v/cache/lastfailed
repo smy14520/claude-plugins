@@ -1,0 +1,3 @@
+{
+  "tests/test_concurrency.py::test_lock_leak_on_exception": true
+}

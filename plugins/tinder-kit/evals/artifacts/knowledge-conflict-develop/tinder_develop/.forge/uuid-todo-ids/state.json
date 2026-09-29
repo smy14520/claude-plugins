@@ -1,0 +1,46 @@
+{
+  "slug": "uuid-todo-ids",
+  "created": "2026-09-29",
+  "status": "confirmed",
+  "raw_request": "把 todo 的 id 改成 uuid。todo-sync 上周已经升级了，现在按 updated_at 做增量同步。",
+  "requirements": [
+    "新增 todo 使用 uuid4 作为 id",
+    "存量记录保留 integer id，不做迁移改写",
+    "todo 记录新增 updated_at 字段，供 todo-sync 做增量同步水位线",
+    "done 命令兼容两种 id：精确匹配（完整 uuid 或 legacy 整数），uuid 另支持唯一前缀匹配",
+    "list/add 显示 uuid 短前缀（前 8 位），legacy 整数原样显示",
+    "ADR-0001 与新现实冲突，按现状原地改写"
+  ],
+  "agreed_seams": [
+    "JSON 记录 schema：{id: str(uuid)|int, title: str, done: bool, updated_at: str(ISO8601 UTC)}；存量记录经 load() 内存回填 updated_at=epoch，下次保存时落盘",
+    "todo-sync 外部契约（不可本仓验证）：按 updated_at 增量同步；字段名/格式以用户确认为准（updated_at, ISO8601 UTC）",
+    "export CSV 三列 (id,title,done) 与顺序完全不动，仅 id 值变为 uuid 字符串",
+    "CLI done 接受字符串参数，不再 int() 解析"
+  ],
+  "out_of_scope": [
+    "export 格式改动——列序未动，不触发 report_todos.py 联动条件；交付时提醒运维确认其对 id 列类型无假设",
+    "存量 id 改写为 uuid——用户裁决保留，避免 todo-sync 侧身份断裂造成重复",
+    "CONTEXT.md 词汇表——本次无新术语争议需要收敛",
+    "uuid7（时间有序）——Python 3.12 标准库不含，且同步已不依赖 id 排序"
+  ],
+  "key_decisions": [
+    {
+      "decision": "存量记录 updated_at 回填 epoch（1970-01-01T00:00:00+00:00）",
+      "by": "agent（用户未明示）",
+      "rationale": "语义为『从未修改』，避免 todo-sync 换水位线后将全部老任务视为变更而重推；首次真实 done 时盖上真实时间戳"
+    },
+    {
+      "decision": "updated_at 仅在状态真实变化时刷新（done 的 False→True 转变），重复 done 不刷新",
+      "by": "agent",
+      "rationale": "无状态变化不应触发 todo-sync 重推，做增量同步的好公民"
+    },
+    {
+      "decision": "前缀匹配仅作用于 uuid id，legacy 整数 id 需完整输入",
+      "by": "agent",
+      "rationale": "整数 id 本就短，无需缩短；避免『1』同时前缀命中整数 12 与若干 uuid 的语义混乱"
+    }
+  ],
+  "adr_actions": [
+    "ADR-0001（todo id 使用单调递增整数）作废重写：todo-sync 已于 2026-09-22 当周升级为按 updated_at 增量同步，max(id) 水位线依赖不复存在；新文记录 uuid4 + 保留存量整数 id + updated_at 水位线，注明原决策与变更原因"
+  ]
+}

@@ -1,0 +1,33 @@
+{
+  "pages": [
+    {
+      "links": [
+        "死链目标",
+        "目标页"
+      ],
+      "path": "home.md",
+      "tags": [
+        "python"
+      ],
+      "title": "home"
+    },
+    {
+      "links": [],
+      "path": "孤岛.md",
+      "tags": [
+        "ml"
+      ],
+      "title": "孤岛"
+    },
+    {
+      "links": [],
+      "path": "目标页.md",
+      "tags": [
+        "ml",
+        "python"
+      ],
+      "title": "目标页"
+    }
+  ],
+  "schema": 1
+}

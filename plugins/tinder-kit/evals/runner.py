@@ -451,6 +451,7 @@ def run_single_arm(
     driver.send_input(initial_cmd)
 
     effective_max_turns = min(max_turns, scenario.max_turns)
+    followup_sent = False
     # 2. 对话与监控循环
     for turn in range(1, effective_max_turns + 1):
         print(f"\n--- [{arm_name}] 进入交互轮次 {turn}/{effective_max_turns} ---")
@@ -483,6 +484,13 @@ def run_single_arm(
         print(f"  💬 【产品方答复 [{arm_name}]】: {reply}")
 
         if is_done:
+            followup = scenario.metadata.get("followup_command")
+            if followup and not followup_sent:
+                followup_sent = True
+                print(f"[{arm_name}] 第一段工作完成，发送后续指令: {followup}")
+                driver.send_input(str(followup))
+                time.sleep(1.0)
+                continue
             print(f"[{arm_name}] 督导官判定任务已彻底交付完工！🎉")
             break
 

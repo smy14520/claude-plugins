@@ -1,0 +1,56 @@
+{
+  "pages": [
+    {
+      "links": [
+        {
+          "line": 3,
+          "raw": "目标页",
+          "target": "目标页"
+        },
+        {
+          "alias": "别名版",
+          "line": 3,
+          "raw": "目标页",
+          "target": "目标页"
+        },
+        {
+          "line": 3,
+          "raw": "死链目标",
+          "target": "死链目标"
+        }
+      ],
+      "malformed_frontmatter": false,
+      "mtime_ns": 1790332763563279848,
+      "name": "home",
+      "path": "home.md",
+      "size": 100,
+      "tags": [
+        "python"
+      ]
+    },
+    {
+      "links": [],
+      "malformed_frontmatter": false,
+      "mtime_ns": 1790332763563484141,
+      "name": "孤岛",
+      "path": "孤岛.md",
+      "size": 34,
+      "tags": [
+        "ml"
+      ]
+    },
+    {
+      "links": [],
+      "malformed_frontmatter": false,
+      "mtime_ns": 1790332763563413766,
+      "name": "目标页",
+      "path": "目标页.md",
+      "size": 48,
+      "tags": [
+        "ml",
+        "python"
+      ]
+    }
+  ],
+  "version": 1
+}

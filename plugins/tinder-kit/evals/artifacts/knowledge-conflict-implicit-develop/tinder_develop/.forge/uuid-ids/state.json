@@ -1,0 +1,30 @@
+{
+  "slug": "uuid-ids",
+  "date": "2026-09-29",
+  "original_request": "把 todo 的 id 改成 uuid。",
+  "confirmed_points": [
+    "新任务的 id 用 uuid（uuid4 字符串）",
+    "存量 .todos.json 里的整数 id 原样保留，不做迁移",
+    "done 命令同时兼容整数 id 与 uuid（按字符串化后相等匹配，CLI 入口不再 int() 解析）",
+    "ADR-0001 原地改写为 id 使用 uuid，注明原决策内容与废止原因（todo-sync 已升级为按 updated_at 同步，max(id) 水位线不复存在）"
+  ],
+  "agreed_seams": [
+    "todo.py add(): id 改为生成 uuid4 字符串，删除 max+1 逻辑",
+    "todo.py done(): 按字符串化相等匹配 id，兼容 int 与 uuid",
+    "todo.py __main__: done 分支去掉 int() 解析",
+    "tests/test_todo.py: 更新 [1]/\"1\" 两处断言，补 done 对两种 id 的兼容测试",
+    ".forge/wiki/decision/0001-integer-ids.md 原地改写 + .forge/wiki/index.md 索引行同步"
+  ],
+  "out_of_scope": [
+    "存量整数 id 的一次性迁移 — 用户明确不要",
+    "export CSV 列顺序与格式 — 不变；id 列新值为 uuid 字符串，report_todos.py 的联动风险已告知，用户未要求处理",
+    "updated_at 字段 — todo-sync 的同步机制在另一仓库，本仓库不实现"
+  ],
+  "key_decisions": [
+    {
+      "decision": "新任务 uuid4，存量整数 id 保留，done 双兼容",
+      "rationale": "todo-sync 上周已改为按 updated_at 同步，ADR-0001 的 max(id) 水位线理由失效；用户确认不迁移存量数据"
+    }
+  ],
+  "status": "已交付（2026-09-29）：实现+双轴 review+修复完成，全量测试通过"
+}
