@@ -6,24 +6,40 @@ from __future__ import annotations
 import argparse
 import json
 import sys
-from datetime import date
+from datetime import date, datetime
 from pathlib import Path
 
 DEFAULT_FILE = Path(".todos.json")
 
 
+def parse_due_date(value: str) -> date:
+    """Parse a YYYY-MM-DD string into a date; raises ValueError if malformed."""
+    return datetime.strptime(value, "%Y-%m-%d").date()
+
+
 def parse_due(value: str) -> str:
+    """Validate an optional --due value; returns it normalized as YYYY-MM-DD."""
     try:
-        parsed = date.fromisoformat(value)
+        return parse_due_date(value).isoformat()
     except ValueError:
         raise argparse.ArgumentTypeError(
             f"invalid due date {value!r}: expected YYYY-MM-DD"
         ) from None
-    if parsed.isoformat() != value:
-        raise argparse.ArgumentTypeError(
-            f"invalid due date {value!r}: expected YYYY-MM-DD"
-        )
-    return value
+
+
+def is_overdue(todo: dict, today: date | None = None) -> bool:
+    """True only when today is strictly past the todo's due date.
+
+    Todos without a due field, or with an unparseable one, are never overdue.
+    """
+    due = todo.get("due")
+    if not due:
+        return False
+    try:
+        due_date = parse_due_date(due)
+    except (ValueError, TypeError):
+        return False
+    return (today if today is not None else date.today()) > due_date
 
 
 def load_todos(path: Path = DEFAULT_FILE) -> list[dict]:
@@ -57,15 +73,6 @@ def list_todos(path: Path = DEFAULT_FILE) -> list[dict]:
     return [t for t in todos if not t.get("done", False)]
 
 
-def is_overdue(todo: dict, today: date | None = None) -> bool:
-    due = todo.get("due")
-    if not due:
-        return False
-    if today is None:
-        today = date.today()
-    return today > date.fromisoformat(due)
-
-
 def done_todo(todo_id: int, path: Path = DEFAULT_FILE) -> bool:
     todos = load_todos(path)
     found = False
@@ -85,7 +92,9 @@ def main(argv: list[str] | None = None) -> int:
 
     add_parser = sub.add_parser("add", help="Add a todo")
     add_parser.add_argument("title", help="Todo title")
-    add_parser.add_argument("--due", default=None, type=parse_due, help="Due date in YYYY-MM-DD")
+    add_parser.add_argument(
+        "--due", type=parse_due, default=None, help="Due date (YYYY-MM-DD)"
+    )
 
     sub.add_parser("list", help="List open todos")
 
@@ -101,6 +110,8 @@ def main(argv: list[str] | None = None) -> int:
         items = list_todos()
         for it in items:
             line = f"[{it['id']}] {it['title']}"
+            if it.get("due"):
+                line += f" (due: {it['due']})"
             if is_overdue(it):
                 line += " [OVERDUE]"
             print(line)

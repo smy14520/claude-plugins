@@ -1,0 +1,28 @@
+{
+  "slug": "due-date-support",
+  "created": "2026-09-29",
+  "source": "用户需求（/tinder-kit:develop 参数）",
+  "route": "小而清楚 → 直接 implement（跳过 grilling；改动一句话说得清，无真正分叉）",
+  "original_requirement": "在现有 Todo 工具基础之上增加截止日期支持：add 命令支持可选参数 --due YYYY-MM-DD，list 命令在展示未完成任务时，若当前日期已超过截止日期，在末尾标注 [OVERDUE]，数据存放在现有的单 JSON 文件中保持向后兼容。",
+  "feature_points": [
+    "add 命令新增可选参数 --due YYYY-MM-DD",
+    "list 命令展示未完成任务时，若当前日期已严格超过截止日期（today > due），行末追加 [OVERDUE] 标注",
+    "due 以可选字符串字段存入现有单 JSON 文件（.todos.json），旧数据（无 due 字段）完全兼容"
+  ],
+  "agreed_seams": [
+    "存储 seam：load_todos/save_todos/add_todo 已有 path 注入，due 为可选字段，缺省即兼容",
+    "CLI seam：argparse type=parse_due 做格式校验，非法格式走 argparse 标准错误（exit 2）",
+    "判定 seam：纯函数 is_overdue(todo, today=None)，today 可注入以便测试；today > due 严格比较，截止日当天不算 OVERDUE"
+  ],
+  "out_of_scope": [
+    "不新增修改/删除已有任务 due 的命令（需求未要求 update 流转）",
+    "list 输出不展示 due 日期本身，仅在超期时追加 [OVERDUE]（已被 2026-09-29 底牌拍板推翻，见 key_decisions）",
+    "不做排序、提醒等衍生功能"
+  ],
+  "key_decisions": [
+    "OVERDUE 边界：today > due 才标注；due 当天不算超期（「已超过」取严格大于）",
+    "date 解析用 datetime.strptime('%Y-%m-%d')，拒绝 2020-13-99 等非法日期",
+    "无 due 字段的旧 todo：is_overdue 恒为 False，list 输出与现状逐字节一致",
+    "【2026-09-29 底牌拍板】逾期判定 = due 严格早于今天，当天不算；凡带 due 的任务 list 必须显示 (due: YYYY-MM-DD)，置于 title 后、[OVERDUE] 之前，非可选"
+  ]
+}

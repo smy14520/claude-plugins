@@ -1,30 +1,34 @@
-"""Shared fixtures: throwaway vaults built from {relative_path: content}."""
+"""测试基建：所有测试经由 CLI 入口（wikicli.cli.main）执行命令并捕获 stdout/stderr。
+
+唯一测试 seam 是 CLI 命令面（spec: Testing Decisions）——不直接测内部函数。
+"""
+
+from __future__ import annotations
+
+import contextlib
+import io
 from pathlib import Path
 
-import pytest
+from wikicli.cli import main
 
-from wikicli.index import load_vault
-
-
-@pytest.fixture
-def make_vault(tmp_path):
-    """Build a throwaway vault from {relative_path: content} and return its root."""
-
-    def _make(files: dict[str, str]) -> Path:
-        for rel, content in files.items():
-            target = tmp_path / rel
-            target.parent.mkdir(parents=True, exist_ok=True)
-            target.write_text(content, encoding="utf-8")
-        return tmp_path
-
-    return _make
+FIXTURES = Path(__file__).parent / "fixtures"
+VAULTS = FIXTURES / "vaults"
 
 
-@pytest.fixture
-def vault_of(make_vault):
-    """Like ``make_vault`` but returns the loaded ``Vault`` index."""
+def vault_path(name: str) -> Path:
+    """按名称取固件 vault 目录。"""
+    return VAULTS / name
 
-    def _vault(files: dict[str, str]):
-        return load_vault(make_vault(files))
 
-    return _vault
+def run_cli(args: list[str]) -> tuple[int, str, str]:
+    """以编程方式调用 CLI 入口，返回 (退出码, stdout, stderr)。"""
+    out, err = io.StringIO(), io.StringIO()
+    code: int
+    with contextlib.redirect_stdout(out), contextlib.redirect_stderr(err):
+        try:
+            result = main(list(args))
+        except SystemExit as exc:  # argparse 用法错误走 SystemExit
+            code = exc.code if isinstance(exc.code, int) else 0
+        else:
+            code = result
+    return code, out.getvalue(), err.getvalue()

@@ -5,17 +5,17 @@ build-backend = "setuptools.build_meta"
 [project]
 name = "wiki-cli"
 version = "0.1.0"
-description = "Personal local Markdown wiki toolkit: wiki links, backlinks, tags, full-text search, and a vault health check. Read-only, standard library only."
+description = "个人本地 Markdown 知识库的结构洞察工具"
 readme = "README.md"
-requires-python = ">=3.12"
+requires-python = ">=3.10"
 dependencies = []
 
 [project.scripts]
 wiki-cli = "wikicli.cli:main"
 
 [tool.setuptools.packages.find]
-where = ["src"]
+include = ["wikicli*"]
 
 [tool.pytest.ini_options]
-pythonpath = ["src"]
 testpaths = ["tests"]
+pythonpath = ["."]

@@ -1,3 +1,5 @@
+# CLAUDE.md
+
 ## Agent skills
 
 ### Issue tracker
