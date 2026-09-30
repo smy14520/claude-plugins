@@ -11,6 +11,7 @@
 from __future__ import annotations
 
 import json
+import subprocess
 import re
 from pathlib import Path
 
@@ -174,17 +175,23 @@ def test_all_agents_have_valid_frontmatter():
 
 
 def test_wiki_guard_hook_asks_before_every_wiki_write():
-    """插件 hook 必须在 Edit/Write/rm/mv 改动 .forge/wiki 前请用户确认；`if` 只接受单条规则，每条单独一个 handler。"""
+    """插件 hook 在 Edit/Write/rm/mv 改动 .forge/wiki 前请用户确认，其他命令不打扰。
+
+    Bash 的 `if` 只写命令名：写了参数的规则遇到 `$VAR` / `$()` 会一律触发（hooks 文档 Bash if 匹配表），
+    路径由 hook 命令自己从输入里判断。`if` 只接受单条规则，每条单独一个 handler。
+    """
     hj = json.loads((PLUGIN_ROOT / "hooks" / "hooks.json").read_text(encoding="utf-8"))
-    handlers = [h for entry in hj["hooks"]["PreToolUse"] for h in entry["hooks"]]
-    rules = {h["if"] for h in handlers}
-    assert rules == {
-        "Edit(.forge/wiki/**)",
-        "Write(.forge/wiki/**)",
-        "Bash(rm *.forge/wiki*)",
-        "Bash(mv *.forge/wiki*)",
-    }
-    for h in handlers:
-        assert "|" not in h["if"], "if 只接受单条权限规则"
-        out = json.loads(h["command"].split("echo ", 1)[1].strip("'"))
-        assert out["hookSpecificOutput"]["permissionDecision"] == "ask"
+    handlers = {h["if"]: h["command"] for entry in hj["hooks"]["PreToolUse"] for h in entry["hooks"]}
+    assert set(handlers) == {"Edit(.forge/wiki/**)", "Write(.forge/wiki/**)", "Bash(rm *)", "Bash(mv *)"}
+
+    def decision(rule, tool_input):
+        stdin = json.dumps({"tool_input": tool_input})
+        out = subprocess.run(["sh", "-c", handlers[rule]], input=stdin, capture_output=True, text=True, check=True).stdout
+        return json.loads(out)["hookSpecificOutput"]["permissionDecision"] if out.strip() else None
+
+    assert decision("Edit(.forge/wiki/**)", {"file_path": ".forge/wiki/a.md"}) == "ask"
+    assert decision("Write(.forge/wiki/**)", {"file_path": ".forge/wiki/a.md"}) == "ask"
+    assert decision("Bash(rm *)", {"command": "rm .forge/wiki/gotcha/a.md"}) == "ask"
+    assert decision("Bash(mv *)", {"command": 'mv "$D"/.forge/wiki/a.md /tmp/'}) == "ask"
+    assert decision("Bash(rm *)", {"command": "rm -rf /tmp/build"}) is None
+    assert decision("Bash(mv *)", {"command": "mv a.csv b.csv"}) is None

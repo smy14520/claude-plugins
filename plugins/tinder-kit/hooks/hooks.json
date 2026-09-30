@@ -17,13 +17,13 @@
           },
           {
             "type": "command",
-            "if": "Bash(rm *.forge/wiki*)",
-            "command": "echo '{\"hookSpecificOutput\":{\"hookEventName\":\"PreToolUse\",\"permissionDecision\":\"ask\",\"permissionDecisionReason\":\"tinder-kit：.forge/wiki 的改动需要你确认（平时由 /retro 提议后写入）\"}}'"
+            "if": "Bash(rm *)",
+            "command": "grep -q '\\.forge/wiki' && echo '{\"hookSpecificOutput\":{\"hookEventName\":\"PreToolUse\",\"permissionDecision\":\"ask\",\"permissionDecisionReason\":\"tinder-kit：.forge/wiki 的改动需要你确认（平时由 /retro 提议后写入）\"}}' || true"
           },
           {
             "type": "command",
-            "if": "Bash(mv *.forge/wiki*)",
-            "command": "echo '{\"hookSpecificOutput\":{\"hookEventName\":\"PreToolUse\",\"permissionDecision\":\"ask\",\"permissionDecisionReason\":\"tinder-kit：.forge/wiki 的改动需要你确认（平时由 /retro 提议后写入）\"}}'"
+            "if": "Bash(mv *)",
+            "command": "grep -q '\\.forge/wiki' && echo '{\"hookSpecificOutput\":{\"hookEventName\":\"PreToolUse\",\"permissionDecision\":\"ask\",\"permissionDecisionReason\":\"tinder-kit：.forge/wiki 的改动需要你确认（平时由 /retro 提议后写入）\"}}' || true"
           }
         ]
       }
