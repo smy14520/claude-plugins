@@ -106,7 +106,7 @@ description: "面向棘手缺陷、Heisenbug / Flaky 故障与性能回退的严
 
 实施步骤：
 1. 将 minimised repro 转化为该 seam 上的 failing test；
-2. 亲眼看它 fail；
+2. 亲眼看它 fail。若通过对代码或测试固件（fixture）故意注入变异（forced mutation）强行变红，在信任变红之前，先与干净副本执行 diff 证明变异真实落盘，防止静默无改动的空编辑被误认为有效变红；
 3. 实施消除源头状态的针对性根治代码（不只在报错处做局部判空）；
 4. 亲眼看它 pass；
 5. 重新针对原始（未最小化）场景运行 Phase 1 feedback loop，确认修复。

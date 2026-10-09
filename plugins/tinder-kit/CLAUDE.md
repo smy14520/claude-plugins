@@ -18,6 +18,6 @@
    - 技能层仅面向抽象业务语义（“读取工单”、“发布工单”、“认领”、“结案”），由驱动协议卡片单点定义实际执行动作。
 
 4. **双层技能分治（User-invoked vs. Model-invoked）**：
-   - **User-invoked**（`disable-model-invocation: true`）：由人启动一整段流程的入口（`/develop`, `/setup`, `/retro`, `/improve-codebase-architecture` 等）；
+   - **User-invoked**（`disable-model-invocation: true`）：由人启动一整段流程的入口（`/develop`, `/setup`, `/retro`, `/radar`, `/scout`, `/sparring`, `/improve-codebase-architecture`, `/chief-of-staff` 等）；
    - **可编排阶段**（`grill-with-docs`, `to-spec`, `to-tickets`, `implement`, `implement-spec`, `wayfinder`, `fix`）：人可以直接敲命令，`/develop` 也会按路线图直接调用它们，因此允许模型调用，触发时机由 description 表达；
    - **Model-invoked**：模型在执行过程中，根据具体工程情境自主判断、按需取用的工程素养工具箱（如 `research` 自动后台调研、`tdd`, `codebase-design`, `prototype`, `diagnose`, `code-review`, `grilling`, `domain-modeling`）。

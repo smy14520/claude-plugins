@@ -29,6 +29,9 @@ USER_INVOKED_FLOWS = {
     "to-questionnaire",
     "sparring",
     "retro",
+    "radar",
+    "scout",
+    "chief-of-staff",
 }
 MODEL_INVOKED_DISCIPLINES = {
     "grilling",
