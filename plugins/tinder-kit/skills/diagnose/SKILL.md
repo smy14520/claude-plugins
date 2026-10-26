@@ -120,4 +120,4 @@ description: "面向棘手缺陷、Heisenbug / Flaky 故障与性能回退的严
 - [ ] 防回归测试稳定通过；
 - [ ] 全局 grep `[DEBUG-DIAGNOSE]`，清理所有 [DEBUG-DIAGNOSE] 插桩；
 - [ ] 临时 harness 已清理；
-- [ ] **把证实的假设写入 commit message**，让下一个排障者能够溯源学习。
+- [ ] **若用户确认提交，把证实的假设写入 commit message**，让下一个排障者能够溯源学习。

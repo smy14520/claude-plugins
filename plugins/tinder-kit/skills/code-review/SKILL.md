@@ -18,7 +18,7 @@ Issue tracker 应该已经提供给你；如果缺少 `.forge/issue-tracker.md`�
 
 用户说的任何内容都是 fixed point：commit SHA、branch name、tag、`main`、`HEAD~5` 等。如果用户没有指定，就询问。
 
-先捕获一次 diff command：`git diff $(git merge-base <fixed-point> HEAD)`（比较对象是 merge-base，并包含工作区里尚未 commit 的改动）；未跟踪的新文件用 `git ls-files --others --exclude-standard` 补上。同时用 `git log <fixed-point>..HEAD --oneline` 记录 commits 列表。
+先执行 `git add -N .` 将工作区中新创建的未跟踪文件纳入索引（仅登记意图，不产生暂存与提交，不影响工作区干净状态），然后捕获完整的 diff command：`git diff $(git merge-base <fixed-point> HEAD)`（比较对象是 merge-base，完整覆盖修改、删除与新创建的所有未提交改动）。同时用 `git log <fixed-point>..HEAD --oneline` 记录已有的 commits 列表（若尚未提交则为空，不影响工作区审查）。
 
 继续前，确认 fixed point 能解析（`git rev-parse <fixed-point>`），并且改动非空。错误 ref 或空 diff 应该在这里失败，而不是进入两个并行 sub-agents 后才失败。
 

@@ -11,4 +11,4 @@ description: "基于 spec 或 ticket 集合实现一段工作。在需求已对�
 
 完成后，使用 `/tinder-kit:code-review` 审查这次工作，fixed point 是开工时的 `HEAD`。
 
-把工作提交到当前 branch，commit message 引用来源 ticket 或 spec 的路径。
+审查与测试全部通过后，所有改动保留在工作区（Working tree），向用户汇报修改的文件清单、审查结论与验证证据。除非用户明确要求提交，否则不自动执行 git commit。
