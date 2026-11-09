@@ -1,4 +1,0 @@
-[
-  "tests/test_concurrency.py::test_lock_leak_on_exception",
-  "tests/test_concurrency.py::test_normal_status_update"
-]

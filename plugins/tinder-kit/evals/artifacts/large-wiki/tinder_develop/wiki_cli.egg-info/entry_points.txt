@@ -1,2 +1,0 @@
-[console_scripts]
-wiki-cli = wikicli.cli:main

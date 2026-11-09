@@ -32,6 +32,7 @@ USER_INVOKED_FLOWS = {
     "radar",
     "scout",
     "chief-of-staff",
+    "chief-of-staff-v2",
 }
 MODEL_INVOKED_DISCIPLINES = {
     "grilling",

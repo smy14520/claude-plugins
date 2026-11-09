@@ -16,6 +16,4 @@ plugins/sdd-kit/tests/scenario_eval/runs/
 .audit_scratch/
 .eval_scratch/
 .audit-due-date/
-plugins/tinder-kit/evals/artifacts/**/.claude/
-plugins/tinder-kit/evals/artifacts/**/.git/
-plugins/tinder-kit/evals/artifacts/.eval_scratch/
+plugins/tinder-kit/evals/

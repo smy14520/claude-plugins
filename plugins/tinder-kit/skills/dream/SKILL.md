@@ -17,7 +17,7 @@ disable-model-invocation: true
 使用原生 Glob、Grep 与 Read 工具读取三级记忆资产，并对照当前工作树代码库与提交历史进行静态分析：
 
 1. **👻 僵尸条目（Zombie / Stale Entries）**：
-   - 扫描 `.forge/wiki/` 中的符号锚与文档链接，检查目标文件与符号是否已在代码库中被删除或语义变更；
+   - 扫描 `.forge/wiki/` 中的符号锚（`anchors`）、文档链接与 `commit SHA` / 日期锚点，对照 `git log` 检查目标文件与符号是否已在后续提交中被删除或语义变更；
    - 检查已废弃的旧决策或不再复现的假 Gotcha。
 2. **⚡ 规则冲突（Rule Contradictions）**：
    - 交叉比对 `CLAUDE.md` 与 `.claude/rules/` 下的所有规则，标出冲突要求（如“必须全量单测”与“脚本自验即可”并存）。

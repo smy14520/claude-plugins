@@ -39,5 +39,6 @@ disable-model-invocation: true
 
 1. 读 `.forge/wiki/tags.md`，选 2~4 个既有标签；确有新领域时按该文件头部的规则登记新标签。
 2. 写 `.forge/wiki/<type>/<slug>.md`，frontmatter 含 `title`、`type`、`tags`、`description`，可选 `anchors`（相关代码符号）。
-3. 在 `.forge/wiki/index.md` 对应分类下追加一行：`- [{title}]({type}/{slug}.md) — {description} [{tag1}, {tag2}]`。
-4. 改写过时记录时原地改成现状，并附一行说明原先是什么、为什么变了。
+3. **写历史，不写无锚点的现在（Write history, not the present）**：每条关于代码实现或架构现状的断言附上日期与当时的 `commit SHA`（如 `截至 @63f5960，...`），不裸写无时间或 commit 锚点的"目前/现在"。
+4. 在 `.forge/wiki/index.md` 对应分类下追加一行：`- [{title}]({type}/{slug}.md) — {description} [{tag1}, {tag2}]`。
+5. `decision/` 类条目被推翻时新增一条带日期的记录并标旧条目 `superseded`，不抹除历史；`gotcha/`、`cross_cut/` 等检索类条目原地改成现状、刷新 commit 锚点，并附一行说明原先是什么、为什么变了。
