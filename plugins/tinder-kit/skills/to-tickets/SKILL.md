@@ -56,7 +56,7 @@ description: 把 plan、spec 或当前对话拆成一组 tracer-bullet tickets�
 
 发布已批准的 tickets 到本地文件系统：
 
-在 `.forge/<feature-slug>/issues/<NN>-<slug>.md` 下每 ticket 写一个文件，按 dependency order（blockers 优先）从 `01` 编号。每个文件的 “Blocked by” 列出它依赖的 number/title。使用下面的 per-ticket template；每个文件只放一个 ticket，绝不要写成一个 combined file。
+在 `.forge/<feature-slug>/issues/<NN>-<slug>.md` 下每 ticket 写一个文件（若同目录下已有 `map.md`，即 `issues/` 已存放决策图的决策票，则施工票写入 `.forge/<feature-slug>/tickets/<NN>-<slug>.md` 以免混放），按 dependency order（blockers 优先）从 `01` 编号。每个文件的 “Blocked by” 列出它依赖的 number/title。使用下面的 per-ticket template；每个文件只放一个 ticket，绝不要写成一个 combined file。
 
 处理 **frontier**：所有 blockers 都完成的 tickets。纯 linear chain 就是从上到下。
 

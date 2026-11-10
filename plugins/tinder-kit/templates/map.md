@@ -11,12 +11,12 @@
 ## Decisions So Far
 
 <!-- 每解决一张决策票，在此追加单行记录与核心决断： -->
-<!-- - [[tickets/01-isolation.md]] — 采用共享库 + tenant_id 字段隔离，放弃独立库方案 -->
+<!-- - [01 — 租户隔离模型](issues/01-isolation.md) — 采用共享库 + tenant_id 字段隔离，放弃独立库方案 -->
 
 ## Not Yet Specified（Fog of war）
 
 <!-- 核心判据：看得见方向但“现在还无法把问题说准”的远期疑问。绝不预切迷雾！ -->
-<!-- 随着 Frontier 上的票逐步解决，被照亮的迷雾才晋升为具体的 Ticket 移入 tickets/ 目录。 -->
+<!-- 随着 Frontier 上的票逐步解决，被照亮的迷雾才晋升为具体的决策票移入 issues/ 目录。 -->
 - [描述远期尚未清晰的架构疑问或依赖]
 
 ## Out of Scope（明确排除范围）

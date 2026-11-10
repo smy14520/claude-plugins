@@ -6,7 +6,7 @@ Issues and specs (you may know a spec as a PRD) for this repo live as markdown f
 
 - One feature per directory: `.forge/<feature-slug>/`
 - The spec is `.forge/<feature-slug>/spec.md`
-- Implementation issues are one file per ticket at `.forge/<feature-slug>/issues/<NN>-<slug>.md`, numbered from `01` — never a single combined tickets file
+- Implementation issues are one file per ticket at `.forge/<feature-slug>/issues/<NN>-<slug>.md` (or `.forge/<feature-slug>/tickets/<NN>-<slug>.md` when `map.md` is present in the same directory so implementation tickets stay separate from wayfinding decision tickets in `issues/`), numbered from `01` — never a single combined tickets file
 - Triage state is recorded as a `Status:` line near the top of each issue file (see `triage-labels.md` for the role strings)
 - Comments and conversation history append to the bottom of the file under a `## Comments` heading
 

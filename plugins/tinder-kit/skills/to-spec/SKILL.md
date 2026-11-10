@@ -25,28 +25,29 @@ Seams 越少越好，理想数量是一个。与用户确认这些 seams 是否�
 
 问题的解决方案，从用户视角描述。
 
-## User Stories
+## Requirements
 
-一份很长的编号 user stories 列表。每条 user story 使用以下格式：
+详尽的编号列表，从用户视角覆盖 feature 的全部可感知功能与交互行为（可按主题小标题分组，全文保持连续编号以便引用与对账）：
 
-1. As an <actor>, I want a <feature>, so that <benefit>
+1. <用户场景或触发动作>：<用户可感知的外部行为与结果>
 
-<user-story-example>
-1. As a mobile bank customer, I want to see balance on my accounts, so that I can make better informed decisions about my spending
-</user-story-example>
+<requirement-example>
+1. 按快捷键（默认 `⌥+S`）或点击扩展图标一键静默剪藏当前页，不弹出任何表单；保存成功后图标切换为「已收藏」态并提供直达链接
+2. 同一页面多次划词摘录时，自动聚合追加到同一条剪藏条目中，不产生碎片条目
+</requirement-example>
 
-这份 user stories 列表应该非常完整，覆盖 feature 的所有方面。
+这里只写用户可感知的功能行为（涉及多角色时显式标明角色）；意图自明的直接写行为，仅在取舍非显而易见时用括号简短注一句原因。底层协议、重试策略、存储结构、安全校验等技术决策统一放进下面的 `Implementation Decisions`，上下半场不重复。
 
 ## Implementation Decisions
 
-已作出的 implementation decisions 列表。可以包括：
+已作出的技术与架构决策列表（每项决策只在此处单点记录，不与 `Requirements` 重复，也不另起冗余章节）。可以包括：
 
 - 将 build/modify 的 modules
 - 将 modify 的 module interfaces
-- 来自 developer 的技术澄清
+- 来自 developer 的技术澄清与工程硬约束
 - Architectural decisions
 - Schema changes
-- API contracts
+- API contracts、协议边界与可靠性机制（如幂等、退避重试、安全校验）
 - Specific interactions
 
 不要包含具体 file paths 或 code snippets。它们可能很快过时。

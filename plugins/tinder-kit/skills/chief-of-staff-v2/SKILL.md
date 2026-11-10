@@ -66,9 +66,9 @@ argument-hint: "[effort] 新目标描述，或已有地图的 .forge/<effort>/ �
    - **第一步：翻牌票面与更新 `map.md`**——由席位在已决票底部写 `## Resolution & Verdict`（裁决、真实落盘的证据/原型指针），将票面改为 `Status: resolved`（出界票改 `Status: ruled_out`）；立即向 `map.md` 的 `Decisions So Far`（或 `Out of Scope`）追加单行摘要与链接，并清理 `Notes` 中已过期的"待批复"注记；被照亮的 fog（含 subagent Handback 揭开的问题）graduate 成新票（新 graduate 的 AFK 票立即派出）；
    - **第二步：同步更新 `.forge/CONTEXT.md`**——将本轮敲定的核心领域术语（含 `_Avoid_` 负面清单）写入 `.forge/CONTEXT.md`；
    - **第三步：兑现核心 ADR**——对用户已批复且满足 ADR 三条件（难逆转、无上下文会惊讶、真实权衡）的重大架构裁决，创建 `.forge/wiki/decision/NNNN-*.md` 文件（附上日期与当前代码库 `commit SHA`）并更新 `.forge/wiki/index.md`，随后在对应票面补上 ADR 指针。
-4. **继续与交棒**。回到 1，直到 frontier 清空且 `Not Yet Specified` 无残留——调用 `to-spec` 把决策图与 `Notes` 中的全部硬约束收拢成 `.forge/<effort>/spec.md`，停下来呈请用户确认。用户确认 spec 后由用户拍板：
-   - **交棒回主线**：交给 `/develop` 原地推进；
-   - **席位继续督办**：席位保持不亲自写业务代码，按用户选择派后台 fresh subagent 执行 `implement`（默认单分支原地）或 `to-tickets` + `implement-spec`（仅当用户显式要求拆票并行），完工后向用户汇报审查结论与测试证据。
+4. **继续与交棒**。回到 1，直到 frontier 清空且 `Not Yet Specified` 无残留——调用 `to-spec` 把决策图收拢成 `.forge/<effort>/spec.md`（用户可感知功能入 `Requirements`，技术裁决与 `Notes` 硬约束统一归入 `Implementation Decisions`，上下半场不重复），再调用 `to-tickets` 拆成带 blocking edges 的垂直切片施工票，呈请用户确认。用户确认后由用户拍板：
+   - **交棒回主线**：交给 `/develop` 按 tickets 推进；
+   - **席位继续督办**：席位保持不亲自写业务代码，默认按 tickets 的 blocking edges 顺序逐张派后台 fresh subagent 在当前工作区执行 `implement`（每完成一张由席位将 ticket 置为 `resolved`）；仅当用户显式要求多 worktree 并行时才调用 `implement-spec`。全部完工后向用户汇报审查结论与测试证据。
 
 frontier 只剩等用户的 HITL 票时：把问题攒成下一轮，停在这里等用户回来。
 
@@ -110,5 +110,5 @@ frontier 只剩等用户的 HITL 票时：把问题攒成下一轮，停在这�
 - HITL 绝不自答；决策绝不替用户拍板。
 - 重活不在席内做：保护 smart zone，票的细节只在 zoom 时读。
 - 开图与执政期绝不写实现代码；只有图清且用户明确授权督办后，才派后台 subagent 执行实现。
-- 不自动 commit；不私自建 worktree（仅当用户显式要求拆票并行时才走 `implement-spec`）。
+- 不自动 commit；不私自建 worktree（仅当用户显式要求多 worktree 并行时才走 `implement-spec`）。
 - 装器必须用户确认；绝不静默安装、绝不绕过权限门。
