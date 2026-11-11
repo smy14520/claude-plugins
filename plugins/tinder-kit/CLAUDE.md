@@ -7,7 +7,7 @@
 1. **技能是提示词不是代码（零私有 CLI 脚本）**：
    > “Skills are instructions, not code. If an agent can do something with its native tools (Read, Grep, Glob), do NOT wrap it in a custom script.”
    > （技能是提示词不是代码。如果 Agent 能用原生工具搞定，绝对不要包装成自定义脚本！）
-   - 彻底废除私有 CLI 工具（如 `forge` CLI、`wiki.py` 等脚本），拥抱 Claude Code 原生文件读写与标准工业设施。
+   - 直接使用 Claude Code 原生文件读写与标准工具链，不包裹自定义 CLI 脚本。
 
 2. **机制在插件，标准在项目**：
    - 插件提供流程规范、原子工程素养、Driver 驱动协议与测试 evidence 机制；

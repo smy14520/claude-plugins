@@ -5,7 +5,7 @@ description: "测试驱动开发（TDD）红绿循环。适用于先写测试构
 
 # Test-Driven Development (TDD)
 
-TDD 是 Red -> Green 循环。这个技能是让该循环产出真正值得保留的高价值测试的准绳：什么是好测试、测试应该放在哪里、三大经典反模式，以及红绿循环的规则。每个循环前后都要随时对照。
+TDD 是 Red -> Green -> Refactor 循环。这个技能是让该循环产出真正值得保留的高价值测试的准绳：什么是好测试、测试应该放在哪里、三大经典反模式，以及循环规则。每个循环前后都要随时对照。
 
 ## 什么是好测试（What a good test is）
 
@@ -40,4 +40,4 @@ TDD 是 Red -> Green 循环。这个技能是让该循环产出真正值得保�
 
 - **Red before green（先红后绿）**：先写失败测试，亲眼看到它在该行为上失败；然后只写刚好足够让它变绿的代码。
 - **One slice at a time（单一切片）**：每个循环只处理一个 Seam 行为、一个测试、一个最小实现。
-- **Refactoring is not part of the loop（重构不属于本循环）**：重构属于独立审查阶段（见 `tinder-kit:code-review` 技能）。
+- **Refactor on green（绿灯后即时收敛）**：测试变绿后趁热合并重复逻辑、清理被替代的旧实现与过时测试，确保公共 Seam 测试全程常绿；整体规范与契约核对配合 `tinder-kit:code-review` 技能完成。

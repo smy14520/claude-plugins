@@ -24,11 +24,11 @@ Set its `Status:` line to `resolved`. A ticket is unblocked when every ticket in
 
 ## Wayfinding operations
 
-Used by `/wayfinder` and the `/chief-of-staff-v2` seat. The **map** is a file with one **child** file per ticket.
+Used by `/wayfinder`. The **map** is a file with one **child** file per ticket.
 
 - **Map**: `.forge/<effort>/map.md` — the Notes / Decisions-so-far / Fog body.
 - **Child ticket**: `.forge/<effort>/issues/NN-<slug>.md`, numbered from `01`, with the question in the body. A `Type:` line records the ticket type (`research`/`prototype`/`grilling`/`task`); a `Status:` line records `open`/`claimed`/`resolved`/`ruled_out`.
 - **Blocking**: a `Blocked by: NN, NN` line near the top. A ticket is unblocked when every file it lists is `resolved`.
 - **Frontier**: scan `.forge/<effort>/issues/` for files that are open, unblocked, and unclaimed; first by number wins.
-- **Claim**: the orchestrator/seat sets `Status: claimed` and saves before dispatching or starting work.
-- **Resolve**: the orchestrator/seat records the decision and verified artifact pointers under `## Resolution & Verdict` (or `## Answer`), sets `Status: resolved` (or `ruled_out` if out of scope), then appends a context pointer (gist + link) to `Decisions So Far` (or `Out of Scope`) in `map.md`. Subagents write only their own deliverable directories and never edit `map.md` or ticket files directly.
+- **Claim**: set `Status: claimed` and save before starting work.
+- **Resolve**: record the decision under `## Answer`, set `Status: resolved` (or `ruled_out` if out of scope), and append a context pointer (gist + link) to `Decisions so far` (or `Out of scope`) in `map.md`.
